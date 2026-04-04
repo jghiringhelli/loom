@@ -274,7 +274,19 @@ impl InferenceEngine {
         let free_vars = collect_free_vars_in_body(&fd.body, &let_names);
 
         // Build the initial type environment, mapping free vars to their
-        // declared parameter types (positionally).
+        // declared parameter types **positionally by first appearance**.
+        //
+        // LIMITATION: Loom's AST has no parameter names — the function
+        // signature only carries types, not names.  This means the first
+        // identifier in the body that isn't let-bound is assumed to be
+        // parameter 0, the second distinct identifier is parameter 1, etc.
+        //
+        // Consequence: if a multi-parameter function uses its second
+        // parameter before its first (e.g. `fn f :: Int -> String` with
+        // body `concat(s, n)` where `s` appears before `n`), the type
+        // assignment will be reversed.  This is a known Phase-M1
+        // limitation — full fix requires adding parameter names to
+        // `FnTypeSignature` (planned for Phase 4).
         let mut env: TypeEnv = HashMap::new();
         for (i, var_name) in free_vars.iter().enumerate() {
             let ty = fd
@@ -553,7 +565,12 @@ fn collect_free_vars(
     ordered: &mut Vec<String>,
 ) {    match expr {
         Expr::Ident(name) => {
-            if !let_bound.contains(name.as_str()) && !seen.contains(name) {
+            // Skip built-in keyword-like identifiers that are not function parameters.
+            const BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
+            if !let_bound.contains(name.as_str())
+                && !seen.contains(name)
+                && !BUILTINS.contains(&name.as_str())
+            {
                 seen.insert(name.clone());
                 ordered.push(name.clone());
             }
