@@ -43,11 +43,6 @@ impl RustEmitter {
         out.push_str("#![allow(unused)]\n");
         out.push_str("use std::convert::TryFrom;\n\n");
 
-        // Collect provides interface as a trait.
-        if let Some(provides) = &module.provides {
-            out.push_str(&self.emit_provides_trait(&module.name, provides));
-        }
-
         // Module wrapper.
         let mod_name = to_snake_case(&module.name);
         out.push_str(&format!("pub mod {} {{\n", mod_name));
@@ -55,6 +50,12 @@ impl RustEmitter {
 
         // Render the module body first to detect which stdlib imports are needed.
         let mut body = String::new();
+
+        // The provides trait lives inside the module so type references resolve.
+        if let Some(provides) = &module.provides {
+            body.push('\n');
+            body.push_str(&self.emit_provides_trait(&module.name, provides));
+        }
 
         // DI context struct.
         if let Some(requires) = &module.requires {
@@ -88,6 +89,13 @@ impl RustEmitter {
         }
         if body.contains("HashSet") {
             out.push_str("    use std::collections::HashSet;\n");
+        }
+
+        // Bring all enum variants into scope so match patterns work unqualified.
+        for item in &module.items {
+            if let Item::Enum(ed) = item {
+                out.push_str(&format!("    use self::{}::*;\n", ed.name));
+            }
         }
 
         out.push_str(&body);
@@ -224,7 +232,8 @@ impl RustEmitter {
                 .params
                 .iter()
                 .enumerate()
-                .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty))),
+                .zip(collect_body_param_names(fd, fd.type_sig.params.len()))
+                .map(|((_, ty), name)| format!("{}: {}", name, self.emit_type_expr(ty))),
         );
 
         let ret = if is_effectful {
@@ -340,6 +349,8 @@ impl RustEmitter {
                 format!("let {} = {}", name, self.emit_expr(value))
             }
             Expr::Literal(lit) => self.emit_literal(lit),
+            // `todo` is a Loom placeholder that maps to Rust's `todo!()` macro.
+            Expr::Ident(name) if name == "todo" => "todo!()".to_string(),
             Expr::Ident(name) => name.clone(),
             Expr::Call { func, args, .. } => {
                 let f = self.emit_expr(func);
@@ -444,6 +455,137 @@ fn to_snake_case(name: &str) -> String {
         out.push(ch.to_lowercase().next().unwrap());
     }
     out
+}
+
+/// Identifiers that look like free variables but are actually language keywords
+/// or built-in macros and must not be used as parameter names.
+const PARAM_NAME_BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
+
+/// Collect free variable names from a function body in first-appearance order.
+///
+/// These become the parameter names in the emitted Rust signature, matching the
+/// names the programmer already uses in the body (e.g., `p.x`, `line.quantity`).
+///
+/// Returns at most `max_params` names; falls back to `arg{i}` for any slot
+/// that couldn't be filled from the body.
+fn collect_body_param_names(fd: &FnDef, max_params: usize) -> Vec<String> {
+    use std::collections::HashSet;
+
+    // Collect let-bound names to exclude them.
+    let mut let_bound: HashSet<String> = HashSet::new();
+    for expr in &fd.body {
+        collect_let_names(expr, &mut let_bound);
+    }
+
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut ordered: Vec<String> = Vec::new();
+
+    // Scan body expressions first, then contract expressions.
+    let all_exprs: Vec<&Expr> = fd
+        .body
+        .iter()
+        .chain(fd.requires.iter().map(|c| &c.expr))
+        .chain(fd.ensures.iter().map(|c| &c.expr))
+        .collect();
+
+    for expr in all_exprs {
+        scan_free_idents(expr, &let_bound, &mut seen, &mut ordered);
+        if ordered.len() >= max_params {
+            break;
+        }
+    }
+
+    // Pad with `arg{i}` if the body doesn't give us enough names.
+    (0..max_params)
+        .map(|i| {
+            ordered
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("arg{}", i))
+        })
+        .collect()
+}
+
+/// Collect names introduced by `let` bindings (to exclude them from free-var scan).
+fn collect_let_names(expr: &Expr, out: &mut std::collections::HashSet<String>) {
+    match expr {
+        Expr::Let { name, value, .. } => {
+            out.insert(name.clone());
+            collect_let_names(value, out);
+        }
+        Expr::BinOp { left, right, .. } => {
+            collect_let_names(left, out);
+            collect_let_names(right, out);
+        }
+        Expr::Match { subject, arms, .. } => {
+            collect_let_names(subject, out);
+            for arm in arms {
+                collect_let_names(&arm.body, out);
+            }
+        }
+        Expr::Pipe { left, right, .. } => {
+            collect_let_names(left, out);
+            collect_let_names(right, out);
+        }
+        Expr::Call { func, args, .. } => {
+            collect_let_names(func, out);
+            for a in args {
+                collect_let_names(a, out);
+            }
+        }
+        Expr::FieldAccess { object, .. } => collect_let_names(object, out),
+        Expr::Ident(_) | Expr::Literal(_) => {}
+    }
+}
+
+/// Walk an expression and collect free identifiers in first-appearance order.
+fn scan_free_idents(
+    expr: &Expr,
+    let_bound: &std::collections::HashSet<String>,
+    seen: &mut std::collections::HashSet<String>,
+    ordered: &mut Vec<String>,
+) {
+    match expr {
+        Expr::Ident(name) => {
+            if !let_bound.contains(name)
+                && !seen.contains(name)
+                && !PARAM_NAME_BUILTINS.contains(&name.as_str())
+                // Skip uppercase identifiers — they're type/variant names, not params.
+                && name.chars().next().map(|c| c.is_lowercase()).unwrap_or(false)
+            {
+                seen.insert(name.clone());
+                ordered.push(name.clone());
+            }
+        }
+        Expr::Let { value, .. } => scan_free_idents(value, let_bound, seen, ordered),
+        Expr::BinOp { left, right, .. } => {
+            scan_free_idents(left, let_bound, seen, ordered);
+            scan_free_idents(right, let_bound, seen, ordered);
+        }
+        Expr::Call { func, args, .. } => {
+            if !matches!(func.as_ref(), Expr::Ident(_)) {
+                scan_free_idents(func, let_bound, seen, ordered);
+            }
+            for a in args {
+                scan_free_idents(a, let_bound, seen, ordered);
+            }
+        }
+        Expr::Pipe { left, right, .. } => {
+            scan_free_idents(left, let_bound, seen, ordered);
+            scan_free_idents(right, let_bound, seen, ordered);
+        }
+        Expr::Match { subject, arms, .. } => {
+            scan_free_idents(subject, let_bound, seen, ordered);
+            for arm in arms {
+                if let Some(g) = &arm.guard {
+                    scan_free_idents(g, let_bound, seen, ordered);
+                }
+                scan_free_idents(&arm.body, let_bound, seen, ordered);
+            }
+        }
+        Expr::FieldAccess { object, .. } => scan_free_idents(object, let_bound, seen, ordered),
+        Expr::Literal(_) => {}
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────

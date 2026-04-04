@@ -787,6 +787,12 @@ impl<'src> Parser<'src> {
         if self.at(&Token::Not) {
             let span_start = self.current_span();
             self.advance();
+            // NOTE: `not` binds tighter than comparison operators.
+            // `not x = ""` parses as `(not x) = ""`, NOT `not (x = "")`.
+            // To negate a comparison write: `not (x = "")` using parentheses
+            // (not yet supported — TODO Phase 4 parenthesised expressions).
+            // This means `require: not name = ""` should be written
+            // as a plain Boolean expression or an explicit `false` comparison.
             let operand = self.parse_unary()?;
             let span = Span::merge(&span_start, &self.current_span());
             // Represent `not e` as `e == false`.

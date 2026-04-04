@@ -8,8 +8,11 @@
 [Mermaid diagram or description of components]
 
 ### Tech Stack
-- Runtime: typescript
-- Framework: [TBD]
+- Runtime: Rust (stable, edition 2021) — see ADR-001
+- Build: cargo 1.x
+- Binary: `loom` (single static binary, no runtime dependencies)
+- LSP: `loom-lsp` (tower-lsp, tokio async runtime)
+- Framework: clap (CLI), serde/toml (project manifests), tower-lsp (LSP)
 
 ### Data Flow
 [How data moves through the system]
