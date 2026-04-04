@@ -1,0 +1,44 @@
+{
+  "name": "loom-vscode",
+  "displayName": "Loom Language",
+  "description": "Language support for the Loom functional language",
+  "version": "0.1.0",
+  "publisher": "pragmaworks",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "activationEvents": ["onLanguage:loom"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "loom",
+        "aliases": ["Loom"],
+        "extensions": [".loom"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Loom",
+      "properties": {
+        "loom.serverPath": {
+          "type": "string",
+          "default": "loom-lsp",
+          "description": "Path to the loom-lsp language server binary"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

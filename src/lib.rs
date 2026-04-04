@@ -20,6 +20,7 @@ pub mod checker;
 pub mod codegen;
 pub mod error;
 pub mod lexer;
+pub mod lsp;
 pub mod parser;
 
 pub use error::LoomError;

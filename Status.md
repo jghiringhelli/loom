@@ -20,10 +20,10 @@ Project initialized with ForgeCraft. Tags: UNIVERSAL, CLI, LIBRARY.
 | CLI (`loom compile`) | ✅ Done | main | Phase 1 |
 | Full expression parser | ✅ Done | main | Phase 1 |
 | Corpus examples | ✅ Done | main | Phase 1 |
-| M2: Pattern Exhaustiveness Checking | ⬚ Not Started | feat/exhaustiveness | Phase 2 |
-| M3: WASM Back-end | ⬚ Not Started | feat/wasm-backend | Phase 2 |
-| M1: Type Inference | ⬚ Not Started | feat/type-inference | Phase 2 |
-| M4: Language Server Protocol | ⬚ Not Started | feat/lsp | Phase 2, needs M1 |
+| M2: Pattern Exhaustiveness Checking | ✅ Done | main | Phase 2, 8 tests |
+| M3: WASM Back-end | ✅ Done | main | Phase 2, 8 tests |
+| M1: Type Inference | ✅ Done | main | Phase 2, 14 tests |
+| M4: Language Server Protocol | ✅ Done | main | Phase 2, 9 tests |
 
 ## Known Bugs
 | ID | Description | Severity | Status |
@@ -36,10 +36,10 @@ Project initialized with ForgeCraft. Tags: UNIVERSAL, CLI, LIBRARY.
 | | | | |
 
 ## Current Context
-- Working on: Phase 2 planning complete — roadmap at docs/roadmap.md
+- Working on: Phase 2 complete — all 4 milestones shipped
 - Blocked by: nothing
 - Decisions pending: none
-- Next steps: M2 (Exhaustiveness) → M3 (WASM) → M1 (Type Inference) → M4 (LSP)
+- Next steps: Phase 3 planning
 
 ## Architecture Decision Log
 | Date | Decision | Rationale | Status |
