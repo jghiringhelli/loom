@@ -45,6 +45,13 @@ enum Commands {
         #[arg(long, default_value = "rust")]
         target: String,
     },
+
+    /// Build a multi-module project from a `loom.toml` manifest.
+    Build {
+        /// Path to the `loom.toml` project manifest.
+        #[arg(default_value = "loom.toml")]
+        manifest: PathBuf,
+    },
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -105,6 +112,44 @@ fn main() {
                             err.kind(),
                             err,
                         );
+                    }
+                    process::exit(1);
+                }
+            }
+        }
+
+        Commands::Build { manifest } => {
+            let toml_src = match std::fs::read_to_string(&manifest) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not read `{}`: {}", manifest.display(), e);
+                    process::exit(1);
+                }
+            };
+
+            let parsed = match loom::project::ProjectManifest::from_str(&toml_src) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("error: {}", e);
+                    process::exit(1);
+                }
+            };
+
+            // Resolve module paths relative to the manifest directory.
+            let base = manifest.parent().unwrap_or_else(|| std::path::Path::new("."));
+            let module_paths: Vec<String> = parsed
+                .modules
+                .iter()
+                .map(|m| base.join(m).to_string_lossy().into_owned())
+                .collect();
+            let output_dir = base.join(&parsed.output).to_string_lossy().into_owned();
+            let refs: Vec<&str> = module_paths.iter().map(|s| s.as_str()).collect();
+
+            match loom::project::build_project(&refs, &output_dir) {
+                Ok(()) => println!("build ok — {} module(s) compiled", refs.len()),
+                Err(errors) => {
+                    for err in &errors {
+                        eprintln!("{}: {}", err.kind(), err);
                     }
                     process::exit(1);
                 }

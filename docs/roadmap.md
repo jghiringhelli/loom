@@ -21,10 +21,10 @@
 
 | # | Milestone | Status | Branch |
 |---|-----------|--------|--------|
-| M5 | Dependency Injection (`requires`/`with`) | ⬚ Not Started | `feat/di` |
-| M6 | Standard Library Type Mappings | ⬚ Not Started | `feat/stdlib` |
-| M7 | Generic Functions (Type Parameters) | ⬚ Not Started | `feat/generics` |
-| M8 | Multi-Module Project Compilation | ⬚ Not Started | `feat/multi-module` |
+| M5 | Dependency Injection (`requires`/`with`) | ✅ Done | `main` |
+| M6 | Standard Library Type Mappings | ✅ Done | `main` |
+| M7 | Generic Functions (Type Parameters) | ✅ Done | `main` |
+| M8 | Multi-Module Project Compilation | ✅ Done | `main` |
 
 Recommended execution order: **M5 → M6 → M7 → M8**
 
