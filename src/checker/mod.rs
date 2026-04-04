@@ -7,7 +7,9 @@
 //! ```
 
 pub mod effects;
+pub mod exhaustiveness;
 pub mod types;
 
 pub use effects::EffectChecker;
+pub use exhaustiveness::ExhaustivenessChecker;
 pub use types::TypeChecker;

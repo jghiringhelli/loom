@@ -32,6 +32,10 @@ pub enum LoomError {
     /// Code-generation failure: unsupported construct or internal emitter bug.
     #[error("codegen error at {span}: {msg}")]
     CodegenError { msg: String, span: Span },
+
+    /// Non-exhaustive `match` expression: one or more enum variants not covered.
+    #[error("non-exhaustive match at {span}: missing variants: {}", missing.join(", "))]
+    NonExhaustiveMatch { missing: Vec<String>, span: Span },
 }
 
 impl LoomError {
@@ -42,7 +46,8 @@ impl LoomError {
             | LoomError::ParseError { span, .. }
             | LoomError::TypeError { span, .. }
             | LoomError::EffectError { span, .. }
-            | LoomError::CodegenError { span, .. } => span,
+            | LoomError::CodegenError { span, .. }
+            | LoomError::NonExhaustiveMatch { span, .. } => span,
         }
     }
 
@@ -54,6 +59,7 @@ impl LoomError {
             LoomError::TypeError { .. } => "TypeError",
             LoomError::EffectError { .. } => "EffectError",
             LoomError::CodegenError { .. } => "CodegenError",
+            LoomError::NonExhaustiveMatch { .. } => "NonExhaustiveMatch",
         }
     }
 

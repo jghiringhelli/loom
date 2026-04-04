@@ -33,8 +33,9 @@ pub use error::LoomError;
 /// 1. **Lexer** — tokenise `source` into `(Token, Span)` pairs.
 /// 2. **Parser** — parse the token stream into an [`ast::Module`].
 /// 3. **Type checker** — validate symbols and patterns.
-/// 4. **Effect checker** — validate effect declarations.
-/// 5. **Code generator** — emit Rust source.
+/// 4. **Exhaustiveness checker** — verify all `match` arms are exhaustive.
+/// 5. **Effect checker** — validate effect declarations.
+/// 6. **Code generator** — emit Rust source.
 ///
 /// Returns `Ok(rust_source)` on success.  On failure, returns all accumulated
 /// [`LoomError`]s so the caller can display the complete diagnostic list.
@@ -50,7 +51,10 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 3: type check ───────────────────────────────────────────────
     checker::TypeChecker::new().check(&module)?;
 
-    // ── Stage 4: effect check ─────────────────────────────────────────────
+    // ── Stage 4: exhaustiveness check ────────────────────────────────────
+    checker::ExhaustivenessChecker::new().check(&module)?;
+
+    // ── Stage 5: effect check ─────────────────────────────────────────────
     checker::EffectChecker::new().check(&module)?;
 
     // ── Stage 5: code generation ──────────────────────────────────────────
