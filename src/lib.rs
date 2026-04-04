@@ -60,3 +60,33 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 5: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
+
+// ── WASM pipeline entry point ─────────────────────────────────────────────────
+
+/// Compile a Loom source string to a WebAssembly Text format (WAT) string.
+///
+/// Runs the lex → parse → type-check → exhaustiveness-check pipeline, then
+/// emits WAT instead of Rust.  Only the M3 supported subset is accepted; any
+/// unsupported construct (effect types, enums, refined types, match
+/// expressions) returns a [`LoomError::WasmUnsupported`] error.
+///
+/// Returns `Ok(wat_source)` on success.  On failure, returns all accumulated
+/// [`LoomError`]s.
+pub fn compile_wasm(source: &str) -> Result<String, Vec<LoomError>> {
+    // ── Stage 1: lex ──────────────────────────────────────────────────────
+    let tokens = lexer::Lexer::tokenize(source)?;
+
+    // ── Stage 2: parse ────────────────────────────────────────────────────
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+
+    // ── Stage 3: type check ───────────────────────────────────────────────
+    checker::TypeChecker::new().check(&module)?;
+
+    // ── Stage 4: exhaustiveness check ────────────────────────────────────
+    checker::ExhaustivenessChecker::new().check(&module)?;
+
+    // ── Stage 5: WASM code generation ────────────────────────────────────
+    codegen::WasmEmitter::new().emit(&module)
+}

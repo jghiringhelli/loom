@@ -27,19 +27,23 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Compile a Loom source file to Rust.
+    /// Compile a Loom source file to Rust or WASM.
     Compile {
         /// Path to the `.loom` source file.
         input: PathBuf,
 
-        /// Path for the generated `.rs` output file.
-        /// Defaults to the input path with the extension replaced by `.rs`.
+        /// Path for the generated output file.
+        /// Defaults to the input path with the extension replaced by `.rs` or `.wat`.
         #[arg(short, long)]
         output: Option<PathBuf>,
 
         /// Run all compiler checks but do not write output.
         #[arg(long)]
         check_only: bool,
+
+        /// Compilation target: `rust` (default) or `wasm` (WAT output).
+        #[arg(long, default_value = "rust")]
+        target: String,
     },
 }
 
@@ -53,6 +57,7 @@ fn main() {
             input,
             output,
             check_only,
+            target,
         } => {
             // Read the source file.
             let source = match std::fs::read_to_string(&input) {
@@ -63,18 +68,24 @@ fn main() {
                 }
             };
 
-            // Run the compiler pipeline.
-            match loom::compile(&source) {
-                Ok(rust_src) => {
+            // Determine compile function and default extension from target.
+            let (default_ext, compile_result) = match target.as_str() {
+                "wasm" => ("wat", loom::compile_wasm(&source)),
+                _ => ("rs", loom::compile(&source)),
+            };
+
+            match compile_result {
+                Ok(output_src) => {
                     if check_only {
                         println!("ok — no errors");
                         return;
                     }
 
                     // Determine the output path.
-                    let out_path = output.unwrap_or_else(|| input.with_extension("rs"));
+                    let out_path =
+                        output.unwrap_or_else(|| input.with_extension(default_ext));
 
-                    if let Err(e) = std::fs::write(&out_path, &rust_src) {
+                    if let Err(e) = std::fs::write(&out_path, &output_src) {
                         eprintln!("error: could not write `{}`: {}", out_path.display(), e);
                         process::exit(1);
                     }

@@ -36,6 +36,10 @@ pub enum LoomError {
     /// Non-exhaustive `match` expression: one or more enum variants not covered.
     #[error("non-exhaustive match at {span}: missing variants: {}", missing.join(", "))]
     NonExhaustiveMatch { missing: Vec<String>, span: Span },
+
+    /// WASM code-generation failure: construct not supported by the WASM back-end.
+    #[error("wasm unsupported at {span}: {feature}")]
+    WasmUnsupported { feature: String, span: Span },
 }
 
 impl LoomError {
@@ -47,7 +51,8 @@ impl LoomError {
             | LoomError::TypeError { span, .. }
             | LoomError::EffectError { span, .. }
             | LoomError::CodegenError { span, .. }
-            | LoomError::NonExhaustiveMatch { span, .. } => span,
+            | LoomError::NonExhaustiveMatch { span, .. }
+            | LoomError::WasmUnsupported { span, .. } => span,
         }
     }
 
@@ -60,6 +65,7 @@ impl LoomError {
             LoomError::EffectError { .. } => "EffectError",
             LoomError::CodegenError { .. } => "CodegenError",
             LoomError::NonExhaustiveMatch { .. } => "NonExhaustiveMatch",
+            LoomError::WasmUnsupported { .. } => "WasmUnsupported",
         }
     }
 
