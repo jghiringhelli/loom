@@ -40,6 +40,10 @@ pub enum LoomError {
     /// WASM code-generation failure: construct not supported by the WASM back-end.
     #[error("wasm unsupported at {span}: {feature}")]
     WasmUnsupported { feature: String, span: Span },
+
+    /// Type unification failure: two types could not be unified.
+    #[error("type unification error at {span}: {msg}")]
+    UnificationError { msg: String, span: Span },
 }
 
 impl LoomError {
@@ -52,7 +56,8 @@ impl LoomError {
             | LoomError::EffectError { span, .. }
             | LoomError::CodegenError { span, .. }
             | LoomError::NonExhaustiveMatch { span, .. }
-            | LoomError::WasmUnsupported { span, .. } => span,
+            | LoomError::WasmUnsupported { span, .. }
+            | LoomError::UnificationError { span, .. } => span,
         }
     }
 
@@ -66,6 +71,7 @@ impl LoomError {
             LoomError::CodegenError { .. } => "CodegenError",
             LoomError::NonExhaustiveMatch { .. } => "NonExhaustiveMatch",
             LoomError::WasmUnsupported { .. } => "WasmUnsupported",
+            LoomError::UnificationError { .. } => "UnificationError",
         }
     }
 

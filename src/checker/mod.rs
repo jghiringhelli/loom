@@ -8,8 +8,10 @@
 
 pub mod effects;
 pub mod exhaustiveness;
+pub mod infer;
 pub mod types;
 
 pub use effects::EffectChecker;
 pub use exhaustiveness::ExhaustivenessChecker;
+pub use infer::InferenceEngine;
 pub use types::TypeChecker;

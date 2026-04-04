@@ -32,10 +32,11 @@ pub use error::LoomError;
 ///
 /// 1. **Lexer** — tokenise `source` into `(Token, Span)` pairs.
 /// 2. **Parser** — parse the token stream into an [`ast::Module`].
-/// 3. **Type checker** — validate symbols and patterns.
-/// 4. **Exhaustiveness checker** — verify all `match` arms are exhaustive.
-/// 5. **Effect checker** — validate effect declarations.
-/// 6. **Code generator** — emit Rust source.
+/// 3. **Type inference** — HM unification, validates body types match signatures.
+/// 4. **Type checker** — validate symbols and patterns.
+/// 5. **Exhaustiveness checker** — verify all `match` arms are exhaustive.
+/// 6. **Effect checker** — validate effect declarations.
+/// 7. **Code generator** — emit Rust source.
 ///
 /// Returns `Ok(rust_source)` on success.  On failure, returns all accumulated
 /// [`LoomError`]s so the caller can display the complete diagnostic list.
@@ -48,16 +49,19 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         .parse_module()
         .map_err(|e| vec![e])?;
 
-    // ── Stage 3: type check ───────────────────────────────────────────────
+    // ── Stage 3: type inference ───────────────────────────────────────────
+    checker::InferenceEngine::new().check(&module)?;
+
+    // ── Stage 4: type check ───────────────────────────────────────────────
     checker::TypeChecker::new().check(&module)?;
 
-    // ── Stage 4: exhaustiveness check ────────────────────────────────────
+    // ── Stage 5: exhaustiveness check ────────────────────────────────────
     checker::ExhaustivenessChecker::new().check(&module)?;
 
-    // ── Stage 5: effect check ─────────────────────────────────────────────
+    // ── Stage 6: effect check ─────────────────────────────────────────────
     checker::EffectChecker::new().check(&module)?;
 
-    // ── Stage 5: code generation ──────────────────────────────────────────
+    // ── Stage 7: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
 
@@ -65,10 +69,10 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
 
 /// Compile a Loom source string to a WebAssembly Text format (WAT) string.
 ///
-/// Runs the lex → parse → type-check → exhaustiveness-check pipeline, then
-/// emits WAT instead of Rust.  Only the M3 supported subset is accepted; any
-/// unsupported construct (effect types, enums, refined types, match
-/// expressions) returns a [`LoomError::WasmUnsupported`] error.
+/// Runs the lex → parse → inference → type-check → exhaustiveness-check
+/// pipeline, then emits WAT instead of Rust.  Only the M3 supported subset
+/// is accepted; any unsupported construct (effect types, enums, refined types,
+/// match expressions) returns a [`LoomError::WasmUnsupported`] error.
 ///
 /// Returns `Ok(wat_source)` on success.  On failure, returns all accumulated
 /// [`LoomError`]s.
@@ -81,12 +85,15 @@ pub fn compile_wasm(source: &str) -> Result<String, Vec<LoomError>> {
         .parse_module()
         .map_err(|e| vec![e])?;
 
-    // ── Stage 3: type check ───────────────────────────────────────────────
+    // ── Stage 3: type inference ───────────────────────────────────────────
+    checker::InferenceEngine::new().check(&module)?;
+
+    // ── Stage 4: type check ───────────────────────────────────────────────
     checker::TypeChecker::new().check(&module)?;
 
-    // ── Stage 4: exhaustiveness check ────────────────────────────────────
+    // ── Stage 5: exhaustiveness check ────────────────────────────────────
     checker::ExhaustivenessChecker::new().check(&module)?;
 
-    // ── Stage 5: WASM code generation ────────────────────────────────────
+    // ── Stage 6: WASM code generation ────────────────────────────────────
     codegen::WasmEmitter::new().emit(&module)
 }

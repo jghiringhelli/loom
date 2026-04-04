@@ -143,6 +143,9 @@ pub enum TypeExpr {
     Result(Box<TypeExpr>, Box<TypeExpr>),
     /// Unnamed tuple — `(A, B, C)`.
     Tuple(Vec<TypeExpr>),
+    /// Inference variable introduced by the HM engine. Never produced by the
+    /// parser; fully resolved before code generation.
+    TypeVar(u32),
 }
 
 /// Full function type signature, possibly curried.

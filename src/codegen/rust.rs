@@ -247,6 +247,8 @@ impl RustEmitter {
                 let es: Vec<String> = elems.iter().map(|e| self.emit_type_expr(e)).collect();
                 format!("({})", es.join(", "))
             }
+            // TypeVar should be resolved before codegen; emit a placeholder if it leaks.
+            TypeExpr::TypeVar(id) => format!("/* infer:?{} */", id),
         }
     }
 
