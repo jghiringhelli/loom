@@ -1,0 +1,25 @@
+[package]
+name = "loom"
+version = "0.1.0"
+edition = "2021"
+description = "Loom language compiler: transpiles Loom source to Rust"
+license = "MIT"
+
+[[bin]]
+name = "loom"
+path = "src/main.rs"
+
+[lib]
+name = "loom"
+path = "src/lib.rs"
+
+[dependencies]
+logos    = "0.15"
+thiserror = "2"
+clap     = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[profile.release]
+opt-level = 3

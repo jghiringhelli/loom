@@ -1,0 +1,16 @@
+/target
+# Keep Cargo.lock for the binary crate.
+# Uncomment the next line to ignore it (library-only crates):
+# Cargo.lock
+
+# IDE / editor artefacts
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated corpus outputs
+corpus/*.rs

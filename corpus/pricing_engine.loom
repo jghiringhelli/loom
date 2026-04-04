@@ -1,0 +1,33 @@
+-- PricingEngine: pure computation module with contracts and pipe operator.
+-- This is the canonical Phase 1 corpus example.
+
+module PricingEngine
+spec PricingSpec
+provides {
+  compute_total :: OrderLine -> OrderTotal
+}
+
+type OrderLine =
+  quantity: Int,
+  unit_price: Float,
+  discount: Float
+end
+
+type OrderTotal =
+  subtotal: Float,
+  tax: Float,
+  total: Float
+end
+
+fn compute_total :: OrderLine -> OrderTotal
+  require: line.quantity > 0
+  require: line.unit_price >= 0.0
+  ensure: result.total >= 0.0
+  let subtotal = line.quantity * line.unit_price
+  let discounted = subtotal * line.discount
+  let tax = discounted * 0.15
+  let total = discounted + tax
+  total
+end
+
+end
