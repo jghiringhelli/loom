@@ -44,6 +44,11 @@ pub enum LoomError {
     /// Type unification failure: two types could not be unified.
     #[error("type unification error at {span}: {msg}")]
     UnificationError { msg: String, span: Span },
+
+    /// A function's `with` clause references a dependency not declared in
+    /// the module's `requires` block.
+    #[error("undeclared dependency `{name}` at {span}: add it to the module's `requires` block")]
+    UndeclaredDependency { name: String, span: Span },
 }
 
 impl LoomError {
@@ -57,7 +62,8 @@ impl LoomError {
             | LoomError::CodegenError { span, .. }
             | LoomError::NonExhaustiveMatch { span, .. }
             | LoomError::WasmUnsupported { span, .. }
-            | LoomError::UnificationError { span, .. } => span,
+            | LoomError::UnificationError { span, .. }
+            | LoomError::UndeclaredDependency { span, .. } => span,
         }
     }
 
@@ -72,6 +78,7 @@ impl LoomError {
             LoomError::NonExhaustiveMatch { .. } => "NonExhaustiveMatch",
             LoomError::WasmUnsupported { .. } => "WasmUnsupported",
             LoomError::UnificationError { .. } => "UnificationError",
+            LoomError::UndeclaredDependency { .. } => "UndeclaredDependency",
         }
     }
 

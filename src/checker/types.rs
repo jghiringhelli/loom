@@ -78,9 +78,16 @@ impl TypeChecker {
         let table = SymbolTable::build(module);
         let mut errors = Vec::new();
 
+        // Collect declared dependency names from the module's `requires` block.
+        let declared_deps: HashSet<String> = module
+            .requires
+            .as_ref()
+            .map(|r| r.deps.iter().map(|(name, _)| name.clone()).collect())
+            .unwrap_or_default();
+
         for item in &module.items {
             if let Item::Fn(fd) = item {
-                self.check_fn(fd, &table, &mut errors);
+                self.check_fn(fd, &table, &declared_deps, &mut errors);
             }
         }
 
@@ -93,7 +100,23 @@ impl TypeChecker {
 
     // ── Function checking ─────────────────────────────────────────────────
 
-    fn check_fn(&self, fd: &FnDef, table: &SymbolTable, errors: &mut Vec<LoomError>) {
+    fn check_fn(
+        &self,
+        fd: &FnDef,
+        table: &SymbolTable,
+        declared_deps: &HashSet<String>,
+        errors: &mut Vec<LoomError>,
+    ) {
+        // Validate that every `with` dep is declared in the module's `requires`.
+        for dep in &fd.with_deps {
+            if !declared_deps.contains(dep.as_str()) {
+                errors.push(LoomError::UndeclaredDependency {
+                    name: dep.clone(),
+                    span: fd.span.clone(),
+                });
+            }
+        }
+
         // Seed the local scope with the function's own name (for recursion)
         // and the parameter names synthesised from the type signature.
         let mut scope: HashSet<String> = HashSet::new();

@@ -53,11 +53,26 @@ impl RustEmitter {
         out.push_str(&format!("pub mod {} {{\n", mod_name));
         out.push_str("    use super::*;\n\n");
 
+        // Emit the DI context struct when the module has `requires`.
+        if let Some(requires) = &module.requires {
+            let ctx = self.emit_context_struct(&module.name, requires);
+            for line in ctx.lines() {
+                if line.is_empty() {
+                    out.push('\n');
+                } else {
+                    out.push_str("    ");
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+            out.push('\n');
+        }
+
         for item in &module.items {
             let item_src = match item {
                 Item::Type(td) => self.emit_type_def(td),
                 Item::Enum(ed) => self.emit_enum_def(ed),
-                Item::Fn(fd) => self.emit_fn_def(fd),
+                Item::Fn(fd) => self.emit_fn_def_with_context(fd, &module.name, module.requires.is_some()),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
             };
             // Indent each line of the item by 4 spaces.
@@ -75,6 +90,34 @@ impl RustEmitter {
 
         out.push_str("}\n");
         out
+    }
+
+    // ── DI context struct ─────────────────────────────────────────────────
+
+    /// Emit a `pub struct <ModName>Context { pub <dep>: <Type>, … }`.
+    fn emit_context_struct(&self, module_name: &str, requires: &Requires) -> String {
+        let fields: Vec<String> = requires
+            .deps
+            .iter()
+            .map(|(name, ty)| format!("    pub {}: {},", name, self.emit_type_expr(ty)))
+            .collect();
+        format!(
+            "#[derive(Debug)]\npub struct {}Context {{\n{}\n}}\n",
+            module_name,
+            fields.join("\n")
+        )
+    }
+
+    /// Emit a function definition, optionally prepending `ctx: &<ModName>Context`
+    /// when the function has `with_deps` and the module has a `requires` block.
+    fn emit_fn_def_with_context(
+        &self,
+        fd: &FnDef,
+        module_name: &str,
+        module_has_requires: bool,
+    ) -> String {
+        let inject_ctx = module_has_requires && !fd.with_deps.is_empty();
+        self.emit_fn_def_inner(fd, if inject_ctx { Some(module_name) } else { None })
     }
 
     // ── Provides trait ────────────────────────────────────────────────────
@@ -159,16 +202,27 @@ impl RustEmitter {
     // ── Function definition ───────────────────────────────────────────────
 
     fn emit_fn_def(&self, fd: &FnDef) -> String {
+        self.emit_fn_def_inner(fd, None)
+    }
+
+    fn emit_fn_def_inner(&self, fd: &FnDef, ctx_module: Option<&str>) -> String {
         let is_effectful =
             matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _));
 
-        let params: Vec<String> = fd
-            .type_sig
-            .params
-            .iter()
-            .enumerate()
-            .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
-            .collect();
+        let mut params: Vec<String> = Vec::new();
+
+        // Inject `ctx: &<ModName>Context` as the first parameter when requested.
+        if let Some(mod_name) = ctx_module {
+            params.push(format!("ctx: &{}Context", mod_name));
+        }
+
+        params.extend(
+            fd.type_sig
+                .params
+                .iter()
+                .enumerate()
+                .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty))),
+        );
 
         let ret = if is_effectful {
             match fd.type_sig.return_type.as_ref() {

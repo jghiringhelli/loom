@@ -1,0 +1,26 @@
+-- DI demo: module with requires/with dependency injection.
+-- Demonstrates the M5 DI system: ModuleContext struct + ctx param injection.
+
+module UserRepo
+requires { db: DbConn, log: Logger }
+
+type User =
+  id: Int,
+  name: String
+end
+
+fn find_by_id :: Int -> String
+with db
+  "found"
+end
+
+fn log_action :: String -> Bool
+with log
+  true
+end
+
+fn pure_count :: Int -> Int
+  42
+end
+
+end

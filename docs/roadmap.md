@@ -1,20 +1,34 @@
-# Loom — Phase 2 Roadmap
+# Loom — Phase 2 & Phase 3 Roadmap
 
 > Phase 1 is complete (lexer · parser · type checker · effect checker · Rust emitter · CLI).
-> Phase 2 extends the compiler with four independent milestones.
-> Work one milestone at a time. Each has its own development prompt — paste the prompt
-> at the start of a new Copilot session to load the full context for that milestone.
+> Phase 2 is complete (type inference · exhaustiveness · WASM back-end · LSP).
+> Phase 3 extends the compiler with dependency injection, stdlib type mappings, generics, and multi-module compilation.
 
 ---
 
-## Milestone Index
+## Phase 2 Milestone Index
 
 | # | Milestone | Status | Branch |
 |---|-----------|--------|--------|
-| M1 | Type Inference | ⬚ Not Started | `feat/type-inference` |
-| M2 | Pattern Exhaustiveness Checking | ⬚ Not Started | `feat/exhaustiveness` |
-| M3 | WASM Back-end | ⬚ Not Started | `feat/wasm-backend` |
-| M4 | Language Server Protocol | ⬚ Not Started | `feat/lsp` |
+| M1 | Type Inference | ✅ Done | `main` |
+| M2 | Pattern Exhaustiveness Checking | ✅ Done | `main` |
+| M3 | WASM Back-end | ✅ Done | `main` |
+| M4 | Language Server Protocol | ✅ Done | `main` |
+
+---
+
+## Phase 3 Milestone Index
+
+| # | Milestone | Status | Branch |
+|---|-----------|--------|--------|
+| M5 | Dependency Injection (`requires`/`with`) | ⬚ Not Started | `feat/di` |
+| M6 | Standard Library Type Mappings | ⬚ Not Started | `feat/stdlib` |
+| M7 | Generic Functions (Type Parameters) | ⬚ Not Started | `feat/generics` |
+| M8 | Multi-Module Project Compilation | ⬚ Not Started | `feat/multi-module` |
+
+Recommended execution order: **M5 → M6 → M7 → M8**
+
+---
 
 ---
 
@@ -340,3 +354,289 @@ M4 (LSP)             ──── depends on M1
 
 Recommended sequence: **M2 → M3 → M1 → M4**
 (M2 and M3 are self-contained and provide quick wins; M1 is the largest and unlocks M4.)
+
+---
+
+## M5 — Dependency Injection (`requires` / `with`)
+
+### What it is
+Complete the DI system: when a module declares `requires { db: DbConn, log: Logger }`, the
+compiler emits a `ModuleContext` struct and threads it through every function that declares
+`with [db]` or `with [log]`.  This makes Loom's effect-isolation model fully functional.
+
+### Scope
+- In `codegen/rust.rs`, detect `module.requires` and emit a `pub struct <ModName>Context { … }`.
+- For each `FnDef` where `with_deps` is non-empty, prepend `ctx: &<ModName>Context` as the
+  first parameter and access injected deps as `ctx.db`, `ctx.log`, etc.
+- In `checker/types.rs`, validate that every name listed in a function's `with [dep]` clause
+  is declared in the enclosing module's `requires` block.
+- Add a new `LoomError::UndeclaredDependency { name, span }` variant.
+- Corpus: add `corpus/di_demo.loom` exercising the DI system.
+
+### Key files
+- `src/codegen/rust.rs` — emit context struct + inject `ctx` param
+- `src/checker/types.rs` — validate `with_deps` against module `requires`
+- `src/error.rs` — `UndeclaredDependency` variant
+- `corpus/di_demo.loom` — new corpus example
+- `tests/di_test.rs` — new test file
+
+### Success criteria
+- `cargo test` passes with zero regressions.
+- New tests: module with `requires` emits a context struct; function with `with` gets `ctx`
+  param; referencing an undeclared dep produces `UndeclaredDependency` error.
+- `corpus/di_demo.loom` compiles to valid Rust.
+
+### Development prompt
+
+```
+Read .claude/index.md → .claude/core.md → .claude/standards/architecture.md.
+
+Task: Implement the Dependency Injection (DI) system for the Loom compiler (Rust, src/).
+Phase 2 is fully complete. Do not break any of the 60 existing tests.
+
+Context:
+- AST: Module.requires is Option<Requires> (list of (name, TypeExpr) pairs).
+  FnDef.with_deps is Vec<String> (dep names the function consumes).
+- Parser already handles both — they are populated in the AST but ignored by codegen and
+  the type checker.
+- Codegen entry: src/codegen/rust.rs RustEmitter::emit(&Module).
+- Type checker: src/checker/types.rs TypeChecker::check(&Module).
+- Compile pipeline: lib.rs compile() → lex → parse → infer → type_check → exhaustiveness →
+  effect_check → emit.
+
+What to build:
+1. In src/codegen/rust.rs:
+   - If module.requires is Some(reqs), emit:
+       pub struct <ModName>Context { pub <dep_name>: <dep_type>, … }
+     inside the module (before any function definitions).
+   - For each FnDef where with_deps is non-empty, prepend
+       ctx: &<ModName>Context
+     as the first parameter.
+2. In src/checker/types.rs:
+   - After checking each FnDef, verify every name in with_deps is present in
+     module.requires. If not, emit LoomError::UndeclaredDependency { name, span }.
+3. Add LoomError::UndeclaredDependency { name: String, span: Span } to src/error.rs.
+   Update span() and kind() match arms.
+4. Create corpus/di_demo.loom: a module with requires { db: DbConn } containing
+   fn find :: Int -> Effect<[IO], String> with [db] ... end.
+5. Write tests in tests/di_test.rs using TDD (failing test first).
+
+Constraints:
+- Max 5 files per phase. cargo test must pass after each phase.
+- TDD: write failing test, show failure, implement, show green.
+- Do not modify the parser or lexer.
+- The WASM emitter should gracefully skip context injection (DI is Rust-only in M5).
+```
+
+---
+
+## M6 — Standard Library Type Mappings
+
+### What it is
+Map Loom collection types to Rust's standard library so that `List<T>`, `Map<K,V>`,
+and `Set<T>` compile to `Vec<T>`, `HashMap<K,V>`, and `HashSet<T>` respectively.
+Emit the necessary `use` imports automatically.
+
+### Scope
+- Extend `RustEmitter::emit_type_expr` to map `List<T>` → `Vec<T>`, `Map<K,V>` →
+  `HashMap<K,V>`, `Set<T>` → `HashSet<T>`.
+- Detect when `HashMap` or `HashSet` appear in the emitted module and prepend
+  `use std::collections::{HashMap, HashSet};` to the module body.
+- Extend the type checker to know that `List<T>`, `Map<K,V>`, `Set<T>` are valid
+  generic types (no `UndefinedType` error for them).
+- Corpus: add `corpus/collections_demo.loom` exercising all three types.
+
+### Key files
+- `src/codegen/rust.rs` — extend type mapping + import injection
+- `src/checker/types.rs` — recognise stdlib generics
+- `corpus/collections_demo.loom` — new corpus example
+- `tests/stdlib_test.rs` — new test file
+
+### Success criteria
+- `cargo test` passes with zero regressions.
+- New tests: `List<Int>` emits `Vec<i64>`; `Map<String, Int>` emits `HashMap<String, i64>`;
+  a module using `HashMap` contains `use std::collections::HashMap`.
+- `corpus/collections_demo.loom` compiles without errors.
+
+### Development prompt
+
+```
+Read .claude/index.md → .claude/core.md → .claude/standards/architecture.md.
+
+Task: Add standard library type mappings to the Loom compiler (Rust, src/).
+Phase 2 + M5 are complete. Do not break existing tests.
+
+Context:
+- RustEmitter::emit_type_expr in src/codegen/rust.rs currently handles:
+  Base, Generic, Effect, Option, Result, Tuple, TypeVar.
+  The Generic arm passes through unknown names verbatim (e.g. List<T> → List<T>).
+- TypeChecker in src/checker/types.rs validates that Base types refer to declared
+  types. It needs to recognise stdlib generic names so they don't produce errors.
+
+What to build:
+1. In src/codegen/rust.rs emit_type_expr, map:
+   - Generic("List", [T])  → Vec<T>
+   - Generic("Map", [K,V]) → HashMap<K, V>
+   - Generic("Set", [T])   → HashSet<T>
+2. Track whether HashMap/HashSet are used during emit; if so, inject
+   `use std::collections::{HashMap, HashSet};` at the top of the module body.
+3. In src/checker/types.rs, add "List", "Map", "Set" to the set of known generic
+   type constructors so they don't produce TypeError.
+4. Create corpus/collections_demo.loom with functions that use List<Int>,
+   Map<String, Int>, and Set<Bool>.
+5. Write tests in tests/stdlib_test.rs using TDD (failing test first).
+
+Constraints:
+- Max 5 files per phase. cargo test must pass after each phase.
+- TDD: failing test first.
+- Do not change any existing corpus file.
+```
+
+---
+
+## M7 — Generic Functions (Type Parameters)
+
+### What it is
+Allow users to declare polymorphic functions with explicit type parameters:
+`fn identity<T> :: T -> T`.  The type parameters are resolved during HM inference
+and emitted as Rust generics with appropriate bounds.
+
+### Scope
+- Add `type_params: Vec<String>` to `FnDef` in `src/ast.rs`.
+- Extend the parser to parse `fn name<A, B> :: …` (angle-bracket type params).
+- In `codegen/rust.rs`, emit `pub fn name<A, B>(…)` when `type_params` is non-empty.
+- In `checker/infer.rs`, introduce fresh `TypeVar`s for each type param and unify against
+  them during constraint generation; after solving, any remaining `TypeVar` bound to a
+  named type param stays as the named param in the output.
+- In `checker/types.rs`, treat type param names as valid type names within the function's scope.
+
+### Key files
+- `src/ast.rs` — add `type_params: Vec<String>` to `FnDef`
+- `src/parser/mod.rs` — parse `<A, B>` after the function name
+- `src/codegen/rust.rs` — emit `<A>` suffix on fn signature
+- `src/checker/infer.rs` — handle type-param TypeVars
+- `tests/generics_test.rs` — new test file
+
+### Success criteria
+- `cargo test` passes with zero regressions.
+- New tests: `fn id<T> :: T -> T` emits `pub fn id<T>(arg0: T) -> T`; two-param generic
+  `fn map<A, B>` emits correctly; unification of `id(42)` resolves to `i64`.
+
+### Development prompt
+
+```
+Read .claude/index.md → .claude/core.md → .claude/standards/architecture.md.
+
+Task: Add generic (polymorphic) functions to the Loom compiler (Rust, src/).
+Phase 2 + M5 + M6 are complete. Do not break existing tests.
+
+Context:
+- FnDef in src/ast.rs currently has no type_params field.
+- Parser in src/parser/mod.rs: parse_fn_def() reads `fn name :: sig`.
+- InferenceEngine in src/checker/infer.rs generates and solves constraints.
+- RustEmitter::emit_fn_def in src/codegen/rust.rs emits plain fn signatures.
+
+What to build:
+1. Add `pub type_params: Vec<String>` to FnDef in src/ast.rs.
+   Update all construction sites to provide an empty Vec (no breaking change).
+2. In src/parser/mod.rs, after parsing the `fn` keyword and name,
+   optionally parse `<A, B, ...>` to populate type_params.
+3. In src/codegen/rust.rs emit_fn_def, if type_params is non-empty emit:
+   pub fn name<A, B>(…) → …
+4. In src/checker/types.rs, when type-checking a FnDef, add each type_param
+   name to the local type namespace so Base(name) is valid inside the body.
+5. In src/checker/infer.rs, treat each type_param as an unconstrained TypeVar
+   that is generalised (not solved to a concrete type).
+6. Write tests in tests/generics_test.rs using TDD (failing test first).
+
+Constraints:
+- Max 5 files per phase. cargo test must pass after each phase.
+- TDD: failing test first.
+- Backward-compatible: all current corpus examples have type_params = [] and must
+  continue to compile identically.
+```
+
+---
+
+## M8 — Multi-Module Project Compilation
+
+### What it is
+A `loom build` command and `loom.toml` project manifest that compile a set of `.loom`
+files in dependency order and emit a `lib.rs` re-exporting all modules.
+
+### Scope
+- Define a `loom.toml` format: `name`, `version`, `modules` (list of `.loom` file paths).
+- Add a `build` sub-command to the CLI (`src/main.rs`).
+- Add `src/project.rs`: parse `loom.toml`, build a dependency graph from module
+  `requires` clauses, topologically sort it, compile in order, write each `.rs` file,
+  emit a top-level `lib.rs`.
+- Error if a cycle is detected in the dependency graph.
+- Corpus: add `corpus/project/` with a multi-file example.
+
+### Key files
+- `src/main.rs` — add `build` sub-command
+- `src/project.rs` — new file (manifest parser + build orchestrator)
+- `loom.toml` (root) — example project manifest
+- `corpus/project/` — new multi-file corpus
+- `tests/project_test.rs` — new test file
+
+### Dependencies
+- Requires M5 (DI) to be complete so that `requires` inter-module links are meaningful.
+
+### Success criteria
+- `cargo test` passes with zero regressions.
+- `loom build loom.toml` compiles all modules, writes `.rs` files, and emits `lib.rs`.
+- Cycle detection: a project with A → B → A produces a `CyclicDependency` error.
+- `corpus/project/` compiles successfully with `loom build`.
+
+### Development prompt
+
+```
+Read .claude/index.md → .claude/core.md → .claude/standards/architecture.md.
+
+Task: Add multi-module project compilation to the Loom compiler (Rust, src/).
+Phase 2 + M5 + M6 + M7 are complete. Do not break existing tests.
+
+Context:
+- CLI entry point: src/main.rs with `loom compile` sub-command (clap).
+- lib.rs exposes compile(source: &str) → Result<String, Vec<LoomError>>.
+- Module AST has name, requires, provides fields for inter-module relations.
+
+What to build:
+1. Define loom.toml format (toml crate, add as dependency):
+     [project]
+     name = "my-project"
+     version = "0.1.0"
+     modules = ["src/a.loom", "src/b.loom"]
+     output = "out/"
+2. Add `build` sub-command to src/main.rs.
+3. Create src/project.rs with:
+   - ProjectManifest: parse loom.toml
+   - DependencyGraph: build from parsed Module.requires names
+   - topo_sort(graph) → Result<Vec<PathBuf>, LoomError>  (CyclicDependency error)
+   - build(manifest) → Result<(), Vec<LoomError>>: compile each module, write .rs, emit lib.rs
+4. Add LoomError::CyclicDependency { cycle: Vec<String>, span: Span } to error.rs.
+5. Corpus: corpus/project/ with a.loom (pure) and b.loom (requires a).
+6. Write tests in tests/project_test.rs using TDD (failing test first).
+
+Constraints:
+- Max 5 files per phase. cargo test must pass after each phase.
+- TDD: failing test first.
+- loom compile must remain unchanged — only loom build is new.
+```
+
+---
+
+## Phase 3 Execution Order
+
+```
+M5 (DI)      ──── independent, completes a core language feature
+
+M6 (stdlib)  ──── independent, quick win
+
+M7 (generics) ─── independent, largest milestone
+
+M8 (multi-module) ── depends on M5 (requires links meaningful)
+```
+
+Recommended sequence: **M5 → M6 → M7 → M8**
