@@ -34,6 +34,12 @@ struct SymbolTable {
 impl SymbolTable {
     fn build(module: &Module) -> Self {
         let mut table = SymbolTable::default();
+
+        // Stdlib generic type constructors are always in scope.
+        for name in &["List", "Map", "Set"] {
+            table.types.insert((*name).to_string());
+        }
+
         for item in &module.items {
             match item {
                 Item::Type(td) => {

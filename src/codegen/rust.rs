@@ -51,21 +51,16 @@ impl RustEmitter {
         // Module wrapper.
         let mod_name = to_snake_case(&module.name);
         out.push_str(&format!("pub mod {} {{\n", mod_name));
-        out.push_str("    use super::*;\n\n");
+        out.push_str("    use super::*;\n");
 
-        // Emit the DI context struct when the module has `requires`.
+        // Render the module body first to detect which stdlib imports are needed.
+        let mut body = String::new();
+
+        // DI context struct.
         if let Some(requires) = &module.requires {
-            let ctx = self.emit_context_struct(&module.name, requires);
-            for line in ctx.lines() {
-                if line.is_empty() {
-                    out.push('\n');
-                } else {
-                    out.push_str("    ");
-                    out.push_str(line);
-                    out.push('\n');
-                }
-            }
-            out.push('\n');
+            body.push('\n');
+            body.push_str(&self.emit_context_struct(&module.name, requires));
+            body.push('\n');
         }
 
         for item in &module.items {
@@ -75,19 +70,27 @@ impl RustEmitter {
                 Item::Fn(fd) => self.emit_fn_def_with_context(fd, &module.name, module.requires.is_some()),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
             };
-            // Indent each line of the item by 4 spaces.
+            body.push('\n');
             for line in item_src.lines() {
                 if line.is_empty() {
-                    out.push('\n');
+                    body.push('\n');
                 } else {
-                    out.push_str("    ");
-                    out.push_str(line);
-                    out.push('\n');
+                    body.push_str("    ");
+                    body.push_str(line);
+                    body.push('\n');
                 }
             }
-            out.push('\n');
         }
 
+        // Inject stdlib collection imports when they appear in the rendered body.
+        if body.contains("HashMap") {
+            out.push_str("    use std::collections::HashMap;\n");
+        }
+        if body.contains("HashSet") {
+            out.push_str("    use std::collections::HashSet;\n");
+        }
+
+        out.push_str(&body);
         out.push_str("}\n");
         out
     }
@@ -286,7 +289,13 @@ impl RustEmitter {
             TypeExpr::Base(name) => self.map_base_type(name),
             TypeExpr::Generic(name, params) => {
                 let ps: Vec<String> = params.iter().map(|p| self.emit_type_expr(p)).collect();
-                format!("{}<{}>", name, ps.join(", "))
+                // Map Loom stdlib collection types to Rust equivalents.
+                match name.as_str() {
+                    "List" if ps.len() == 1 => format!("Vec<{}>", ps[0]),
+                    "Map"  if ps.len() == 2 => format!("HashMap<{}, {}>", ps[0], ps[1]),
+                    "Set"  if ps.len() == 1 => format!("HashSet<{}>", ps[0]),
+                    _ => format!("{}<{}>", name, ps.join(", ")),
+                }
             }
             TypeExpr::Effect(_, inner) => {
                 format!("Result<{}, Box<dyn std::error::Error>>", self.emit_type_expr(inner))
