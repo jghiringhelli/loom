@@ -212,11 +212,29 @@ impl<'src> Parser<'src> {
 
     // ── Function definition ───────────────────────────────────────────────
 
-    /// Parse `fn NAME :: type_sig [require: expr]* [ensure: expr]* body* end`.
+    /// Parse `fn NAME[<A, B>] :: type_sig [require: expr]* [ensure: expr]* body* end`.
     pub fn parse_fn_def(&mut self) -> Result<FnDef, LoomError> {
         let start = self.current_span();
         self.expect(Token::Fn)?;
         let (name, _) = self.expect_ident()?;
+
+        // Optional type parameter list: `<A, B, C>`.
+        let type_params = if self.at(&Token::Lt) {
+            self.advance();
+            let mut params = Vec::new();
+            while !self.at(&Token::Gt) && self.peek().is_some() {
+                let (param, _) = self.expect_ident()?;
+                params.push(param);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::Gt)?;
+            params
+        } else {
+            Vec::new()
+        };
+
         self.expect(Token::ColonColon)?;
         let type_sig = self.parse_fn_type_signature()?;
 
@@ -249,6 +267,7 @@ impl<'src> Parser<'src> {
 
         Ok(FnDef {
             name,
+            type_params,
             type_sig,
             requires,
             ensures,

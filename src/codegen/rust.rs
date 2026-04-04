@@ -274,11 +274,16 @@ impl RustEmitter {
         }
 
         format!(
-            "pub fn {}({}) -> {} {{\n{}\n}}\n",
+            "pub fn {}{name_generics}({params}) -> {ret} {{\n{body}\n}}\n",
             fd.name,
-            params.join(", "),
-            ret,
-            body_lines.join("\n")
+            name_generics = if fd.type_params.is_empty() {
+                String::new()
+            } else {
+                format!("<{}>", fd.type_params.join(", "))
+            },
+            params = params.join(", "),
+            ret = ret,
+            body = body_lines.join("\n"),
         )
     }
 
@@ -509,6 +514,7 @@ mod tests {
             requires: None,
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),
+                type_params: vec![],
                 type_sig: FnTypeSignature {
                     params: vec![TypeExpr::Base("Int".to_string())],
                     return_type: Box::new(TypeExpr::Base("Int".to_string())),

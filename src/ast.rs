@@ -74,6 +74,8 @@ pub enum Item {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub name: String,
+    /// User-declared type parameters (e.g. `<A, B>` in `fn map<A, B>`).
+    pub type_params: Vec<String>,
     /// Full type signature (parameter types + return type).
     pub type_sig: FnTypeSignature,
     /// Pre-conditions (`require:` clauses).

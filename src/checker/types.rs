@@ -19,7 +19,7 @@ use crate::error::LoomError;
 // ── Symbol table ──────────────────────────────────────────────────────────────
 
 /// Flat symbol table populated from a module's top-level declarations.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct SymbolTable {
     /// All known type names (TypeDef, EnumDef, RefinedType).
     types: HashSet<String>,
@@ -123,6 +123,20 @@ impl TypeChecker {
             }
         }
 
+        // Build a function-local symbol table that extends the module table
+        // with this function's declared type parameters (e.g. <T>, <A, B>).
+        let fn_table: std::borrow::Cow<SymbolTable>;
+        let effective_table = if fd.type_params.is_empty() {
+            table
+        } else {
+            let mut extended = table.clone();
+            for tp in &fd.type_params {
+                extended.types.insert(tp.clone());
+            }
+            fn_table = std::borrow::Cow::Owned(extended);
+            &*fn_table
+        };
+
         // Seed the local scope with the function's own name (for recursion)
         // and the parameter names synthesised from the type signature.
         let mut scope: HashSet<String> = HashSet::new();
@@ -134,12 +148,12 @@ impl TypeChecker {
         // top-level type/function name, not a let-binding in scope).
 
         for contract in fd.requires.iter().chain(fd.ensures.iter()) {
-            self.check_expr(&contract.expr, &scope, table, errors);
+            self.check_expr(&contract.expr, &scope, effective_table, errors);
         }
 
         let mut local_scope = scope.clone();
         for expr in &fd.body {
-            self.check_expr_collecting_lets(expr, &mut local_scope, table, errors);
+            self.check_expr_collecting_lets(expr, &mut local_scope, effective_table, errors);
         }
     }
 
