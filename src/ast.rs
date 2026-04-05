@@ -202,6 +202,46 @@ pub struct EcosystemDef {
     pub signals: Vec<SignalDef>,
     /// The combined telos of the ecosystem (emergent purpose).
     pub telos: Option<String>,
+    pub quorum_blocks: Vec<QuorumBlock>,
+    pub span: Span,
+}
+
+/// Epigenetic modulation — behavioral change without structural change.
+/// Waddington (1957): the developmental landscape where environment
+/// channels phenotype without altering genotype.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EpigeneticBlock {
+    /// The environmental signal that triggers modulation.
+    pub signal: String,
+    /// The field path being modulated (e.g. "metabolism.rate").
+    pub modifies: String,
+    /// Condition under which the modulation reverts.
+    pub reverts_when: Option<String>,
+    pub span: Span,
+}
+
+/// Morphogenetic signal — differentiation via threshold crossing.
+/// Turing (1952): reaction-diffusion systems produce spatial patterns
+/// from homogeneous initial conditions via local activation + lateral inhibition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MorphogenBlock {
+    /// The morphogenetic signal type name.
+    pub signal: String,
+    /// Threshold above which differentiation occurs (as string, e.g. "0.8").
+    pub threshold: String,
+    /// Being types produced when threshold is crossed.
+    pub produces: Vec<String>,
+    pub span: Span,
+}
+
+/// Telomere countdown — finite lifecycle limit.
+/// Hayflick (1961): normal human cells divide ~50 times before senescence.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TelomereBlock {
+    /// Maximum number of replications/evolutions before exhaustion.
+    pub limit: u64,
+    /// Behavior when limit is reached.
+    pub on_exhaustion: String,
     pub span: Span,
 }
 
@@ -216,9 +256,69 @@ pub struct BeingDef {
     pub telos: Option<TelosDef>,
     pub regulate_blocks: Vec<RegulateBlock>,
     pub evolve_block: Option<EvolveBlock>,
+    pub epigenetic_blocks: Vec<EpigeneticBlock>,
+    pub morphogen_blocks: Vec<MorphogenBlock>,
+    pub telomere: Option<TelomereBlock>,
     /// Whether this being declares itself autopoietic (Maturana/Varela 1972).
     /// Requires: telos + at least one regulate block + evolve block + matter.
     pub autopoietic: bool,
+    pub crispr_blocks: Vec<CrisprBlock>,
+    pub plasticity_blocks: Vec<PlasticityBlock>,
+    pub span: Span,
+}
+
+/// CRISPR-directed self-modification — targeted form editing.
+/// Doudna/Charpentier (2012): guide RNA directs Cas9 to cut a specific
+/// genomic sequence for replacement. In Loom: a guide type directs
+/// targeted replacement of a form field — the being modifies its own spec.
+/// This is the deepest construct: form: is no longer static.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CrisprBlock {
+    /// The field path to target (e.g. "Genome.error_sequence").
+    pub target: String,
+    /// The replacement type/value (as string).
+    pub replace: String,
+    /// The guide mechanism (type name, e.g. "CasProtein").
+    pub guide: String,
+    pub span: Span,
+}
+
+/// Neural plasticity — experience-driven form modification.
+/// Hebb (1949): synaptic weights strengthen with co-activation.
+/// Boltzmann (1877): energy-based learning via thermal equilibration.
+/// In Loom: a trigger signal modifies a form field (weight/connection),
+/// implementing adaptive structural change through experience.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlasticityBlock {
+    /// The experience signal that triggers weight update.
+    pub trigger: String,
+    /// The form field being modified (e.g. "SynapticWeight").
+    pub modifies: String,
+    /// The learning rule.
+    pub rule: PlasticityRule,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlasticityRule {
+    Hebbian,
+    Boltzmann,
+    ReinforcementLearning,
+}
+
+/// Quorum sensing — threshold-triggered collective behavior.
+/// Bassler (1999): bacteria coordinate via autoinducer concentration.
+/// At threshold, individual behavior gives way to collective action.
+/// In Loom: when enough ecosystem members signal a state, emergent
+/// collective behavior is triggered.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QuorumBlock {
+    /// The signal type being accumulated (e.g. "AHL").
+    pub signal: String,
+    /// Threshold as fraction of population (0.0–1.0, e.g. "0.6" = 60%).
+    pub threshold: String,
+    /// The collective action triggered at threshold.
+    pub action: String,
     pub span: Span,
 }
 

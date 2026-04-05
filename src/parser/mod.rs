@@ -105,6 +105,28 @@ impl<'src> Parser<'src> {
         }
     }
 
+    /// Like `expect_ident` but also accepts keyword tokens as contextual identifiers.
+    /// Used where field names, variable names, or other names may shadow keywords.
+    fn expect_any_name(&mut self) -> Result<(String, Span), LoomError> {
+        let name = match self.tokens.get(self.pos) {
+            Some((Token::Ident(n), _)) => n.clone(),
+            Some((tok, _)) => {
+                if let Some(s) = token_keyword_str(tok) {
+                    s.to_string()
+                } else {
+                    return self.expect_ident();
+                }
+            }
+            None => return Err(LoomError::parse(
+                "expected identifier, found end of input",
+                Span::synthetic(),
+            )),
+        };
+        let span = self.tokens[self.pos].1.clone();
+        self.pos += 1;
+        Ok((name, span))
+    }
+
     // ── Top-level ─────────────────────────────────────────────────────────
 
     /// Parse `describe: "..."` if present, returning the description string.
@@ -400,6 +422,11 @@ impl<'src> Parser<'src> {
         let mut regulate_blocks = Vec::new();
         let mut evolve_block = None;
         let mut autopoietic = false;
+        let mut epigenetic_blocks: Vec<EpigeneticBlock> = Vec::new();
+        let mut morphogen_blocks: Vec<MorphogenBlock> = Vec::new();
+        let mut telomere: Option<TelomereBlock> = None;
+        let mut crispr_blocks: Vec<CrisprBlock> = Vec::new();
+        let mut plasticity_blocks: Vec<PlasticityBlock> = Vec::new();
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -408,7 +435,7 @@ impl<'src> Parser<'src> {
                 self.expect(Token::Colon)?;
                 let mut fields = Vec::new();
                 while !self.at(&Token::End) && self.peek().is_some() {
-                    let (field_name, field_span) = self.expect_ident()?;
+                    let (field_name, field_span) = self.expect_any_name()?;
                     self.expect(Token::Colon)?;
                     let ty = self.parse_type_expr()?;
                     fields.push(FieldDef {
@@ -591,6 +618,240 @@ impl<'src> Parser<'src> {
                     autopoietic = *b;
                     self.pos += 1;
                 }
+            } else if self.at(&Token::Epigenetic) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `epigenetic`
+                self.expect(Token::Colon)?;
+                let mut signal = String::new();
+                let mut modifies = String::new();
+                let mut reverts_when = None;
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Signal) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (val, _) = self.expect_ident()?;
+                        signal = val;
+                    } else if self.at(&Token::Modifies) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let mut parts = Vec::new();
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            parts.push(n.clone());
+                            self.pos += 1;
+                        }
+                        while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
+                            self.pos += 1;
+                            if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                                parts.push(n.clone());
+                                self.pos += 1;
+                            }
+                        }
+                        modifies = parts.join(".");
+                    } else if self.at(&Token::RevertsWhen) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (val, _) = self.expect_ident()?;
+                        reverts_when = Some(val);
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                epigenetic_blocks.push(EpigeneticBlock { signal, modifies, reverts_when, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Morphogen) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `morphogen`
+                self.expect(Token::Colon)?;
+                let mut signal = String::new();
+                let mut threshold = String::new();
+                let mut produces = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Signal) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (val, _) = self.expect_ident()?;
+                        signal = val;
+                    } else if self.at(&Token::Threshold) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        match self.tokens.get(self.pos) {
+                            Some((Token::FloatLit(f), _)) => {
+                                threshold = f.to_string();
+                                self.pos += 1;
+                            }
+                            Some((Token::IntLit(i), _)) => {
+                                threshold = i.to_string();
+                                self.pos += 1;
+                            }
+                            _ => {
+                                if let Ok((val, _)) = self.expect_ident() {
+                                    threshold = val;
+                                }
+                            }
+                        }
+                    } else if self.at(&Token::Produces) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        self.expect(Token::LBracket)?;
+                        loop {
+                            if self.at(&Token::RBracket) { break; }
+                            if let Ok((val, _)) = self.expect_ident() {
+                                produces.push(val);
+                            }
+                            if self.at(&Token::Comma) { self.advance(); }
+                            if self.at(&Token::RBracket) { break; }
+                        }
+                        self.expect(Token::RBracket)?;
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                morphogen_blocks.push(MorphogenBlock { signal, threshold, produces, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Telomere) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `telomere`
+                self.expect(Token::Colon)?;
+                let mut limit = 0u64;
+                let mut on_exhaustion = String::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Limit) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            limit = *n as u64;
+                            self.pos += 1;
+                        }
+                    } else if self.at(&Token::OnExhaustion) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (val, _) = self.expect_ident()?;
+                        on_exhaustion = val;
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                telomere = Some(TelomereBlock { limit, on_exhaustion, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Crispr) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `crispr`
+                self.expect(Token::Colon)?;
+                let mut target = String::new();
+                let mut replace = String::new();
+                let mut guide = String::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "target") {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let mut parts = Vec::new();
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            parts.push(n.clone());
+                            self.pos += 1;
+                        }
+                        while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
+                            self.pos += 1;
+                            if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                                parts.push(n.clone());
+                                self.pos += 1;
+                            }
+                        }
+                        target = parts.join(".");
+                    } else if self.at(&Token::Replace) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let mut parts = Vec::new();
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            parts.push(n.clone());
+                            self.pos += 1;
+                        }
+                        while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
+                            self.pos += 1;
+                            if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                                parts.push(n.clone());
+                                self.pos += 1;
+                            }
+                        }
+                        replace = parts.join(".");
+                    } else if self.at(&Token::Guide) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            guide = n.clone();
+                            self.pos += 1;
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                crispr_blocks.push(CrisprBlock {
+                    target,
+                    replace,
+                    guide,
+                    span: Span::merge(&sec_start, &sec_end),
+                });
+            } else if self.at(&Token::Plasticity) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `plasticity`
+                self.expect(Token::Colon)?;
+                let mut trigger = String::new();
+                let mut modifies = String::new();
+                let mut rule = PlasticityRule::Hebbian;
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Trigger) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            trigger = n.clone();
+                            self.pos += 1;
+                        }
+                    } else if self.at(&Token::Modifies) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            modifies = n.clone();
+                            self.pos += 1;
+                        }
+                    } else if self.at(&Token::Rule) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        match self.tokens.get(self.pos) {
+                            Some((Token::Hebbian, _)) => {
+                                rule = PlasticityRule::Hebbian;
+                                self.pos += 1;
+                            }
+                            Some((Token::Boltzmann, _)) => {
+                                rule = PlasticityRule::Boltzmann;
+                                self.pos += 1;
+                            }
+                            Some((Token::Ident(n), _)) if n == "reinforcement_learning" => {
+                                rule = PlasticityRule::ReinforcementLearning;
+                                self.pos += 1;
+                            }
+                            _ => {
+                                return Err(LoomError::parse(
+                                    "unknown plasticity rule: expected hebbian, boltzmann, or reinforcement_learning",
+                                    self.current_span(),
+                                ));
+                            }
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                plasticity_blocks.push(PlasticityBlock {
+                    trigger,
+                    modifies,
+                    rule,
+                    span: Span::merge(&sec_start, &sec_end),
+                });
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -609,7 +870,12 @@ impl<'src> Parser<'src> {
             telos,
             regulate_blocks,
             evolve_block,
+            epigenetic_blocks,
+            morphogen_blocks,
+            telomere,
             autopoietic,
+            crispr_blocks,
+            plasticity_blocks,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -625,6 +891,7 @@ impl<'src> Parser<'src> {
         let mut members: Vec<String> = Vec::new();
         let mut signals: Vec<SignalDef> = Vec::new();
         let mut telos: Option<String> = None;
+        let mut quorum_blocks: Vec<QuorumBlock> = Vec::new();
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Members) {
@@ -691,6 +958,54 @@ impl<'src> Parser<'src> {
                         self.current_span(),
                     )),
                 }
+            } else if self.at(&Token::Quorum) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `quorum`
+                self.expect(Token::Colon)?;
+                let mut signal = String::new();
+                let mut threshold = String::new();
+                let mut action = String::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Signal) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            signal = n.clone();
+                            self.pos += 1;
+                        }
+                    } else if self.at(&Token::Threshold) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        match self.tokens.get(self.pos) {
+                            Some((Token::FloatLit(f), _)) => {
+                                threshold = format!("{}", f);
+                                self.pos += 1;
+                            }
+                            Some((Token::IntLit(i), _)) => {
+                                threshold = format!("{}", i);
+                                self.pos += 1;
+                            }
+                            _ => { self.advance(); }
+                        }
+                    } else if self.at(&Token::Action) {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            action = n.clone();
+                            self.pos += 1;
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                quorum_blocks.push(QuorumBlock {
+                    signal,
+                    threshold,
+                    action,
+                    span: Span::merge(&sec_start, &sec_end),
+                });
             } else {
                 self.advance();
             }
@@ -705,6 +1020,7 @@ impl<'src> Parser<'src> {
             members,
             signals,
             telos,
+            quorum_blocks,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1647,5 +1963,32 @@ fn token_to_source(tok: &Token) -> String {
         Token::Star => "*".to_string(),
         Token::Question => "?".to_string(),
         _ => format!("{:?}", tok),
+    }
+}
+
+/// If `tok` is a keyword that could serve as an identifier (e.g. a field name),
+/// return its source spelling; otherwise return `None`.
+fn token_keyword_str(tok: &Token) -> Option<&'static str> {
+    match tok {
+        Token::Threshold    => Some("threshold"),
+        Token::Limit        => Some("limit"),
+        Token::Produces     => Some("produces"),
+        Token::Modifies     => Some("modifies"),
+        Token::RevertsWhen  => Some("reverts_when"),
+        Token::OnExhaustion => Some("on_exhaustion"),
+        Token::Signal       => Some("signal"),
+        Token::Payload      => Some("payload"),
+        Token::From         => Some("from"),
+        Token::To           => Some("to"),
+        Token::Toward       => Some("toward"),
+        Token::Bounds       => Some("bounds"),
+        Token::Members      => Some("members"),
+        Token::Fitness      => Some("fitness"),
+        Token::Telos        => Some("telos"),
+        Token::Form         => Some("form"),
+        Token::Matter       => Some("matter"),
+        Token::Regulate     => Some("regulate"),
+        Token::Evolve       => Some("evolve"),
+        _                   => None,
     }
 }

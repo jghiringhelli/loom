@@ -58,6 +58,130 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
     if being.autopoietic {
         check_autopoiesis(being, errors);
     }
+
+    // Check epigenetic blocks
+    for epi in &being.epigenetic_blocks {
+        if epi.signal.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("epigenetic block in being '{}' has empty signal:", being.name),
+                epi.span.clone(),
+            ));
+        }
+        if epi.modifies.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("epigenetic block in being '{}' has empty modifies:", being.name),
+                epi.span.clone(),
+            ));
+        }
+    }
+
+    // Check morphogen blocks
+    for morph in &being.morphogen_blocks {
+        if morph.signal.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("morphogen block in being '{}' has empty signal:", being.name),
+                morph.span.clone(),
+            ));
+        }
+        if morph.produces.is_empty() {
+            errors.push(LoomError::type_err(
+                format!("morphogen with no produces: is inert in being '{}'", being.name),
+                morph.span.clone(),
+            ));
+        }
+        if !morph.threshold.trim().is_empty() {
+            match morph.threshold.parse::<f64>() {
+                Ok(v) if v >= 0.0 && v <= 1.0 => {}
+                Ok(_) => {
+                    errors.push(LoomError::type_err(
+                        format!(
+                            "morphogen threshold {:?} in being '{}' is out of range [0.0, 1.0]",
+                            morph.threshold, being.name
+                        ),
+                        morph.span.clone(),
+                    ));
+                }
+                Err(_) => {
+                    errors.push(LoomError::type_err(
+                        format!(
+                            "morphogen threshold {:?} in being '{}' must be a float between 0.0 and 1.0",
+                            morph.threshold, being.name
+                        ),
+                        morph.span.clone(),
+                    ));
+                }
+            }
+        }
+    }
+
+    // Check telomere
+    if let Some(tel) = &being.telomere {
+        if tel.limit == 0 {
+            errors.push(LoomError::type_err(
+                format!("telomere limit must be positive in being '{}'", being.name),
+                tel.span.clone(),
+            ));
+        }
+        if tel.on_exhaustion.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("telomere on_exhaustion must be non-empty in being '{}'", being.name),
+                tel.span.clone(),
+            ));
+        }
+        const KNOWN_EXHAUSTION: &[&str] = &["senescence", "apoptosis", "quiescence"];
+        if !KNOWN_EXHAUSTION.contains(&tel.on_exhaustion.as_str()) {
+            let fn_names: Vec<&str> = being.function.as_ref()
+                .map(|fb| fb.fns.iter().map(|f| f.name.as_str()).collect())
+                .unwrap_or_default();
+            if !fn_names.contains(&tel.on_exhaustion.as_str()) {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "telomere on_exhaustion {:?} in being '{}' is not a known keyword (senescence/apoptosis/quiescence) and not a declared function",
+                        tel.on_exhaustion, being.name
+                    ),
+                    tel.span.clone(),
+                ));
+            }
+        }
+    }
+
+    // CRISPR checks
+    for crispr in &being.crispr_blocks {
+        if crispr.target.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("crispr block in being '{}' has empty target:", being.name),
+                crispr.span.clone(),
+            ));
+        }
+        if crispr.replace.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("crispr block in being '{}' has empty replace:", being.name),
+                crispr.span.clone(),
+            ));
+        }
+        if crispr.guide.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("crispr block in being '{}' has empty guide:", being.name),
+                crispr.span.clone(),
+            ));
+        }
+    }
+
+    // Plasticity checks
+    for plasticity in &being.plasticity_blocks {
+        if plasticity.trigger.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("plasticity block in being '{}' has empty trigger:", being.name),
+                plasticity.span.clone(),
+            ));
+        }
+        if plasticity.modifies.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("plasticity block in being '{}' has empty modifies:", being.name),
+                plasticity.span.clone(),
+            ));
+        }
+    }
 }
 
 /// Verify that an autopoietic being satisfies all four organisational layers.
@@ -201,6 +325,32 @@ fn check_ecosystem(
                 format!("ecosystem '{}' has an empty telos:", eco.name),
                 eco.span.clone(),
             ));
+        }
+    }
+
+    // Quorum checks
+    for quorum in &eco.quorum_blocks {
+        if quorum.signal.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("quorum block in ecosystem '{}' has empty signal:", eco.name),
+                quorum.span.clone(),
+            ));
+        }
+        if quorum.action.trim().is_empty() {
+            errors.push(LoomError::type_err(
+                format!("quorum block in ecosystem '{}' has empty action:", eco.name),
+                quorum.span.clone(),
+            ));
+        }
+        match quorum.threshold.parse::<f64>() {
+            Ok(f) if f > 0.0 && f <= 1.0 => {}
+            _ => errors.push(LoomError::type_err(
+                format!(
+                    "quorum block in ecosystem '{}': threshold '{}' must be a float in (0.0, 1.0]",
+                    eco.name, quorum.threshold
+                ),
+                quorum.span.clone(),
+            )),
         }
     }
 }

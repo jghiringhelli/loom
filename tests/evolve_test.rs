@@ -41,7 +41,12 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         }),
         regulate_blocks: vec![],
         evolve_block: Some(evolve),
+        epigenetic_blocks: vec![],
+        morphogen_blocks: vec![],
+        telomere: None,
         autopoietic: false,
+        crispr_blocks: vec![],
+        plasticity_blocks: vec![],
         span: Span::synthetic(),
     }
 }

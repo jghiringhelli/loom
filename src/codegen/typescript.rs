@@ -640,6 +640,37 @@ impl TypeScriptEmitter {
         out.push_str("    throw new Error('implement ecosystem coordination toward telos');\n");
         out.push_str("  }\n");
 
+        // Quorum sensing blocks
+        for quorum in &eco.quorum_blocks {
+            let signal_pascal = to_pascal_case(&quorum.signal);
+            out.push_str(&format!(
+                "\n  /** Quorum sensing: {} threshold {} → {}\n",
+                quorum.signal, quorum.threshold, quorum.action
+            ));
+            out.push_str(&format!(
+                "   * @quorum signal={} threshold={} action={}\n",
+                quorum.signal, quorum.threshold, quorum.action
+            ));
+            out.push_str("   */\n");
+            out.push_str(&format!(
+                "  static checkQuorum{}(populationSignals: number[]): boolean {{\n",
+                signal_pascal
+            ));
+            out.push_str(
+                "    const fraction = populationSignals.filter(s => s > 0).length / populationSignals.length;\n"
+            );
+            out.push_str(&format!("    if (fraction >= {}) {{\n", quorum.threshold));
+            out.push_str(&format!(
+                "      // trigger collective action: {}\n",
+                quorum.action
+            ));
+            out.push_str(&format!(
+                "      throw new Error('implement quorum action: {}');\n    }}\n",
+                quorum.action
+            ));
+            out.push_str(&format!("    return fraction >= {};\n  }}\n", quorum.threshold));
+        }
+
         out.push_str("}\n");
         out
     }
@@ -749,6 +780,48 @@ impl TypeScriptEmitter {
             out.push_str("    }\n  }\n");
         }
 
+        // Epigenetic blocks
+        for epi in &being.epigenetic_blocks {
+            let signal_pascal = to_pascal_case(&epi.signal);
+            let reverts_str = epi.reverts_when.as_deref().unwrap_or("never");
+            out.push_str(&format!(
+                "\n  /** Epigenetic modulation: {} → {}\n   * @epigenetic signal={} modifies={}\n   * Reverts when: {}\n   */\n",
+                epi.signal, epi.modifies, epi.signal, epi.modifies, reverts_str
+            ));
+            out.push_str(&format!("  applyEpigenetic{}(signalStrength: number): void {{\n", signal_pascal));
+            out.push_str(&format!("    // modifies: {} without changing form structure\n", epi.modifies));
+            out.push_str("    throw new Error('implement epigenetic modulation');\n  }\n");
+        }
+
+        // Morphogen blocks
+        for morph in &being.morphogen_blocks {
+            let signal_pascal = to_pascal_case(&morph.signal);
+            let produces_str = morph.produces.join(", ");
+            out.push_str(&format!(
+                "\n  /** Morphogenetic differentiation: {} at threshold {}\n   * @morphogen signal={} threshold={} produces={}\n   */\n",
+                morph.signal, morph.threshold, morph.signal, morph.threshold, produces_str
+            ));
+            out.push_str(&format!("  differentiate{}(signalLevel: number): unknown[] | null {{\n", signal_pascal));
+            out.push_str(&format!("    if (signalLevel >= {}) {{\n", morph.threshold));
+            out.push_str(&format!("      // produces: {}\n", produces_str));
+            out.push_str("      throw new Error('implement differentiation');\n    }\n    return null;\n  }\n");
+        }
+
+        // Telomere block
+        if let Some(tel) = &being.telomere {
+            out.push_str(&format!(
+                "\n  /** @telomere limit={} on_exhaustion={}\n   * Hayflick limit: {} replications maximum\n   */\n",
+                tel.limit, tel.on_exhaustion, tel.limit
+            ));
+            out.push_str("  private telomereCount = 0;\n");
+            out.push_str(&format!("  readonly telomereLimit = {};\n\n", tel.limit));
+            out.push_str("  replicate(): boolean {\n");
+            out.push_str("    if (this.telomereCount >= this.telomereLimit) {\n");
+            out.push_str(&format!("      // on_exhaustion: {}\n", tel.on_exhaustion));
+            out.push_str("      return false; // exhausted\n    }\n");
+            out.push_str("    this.telomereCount++;\n    return true;\n  }\n");
+        }
+
         if being.autopoietic {
             out.push_str("\n  /** @autopoietic true\n");
             out.push_str("   * Maturana/Varela (1972): operationally closed, self-producing.\n");
@@ -760,6 +833,61 @@ impl TypeScriptEmitter {
             out.push_str("    return false; // todo: implement\n");
             out.push_str("  }\n");
         }
+
+        // CRISPR blocks
+        for crispr in &being.crispr_blocks {
+            let guide_pascal = to_pascal_case(&crispr.guide);
+            out.push_str(&format!(
+                "\n  /** CRISPR edit: {} → {} replaced by {}\n",
+                crispr.guide, crispr.target, crispr.replace
+            ));
+            out.push_str(&format!(
+                "   * @crispr target={} replace={} guide={}\n",
+                crispr.target, crispr.replace, crispr.guide
+            ));
+            out.push_str("   */\n");
+            out.push_str(&format!("  edit{}(guide: {}): boolean {{\n", guide_pascal, crispr.guide));
+            out.push_str(&format!(
+                "    // target: {} → replace: {}\n",
+                crispr.target, crispr.replace
+            ));
+            out.push_str("    throw new Error('implement CRISPR edit');\n  }\n");
+        }
+
+        // Plasticity blocks
+        for plasticity in &being.plasticity_blocks {
+            let modifies_pascal = to_pascal_case(&plasticity.modifies);
+            let rule_str = match plasticity.rule {
+                PlasticityRule::Hebbian => "hebbian",
+                PlasticityRule::Boltzmann => "boltzmann",
+                PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+            };
+            let rule_description = match plasticity.rule {
+                PlasticityRule::Hebbian => "co-activation strengthens the connection weight",
+                PlasticityRule::Boltzmann => "energy minimization via thermal equilibration",
+                PlasticityRule::ReinforcementLearning => "reward signal updates weight toward policy optimum",
+            };
+            out.push_str(&format!(
+                "\n  /** Plasticity update: {} → {} via {}\n",
+                plasticity.trigger, plasticity.modifies, rule_str
+            ));
+            out.push_str(&format!(
+                "   * @plasticity trigger={} rule={}\n",
+                plasticity.trigger, rule_str
+            ));
+            out.push_str(&format!("   * Hebb (1949): {}\n", rule_description));
+            out.push_str("   */\n");
+            out.push_str(&format!(
+                "  update{}(triggerStrength: number): void {{\n",
+                modifies_pascal
+            ));
+            out.push_str(&format!("    // {}: {}\n", rule_str, rule_description));
+            out.push_str(&format!(
+                "    throw new Error('implement {} plasticity');\n  }}\n",
+                rule_str
+            ));
+        }
+
         out.push_str("}\n");
         out
     }

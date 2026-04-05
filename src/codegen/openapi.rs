@@ -310,6 +310,42 @@ impl OpenApiEmitter {
                 if being.autopoietic {
                     parts.push("\"x-autopoietic\": true".to_string());
                 }
+                if !being.epigenetic_blocks.is_empty() {
+                    let epi_entries: Vec<String> = being.epigenetic_blocks.iter().map(|epi| {
+                        format!("{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
+                            epi.signal, epi.modifies,
+                            epi.reverts_when.as_deref().map(|r| format!("{:?}", r)).unwrap_or("null".to_string()))
+                    }).collect();
+                    parts.push(format!("\"x-epigenetic\": [{}]", epi_entries.join(", ")));
+                }
+                if !being.morphogen_blocks.is_empty() {
+                    let morph_entries: Vec<String> = being.morphogen_blocks.iter().map(|morph| {
+                        format!("{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
+                            morph.signal, morph.threshold,
+                            morph.produces.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", "))
+                    }).collect();
+                    parts.push(format!("\"x-morphogen\": [{}]", morph_entries.join(", ")));
+                }
+                if let Some(tel) = &being.telomere {
+                    parts.push(format!("\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}", tel.limit, tel.on_exhaustion));
+                }
+                if !being.crispr_blocks.is_empty() {
+                    let crispr_entries: Vec<String> = being.crispr_blocks.iter().map(|c| {
+                        format!("{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}", c.target, c.replace, c.guide)
+                    }).collect();
+                    parts.push(format!("\"x-crispr\": [{}]", crispr_entries.join(", ")));
+                }
+                if !being.plasticity_blocks.is_empty() {
+                    let plasticity_entries: Vec<String> = being.plasticity_blocks.iter().map(|p| {
+                        let rule_str = match p.rule {
+                            PlasticityRule::Hebbian => "hebbian",
+                            PlasticityRule::Boltzmann => "boltzmann",
+                            PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+                        };
+                        format!("{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}", p.trigger, p.modifies, rule_str)
+                    }).collect();
+                    parts.push(format!("\"x-plasticity\": [{}]", plasticity_entries.join(", ")));
+                }
                 format!("      {:?}: {{{}}}", being.name, parts.join(", "))
             }).collect();
             format!(",\n  \"x-beings\": {{\n{}\n  }}", entries.join(",\n"))
@@ -333,6 +369,42 @@ impl OpenApiEmitter {
             if being.autopoietic {
                 parts.push("\"x-autopoietic\": true".to_string());
             }
+            if !being.epigenetic_blocks.is_empty() {
+                let epi_entries: Vec<String> = being.epigenetic_blocks.iter().map(|epi| {
+                    format!("{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
+                        epi.signal, epi.modifies,
+                        epi.reverts_when.as_deref().map(|r| format!("{:?}", r)).unwrap_or("null".to_string()))
+                }).collect();
+                parts.push(format!("\"x-epigenetic\": [{}]", epi_entries.join(", ")));
+            }
+            if !being.morphogen_blocks.is_empty() {
+                let morph_entries: Vec<String> = being.morphogen_blocks.iter().map(|morph| {
+                    format!("{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
+                        morph.signal, morph.threshold,
+                        morph.produces.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", "))
+                }).collect();
+                parts.push(format!("\"x-morphogen\": [{}]", morph_entries.join(", ")));
+            }
+            if let Some(tel) = &being.telomere {
+                parts.push(format!("\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}", tel.limit, tel.on_exhaustion));
+            }
+            if !being.crispr_blocks.is_empty() {
+                let crispr_entries: Vec<String> = being.crispr_blocks.iter().map(|c| {
+                    format!("{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}", c.target, c.replace, c.guide)
+                }).collect();
+                parts.push(format!("\"x-crispr\": [{}]", crispr_entries.join(", ")));
+            }
+            if !being.plasticity_blocks.is_empty() {
+                let plasticity_entries: Vec<String> = being.plasticity_blocks.iter().map(|p| {
+                    let rule_str = match p.rule {
+                        PlasticityRule::Hebbian => "hebbian",
+                        PlasticityRule::Boltzmann => "boltzmann",
+                        PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+                    };
+                    format!("{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}", p.trigger, p.modifies, rule_str)
+                }).collect();
+                parts.push(format!("\"x-plasticity\": [{}]", plasticity_entries.join(", ")));
+            }
             schemas.push(format!("      {:?}: {{\"type\": \"object\", {}}}", being.name, parts.join(", ")));
         }
 
@@ -355,13 +427,21 @@ impl OpenApiEmitter {
                         sig.name, sig.from, sig.to, sig.payload
                     )
                 }).collect();
-                format!(
-                    "    {:?}: {{\"x-telos\": {:?}, \"x-members\": [{}], \"x-signals\": [{}]}}",
-                    eco.name,
-                    telos_str,
-                    members_json.join(", "),
-                    signals_json.join(", ")
-                )
+                let quorum_json: Vec<String> = eco.quorum_blocks.iter().map(|q| {
+                    format!(
+                        "{{\"signal\": {:?}, \"threshold\": {:?}, \"action\": {:?}}}",
+                        q.signal, q.threshold, q.action
+                    )
+                }).collect();
+                let mut eco_parts = vec![
+                    format!("\"x-telos\": {:?}", telos_str),
+                    format!("\"x-members\": [{}]", members_json.join(", ")),
+                    format!("\"x-signals\": [{}]", signals_json.join(", ")),
+                ];
+                if !quorum_json.is_empty() {
+                    eco_parts.push(format!("\"x-quorum\": [{}]", quorum_json.join(", ")));
+                }
+                format!("    {:?}: {{{}}}", eco.name, eco_parts.join(", "))
             }).collect();
             format!(",\n  \"x-ecosystems\": {{\n{}\n  }}", entries.join(",\n"))
         };
