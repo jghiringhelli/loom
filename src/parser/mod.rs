@@ -15,12 +15,14 @@ use crate::lexer::Token;
 pub struct Parser<'src> {
     tokens: &'src [(Token, Span)],
     pos: usize,
+    /// Collected consequence tiers from `Effect<[X@tier, ...]>` — consumed by `parse_fn_def`.
+    pub pending_effect_tiers: Vec<(String, ConsequenceTier)>,
 }
 
 impl<'src> Parser<'src> {
     /// Create a new parser for the given token slice.
     pub fn new(tokens: &'src [(Token, Span)]) -> Self {
-        Parser { tokens, pos: 0 }
+        Parser { tokens, pos: 0, pending_effect_tiers: Vec::new() }
     }
 
     // ── Token navigation ──────────────────────────────────────────────────
@@ -183,10 +185,15 @@ impl<'src> Parser<'src> {
             None
         };
 
-        // Item list until `end`
+        // Item list until `end` — `invariant` entries are parsed separately.
         let mut items = Vec::new();
+        let mut invariants = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
-            items.push(self.parse_item()?);
+            if self.at(&Token::Invariant) {
+                invariants.push(self.parse_invariant()?);
+            } else {
+                items.push(self.parse_item()?);
+            }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
@@ -198,7 +205,23 @@ impl<'src> Parser<'src> {
             spec,
             provides,
             requires,
+            invariants,
             items,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `invariant NAME :: bool_expr`.
+    fn parse_invariant(&mut self) -> Result<Invariant, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Invariant)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let condition = self.parse_expr()?;
+        let end_span = self.current_span();
+        Ok(Invariant {
+            name,
+            condition,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -293,6 +316,9 @@ impl<'src> Parser<'src> {
         self.expect(Token::ColonColon)?;
         let type_sig = self.parse_fn_type_signature()?;
 
+        // Collect any consequence tiers parsed inside Effect<[X@tier, ...]>.
+        let effect_tiers = std::mem::take(&mut self.pending_effect_tiers);
+
         let mut requires = Vec::new();
         let mut ensures = Vec::new();
         let mut with_deps = Vec::new();
@@ -326,6 +352,7 @@ impl<'src> Parser<'src> {
             annotations,
             type_params,
             type_sig,
+            effect_tiers,
             requires,
             ensures,
             with_deps,
@@ -512,11 +539,26 @@ impl<'src> Parser<'src> {
     fn parse_generic_tail(&mut self, name: String) -> Result<TypeExpr, LoomError> {
         match name.as_str() {
             "Effect" => {
-                // `Effect<[E1, E2, ...], ReturnType>`
+                // `Effect<[E1@tier, E2, ...], ReturnType>`
                 self.expect(Token::LBracket)?;
                 let mut effects = Vec::new();
+                let mut effect_tiers_local: Vec<(String, ConsequenceTier)> = Vec::new();
                 while !self.at(&Token::RBracket) && self.peek().is_some() {
                     let (eff, _) = self.expect_ident()?;
+                    // Optional @tier suffix
+                    if self.at(&Token::At) {
+                        self.advance();
+                        if let Some((Token::Ident(tier_name), _)) = self.tokens.get(self.pos) {
+                            let tier = match tier_name.as_str() {
+                                "pure"         => ConsequenceTier::Pure,
+                                "reversible"   => ConsequenceTier::Reversible,
+                                "irreversible" => ConsequenceTier::Irreversible,
+                                _              => ConsequenceTier::Irreversible,
+                            };
+                            self.advance();
+                            effect_tiers_local.push((eff.clone(), tier));
+                        }
+                    }
                     effects.push(eff);
                     if self.at(&Token::Comma) {
                         self.advance();
@@ -526,6 +568,11 @@ impl<'src> Parser<'src> {
                 self.expect(Token::Comma)?;
                 let inner = self.parse_type_expr()?;
                 self.expect(Token::Gt)?;
+                // Store tiers in a thread-local so parse_fn_def can pick them up.
+                // NOTE: We store them in the return value directly via a shared cell
+                // set by parse_fn_def. Since parse_generic_tail can't return extra data,
+                // we store them in a temporary field on the parser.
+                self.pending_effect_tiers.extend(effect_tiers_local);
                 Ok(TypeExpr::Effect(effects, Box::new(inner)))
             }
             "Option" => {

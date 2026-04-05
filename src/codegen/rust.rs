@@ -94,6 +94,21 @@ impl RustEmitter {
             }
         }
 
+        // Emit _check_invariants() when invariants are declared.
+        if !module.invariants.is_empty() {
+            let inv_src = self.emit_check_invariants(&module.invariants);
+            body.push('\n');
+            for line in inv_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("    ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Inject stdlib collection imports when they appear in the rendered body.
         if body.contains("HashMap") {
             out.push_str("    use std::collections::HashMap;\n");
@@ -115,6 +130,22 @@ impl RustEmitter {
     }
 
     // ── DI context struct ─────────────────────────────────────────────────
+
+    /// Emit `#[cfg(debug_assertions)] fn _check_invariants() { debug_assert!(...) }`.
+    fn emit_check_invariants(&self, invariants: &[Invariant]) -> String {
+        let mut out = String::new();
+        out.push_str("#[cfg(debug_assertions)]\n");
+        out.push_str("pub fn _check_invariants() {\n");
+        for inv in invariants {
+            let cond = self.emit_expr(&inv.condition);
+            out.push_str(&format!(
+                "    debug_assert!({cond}, \"invariant '{}' violated\");\n",
+                inv.name
+            ));
+        }
+        out.push_str("}\n");
+        out
+    }
 
     /// Emit a `pub struct <ModName>Context { pub <dep>: <Type>, … }`.
     fn emit_context_struct(&self, module_name: &str, requires: &Requires) -> String {
@@ -249,6 +280,16 @@ impl RustEmitter {
                     ann.value.replace('"', "\\\"")
                 ));
             }
+        }
+
+        // Emit consequence tiers from Effect<[X@tier, ...]> as doc comments.
+        for (eff, tier) in &fd.effect_tiers {
+            let tier_str = match tier {
+                ConsequenceTier::Pure         => "pure",
+                ConsequenceTier::Reversible   => "reversible",
+                ConsequenceTier::Irreversible => "irreversible",
+            };
+            out.push_str(&format!("// effect-tier: {} -> {}\n", eff, tier_str));
         }
 
         let mut params: Vec<String> = Vec::new();
@@ -727,6 +768,7 @@ mod tests {
             spec: None,
             provides: None,
             requires: None,
+            invariants: vec![],
             items: vec![Item::Type(TypeDef {
                 name: "Point".to_string(),
                 fields: vec![
@@ -752,6 +794,7 @@ mod tests {
             spec: None,
             provides: None,
             requires: None,
+            invariants: vec![],
             items: vec![Item::Enum(EnumDef {
                 name: "Color".to_string(),
                 variants: vec![
@@ -777,10 +820,12 @@ mod tests {
             spec: None,
             provides: None,
             requires: None,
+            invariants: vec![],
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),
                 describe: None,
                 annotations: vec![],
+                effect_tiers: vec![],
                 type_params: vec![],
                 type_sig: FnTypeSignature {
                     params: vec![TypeExpr::Base("Int".to_string())],

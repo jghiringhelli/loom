@@ -58,8 +58,20 @@ pub struct Module {
     pub provides: Option<Provides>,
     /// Capabilities the module requires from its environment (DI surface).
     pub requires: Option<Requires>,
+    /// Structural invariants declared at module level (`invariant name :: cond`).
+    pub invariants: Vec<Invariant>,
     /// Top-level definitions in declaration order.
     pub items: Vec<Item>,
+    pub span: Span,
+}
+
+/// A module-level structural invariant.
+///
+/// Emitted as a `debug_assert!` inside `_check_invariants()`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Invariant {
+    pub name: String,
+    pub condition: Expr,
     pub span: Span,
 }
 
@@ -80,12 +92,15 @@ pub struct FnDef {
     pub name: String,
     /// Optional human-readable description (`describe: "..."`).
     pub describe: Option<String>,
-    /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@author`).
+    /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@pure`, `@author`).
     pub annotations: Vec<Annotation>,
     /// User-declared type parameters (e.g. `<A, B>` in `fn map<A, B>`).
     pub type_params: Vec<String>,
     /// Full type signature (parameter types + return type).
     pub type_sig: FnTypeSignature,
+    /// Consequence tiers for declared effects: `[(effect_name, tier)]`.
+    /// Populated when `effect [IO@reversible, DB@irreversible]` syntax is used.
+    pub effect_tiers: Vec<(String, ConsequenceTier)>,
     /// Pre-conditions (`require:` clauses).
     pub requires: Vec<Contract>,
     /// Post-conditions (`ensure:` clauses).
@@ -97,10 +112,21 @@ pub struct FnDef {
     pub span: Span,
 }
 
+/// Consequence tier for an effectful operation — classifies side-effect severity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConsequenceTier {
+    /// No side effects; referentially transparent.
+    Pure,
+    /// Side effects that can be undone (e.g. a DB transaction).
+    Reversible,
+    /// Side effects that cannot be undone (e.g. sending an email).
+    Irreversible,
+}
+
 /// Audit annotation — key/value metadata embedded in the Loom source.
 ///
 /// Examples: `@since("1.0")`, `@decision("use UUIDs for ids")`,
-/// `@deprecated("use charge_v2")`.
+/// `@deprecated("use charge_v2")`, `@pure`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Annotation {
     pub key: String,
