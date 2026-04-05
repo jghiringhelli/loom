@@ -1,0 +1,101 @@
+name: ALX Convergence Loop
+
+on:
+  # Triggered when a gap issue is labeled 'alx-auto-correct'
+  issues:
+    types: [labeled]
+  # Or manually triggered with custom S target
+  workflow_dispatch:
+    inputs:
+      target_s:
+        description: "Target S_realized threshold (0.0 - 1.0)"
+        default: "0.90"
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Auto-correct loop (requires ANTHROPIC_API_KEY secret) ───────────────────
+  # Triggered by labeling an issue with 'alx-auto-correct'
+  # For each failing test, it calls Claude to propose a loom.loom correction,
+  # opens a PR, and removes the label.
+  #
+  # To use: Settings → Secrets → ANTHROPIC_API_KEY
+  # Then label any G1-G7 issue with 'alx-auto-correct'
+  #
+  # Alternatively, use the GitHub Copilot Coding Agent:
+  #   - Label an issue with 'copilot' to assign it to the Copilot agent
+  #   - It will open a PR with proposed loom.loom corrections
+  #   - Requires Copilot Business or Enterprise plan
+
+  convergence:
+    name: ALX Convergence
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'alx-auto-correct'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run current test suite
+        working-directory: experiments/alx/derived
+        run: cargo test --no-fail-fast 2>&1 | tee test-output.txt
+        continue-on-error: true
+
+      - name: Compute current S_realized
+        id: s_check
+        run: |
+          PASSING=$(grep -oP 'test result: ok\. \K\d+(?= passed)' experiments/alx/derived/test-output.txt | awk '{s+=$1} END{print s}')
+          TOTAL=410
+          PASSING=${PASSING:-0}
+          S=$(echo "scale=4; $PASSING / $TOTAL" | bc)
+          echo "s=$S" >> $GITHUB_OUTPUT
+          echo "passing=$PASSING" >> $GITHUB_OUTPUT
+          echo "Current S_realized = $PASSING / $TOTAL = $S"
+
+      # ── Claude API correction (if ANTHROPIC_API_KEY is set) ─────────────────
+      # Uncomment when ready for fully autonomous loop.
+      # See: https://docs.anthropic.com/en/api/getting-started
+      #
+      # - name: Call Claude to propose corrections
+      #   if: steps.s_check.outputs.s < inputs.target_s
+      #   env:
+      #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      #   run: |
+      #     python3 scripts/alx_auto_correct.py \
+      #       --spec experiments/alx/spec/loom.loom \
+      #       --failures experiments/alx/derived/test-output.txt \
+      #       --output experiments/alx/corrections/proposed.patch
+
+      # ── Copilot Coding Agent alternative ────────────────────────────────────
+      # Simpler: label a gap issue with 'copilot' in GitHub UI.
+      # Copilot agent will read the issue, read loom.loom, and open a PR.
+      # No API key needed — uses your Copilot plan.
+
+      - name: Report S_realized to issue
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          S=${{ steps.s_check.outputs.s }}
+          PASSING=${{ steps.s_check.outputs.passing }}
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "## ALX convergence check
+
+**S_realized = $PASSING / 410 = $S**
+
+$( [ $(echo "$S >= 0.90" | bc -l) -eq 1 ] && echo '✅ Gate passed — ready for arXiv submission' || echo '⚠️ Gate pending — apply correction and re-run' )
+
+Run \`experiments/alx/runner/run.ps1\` locally or push to this branch to re-measure."
+
+          # Auto-close if gate passed
+          if (( $(echo "$S >= 0.90" | bc -l) )); then
+            gh issue close ${{ github.event.issue.number }} \
+              --comment "Closing — S_realized ≥ 0.90 achieved after this correction."
+          fi
