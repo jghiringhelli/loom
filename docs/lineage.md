@@ -7,6 +7,26 @@
 
 ---
 
+## The Shape of the Pyramid
+
+Knowledge has a geometry.
+
+At the **base**, every domain speaks its own language: biology in one vocabulary, logic in another, physics in another, linguistics in another, computer science in another. Maximum width. Maximum mutual incomprehension. Each domain builds its own tower and calls it complete.
+
+As you **climb**, the vocabularies start touching. Shannon (1948) realized information is the same structure whether it lives in DNA, a telegraph wire, or a neuron. Eilenberg and Mac Lane (1945) realized that all mathematical structures are instances of the same few arrows and objects — and gave category theory its name. Curry (1934) and Howard (1969) discovered that programs and logical proofs are the same thing, separated only by notation. Each convergence narrows the pyramid. The towers on adjacent faces are the same tower, seen from different angles.
+
+Near the **apex**, there are very few words — but each word carries the full weight of every domain face below it. That is why the language at this altitude becomes poetic: poetry is maximum meaning per minimum word. Einstein's *E = mc²* is a poem. Shannon's *H = −Σ p log p* is a poem. Heraclitus wrote the first unified theory of change in nine words: *"The way up and the way down are the same."* At sufficient altitude, precision and beauty are the same property.
+
+The **apex** is unnamed but recognizable when you approach it: a single principle from which every domain's deepest results can be derived. For computation, that principle is: *declarative intent, executed by a capable agent, over observable outcomes, with a correction mechanism, produces correct results at the completeness of the specification*. For biology: *any sufficiently complex self-maintaining system converges on the same stable solutions*. For physics: *the most probable macrostate is the one with the most microstates*. For language: *meaning is use*. These look like different principles because they were stated at different altitudes on different faces. From the apex they are the same principle.
+
+**Loom constructs climb this pyramid.** At the base: `Int`, `String`, `Float` — the ground level of every language. Midway up: `Effect<[IO, DB], Result<User, Error>>` — the PL-theory face showing effects, types, and failure modes simultaneously. Higher: `fn charge @exactly-once :: Float<usd> -> BankToken -> Effect<[Payment], Payment<Pending>>` — nine tokens activating Girard's linear logic, Kennedy's unit arithmetic, Honda's session types, and distributed systems correctness simultaneously. Higher still: `telos: "full expression of organismal potential within environmental constraints"` — one sentence activating Aristotle, Teilhard de Chardin, control theory, and gradient optimization as a single unified concept.
+
+The syntax does not become simpler as we climb. It becomes *denser*: each token carries more domain-weight. `telos:` is one word that sits on the biology face, the philosophy face, the mathematics face, and the control theory face simultaneously. The language is not converging to fewer concepts. It is converging to fewer words that mean more.
+
+**This is not a design choice.** It is a consequence of building a language that takes ideas seriously. A language that implements everything formally correct eventually looks like mathematics — which already looks like poetry.
+
+---
+
 ## The Core Question
 
 For ten thousand years, across every civilization that developed writing, people have asked the same question: **can meaning be expressed precisely enough that correct behavior can be mechanically derived from it?**

@@ -27,6 +27,8 @@ Two developments change this calculus. First, AI assistants with direct code exe
 
 Loom is designed for this environment. Its type system is intentionally richer than any single-target language needs, because its outputs are not evaluated individually but as a coherent set of artifacts from a single source of truth.
 
+There is a structural reason the language looks the way it does. Knowledge has a geometry: at the base of any domain pyramid, every field speaks its own language. As you climb, the vocabularies converge. At the apex, very few words carry the weight of every face below them — and the language at that altitude naturally becomes dense, precise, and close to mathematical poetry. Loom constructs live at progressively higher altitudes: `Int` at the base, `Effect<[IO], Result<T, E>>` in the middle, `flow secret :: Password` activating Denning's full lattice in three tokens, `telos:` activating Aristotle, Teilhard, and gradient optimization simultaneously in one word. The syntax does not become simpler as it becomes more expressive. It becomes *denser*. This is not a design choice — it is what a language looks like when it takes ideas seriously enough to follow them to where they converge.
+
 ---
 
 ## 2. Background and Related Work
