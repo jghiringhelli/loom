@@ -52,8 +52,14 @@ pub struct Module {
     pub describe: Option<String>,
     /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@author`).
     pub annotations: Vec<Annotation>,
+    /// Compile-time module imports (`import ModuleName`).
+    pub imports: Vec<String>,
     /// Optional spec name this module implements (`spec PricingSpec`).
     pub spec: Option<String>,
+    /// Named interface declarations (`interface Foo fn ... end`).
+    pub interface_defs: Vec<InterfaceDef>,
+    /// Interfaces this module explicitly implements (`implements Foo`).
+    pub implements: Vec<String>,
     /// Capabilities the module exposes to callers.
     pub provides: Option<Provides>,
     /// Capabilities the module requires from its environment (DI surface).
@@ -64,6 +70,17 @@ pub struct Module {
     pub test_defs: Vec<TestDef>,
     /// Top-level definitions in declaration order.
     pub items: Vec<Item>,
+    pub span: Span,
+}
+
+/// A named interface definition — a typed capability contract.
+///
+/// Emitted as a Rust `pub trait`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceDef {
+    pub name: String,
+    /// Method signatures (name + type sig, no bodies).
+    pub methods: Vec<(String, FnTypeSignature)>,
     pub span: Span,
 }
 

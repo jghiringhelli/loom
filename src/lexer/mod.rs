@@ -55,6 +55,8 @@ pub enum Token {
     #[token("in")]       In,
     #[token("invariant")] Invariant,
     #[token("test")]     Test,
+    #[token("interface")] Interface,
+    #[token("implements")] Implements,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

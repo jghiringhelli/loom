@@ -160,6 +160,14 @@ impl<'src> Parser<'src> {
         let describe = self.parse_describe();
         let annotations = self.parse_annotations();
 
+        // `import ModuleName` lines (zero or more, before the rest)
+        let mut imports = Vec::new();
+        while self.at(&Token::Import) {
+            self.advance();
+            let (imp_name, _) = self.expect_ident()?;
+            imports.push(imp_name);
+        }
+
         // Optional `spec NAME`
         let spec = if self.at(&Token::Spec) {
             self.advance();
@@ -168,6 +176,14 @@ impl<'src> Parser<'src> {
         } else {
             None
         };
+
+        // `implements InterfaceName` declarations
+        let mut implements = Vec::new();
+        while self.at(&Token::Implements) {
+            self.advance();
+            let (iface, _) = self.expect_ident()?;
+            implements.push(iface);
+        }
 
         // Optional `provides { … }`
         let provides = if self.at(&Token::Provides) {
@@ -185,15 +201,28 @@ impl<'src> Parser<'src> {
             None
         };
 
-        // Item list until `end` — `invariant` entries are parsed separately.
+        // Item list until `end` — `invariant`, `test`, `interface` entries parsed separately.
         let mut items = Vec::new();
         let mut invariants = Vec::new();
         let mut test_defs = Vec::new();
+        let mut interface_defs = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
                 invariants.push(self.parse_invariant()?);
             } else if self.at(&Token::Test) {
                 test_defs.push(self.parse_test_def()?);
+            } else if self.at(&Token::Interface) {
+                interface_defs.push(self.parse_interface_def()?);
+            } else if self.at(&Token::Implements) {
+                // `implements Name` can also appear inline in the module body
+                self.advance();
+                let (iface, _) = self.expect_ident()?;
+                implements.push(iface);
+            } else if self.at(&Token::Import) {
+                // `import Name` can also appear inline in the module body
+                self.advance();
+                let (imp, _) = self.expect_ident()?;
+                imports.push(imp);
             } else {
                 items.push(self.parse_item()?);
             }
@@ -205,7 +234,10 @@ impl<'src> Parser<'src> {
             name,
             describe,
             annotations,
+            imports,
             spec,
+            interface_defs,
+            implements,
             provides,
             requires,
             invariants,
@@ -241,6 +273,32 @@ impl<'src> Parser<'src> {
         Ok(TestDef {
             name,
             body,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `interface NAME fn method :: sig ... end`.
+    fn parse_interface_def(&mut self) -> Result<InterfaceDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Interface)?;
+        let (name, _) = self.expect_ident()?;
+        let mut methods = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Fn) {
+                self.advance();
+                let (method_name, _) = self.expect_ident()?;
+                self.expect(Token::ColonColon)?;
+                let sig = self.parse_fn_type_signature()?;
+                methods.push((method_name, sig));
+            } else {
+                break;
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(InterfaceDef {
+            name,
+            methods,
             span: Span::merge(&start, &end_span),
         })
     }

@@ -59,8 +59,32 @@ impl RustEmitter {
         out.push_str(&format!("pub mod {} {{\n", mod_name));
         out.push_str("    use super::*;\n");
 
+        // Emit `use super::snake_module::*;` for each import.
+        for imp in &module.imports {
+            out.push_str(&format!("    use super::{}::*;\n", to_snake_case(imp)));
+        }
+
         // Render the module body first to detect which stdlib imports are needed.
         let mut body = String::new();
+
+        // Emit interface trait definitions.
+        for iface in &module.interface_defs {
+            body.push('\n');
+            body.push_str(&self.emit_interface_trait(iface));
+        }
+
+        // Emit impl blocks for `implements`.
+        for iface_name in &module.implements {
+            // Find the interface def in this module (or a stub if not found)
+            if let Some(iface) = module.interface_defs.iter().find(|i| &i.name == iface_name) {
+                body.push('\n');
+                body.push_str(&self.emit_implements_block(&module.name, iface_name, iface, &module.items));
+            } else {
+                // Interface defined elsewhere; emit stub impl
+                body.push('\n');
+                body.push_str(&format!("// impl {} for {}Impl {{ /* external interface */ }}\n", iface_name, module.name));
+            }
+        }
 
         // The provides trait lives inside the module so type references resolve.
         if let Some(provides) = &module.provides {
@@ -146,6 +170,79 @@ impl RustEmitter {
     }
 
     // ── DI context struct ─────────────────────────────────────────────────
+
+    /// Emit a named interface as a Rust `pub trait`.
+    fn emit_interface_trait(&self, iface: &InterfaceDef) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("/// Auto-generated trait for the `{}` interface.\n", iface.name));
+        out.push_str(&format!("pub trait {} {{\n", iface.name));
+        for (method_name, sig) in &iface.methods {
+            let params: Vec<String> = sig.params
+                .iter()
+                .enumerate()
+                .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
+                .collect();
+            let ret = self.emit_type_expr(&sig.return_type);
+            out.push_str(&format!("    fn {}({}) -> {};\n", method_name, params.join(", "), ret));
+        }
+        out.push_str("}\n");
+        out
+    }
+
+    /// Emit an `impl InterfaceName for ModuleImpl { fn method(...) { ... } }` block.
+    fn emit_implements_block(
+        &self,
+        module_name: &str,
+        iface_name: &str,
+        iface: &InterfaceDef,
+        items: &[Item],
+    ) -> String {
+        let mut out = String::new();
+        let impl_struct = format!("{}Impl", module_name);
+        // Emit a newtype struct for the impl
+        out.push_str(&format!("pub struct {};\n", impl_struct));
+        out.push_str(&format!("impl {} for {} {{\n", iface_name, impl_struct));
+        for (method_name, sig) in &iface.methods {
+            let ret = self.emit_type_expr(&sig.return_type);
+            // Find matching FnDef — reuse its parameter names and body.
+            if let Some(Item::Fn(fd)) = items.iter().find(|i| matches!(i, Item::Fn(fd) if fd.name == *method_name)) {
+                let params: Vec<String> = fd.type_sig.params
+                    .iter()
+                    .zip(self.fn_param_names(fd).into_iter())
+                    .map(|(ty, name)| format!("{}: {}", name, self.emit_type_expr(ty)))
+                    .collect();
+                let body_exprs: Vec<String> = fd.body.iter().map(|e| self.emit_expr(e)).collect();
+                let body = if body_exprs.is_empty() {
+                    "        todo!()".to_string()
+                } else {
+                    body_exprs.iter().enumerate()
+                        .map(|(i, e)| if i + 1 == body_exprs.len() {
+                            format!("        {}", e)
+                        } else {
+                            format!("        {};", e)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+                out.push_str(&format!("    fn {}({}) -> {} {{\n{}\n    }}\n",
+                    method_name, params.join(", "), ret, body));
+            } else {
+                let params: Vec<String> = sig.params
+                    .iter()
+                    .enumerate()
+                    .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
+                    .collect();
+                out.push_str(&format!("    fn {}({}) -> {} {{\n        todo!(\"not implemented\")\n    }}\n",
+                    method_name, params.join(", "), ret));
+            }
+        }
+        out.push_str("}\n");
+        out
+    }
+
+    fn fn_param_names(&self, fd: &FnDef) -> Vec<String> {
+        collect_body_param_names(fd, fd.type_sig.params.len())
+    }
 
     /// Emit `#[cfg(test)] mod tests { #[test] fn name() { body } }`.
     fn emit_test_mod(&self, test_defs: &[TestDef]) -> String {
@@ -834,7 +931,10 @@ mod tests {
             name: "M".to_string(),
             describe: None,
             annotations: vec![],
+            imports: vec![],
             spec: None,
+            interface_defs: vec![],
+            implements: vec![],
             provides: None,
             requires: None,
             invariants: vec![],
@@ -861,7 +961,10 @@ mod tests {
             name: "M".to_string(),
             describe: None,
             annotations: vec![],
+            imports: vec![],
             spec: None,
+            interface_defs: vec![],
+            implements: vec![],
             provides: None,
             requires: None,
             invariants: vec![],
@@ -888,7 +991,10 @@ mod tests {
             name: "M".to_string(),
             describe: None,
             annotations: vec![],
+            imports: vec![],
             spec: None,
+            interface_defs: vec![],
+            implements: vec![],
             provides: None,
             requires: None,
             invariants: vec![],
@@ -923,3 +1029,4 @@ mod tests {
         assert!(out.contains("debug_assert!"));
     }
 }
+

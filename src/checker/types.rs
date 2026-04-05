@@ -107,6 +107,38 @@ impl TypeChecker {
             }
         }
 
+        // Validate `implements` conformance: every method in the declared interface
+        // must have a matching fn in the module.
+        for iface_name in &module.implements {
+            if let Some(iface) = module.interface_defs.iter().find(|i| &i.name == iface_name) {
+                for (method_name, expected_sig) in &iface.methods {
+                    if let Some(actual_sig) = table.functions.get(method_name) {
+                        // Validate that signatures match
+                        if actual_sig.params != expected_sig.params
+                            || actual_sig.return_type != expected_sig.return_type
+                        {
+                            errors.push(LoomError::type_err(
+                                format!(
+                                    "method '{}' in module '{}' has signature mismatch for interface '{}'",
+                                    method_name, module.name, iface_name
+                                ),
+                                iface.span.clone(),
+                            ));
+                        }
+                    } else {
+                        errors.push(LoomError::type_err(
+                            format!(
+                                "module '{}' declares `implements {}` but is missing method '{}'",
+                                module.name, iface_name, method_name
+                            ),
+                            iface.span.clone(),
+                        ));
+                    }
+                }
+            }
+            // If interface is defined elsewhere (imported), skip validation for now
+        }
+
         if errors.is_empty() {
             Ok(())
         } else {
