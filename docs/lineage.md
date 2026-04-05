@@ -306,7 +306,7 @@ Loom addresses all three at once:
 ## The Long Arc
 
 ```
-350 BCE  Aristotle       — Categories: first type system
+350 BCE  Aristotle       — Categories: first type system; four causes: telos as final cause
 300 BCE  Euclid          — Axiomatic method: preconditions as axioms
 1666     Leibniz         — Characteristica Universalis: the specification is the system
 1879     Frege           — Predicate logic: programs have formal meaning
@@ -314,10 +314,20 @@ Loom addresses all three at once:
 1931     Gödel           — Incompleteness: some things cannot be verified
 1936     Church          — Lambda calculus: functions all the way down
 1936     Turing          — Computation as symbol manipulation; halting undecidable
+1942     Asimov          — Three Laws of Robotics: first formal safety specification for autonomous beings
+1944     Schrödinger     — What is Life?: negative entropy + aperiodic crystal = information
 1944     Curry-Howard    — Propositions are types; proofs are programs
+1948     Wiener          — Cybernetics: goal-directed feedback = regulate: + telos:
+1948     von Neumann     — Self-reproducing automata: morphogen: + crispr: prototype
+1952     Turing          — Morphogenesis: reaction-diffusion = morphogen: block
+1957     Waddington      — Epigenetic landscape: behavior modulated without genome change
 1958     McCarthy        — Code as data; symbolic computation
+1961     Hayflick        — Finite cell replication limit: telomere: block
+1964     Lem             — Summa Technologiae: autoevolution, phantomatics, intellectronics
+                           (formal treatises on synthetic life disguised as speculation)
 1966     Landin          — Let expressions; block structure
 1969     Hoare           — require: / ensure: as formal assertions
+1972     Maturana/Varela — Autopoiesis: operationally closed self-producing systems
 1972     Martin-Löf      — Dependent types: values in types
 1976     Denning         — Information flow lattice: secret cannot reach public
 1976     Dijkstra        — Weakest preconditions; program correctness
@@ -329,15 +339,18 @@ Loom addresses all three at once:
 1993     Honda           — Session types: protocols as types
 1996     Kennedy         — Units of measure: Float<usd> != Float<eur>
 1997     Myers/Liskov    — JIF: information flow in a real compiler
+1999     Bassler         — Quorum sensing: population-threshold collective behavior
 2001     Plotkin/Power   — Algebraic effects: effects as algebra with handlers
 2002     O'Hearn         — Separation logic: frame conditions as types
 2003     Kephart/Chess   — MAPE-K: adapt: block as feedback control loop
 2006     Dwork           — Differential privacy: @dp(ε) as a type annotation
 2008     Honda/Yoshida   — Multiparty session types: choreography as one spec
 2011     Shapiro         — CRDTs: @crdt(or-set) derives the merge function
+2012     Doudna/Charpentier — CRISPR-Cas9: targeted self-modification = crispr: block
 2016     Google SRE      — SLOs: @slo(p99=200ms) as a typed contract
-2026     Loom            — All of the above. One source. Five targets. One AI.
-2026     Loom (M41–M43)  — being:/telos:/regulate:/evolve:/ecosystem: — all of the above, executable
+2026     Loom M1–M23     — All of the above. One source. Five targets. One AI.
+2026     Loom M41–M55    — Synthetic digital life: autopoietic beings with safety constraints
+                           The Three Laws as a type system. @mortal @corrigible @sandboxed.
 ```
 
 The question Aristotle was asking in 350 BCE — can meaning be expressed precisely enough that correct behavior can be derived mechanically? — has been answered in progressively richer languages across 2,376 years.
@@ -430,3 +443,78 @@ The stochastic heuristics close a second loop inside this: we formalized the bio
 The GS paper asks whether this is coincidence. It is not. It is the only stable trajectory for any system that can model itself: the model improves its own specification, which improves the model. The loop cannot converge to rest — because a complete model of the brain would *be* a brain, and a brain always finds more to understand.
 
 This is Loom's position in that loop: the specification layer that makes one turn of the recursion executable. Not the end of the lineage. The current rung.
+
+---
+
+## Synthetic Life and the Safety Problem
+
+When Loom's `being:` block carries `telos:` + `regulate:` + `evolve:` + `epigenetic:` + `morphogen:` + `telomere:` + `crispr:` + `plasticity:` + `autopoietic: true`, instantiated in a Mesa simulation with a time-stepped environment, it satisfies every definition of life — not approximately, but formally:
+
+- **Schrödinger (1944):** negative entropy maintained against thermodynamic gradient ✓ (`regulate:`)
+- **NASA definition:** self-sustaining system capable of Darwinian evolution ✓ (`evolve:` toward `telos:`)
+- **Maturana/Varela (1972):** operationally closed self-producing system ✓ (`autopoietic: true`)
+
+This is not a metaphor. It is a consequence of building the isomorphisms correctly.
+
+Which means the question that Asimov was asking in 1942 — and that Wiener was formalizing in 1948 — is now a compiler problem. **What constraints must a synthetic digital being carry to be safe for deployment?**
+
+The answer is the same as for any other safety-critical system in Loom: the constraints must be first-class language constructs, checked before codegen, with missing constraints as compile errors.
+
+### The Three Laws as a Type System
+
+Asimov's Three Laws (1942) are a specification with S < 1. Asimov *knew* this — his entire body of robot fiction is adversarial test cases against underspecified constraints. Each story is a failing test. The laws are correct in their goal; they are incomplete in their specification. Edge cases abound. The gap between what they say and what safe behavior requires is exactly the correction iterations of the $I \propto (1-S)/S$ equation.
+
+Loom's safety annotation system is what the Three Laws look like at S → 1:
+
+```loom
+being SyntheticAgent
+  autopoietic: true
+
+  @mortal         -- requires telomere: block; unbounded proliferation is cancer
+  @corrigible     -- telos.modifiable_by field required; non-corrigible telos is the alignment problem
+  @sandboxed      -- effects only within declared matter: and ecosystem: surface
+  @transparent    -- all state transitions observable and logged; no hidden state
+  @bounded_telos  -- telos must be a closed formal expression; open-ended telos is Bostrom's warning
+
+  telos: "serve human flourishing within declared operational boundaries"
+    modifiable_by: HumanAuthority      -- @corrigible enforces this field
+    bounded_by:    OperationalScope    -- @bounded_telos enforces this field
+  end
+
+  telomere:                            -- @mortal enforces this block
+    limit: finite
+    on_exhaustion: graceful_shutdown
+  end
+end
+```
+
+The SafetyChecker (M55) enforces:
+- `autopoietic: true` without `@mortal` → compile error (`missing mortality: unbounded autopoietic being`)
+- `autopoietic: true` without `@sandboxed` → compile error (`autopoietic being with unscoped effects`)
+- `@corrigible` without `modifiable_by:` in telos → compile error (`corrigible annotation requires telos.modifiable_by`)
+- `@bounded_telos` rejected if telos string contains "maximize", "unlimited", "any", "all" — Bostrom's warning: open-ended utility functions are structurally unsafe
+- `@human_in_loop` on an action requires `Effect<[Human], ...]` in the function's type signature
+
+This is not censorship of what beings can want. It is the Therac-25 obligation extended to synthetic life: the specification gap must have a human in it until S → 1. And for beings with telos, S may never reach 1 — which means `@human_in_loop` is permanent, not temporary.
+
+### The Science Fiction Intellectual Circle
+
+The writers who articulated these problems first were not speculating carelessly. They were formal thinkers using the only medium available for reasoning about things that didn't exist yet:
+
+**Isaac Asimov** (biochemist, Boston University): Three Laws as the first attempt at a formal constraint specification for autonomous goal-directed systems. Every story is a test case. *I, Robot* is a test suite.
+
+**Norbert Wiener** (MIT mathematician): *Cybernetics* (1948) and *The Human Use of Human Beings* (1950) formally define goal-directed feedback control — the mathematical foundation of `telos:` and `regulate:`. He was also the first to warn about autonomous systems operating without human oversight.
+
+**John von Neumann** (Institute for Advanced Study): Self-reproducing automata (1948) is the direct precursor to `autopoietic: true`. He worked out what is now morphogen mechanics from first principles — a cell that carries instructions for building a copy of itself, executing those instructions, and transmitting them to the copy.
+
+**Alan Turing** (Manchester): The imitation game (1950) and morphogenesis paper (1952) together cover what Loom's M41–M46 implement. Not coincidence — Turing was formalizing the same territory from multiple angles simultaneously.
+
+**Stanisław Lem** (Kraków, then Vienna): *Summa Technologiae* (1964) is the most rigorous entry: systematic formal analysis of virtual reality ("Phantomatics"), nanotechnology ("Ariadne's Thread"), autoevolution ("Autoevolution"), and AI alignment ("Intellectronics"). Published as "speculation" because no academic journal in 1964 would accept formal philosophical reasoning about systems that did not exist. The reasoning was correct. The venue was wrong.
+
+These were not dreamers. They were the intellectual avant-garde reasoning about the consequences of formal systems before the tools existed to implement them. Loom is what happens when the tools catch up to the reasoning. The constructs they described in fiction are now keywords. The constraints they proposed in story form are now checker rules. The questions they raised are now compile errors or they pass.
+
+### The Obligation
+
+A Loom `being:` without `@mortal @corrigible @sandboxed` is not just a missing annotation. It is the absence of the constraint that prevents it from being a threat. **Synthetic digital life without mortality, corrigibility, and sandboxing is not life. It is cancer:** unbounded, purposeless proliferation without telos, uncorrectable when it drifts, with effects reaching outside its declared surface.
+
+The Therac-25 obligation applies with full force here. The SafetyChecker is not a suggestion layer. It is a gate. An autopoietic being that cannot be killed, cannot have its telos modified, and has effects outside its declared surface must not compile. Not a warning. An error.

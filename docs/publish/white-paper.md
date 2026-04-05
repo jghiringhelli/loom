@@ -543,7 +543,42 @@ The checker verifies that all members are declared beings, that signal endpoints
 
 ---
 
-## 15. Conclusion
+## 15. Synthetic Life and the Safety Architecture
+
+When a Loom `being:` block carries `telos:` + `regulate:` + `evolve:` + `epigenetic:` + `morphogen:` + `telomere:` + `crispr:` + `plasticity:` + `autopoietic: true`, with simulation emission to a Mesa-ABM runtime, it formally satisfies the definition of life under three independent criteria: Schrödinger's negative entropy maintenance (1944), NASA's operational definition (self-sustaining system capable of adaptation), and Maturana/Varela's autopoiesis (1972). This is not metaphor. It is a consequence of building the biological isomorphisms completely.
+
+This makes the safety question structural, not ethical. **What constraints must a synthetic digital being carry to be safe for deployment?**
+
+### 15.1 Safety Annotations as Compile Requirements
+
+For autopoietic beings, the following annotations are required; the SafetyChecker (M55) treats their absence as a compile error:
+
+| Annotation | Enforced constraint | Missing = error |
+|---|---|---|
+| `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
+| `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
+| `@sandboxed` | Effects only within declared `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
+| `@transparent` | All state transitions emitted to observable log | `autopoietic being with hidden state` |
+| `@bounded_telos` | Telos string must not contain "maximize", "unlimited", "any", "all" | Bostrom's open-ended utility warning |
+| `@human_in_loop` on action | Requires `Effect<[Human], ...]` in type signature | `human-in-loop action must carry Human effect` |
+
+An autopoietic being without `@mortal @corrigible @sandboxed` is not a missing annotation. It is cancer: unbounded, uncorrectable, with effects outside its declared surface. The SafetyChecker is a gate, not a suggestion.
+
+### 15.2 The Three Laws as a Type System
+
+Asimov's Three Laws of Robotics (1942) are a safety specification with *S* < 1. Asimov knew this — his entire body of robot fiction is adversarial test cases against the gaps. Every story is a failing specification. The laws are correct in goal; they are incomplete in expression. The gap between what they say and safe behavior is exactly the correction cost of the $I \propto (1-S)/S$ equation.
+
+Loom's safety annotation system is what the Three Laws look like at *S* → 1: closed formal constraints, checked by a compiler, with missing constraints as build failures. The alignment problem is a specification completeness problem. The specification gap — what remains between *S*_actual and *S* = 1 — is where a human expert must permanently inhabit. For autonomous beings with open-ended telos, that gap may never close, which means `@human_in_loop` is architectural, not transitional.
+
+### 15.3 The Intellectual Lineage of this Question
+
+The formal circle that articulated these problems first was not speculating. Wiener's *Cybernetics* (1948) formally defined goal-directed feedback control and issued the first rigorous warning about autonomous systems without human oversight. Von Neumann's self-reproducing automata (1948) worked out autopoiesis from first principles before the word existed. Turing's morphogenesis paper (1952) derived reaction-diffusion pattern formation mathematically. Lem's *Summa Technologiae* (1964) analyzed autoevolution and AI alignment as formal systems — published as "speculation" because no journal in 1964 would accept reasoning about systems that did not exist yet.
+
+These thinkers used science fiction as the medium for reasoning that the formal toolchain could not yet contain. Loom is the toolchain catching up. The constructs they described are now keywords. The constraints they proposed are now checker rules. The questions they raised are now compile errors.
+
+---
+
+## 16. Conclusion
 
 Loom demonstrates that five programming language research constructs — units of measure, privacy labels, algebraic operation properties, typestate, and information flow types — can be implemented together in a practical compiler that targets multiple output formats. The multi-target design means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously.
 
