@@ -326,3 +326,27 @@ The final piece was not a theorem. It was the stateless reader: a machine that k
 The specification is the mold. The artifacts are the castings. The AI is the process.
 
 This is what Loom is.
+
+---
+
+## The Collapsed Loop
+
+The lineage above runs in one direction: a theory is proved, it waits, it eventually becomes a Loom construct. But the loop is now closed in both directions.
+
+New proven theories become new Loom constructs. Loom, in turn, proves some of those theories by induction or approximation — running them against real programs, finding where the boundaries are, discovering which invariants hold universally and which require refinement. The language becomes a continuous experimental apparatus: the formal tradition feeds Loom, and Loom feeds back. Not as a computer science curiosity. As the normal cycle of a living language under the ALX model: specification → implementation → adversarial test → gap found → new construct → specification updated → repeat.
+
+The theories that were too expensive to apply are now the baseline. The baseline improves as the theories do.
+
+---
+
+## What This Means for Every Practitioner
+
+The formal tradition was never meant only for safety-critical systems. Hoare did not write his triples for avionics alone. Denning did not build her information flow lattice for defense contractors. Kennedy did not add units of measure to F# for aerospace. They built for all software. The annotation burden made formal correctness practically available only where the cost could be justified by catastrophic risk.
+
+That agreement is over.
+
+The engineer building a game for their daughter — picking fleas from dogs and cats, thirty lines of logic, never shipping to production — gets Hoare contracts, type-checked state transitions, and effect tracking. Not because she read the papers. Because she stated what the game should do. The AI holds the theory. The spec names the territory. The formal apparatus applies.
+
+There is no minimum project size for correctness. There is no required depth of academic background. There is no annotation burden to recover. The practitioner names the domain. Loom derives the rest.
+
+This is the gift: **perfect engineering is no longer an inconvenience reserved for important projects. It is the default.**
