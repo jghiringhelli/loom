@@ -349,8 +349,14 @@ Loom addresses all three at once:
 2012     Doudna/Charpentier — CRISPR-Cas9: targeted self-modification = crispr: block
 2016     Google SRE      — SLOs: @slo(p99=200ms) as a typed contract
 2026     Loom M1–M23     — All of the above. One source. Five targets. One AI.
-2026     Loom M41–M55    — Synthetic digital life: autopoietic beings with safety constraints
-                           The Three Laws as a type system. @mortal @corrigible @sandboxed.
+2026     Loom M41–M43    — being/telos/regulate/evolve/ecosystem (Aristotle's four causes, executable)
+2026     Loom M45–M50    — epigenetic/morphogen/telomere/crispr/quorum/plasticity
+                           (Waddington, Turing, Hayflick, Doudna, Bassler, Hebb as keywords)
+2026     Loom M51–M52    — autopoietic: true (Maturana/Varela operational closure);
+                           Mesa ABM simulation emitter: compile_simulation()
+2026     Loom M53        — NeuroML 2 emitter: compile_neuroml() (neural structure → XML)
+2026     Loom M55        — SafetyChecker: @mortal @corrigible @sandboxed @bounded_telos
+                           The Three Laws as a type system. Missing annotation = compile error.
 ```
 
 The question Aristotle was asking in 350 BCE — can meaning be expressed precisely enough that correct behavior can be derived mechanically? — has been answered in progressively richer languages across 2,376 years.
@@ -369,7 +375,7 @@ The lineage above runs in one direction: a theory is proved, it waits, it eventu
 
 New proven theories become new Loom constructs. Loom, in turn, proves some of those theories by induction or approximation — running them against real programs, finding where the boundaries are, discovering which invariants hold universally and which require refinement. The language becomes a continuous experimental apparatus: the formal tradition feeds Loom, and Loom feeds back. Not as a computer science curiosity. As the normal cycle of a living language under the ALX model: specification → implementation → adversarial test → gap found → new construct → specification updated → repeat.
 
-M41–M43 close the loop in a new way. The biological mechanisms that Loom's constructs were previously *compared to* — homeostasis, directed evolution, telos-seeking — are now first-class language constructs: `regulate:`, `evolve:`, `telos:`. The language no longer speaks *about* biology in commentary and white papers. It speaks *in* the language it was compared to. The isomorphism has been made executable. What was illustration is now syntax. What was analogy is now a checker rule: a `being:` without `telos:` is a compile error, because a system without a final cause is formally incomplete — and Aristotle said so 2,376 years before the Loom compiler agreed.
+M41–M55 close the loop in a new way. The biological mechanisms that Loom's constructs were previously *compared to* — homeostasis, directed evolution, telos-seeking — are now first-class language constructs: `regulate:`, `evolve:`, `telos:`. M45–M50 go further: `epigenetic:` (Waddington's behavioral modulation without genome change), `morphogen:` (Turing's reaction-diffusion differentiation), `telomere:` (Hayflick's finite replication limit), `crispr:` (Doudna's targeted self-modification), `quorum:` (Bassler's population-threshold coordination), `plasticity:` (Hebb's synaptic weight adjustment) are all keywords. M51 adds `autopoietic: true` (Maturana and Varela's operational closure); M52 adds `compile_simulation()` emitting Mesa ABM Python; M53 adds `compile_neuroml()` emitting NeuroML 2 XML. The language no longer speaks *about* biology in commentary and white papers. It speaks *in* the language it was compared to. The isomorphism has been made executable. What was illustration is now syntax. What was analogy is now a checker rule: a `being:` without `telos:` is a compile error, because a system without a final cause is formally incomplete — and Aristotle said so 2,376 years before the Loom compiler agreed. M55 closes the safety obligation: the SafetyChecker enforces `@mortal @corrigible @sandboxed` on every autopoietic being as compile requirements, making the Three Laws of Robotics a type system rather than an aspiration.
 
 The theories that were too expensive to apply are now the baseline. The baseline improves as the theories do.
 

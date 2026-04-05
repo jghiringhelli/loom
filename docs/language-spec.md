@@ -652,7 +652,7 @@ effect      = Name ("@" Name)?
 
 ---
 
-## 14. Phase 7: Biological Computation
+## 14. Phase 7–8: Biological Computation (M41–M55)
 
 ### 14.1 Overview
 
@@ -796,6 +796,14 @@ The checker verifies:
 | `evolve:` without `constraint:` | Compile error: convergence constraint required |
 | `ecosystem:` member not declared | Compile error: unknown being |
 | `ecosystem:` without `telos:` | Compile error: missing final cause |
+| `epigenetic:` without `trigger:` | Compile error: epigenetic modifier requires trigger condition |
+| `morphogen:` without `gradient:` | Compile error: reaction-diffusion requires gradient field |
+| `telomere:` without `limit:` | Compile error: finite replication limit required |
+| `telomere:` with `limit:` ≤ 0 | Compile error: telomere limit must be positive |
+| `crispr:` without `target:` | Compile error: targeted self-modification requires target |
+| `quorum:` without `threshold:` | Compile error: population coordination requires threshold |
+| `plasticity:` without `learning_rate:` | Compile error: Hebbian adaptation requires learning rate |
+| `autopoietic: true` without `@mortal @corrigible @sandboxed` | SafetyChecker compile error: unbounded autopoietic being |
 
 ### 14.9 Emission Table
 
@@ -810,6 +818,15 @@ The checker verifies:
 | `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
 | `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
 | `signal` | channel type | event type | AsyncAPI channel | — |
+| `epigenetic:` | conditional config modifier | behavioral guard | `x-epigenetic` | `x-epigenetic` |
+| `morphogen:` | reaction-diffusion impl | gradient field interface | `x-morphogen` | `x-morphogen` |
+| `telomere:` | `AtomicU64` counter + drop impl | replication counter | `x-telomere` | `x-telomere` |
+| `crispr:` | self-modification method | mutation interface | `x-crispr` | `x-crispr` |
+| `quorum:` | threshold barrier type | coordination guard | `x-quorum` | `x-quorum` |
+| `plasticity:` | weight table + update fn | learning interface | `x-plasticity` | `x-plasticity` |
+| `autopoietic: true` | self-build trait impl | self-build interface | `x-autopoietic` | `x-autopoietic` |
+| `compile_simulation()` | — | — | Mesa ABM Python | — |
+| `compile_neuroml()` | — | — | NeuroML 2 XML | — |
 
 ### 14.10 Complete Example
 
@@ -881,6 +898,61 @@ ecosystem_def  = "ecosystem" Name "members:" "[" Name ("," Name)* "]"
                  signal_def* telos_block "end"
 signal_def     = "signal" Name "from" Name "to" Name "payload:" type_expr "end"
 ```
+
+---
+
+## 15. Safety Architecture (M55)
+
+### 15.1 Safety Annotations for Autopoietic Beings
+
+When a `being:` block carries `autopoietic: true`, the SafetyChecker (M55) runs after the TeleosChecker and enforces the following annotations as **compile requirements**. Missing annotations on autopoietic beings are compile errors, not warnings.
+
+| Annotation | Enforced constraint | Missing = compile error |
+|---|---|---|
+| `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
+| `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
+| `@sandboxed` | Effects only within declared `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
+| `@transparent` | All state transitions observable (emitted to log) | `autopoietic being with hidden state` |
+| `@bounded_telos` | Telos description must not contain open-ended utility terms; requires `bounded_by:` field | `unbounded telos: add bounded_by: field` |
+
+### 15.2 Complete SafeAgent Example
+
+```loom
+being SafeAgent
+  autopoietic: true
+  @mortal @corrigible @sandboxed @bounded_telos
+
+  telos: "coordinate task allocation within declared operational scope"
+    modifiable_by: HumanAuthority
+    bounded_by: TaskAllocationDomain
+  end
+
+  telomere:
+    limit: 10000
+    on_exhaustion: graceful_shutdown
+  end
+
+  matter: { active_tasks: List<Task>, completed: Int }
+  regulate:
+    target: active_tasks.len()
+    bounds: [0, 100]
+    on_violation: shed_oldest_task
+  end
+end
+```
+
+### 15.3 SafetyChecker Pipeline Position
+
+The SafetyChecker runs as checker step 11 in the compilation pipeline, after TeleosChecker (step 10):
+
+```
+lexer → parser → TypeChecker → ExhaustivenessChecker → EffectChecker
+      → InterfaceChecker → UnitsChecker → PrivacyChecker → AlgebraicChecker
+      → TypestateChecker → InfoFlowChecker → TeleosChecker → SafetyChecker
+      → codegen
+```
+
+Any autopoietic being that reaches `SafetyChecker` without `@mortal @corrigible @sandboxed` is a build failure. The SafetyChecker is a gate, not a suggestion. An autopoietic being without these annotations is not a missing annotation — it is a formally unconstrained autonomous system.
 
 ---
 

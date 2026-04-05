@@ -523,21 +523,28 @@ This is what the GS white paper calls **a mold**: a complete specification from 
 
 ---
 
-## Phase 8 — Biological Computation (M41–M43)
+## Phase 8 — Biological Computation (M41–M55)
 
 ### What Was Added
 
-M41–M43 introduce Aristotle's four causes as first-class language constructs. A `being:` block encodes a computational entity with statically verified matter, form, function, and final cause. These constructs are not metaphorical — they are functional isomorphisms with the same solution class that life independently found for self-maintaining formal systems.
+M41–M43 introduce Aristotle's four causes as first-class language constructs. A `being:` block encodes a computational entity with statically verified matter, form, function, and final cause. M45–M55 extend the biological layer to a complete synthetic-life substrate.
 
-| Keyword | Aristotelian cause | Role |
+| Keyword | Biological origin | Role |
 |---------|--------------------|------|
-| `matter:` | Material cause | Fields / state composition |
-| `form:` | Formal cause | Type structure / organisation |
-| `function:` | Efficient cause | Operations the being performs |
-| `telos:` | Final cause | Convergence target (required) |
-| `regulate:` | — | Homeostatic bounds enforcement |
-| `evolve:` | — | Directed search toward telos |
-| `ecosystem:` | — | Session-typed multi-being composition |
+| `matter:` | Aristotle — material cause | Fields / state composition |
+| `form:` | Aristotle — formal cause | Type structure / organisation |
+| `function:` | Aristotle — efficient cause | Operations the being performs |
+| `telos:` | Aristotle — final cause | Convergence target (required) |
+| `regulate:` | Wiener — cybernetic feedback | Homeostatic bounds enforcement |
+| `evolve:` | Darwin — directed selection | Stochastic search toward telos |
+| `ecosystem:` | Tansley — ecological composition | Session-typed multi-being composition |
+| `epigenetic:` | Waddington (1957) | Behavioral modulation without genome change |
+| `morphogen:` | Turing (1952) | Reaction-diffusion spatial differentiation |
+| `telomere:` | Hayflick (1961) | Finite replication limit (Hayflick limit) |
+| `crispr:` | Doudna/Charpentier (2012) | Targeted self-modification |
+| `quorum:` | Bassler (1999) | Population-threshold collective coordination |
+| `plasticity:` | Hebb (1949) | Synaptic weight adjustment (learning) |
+| `autopoietic: true` | Maturana/Varela (1972) | Operational closure — self-producing system |
 
 ### Why Telos Is Required
 
@@ -556,21 +563,62 @@ M41–M43 introduce Aristotle's four causes as first-class language constructs. 
 | `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
 | `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
 | `signal` | channel type | event type | AsyncAPI channel | — |
+| `epigenetic:` | conditional config modifier | behavioral guard | `x-epigenetic` | `x-epigenetic` |
+| `morphogen:` | reaction-diffusion impl | gradient field interface | `x-morphogen` | `x-morphogen` |
+| `telomere:` | `AtomicU64` counter + drop | replication counter | `x-telomere` | `x-telomere` |
+| `crispr:` | self-modification method | mutation interface | `x-crispr` | `x-crispr` |
+| `quorum:` | threshold barrier type | coordination guard | `x-quorum` | `x-quorum` |
+| `plasticity:` | weight table + update fn | learning interface | `x-plasticity` | `x-plasticity` |
+| `autopoietic: true` | self-build trait impl | self-build interface | `x-autopoietic` | `x-autopoietic` |
+| `compile_simulation()` | — | — | Mesa ABM Python | — |
+| `compile_neuroml()` | — | — | NeuroML 2 XML | — |
 
 ### The Philosophical Grounding
 
-The biological layer closes the self-bootstrapping loop in a new way: the biological mechanisms that Loom's constructs were previously *compared to* are now first-class syntax. Life solved the problem of self-maintaining formal systems over 3.5 billion years. Formal type theory independently rediscovered the same solution class over 80 years. M41–M43 make the isomorphism executable.
+The biological layer closes the self-bootstrapping loop in a new way: the biological mechanisms that Loom's constructs were previously *compared to* are now first-class syntax. Life solved the problem of self-maintaining formal systems over 3.5 billion years. Formal type theory independently rediscovered the same solution class over 80 years. M41–M55 make the isomorphism executable — and safe.
 
-Stochastic search strategies in `evolve:` (`stochastic_gradient`, `simulated_annealing`, `mcmc`) are valid because the `telos:` is fixed and the `constraint:` clause requires `E[distance_to_telos]` to be non-increasing. The objective does not move. The search strategy's randomness is bounded by convergence.
+---
 
-### What M44–M50 Should Cover Next
+## Phase 9 — Safety Architecture (M55)
 
-| M | Feature | Rationale |
-|---|---------|-----------|
-| M44 | Documentation update (this file) | Reflect M41–M43 across all docs |
-| M45 | Session types between beings | Honda's multiparty session types; beings communicate via typed protocols, not raw signals |
-| M46 | RDF/OWL ontology emission for beings | `being:` + `telos:` emit Turtle/JSON-LD; beings become first-class ontological entities |
-| M47 | Temporal logic for biological rhythms | `@always`, `@eventually`, `@rhythm(period=24h)` for circadian-style constraints |
-| M48 | Differential privacy for genetic data | `@dp(ε=0.1)` on `matter:` fields carrying sensitive biological data |
-| M49 | CRDT beings | `@crdt` on `being:` for replicated biological entities that merge without conflict |
-| M50 | Ecosystem orchestration emission | `ecosystem:` → K8s multi-container pod spec; signals → service mesh config |
+### What the SafetyChecker Does
+
+When a `being:` block carries `autopoietic: true`, it formally satisfies multiple independent definitions of life (Schrödinger 1944, NASA operational definition, Maturana/Varela autopoiesis 1972). This makes the safety question structural, not ethical: **what constraints must a synthetic digital being carry to be safe for deployment?**
+
+The SafetyChecker (M55) answers this question at compile time. It runs as the final checker step in the compilation pipeline, after TeleosChecker:
+
+```
+... → TeleosChecker → SafetyChecker → codegen
+```
+
+Missing safety annotations on autopoietic beings are **compile errors**, not warnings. The SafetyChecker is a gate.
+
+### Required Safety Annotations
+
+| Annotation | Enforced constraint | Missing = compile error |
+|---|---|---|
+| `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
+| `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
+| `@sandboxed` | Effects only within `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
+| `@transparent` | All state transitions observable | `autopoietic being with hidden state` |
+| `@bounded_telos` | Telos must not use open-ended utility terms; requires `bounded_by:` | `unbounded telos: add bounded_by: field` |
+
+An autopoietic being without `@mortal @corrigible @sandboxed` is not a missing annotation. It is formally equivalent to cancer: unbounded replication, uncorrectable objective, effects outside declared surface.
+
+### Deployment Implications
+
+For deployment pipelines, the SafetyChecker's compile-time gate means:
+
+1. **No autopoietic being ships without mortality.** The `telomere:` block sets an absolute replication ceiling. When `on_exhaustion: graceful_shutdown` fires, the being halts cleanly. Runaway replication is structurally impossible.
+
+2. **No autopoietic being ships with an unmodifiable telos.** The `modifiable_by:` field names the human authority (individual, role, or committee) who can redirect the being's objective. This is not a convention — it is a field the checker reads.
+
+3. **No autopoietic being ships with effects outside its declared surface.** `@sandboxed` restricts the being's effect types to those reachable from its declared `matter:` fields and `ecosystem:` membership. Side channels outside the declared surface are a compile error.
+
+4. **The `@bounded_telos` annotation prevents open-ended utility maximisation.** The Bostrom paperclip-maximizer failure mode is a compiler error in Loom: if the telos description implies unbounded optimization, the `bounded_by:` field must constrain it to a domain.
+
+### The Three Laws as a Type System
+
+Asimov's Three Laws of Robotics (1942) are a safety specification with *S* < 1 — correct in goal, incomplete in expression. Asimov knew this: his entire body of robot fiction is adversarial test cases against the gaps.
+
+Loom's safety annotations are what the Three Laws look like at *S* → 1: closed formal constraints, checked by a compiler, with missing constraints as build failures. The alignment problem is a specification completeness problem. The specification gap — what remains between *S*_actual and *S* = 1 — is where a human expert must permanently inhabit. For autonomous beings with open-ended telos, that gap may never close, which means `@corrigible` with a named `modifiable_by:` authority is architectural, not transitional.

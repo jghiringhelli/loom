@@ -13,7 +13,7 @@ We present Loom, an AI-native programming language that transpiles to Rust, Type
 
 The language is designed around a constraint we call *derivability*: every architectural decision, behavioral contract, and data sensitivity obligation must be expressible in a form that a stateless reader — specifically, an AI assistant with no persistent memory — can derive correct output from alone. This constraint is formalized in the Generative Specification (GS) methodology. Loom is its first language-level materialisation.
 
-The compiler has 311 passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
+The compiler has 388+ passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
 
 ---
 
@@ -377,7 +377,7 @@ The Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 All checkers are stateless and composable. Adding a new checker requires implementing a single `check(&Module) -> Result<(), Vec<LoomError>>` method.
 
-Total tests: 311, distributed across 27 test suites covering each milestone.
+Total tests: 388+, distributed across 27 test suites covering each milestone.
 
 ---
 
@@ -461,7 +461,7 @@ The expected number of correction iterations is a decreasing function of specifi
 
 ---
 
-## 14. Phase 7: Biological Computation (M41–M43)
+## 14. Phase 7–8: Biological Computation (M41–M55)
 
 ### 14.1 The `being:` Block and the Four-Cause Frame
 
@@ -540,6 +540,15 @@ The checker verifies that all members are declared beings, that signal endpoints
 | `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
 | `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
 | `signal` | channel type | event type | AsyncAPI channel | — |
+| `epigenetic:` | conditional config modifier | behavioral guard | `x-epigenetic` | `x-epigenetic` |
+| `morphogen:` | reaction-diffusion impl | gradient field interface | `x-morphogen` | `x-morphogen` |
+| `telomere:` | `AtomicU64` counter + drop | replication counter | `x-telomere` | `x-telomere` |
+| `crispr:` | self-modification method | mutation interface | `x-crispr` | `x-crispr` |
+| `quorum:` | threshold barrier type | coordination guard | `x-quorum` | `x-quorum` |
+| `plasticity:` | weight table + update fn | learning interface | `x-plasticity` | `x-plasticity` |
+| `autopoietic: true` | self-build trait impl | self-build interface | `x-autopoietic` | `x-autopoietic` |
+| `compile_simulation()` | — | — | Mesa ABM Python | — |
+| `compile_neuroml()` | — | — | NeuroML 2 XML | — |
 
 ---
 
