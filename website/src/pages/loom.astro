@@ -1,0 +1,202 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+
+const targets = [
+  { name: 'Rust', icon: '🦀', desc: 'Memory-safe systems code with zero-cost abstractions.' },
+  { name: 'TypeScript', icon: '📘', desc: 'Typed interfaces, service contracts, client SDKs.' },
+  { name: 'WebAssembly', icon: '⚡', desc: 'Portable binary for browser and edge deployment.' },
+  { name: 'OpenAPI 3.0', icon: '📡', desc: 'Machine-readable HTTP API specification.' },
+  { name: 'JSON Schema', icon: '{}', desc: 'Validation schemas for data interchange.' },
+  { name: 'NeuroML', icon: '🧠', desc: 'Neural network model description (experimental).' },
+  { name: 'Mesa', icon: '🔬', desc: 'Agent-based simulation scaffolding (experimental).' },
+];
+
+const checkers = [
+  'Telos completeness — every entity has a declared goal',
+  'Regulation consistency — regulate: targets must be observable',
+  'Mortality enforcement — @mortal entities cannot self-replicate indefinitely',
+  'Corrigibility — @corrigible requires an external correction mechanism',
+  'Autopoiesis closure — autopoietic systems must declare their own boundary',
+  'Quorum reachability — quorum thresholds must be statically reachable',
+  'Plasticity bounds — synaptic weights must have declared upper/lower bounds',
+  'CRISPR targeting — crispr: modifications require a declared target locus',
+  'Telomere accounting — telomere: decrements must be bounded',
+  'Morphogen stability — morphogen: fields must satisfy reaction-diffusion stability',
+];
+---
+
+<Base title="Loom" description="An AI-native language that transpiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema.">
+  <Nav slot="nav" />
+
+  <div style="max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem;">
+
+    <!-- Header -->
+    <div style="max-width: 48rem; margin-bottom: 3.5rem;">
+      <p style="color: #7c3aed; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.75rem;">Language Overview</p>
+      <h1 style="font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.02em; color: #e2e8f0; margin-bottom: 1.25rem; line-height: 1.15;">
+        Loom
+      </h1>
+      <p style="font-size: 1.0625rem; color: #94a3b8; line-height: 1.8;">
+        Loom is an AI-native functional language that implements Generative Specification. One <code style="color: #c4b5fd; background-color: #1e1e2e; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">.loom</code> file. Seven emit targets. A compiler that understands the biological isomorphisms embedded in the constructs.
+      </p>
+    </div>
+
+    <!-- Code example -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">A Loom Entity</h2>
+      <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.75rem; padding: 1.5rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.7;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">entity CellularAutomaton &#123;
+  telos: "maintain population within viable bounds"
+
+  regulate: &#123;
+    target: population_count
+    setpoint: 1000
+    tolerance: 0.1
+    effector: adjust_birth_rate
+  &#125;
+
+  evolve: &#123;
+    toward: telos
+    rate: 0.01
+    landscape: WaddingtonCanalization
+  &#125;
+
+  @mortal
+  telomere: &#123;
+    limit: 50
+    on_exhaustion: apoptosis
+  &#125;
+
+  quorum: &#123;
+    threshold: 0.6
+    behavior: collective_migration
+  &#125;
+
+  autopoietic: true
+&#125;</code></pre>
+    </div>
+
+    <!-- Emit targets -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.5rem;">One Source. Seven Targets.</h2>
+      <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.5rem;">The Loom compiler derives all of these from a single specification file.</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        {targets.map(t => (
+          <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem; padding: 1.25rem;">
+            <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">{t.icon}</div>
+            <p style="font-weight: 600; color: #e2e8f0; margin: 0 0 0.35rem 0; font-size: 0.9375rem;">{t.name}</p>
+            <p style="font-size: 0.8125rem; color: #94a3b8; margin: 0; line-height: 1.5;">{t.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- The pipeline -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">The Compiler Pipeline</h2>
+      <div style="display: flex; gap: 0; overflow-x: auto; padding-bottom: 0.5rem;">
+        {['Parse', 'Resolve', 'Check (×10)', 'Emit'].map((stage, i, arr) => (
+          <div style="display: flex; align-items: center;">
+            <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem; padding: 0.75rem 1.25rem; white-space: nowrap;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: #c4b5fd;">{stage}</span>
+            </div>
+            {i < arr.length - 1 && (
+              <span style="color: #7c3aed; margin: 0 0.5rem; font-size: 1.25rem;">→</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- The 10 checkers -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">The Ten Checkers</h2>
+      <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.5rem; line-height: 1.7;">
+        Before emitting any artifact, the compiler runs ten semantic checks. Each check corresponds to a biological constraint — a property that living systems enforce at the cellular or organismal level.
+      </p>
+      <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
+        {checkers.map((c, i) => (
+          <li style="display: flex; gap: 1rem; align-items: flex-start; padding: 0.875rem 1.25rem; background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #7c3aed; min-width: 1.5rem; padding-top: 0.1rem;">{String(i + 1).padStart(2, '0')}</span>
+            <span style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.6;">{c}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <!-- More code examples -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Key Constructs</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Goal-direction</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">telos: "minimize latency"
+@corrigible</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Homeostasis</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">regulate: &#123;
+  target: error_rate
+  setpoint: 0.001
+&#125;</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Bounded life</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">@mortal
+telomere: &#123; limit: 100 &#125;</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Collective behavior</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">quorum: &#123;
+  threshold: 0.51
+  behavior: consensus
+&#125;</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Self-modification</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">crispr: &#123;
+  target: routing_policy
+  edit: replace_with_optimal
+&#125;</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Operational closure</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">autopoietic: true
+# self-produces its components</code></pre>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Getting started -->
+    <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.75rem; padding: 2rem; margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Getting Started</h2>
+      <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.25rem; line-height: 1.7;">
+        Loom is built in Rust. The compiler is not yet published to crates.io — install from source:
+      </p>
+      <pre style="background-color: #0a0a0f; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem; font-size: 0.875rem;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;"># Clone and build
+git clone https://github.com/PragmaWorks/loom
+cd loom
+cargo build --release
+
+# Compile a .loom file
+./target/release/loom compile my-spec.loom --emit rust,typescript,openapi</code></pre>
+      <p style="color: #475569; font-size: 0.8125rem;">
+        Once published: <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">cargo install loom</code>
+      </p>
+    </div>
+
+    <p>
+      <a href="/gs" style="color: #c4b5fd; font-weight: 500;">Read the GS theory →</a>
+      &nbsp;&nbsp;
+      <a href="/isomorphisms" style="color: #c4b5fd; font-weight: 500;">See the isomorphisms table →</a>
+    </p>
+
+  </div>
+</Base>

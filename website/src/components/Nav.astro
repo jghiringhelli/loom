@@ -1,0 +1,80 @@
+---
+const navLinks = [
+  { href: '/gs', label: 'GS Theory' },
+  { href: '/isomorphisms', label: 'Isomorphisms' },
+  { href: '/loom', label: 'Loom' },
+  { href: '/primer', label: 'Primer' },
+];
+
+const { pathname } = Astro.url;
+---
+
+<header style="border-bottom: 1px solid #1e1e2e; background-color: rgba(10,10,15,0.95); position: sticky; top: 0; z-index: 50; backdrop-filter: blur(8px);">
+  <nav style="max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 3.5rem;">
+    <a href="/" style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.05em; color: #e2e8f0; text-decoration: none;">
+      <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <polygon points="16,2 30,28 2,28" fill="#7c3aed"/>
+        <polygon points="16,8 26,28 6,28" fill="#0a0a0f" opacity="0.55"/>
+      </svg>
+      BIOISO
+    </a>
+
+    <!-- Desktop nav -->
+    <ul style="display: flex; gap: 2rem; list-style: none; margin: 0; padding: 0;" class="desktop-nav">
+      {navLinks.map(link => (
+        <li>
+          <a
+            href={link.href}
+            style={`font-size: 0.875rem; font-weight: 500; transition: color 0.15s; color: ${pathname.startsWith(link.href) ? '#7c3aed' : '#94a3b8'};`}
+          >
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <!-- Mobile hamburger -->
+    <button
+      id="nav-toggle"
+      aria-label="Toggle navigation"
+      style="display: none; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 0.25rem;"
+      class="mobile-nav-btn"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <rect y="3" width="20" height="2" rx="1"/>
+        <rect y="9" width="20" height="2" rx="1"/>
+        <rect y="15" width="20" height="2" rx="1"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" style="display: none; border-top: 1px solid #1e1e2e; background-color: #0a0a0f;">
+    <ul style="list-style: none; margin: 0; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+      {navLinks.map(link => (
+        <li>
+          <a href={link.href} style={`font-size: 0.9rem; font-weight: 500; color: ${pathname.startsWith(link.href) ? '#7c3aed' : '#94a3b8'};`}>
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</header>
+
+<style>
+  @media (max-width: 640px) {
+    .desktop-nav { display: none !important; }
+    .mobile-nav-btn { display: block !important; }
+  }
+</style>
+
+<script>
+  const toggle = document.getElementById('nav-toggle');
+  const menu = document.getElementById('mobile-menu');
+  toggle?.addEventListener('click', () => {
+    if (menu) {
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+  });
+</script>

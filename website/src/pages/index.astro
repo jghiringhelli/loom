@@ -1,0 +1,74 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import ConceptCard from '../components/ConceptCard.astro';
+---
+
+<Base title="Home" description="BIOISO — Formal specification meets biological computation. The specification is alive.">
+  <Nav slot="nav" />
+
+  <Hero
+    title="BIOISO"
+    tagline="Formal specification meets biological computation. The specification is alive."
+    subtext="Life spent 3.5 billion years solving the problems of self-maintaining, self-correcting, goal-directed systems. Formal type theory spent 80 years independently rediscovering the same solutions. BIOISO is what you get when you stop pretending they're separate fields."
+  >
+    <div style="margin-top: 2.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+      <a href="/gs" style="display: inline-block; background-color: #7c3aed; color: #fff; font-weight: 600; padding: 0.75rem 1.75rem; border-radius: 0.5rem; font-size: 0.9375rem; text-decoration: none;">
+        Read the white paper →
+      </a>
+      <a href="/loom" style="display: inline-block; border: 1px solid #1e1e2e; background-color: #13131a; color: #c4b5fd; font-weight: 600; padding: 0.75rem 1.75rem; border-radius: 0.5rem; font-size: 0.9375rem; text-decoration: none;">
+        Explore the language →
+      </a>
+    </div>
+  </Hero>
+
+  <div style="max-width: 72rem; margin: 0 auto; padding: 0 1.5rem;">
+    <div style="border-top: 1px solid #1e1e2e; margin-bottom: 3rem;"></div>
+  </div>
+
+  <section style="max-width: 72rem; margin: 0 auto; padding: 0 1.5rem 5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+      <ConceptCard title="Generative Specification" href="/gs">
+        One specification. Every artifact. Zero gaps. The GS model: declarative intent, derived by a capable agent, over observable outcomes, with a correction mechanism.
+      </ConceptCard>
+
+      <ConceptCard title="Biological Isomorphisms" href="/isomorphisms">
+        Homeostasis is <code>regulate:</code>. Telos is <code>telos:</code>. Directed evolution is <code>evolve:</code>. Epigenetic modulation is <code>epigenetic:</code>. Autopoiesis is <code>autopoietic: true</code>. The isomorphisms are not metaphors. They are formal identities.
+      </ConceptCard>
+
+      <ConceptCard title="Loom" href="/loom">
+        An AI-native language that transpiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file. The compiler that makes all of this executable.
+      </ConceptCard>
+    </div>
+  </section>
+
+  <section style="background-color: #13131a; border-top: 1px solid #1e1e2e; border-bottom: 1px solid #1e1e2e; padding: 3.5rem 1.5rem; text-align: center;">
+    <p style="color: #475569; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">The fundamental equation</p>
+    <p style="font-family: 'JetBrains Mono', monospace; font-size: clamp(1.5rem, 4vw, 2.25rem); color: #c4b5fd; margin-bottom: 1rem;">
+      I ∝ (1–S) / S
+    </p>
+    <p style="color: #475569; font-size: 0.875rem; max-width: 40rem; margin: 0 auto; line-height: 1.6;">
+      Information content — and therefore correction cost — as a function of specification completeness. As S approaches 1, the cost of correction approaches zero.
+    </p>
+  </section>
+
+  <section style="max-width: 48rem; margin: 5rem auto; padding: 0 1.5rem; text-align: center;">
+    <h2 style="font-size: 1.5rem; font-weight: 700; color: #e2e8f0; margin-bottom: 2rem;">The Self-Bootstrapping Loop</h2>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      {[
+        { n: '01', label: 'Life builds the brain', sub: '3.5 billion years' },
+        { n: '02', label: 'We imitate the brain', sub: '80 years' },
+        { n: '03', label: 'The brain formalizes life', sub: 'Now' },
+      ].map(step => (
+        <div style="display: flex; align-items: center; gap: 1.5rem; background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem; padding: 1.25rem 1.5rem; text-align: left;">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: #7c3aed; min-width: 2rem;">{step.n}</span>
+          <div>
+            <p style="font-weight: 600; color: #e2e8f0; margin: 0; margin-bottom: 0.2rem;">{step.label}</p>
+            <p style="font-size: 0.8rem; color: #475569; margin: 0;">{step.sub}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+</Base>

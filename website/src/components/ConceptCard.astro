@@ -1,0 +1,28 @@
+---
+interface Props {
+  title: string;
+  href?: string;
+}
+const { title, href } = Astro.props;
+---
+
+<div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.75rem; padding: 1.75rem; transition: border-color 0.2s, box-shadow 0.2s; position: relative; overflow: hidden;">
+  <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: linear-gradient(to bottom, #7c3aed, transparent);"></div>
+
+  <h3 style="font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+    <span style="color: #7c3aed; font-size: 0.8em;">▲</span>
+    {title}
+  </h3>
+
+  <div style="color: #94a3b8; font-size: 0.9375rem; line-height: 1.7;">
+    <slot />
+  </div>
+
+  {href && (
+    <div style="margin-top: 1.25rem;">
+      <a href={href} style="font-size: 0.875rem; color: #c4b5fd; font-weight: 500;">
+        Learn more →
+      </a>
+    </div>
+  )}
+</div>

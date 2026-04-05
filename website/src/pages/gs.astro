@@ -1,0 +1,97 @@
+---
+import Prose from '../layouts/Prose.astro';
+---
+
+<Prose title="Generative Specification" description="The GS theory: one specification, every artifact, zero gaps.">
+  <p class="lead">
+    Generative Specification (GS) is a formal theory of software correctness rooted in the claim that every artifact in a system must be <em>derivable</em> from a single, complete specification by a capable agent.
+  </p>
+
+  <h1>Generative Specification</h1>
+
+  <h2>The Fundamental Equation</h2>
+
+  <p>
+    The information cost of a system — measured as the correction work required to keep it functioning — is a function of how complete the specification is:
+  </p>
+
+  <div style="text-align: center; padding: 2rem 1rem; background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem; margin: 1.5rem 0;">
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; color: #c4b5fd;">I ∝ (1 − S) / S</span>
+    <p style="margin-top: 0.75rem; font-size: 0.875rem; color: #475569;">
+      Where <code>S</code> ∈ (0, 1] is specification completeness. As S → 1, correction cost → 0.
+    </p>
+  </div>
+
+  <p>
+    At <strong>S = 1</strong>, the specification is complete — every derivable artifact is determined, every behavior is constrained, and the correction cost is zero. This is the ideal. Real systems live in the interval (0, 1).
+  </p>
+
+  <h2>The Four-Component Model</h2>
+
+  <p>A generative specification has exactly four components:</p>
+
+  <ol>
+    <li><strong>Declarative intent</strong> — What the system is supposed to do, stated without reference to implementation.</li>
+    <li><strong>Capable agent</strong> — An agent (human, compiler, LLM, runtime) that can derive the required artifacts from the intent.</li>
+    <li><strong>Observable outcomes</strong> — Measurable properties of the running system that confirm or refute the intent.</li>
+    <li><strong>Correction mechanism</strong> — A feedback loop that drives the system back toward intent when observable outcomes diverge.</li>
+  </ol>
+
+  <p>
+    The four components form a closed loop. Remove any one of them and you no longer have a generative specification — you have documentation, or a test suite, or a wish list.
+  </p>
+
+  <h2>S-Completeness</h2>
+
+  <p>
+    A specification is <em>S-complete</em> if every artifact the system must produce is derivable from it by a capable agent. This is not the same as <em>exhaustive</em>. A specification can be S-complete with respect to a given agent's capability while being incomplete with respect to a more powerful agent.
+  </p>
+
+  <p>
+    This is a relative notion: completeness is indexed to the agent. A Loom specification is S-complete with respect to the Loom compiler. A GS specification is S-complete with respect to the combination of Loom, the runtime environment, and the human operator.
+  </p>
+
+  <h2>The Derivability Constraint</h2>
+
+  <blockquote>
+    Every artifact must be derivable from the specification by a capable agent. If an artifact exists that is not derivable from the spec, then the spec is incomplete — and the gap is occupied by implicit knowledge, human convention, or undocumented assumption.
+  </blockquote>
+
+  <p>
+    The derivability constraint is the central obligation of GS. It places the burden of correctness on the specification, not on the implementation. If the implementation is wrong, the specification was incomplete.
+  </p>
+
+  <h2>The Therac-25 Obligation</h2>
+
+  <p>
+    The Therac-25 radiation therapy machine killed six patients between 1985 and 1987. The proximate cause was a race condition in the software. The deeper cause was a specification gap: the software had been derived from a previous system that had hardware interlocks, but when the hardware interlocks were removed, no one updated the specification to require the software to enforce the same constraints.
+  </p>
+
+  <p>
+    GS names this <strong>the Therac-25 obligation</strong>: whenever a human occupies a gap in the specification — whenever correctness depends on undocumented human knowledge — that gap is a potential Therac-25. The obligation is to close the gap, not to rely on the human to perform correctly in perpetuity.
+  </p>
+
+  <p>
+    The human is always in the specification gap. The question is whether that gap is acknowledged, bounded, and correctable — or invisible, unbounded, and catastrophic.
+  </p>
+
+  <h2>GS in Loom</h2>
+
+  <p>
+    The Loom language is the executable substrate of GS. A <code>.loom</code> file is a GS specification. The Loom compiler is the capable agent. The emitted artifacts — Rust, TypeScript, WebAssembly, OpenAPI, JSON Schema — are the derivable outputs. The runtime checkers are the correction mechanism.
+  </p>
+
+  <p>
+    <a href="/loom">Explore the Loom language →</a>
+  </p>
+
+  <h2>The White Paper</h2>
+
+  <p>
+    The full GS white paper is available in the repository. It covers the formal treatment of S-completeness, the derivability constraint, the information-theoretic foundation, and the relationship between GS and existing work in formal methods, dependent types, and program synthesis.
+  </p>
+
+  <p>
+    <a href="https://github.com/PragmaWorks/loom/blob/main/docs/publish/white-paper.md">Read the full white paper →</a>
+  </p>
+</Prose>

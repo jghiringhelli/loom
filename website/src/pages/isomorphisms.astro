@@ -1,0 +1,105 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+
+const isomorphisms = [
+  { construct: 'telos:', life: 'Final cause / goal-directed behavior', theorist: 'Aristotle / Wiener', year: '350 BCE / 1948' },
+  { construct: 'regulate:', life: 'Homeostatic regulation', theorist: 'Wiener (cybernetics)', year: '1948' },
+  { construct: 'evolve:', life: 'Directed evolution toward telos', theorist: 'Waddington landscape', year: '1957' },
+  { construct: 'epigenetic:', life: 'Behavioral modulation without genome change', theorist: 'Waddington', year: '1957' },
+  { construct: 'morphogen:', life: 'Reaction-diffusion pattern formation', theorist: 'Turing', year: '1952' },
+  { construct: 'telomere:', life: 'Finite replication limit', theorist: 'Hayflick', year: '1961' },
+  { construct: 'crispr:', life: 'Targeted self-modification', theorist: 'Doudna/Charpentier', year: '2012' },
+  { construct: 'quorum:', life: 'Population-threshold collective behavior', theorist: 'Bassler', year: '1999' },
+  { construct: 'plasticity:', life: 'Synaptic weight adjustment (Hebbian)', theorist: 'Hebb', year: '1949' },
+  { construct: 'autopoietic: true', life: 'Operational closure', theorist: 'Maturana/Varela', year: '1972' },
+  { construct: '@mortal', life: 'Telomere limit prevents cancer', theorist: 'Hayflick', year: '1961' },
+  { construct: '@corrigible', life: 'Directed evolution requires a telos', theorist: 'Aristotle', year: '350 BCE' },
+];
+---
+
+<Base title="Biological Isomorphisms" description="The formal convergence between biological computation and programming language constructs.">
+  <Nav slot="nav" />
+
+  <div style="max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem;">
+    <!-- Header -->
+    <div style="max-width: 48rem; margin-bottom: 3.5rem;">
+      <p style="color: #7c3aed; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.75rem;">Convergence Table</p>
+      <h1 style="font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.02em; color: #e2e8f0; margin-bottom: 1.25rem; line-height: 1.15;">
+        Biological Isomorphisms
+      </h1>
+      <p style="font-size: 1.0625rem; color: #94a3b8; line-height: 1.8; max-width: 42rem;">
+        These are not metaphors. Life and formal type theory independently converged on the same solutions to the same problems — goal-direction, self-maintenance, bounded replication, targeted modification, collective threshold behavior. The Loom constructs below are formal identities, not analogies.
+      </p>
+    </div>
+
+    <!-- Convergence table -->
+    <div style="overflow-x: auto; border: 1px solid #1e1e2e; border-radius: 0.75rem; margin-bottom: 4rem;">
+      <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Loom construct</th>
+            <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Life's solution</th>
+            <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Theorist</th>
+            <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Year</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isomorphisms.map((row, i) => (
+            <tr style={i % 2 === 1 ? 'background-color: rgba(19,19,26,0.4);' : ''}>
+              <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e;">
+                <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: #c4b5fd; background-color: #1e1e2e; padding: 0.15rem 0.4rem; border-radius: 0.25rem;">
+                  {row.construct}
+                </code>
+              </td>
+              <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e; color: #cbd5e1; font-size: 0.9rem;">{row.life}</td>
+              <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e; color: #94a3b8; font-size: 0.875rem;">{row.theorist}</td>
+              <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e; color: #475569; font-size: 0.875rem; white-space: nowrap;">{row.year}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Self-bootstrapping loop -->
+    <div style="max-width: 48rem; margin: 0 auto 4rem;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">The Self-Bootstrapping Loop</h2>
+      <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.75rem; padding: 2rem; border-left: 3px solid #7c3aed;">
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          {[
+            { n: 'Turn 1', label: 'Life builds the brain', detail: '3.5 billion years of evolution produce a system capable of abstract symbol manipulation.' },
+            { n: 'Turn 2', label: 'We imitate the brain', detail: '80 years of computer science, type theory, and machine learning reverse-engineer the biological solution.' },
+            { n: 'Turn 3', label: 'The brain formalizes life', detail: 'Now. The system we built to imitate the brain is powerful enough to formalize the biology that produced it.' },
+          ].map(turn => (
+            <div style="display: flex; gap: 1.25rem; align-items: flex-start;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 700; color: #7c3aed; min-width: 4.5rem; padding-top: 0.1rem;">{turn.n}</span>
+              <div>
+                <p style="font-weight: 600; color: #e2e8f0; margin: 0 0 0.3rem 0;">{turn.label}</p>
+                <p style="font-size: 0.875rem; color: #94a3b8; margin: 0; line-height: 1.6;">{turn.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Why formal identities, not metaphors -->
+    <div style="max-width: 48rem; margin: 0 auto;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Why Formal Identities, Not Metaphors</h2>
+      <p style="color: #94a3b8; line-height: 1.8; margin-bottom: 1.25rem;">
+        A metaphor says: <em>this is like that.</em> A formal identity says: <em>this is that, under a structure-preserving mapping.</em>
+      </p>
+      <p style="color: #94a3b8; line-height: 1.8; margin-bottom: 1.25rem;">
+        When we say <code style="color: #c4b5fd; background-color: #1e1e2e; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">regulate:</code> is homeostasis, we mean that the operational definition of homeostasis — a setpoint, a sensor, an effector, an error signal, a correction loop — maps exactly onto the operational semantics of <code style="color: #c4b5fd; background-color: #1e1e2e; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">regulate:</code> in the Loom type system. The constructs share a structure. The shared structure is not decorative — it is load-bearing.
+      </p>
+      <p style="color: #94a3b8; line-height: 1.8; margin-bottom: 2rem;">
+        The BIOISO project is the systematic exploration of these identities: finding them, proving them, and making them executable.
+      </p>
+      <p>
+        <a href="/primer" style="color: #c4b5fd; font-weight: 500;">Read the intellectual lineage →</a>
+        &nbsp;&nbsp;
+        <a href="/loom" style="color: #c4b5fd; font-weight: 500;">Explore the language →</a>
+      </p>
+    </div>
+  </div>
+</Base>
