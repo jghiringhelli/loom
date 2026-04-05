@@ -36,6 +36,19 @@ impl EnumRegistry {
             variants_of: HashMap::new(),
             enum_of_variant: HashMap::new(),
         };
+
+        // Pre-seed stdlib sum types so Option/Result patterns are checked.
+        for (enum_name, vs) in &[
+            ("Option", vec!["Some", "None"]),
+            ("Result", vec!["Ok", "Err"]),
+        ] {
+            let names: Vec<String> = vs.iter().map(|s| s.to_string()).collect();
+            for name in &names {
+                reg.enum_of_variant.insert(name.clone(), enum_name.to_string());
+            }
+            reg.variants_of.insert(enum_name.to_string(), names);
+        }
+
         for item in &module.items {
             if let Item::Enum(ed) = item {
                 let names: Vec<String> = ed.variants.iter().map(|v| v.name.clone()).collect();
@@ -128,6 +141,10 @@ impl ExhaustivenessChecker {
                 self.check_expr(iter, reg, errors);
                 self.check_expr(body, reg, errors);
             }
+            Expr::Tuple(elems, _) => {
+                for e in elems { self.check_expr(e, reg, errors); }
+            }
+            Expr::Try(inner, _) => self.check_expr(inner, reg, errors),
         }
     }
 

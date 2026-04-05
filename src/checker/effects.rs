@@ -160,6 +160,8 @@ fn collect_calls(expr: &Expr, out: &mut HashSet<String>) {
             collect_calls(iter, out);
             collect_calls(body, out);
         }
+        Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_calls(e, out)),
+        Expr::Try(inner, _) => collect_calls(inner, out),
     }
 }
 

@@ -394,6 +394,21 @@ fn infer_expr(
             let _ = infer_expr(body, env, subst, gen, fns)?;
             Ok(TypeExpr::Base("Unit".to_string()))
         }
+
+        Expr::Tuple(elems, _) => {
+            let types: Result<Vec<_>, _> = elems
+                .iter()
+                .map(|e| infer_expr(e, env, subst, gen, fns))
+                .collect();
+            Ok(TypeExpr::Tuple(types?))
+        }
+
+        Expr::Try(inner, _) => {
+            // ? propagates errors; the inner type must be Result<T, E>.
+            // Return a fresh TypeVar for now — full Result inference in M12.5.
+            let _ = infer_expr(inner, env, subst, gen, fns)?;
+            Ok(gen.fresh())
+        }
     }
 }
 
@@ -576,6 +591,8 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
             collect_let_names(iter, names);
             collect_let_names(body, names);
         }
+        Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_let_names(e, names)),
+        Expr::Try(inner, _) => collect_let_names(inner, names),
     }
 }
 
@@ -652,6 +669,10 @@ fn collect_free_vars(
             extended.insert(var.as_str());
             collect_free_vars(body, &extended, seen, ordered);
         }
+        Expr::Tuple(elems, _) => {
+            elems.iter().for_each(|e| collect_free_vars(e, let_bound, seen, ordered));
+        }
+        Expr::Try(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
     }
 }
 

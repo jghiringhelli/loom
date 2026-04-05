@@ -116,6 +116,7 @@ pub enum Token {
     /// `>` — used as both greater-than operator and generic closing angle bracket.
     #[token(">")] Gt,
     #[token("~")] Tilde,
+    #[token("?")] Question,
 }
 
 // Aliases for use in type-expression parsing contexts.

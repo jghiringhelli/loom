@@ -864,6 +864,11 @@ impl<'src> Parser<'src> {
                 let ty = self.parse_type_expr()?;
                 let span = Span::merge(&span_start, &self.current_span());
                 expr = Expr::As(Box::new(expr), ty);
+            } else if self.at(&Token::Question) {
+                let span_start = self.current_span();
+                self.advance(); // consume `?`
+                let span = Span::merge(&span_start, &self.current_span());
+                expr = Expr::Try(Box::new(expr), span);
             } else {
                 break;
             }
@@ -899,14 +904,31 @@ impl<'src> Parser<'src> {
                 Ok(Expr::Ident(name))
             }
             Some((Token::LParen, _)) => {
+                let start = self.current_span();
                 self.advance();
                 if self.at(&Token::RParen) {
                     self.advance();
                     return Ok(Expr::Literal(Literal::Unit));
                 }
-                let e = self.parse_expr()?;
-                self.expect(Token::RParen)?;
-                Ok(e)
+                let first = self.parse_expr()?;
+                if self.at(&Token::Comma) {
+                    // Tuple: (expr, expr, ...)
+                    let mut elems = vec![first];
+                    while self.at(&Token::Comma) {
+                        self.advance();
+                        if self.at(&Token::RParen) {
+                            break; // trailing comma
+                        }
+                        elems.push(self.parse_expr()?);
+                    }
+                    let end = self.current_span();
+                    self.expect(Token::RParen)?;
+                    Ok(Expr::Tuple(elems, Span::merge(&start, &end)))
+                } else {
+                    // Parenthesized expression
+                    self.expect(Token::RParen)?;
+                    Ok(first)
+                }
             }
             Some((Token::InlineBlock(_), _)) => {
                 if let Some((Token::InlineBlock(content), _)) = self.tokens.get(self.pos) {

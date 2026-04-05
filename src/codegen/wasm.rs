@@ -286,6 +286,13 @@ fn emit_expr(
                 span: Span::synthetic(),
             })
         }
+
+        Expr::Tuple(_, _) | Expr::Try(_, _) => {
+            return Err(LoomError::WasmUnsupported {
+                feature: "tuple / try operator".to_string(),
+                span: Span::synthetic(),
+            })
+        }
     }
     Ok(())
 }
@@ -373,6 +380,8 @@ fn collect_let_names_in(expr: &Expr, names: &mut Vec<String>) {
             collect_let_names_in(iter, names);
             collect_let_names_in(body, names);
         }
+        Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_let_names_in(e, names)),
+        Expr::Try(inner, _) => collect_let_names_in(inner, names),
     }
 }
 
@@ -449,5 +458,9 @@ fn collect_free_vars_in(
             ext.insert(var.as_str());
             collect_free_vars_in(body, &ext, seen, ordered);
         }
+        Expr::Tuple(elems, _) => {
+            elems.iter().for_each(|e| collect_free_vars_in(e, let_bound, seen, ordered));
+        }
+        Expr::Try(inner, _) => collect_free_vars_in(inner, let_bound, seen, ordered),
     }
 }

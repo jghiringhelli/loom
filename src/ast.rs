@@ -238,6 +238,10 @@ pub enum Expr {
         body: Box<Expr>,
         span: Span,
     },
+    /// Tuple construction: `(expr, expr, ...)`.
+    Tuple(Vec<Expr>, Span),
+    /// Try / propagate operator: `expr?` — maps to Rust's `?`.
+    Try(Box<Expr>, Span),
 }
 
 /// Match arm: a single branch of a `match` expression.

@@ -441,6 +441,13 @@ impl RustEmitter {
                     self.emit_expr(body)
                 )
             }
+            Expr::Tuple(elems, _) => {
+                let inner: Vec<String> = elems.iter().map(|e| self.emit_expr(e)).collect();
+                format!("({})", inner.join(", "))
+            }
+            Expr::Try(inner, _) => {
+                format!("{}?", self.emit_expr(inner))
+            }
             Expr::Match { subject, arms, .. } => {
                 let s = self.emit_expr(subject);
                 let arms_str: Vec<String> = arms
@@ -595,6 +602,8 @@ fn collect_let_names(expr: &Expr, out: &mut std::collections::HashSet<String>) {
             collect_let_names(iter, out);
             collect_let_names(body, out);
         }
+        Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_let_names(e, out)),
+        Expr::Try(inner, _) => collect_let_names(inner, out),
     }
 }
 
@@ -659,6 +668,8 @@ fn scan_free_idents(
             scan_free_idents(iter, let_bound, seen, ordered);
             scan_free_idents(body, let_bound, seen, ordered);
         }
+        Expr::Tuple(elems, _) => elems.iter().for_each(|e| scan_free_idents(e, let_bound, seen, ordered)),
+        Expr::Try(inner, _) => scan_free_idents(inner, let_bound, seen, ordered),
     }
 }
 

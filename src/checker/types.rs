@@ -36,9 +36,19 @@ impl SymbolTable {
         let mut table = SymbolTable::default();
 
         // Stdlib generic type constructors are always in scope.
-        for name in &["List", "Map", "Set"] {
+        for name in &["List", "Map", "Set", "Option", "Result"] {
             table.types.insert((*name).to_string());
         }
+
+        // Pre-seed Option and Result enum variants for exhaustiveness checking.
+        table.enum_variants.insert(
+            "Option".to_string(),
+            ["Some", "None"].iter().map(|s| s.to_string()).collect(),
+        );
+        table.enum_variants.insert(
+            "Result".to_string(),
+            ["Ok", "Err"].iter().map(|s| s.to_string()).collect(),
+        );
 
         for item in &module.items {
             match item {
@@ -231,6 +241,12 @@ impl TypeChecker {
                 self.check_expr(iter, scope, table, errors);
                 self.check_expr(body, scope, table, errors);
             }
+            Expr::Tuple(elems, _) => {
+                for e in elems {
+                    self.check_expr(e, scope, table, errors);
+                }
+            }
+            Expr::Try(inner, _) => self.check_expr(inner, scope, table, errors),
         }
     }
 
