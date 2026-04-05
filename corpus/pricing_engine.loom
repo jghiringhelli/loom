@@ -22,7 +22,7 @@ end
 fn compute_total :: OrderLine -> OrderTotal
   require: line.quantity > 0
   require: line.unit_price >= 0.0
-  ensure: result.total >= 0.0
+  ensure: result >= 0.0
   let subtotal = line.quantity as Float * line.unit_price
   let discounted = subtotal * line.discount
   let tax = discounted * 0.15

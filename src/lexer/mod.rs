@@ -54,6 +54,7 @@ pub enum Token {
     #[token("for")]      For,
     #[token("in")]       In,
     #[token("invariant")] Invariant,
+    #[token("test")]     Test,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

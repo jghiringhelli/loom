@@ -167,8 +167,8 @@ end
         "expected debug_assert! for require:\n{}", out
     );
     assert!(
-        out.contains("// postcondition:"),
-        "expected postcondition comment for ensure:\n{}", out
+        out.contains("debug_assert!") && out.contains("ensure:"),
+        "expected debug_assert! with ensure: label for ensure:\n{}", out
     );
     assert!(
         out.contains("divisor > 0"),
@@ -427,7 +427,7 @@ fn pricing_engine_emits_expected_rust_constructs() {
 
     // Contracts
     assert!(out.contains("debug_assert!("), "missing debug_assert from require:");
-    assert!(out.contains("// postcondition:"), "missing postcondition comment");
+    assert!(out.contains("debug_assert!") && out.contains("ensure:"), "missing ensure debug_assert");
 
     // let bindings in body
     assert!(out.contains("let subtotal ="), "missing let subtotal");

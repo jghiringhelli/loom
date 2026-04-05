@@ -60,6 +60,8 @@ pub struct Module {
     pub requires: Option<Requires>,
     /// Structural invariants declared at module level (`invariant name :: cond`).
     pub invariants: Vec<Invariant>,
+    /// Inline test definitions (`test name :: body_expr`).
+    pub test_defs: Vec<TestDef>,
     /// Top-level definitions in declaration order.
     pub items: Vec<Item>,
     pub span: Span,
@@ -72,6 +74,16 @@ pub struct Module {
 pub struct Invariant {
     pub name: String,
     pub condition: Expr,
+    pub span: Span,
+}
+
+/// An in-language unit test block.
+///
+/// Emitted as `#[test] fn name() { body }` inside `#[cfg(test)] mod tests`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestDef {
+    pub name: String,
+    pub body: Expr,
     pub span: Span,
 }
 

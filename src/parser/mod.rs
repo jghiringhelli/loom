@@ -188,9 +188,12 @@ impl<'src> Parser<'src> {
         // Item list until `end` — `invariant` entries are parsed separately.
         let mut items = Vec::new();
         let mut invariants = Vec::new();
+        let mut test_defs = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
                 invariants.push(self.parse_invariant()?);
+            } else if self.at(&Token::Test) {
+                test_defs.push(self.parse_test_def()?);
             } else {
                 items.push(self.parse_item()?);
             }
@@ -206,6 +209,7 @@ impl<'src> Parser<'src> {
             provides,
             requires,
             invariants,
+            test_defs,
             items,
             span: Span::merge(&start, &end_span),
         })
@@ -222,6 +226,21 @@ impl<'src> Parser<'src> {
         Ok(Invariant {
             name,
             condition,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `test NAME :: expr`.
+    fn parse_test_def(&mut self) -> Result<TestDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Test)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let body = self.parse_expr()?;
+        let end_span = self.current_span();
+        Ok(TestDef {
+            name,
+            body,
             span: Span::merge(&start, &end_span),
         })
     }

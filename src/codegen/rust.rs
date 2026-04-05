@@ -125,11 +125,46 @@ impl RustEmitter {
         }
 
         out.push_str(&body);
+
+        // Emit `#[cfg(test)] mod tests { ... }` if test_defs are present.
+        if !module.test_defs.is_empty() {
+            let tests_src = self.emit_test_mod(&module.test_defs);
+            out.push('\n');
+            for line in tests_src.lines() {
+                if line.is_empty() {
+                    out.push('\n');
+                } else {
+                    out.push_str("    ");
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+        }
+
         out.push_str("}\n");
         out
     }
 
     // ── DI context struct ─────────────────────────────────────────────────
+
+    /// Emit `#[cfg(test)] mod tests { #[test] fn name() { body } }`.
+    fn emit_test_mod(&self, test_defs: &[TestDef]) -> String {
+        let mut out = String::new();
+        out.push_str("#[cfg(test)]\n");
+        out.push_str("mod tests {\n");
+        out.push_str("    use super::*;\n");
+        for td in test_defs {
+            out.push('\n');
+            out.push_str("    #[test]\n");
+            // Convert name to snake_case for Rust test fn names.
+            let fn_name = td.name.replace('-', "_").to_lowercase();
+            out.push_str(&format!("    fn {}() {{\n", fn_name));
+            out.push_str(&format!("        {};\n", self.emit_expr(&td.body)));
+            out.push_str("    }\n");
+        }
+        out.push_str("}\n");
+        out
+    }
 
     /// Emit `#[cfg(debug_assertions)] fn _check_invariants() { debug_assert!(...) }`.
     fn emit_check_invariants(&self, invariants: &[Invariant]) -> String {
@@ -331,22 +366,38 @@ impl RustEmitter {
             ));
         }
 
-        // Emit `ensure:` contracts as documentation comments.
-        for contract in &fd.ensures {
-            body_lines.push(format!(
-                "    // postcondition: {} (verified by type system)",
-                self.emit_expr(&contract.expr),
-            ));
-        }
+        // Emit `ensure:` contracts as real `debug_assert!` — but AFTER the body.
+        // When ensures are present: capture return value in `_loom_result`, assert, then return it.
+        let has_ensures = !fd.ensures.is_empty();
 
-        // Emit body expressions as statements; the last expression is returned.
+        // Emit body expressions.
         let body_count = fd.body.len();
-        for (i, expr) in fd.body.iter().enumerate() {
-            if i + 1 == body_count {
-                // Final expression — no semicolon (implicit return).
-                body_lines.push(format!("    {}", self.emit_expr(expr)));
-            } else {
+        if has_ensures && body_count > 0 {
+            // Emit all but the last expression as statements.
+            for expr in &fd.body[..body_count - 1] {
                 body_lines.push(format!("    {};", self.emit_expr(expr)));
+            }
+            // Capture the last expression as `_loom_result`.
+            let last = &fd.body[body_count - 1];
+            body_lines.push(format!("    let _loom_result = {};", self.emit_expr(last)));
+            // Emit ensure: as debug_assert! using _loom_result for `result`.
+            for contract in &fd.ensures {
+                let raw = self.emit_expr(&contract.expr);
+                // Replace `result` identifier references with `_loom_result`.
+                let cond = raw.replace("result", "_loom_result");
+                body_lines.push(format!(
+                    "    debug_assert!({cond}, \"ensure: {}\");",
+                    cond.replace('"', "\\\""),
+                ));
+            }
+            body_lines.push("    _loom_result".to_string());
+        } else {
+            for (i, expr) in fd.body.iter().enumerate() {
+                if i + 1 == body_count {
+                    body_lines.push(format!("    {}", self.emit_expr(expr)));
+                } else {
+                    body_lines.push(format!("    {};", self.emit_expr(expr)));
+                }
             }
         }
 
@@ -450,6 +501,24 @@ impl RustEmitter {
                                 self.emit_expr(&args[1]),
                                 self.emit_expr(&args[2])
                             );
+                        }
+                        // for_all(|x: T| pred) — property test over edge cases
+                        ("for_all", 1) => {
+                            if let Expr::Lambda { params, body, .. } = &args[0] {
+                                if let Some((param_name, _)) = params.first() {
+                                    let pred = self.emit_expr(body);
+                                    return format!(
+                                        "{{ \
+                                            let _edge_cases: &[i64] = &[0, 1, -1, i64::MAX, i64::MIN]; \
+                                            for &{pn} in _edge_cases {{ \
+                                                assert!({pred}, \"for_all property failed for {{}} = {{}}\", \"{pn}\", {pn}); \
+                                            }} \
+                                        }}",
+                                        pn = param_name,
+                                        pred = pred,
+                                    );
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -769,6 +838,7 @@ mod tests {
             provides: None,
             requires: None,
             invariants: vec![],
+            test_defs: vec![],
             items: vec![Item::Type(TypeDef {
                 name: "Point".to_string(),
                 fields: vec![
@@ -795,6 +865,7 @@ mod tests {
             provides: None,
             requires: None,
             invariants: vec![],
+            test_defs: vec![],
             items: vec![Item::Enum(EnumDef {
                 name: "Color".to_string(),
                 variants: vec![
@@ -821,6 +892,7 @@ mod tests {
             provides: None,
             requires: None,
             invariants: vec![],
+            test_defs: vec![],
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),
                 describe: None,
