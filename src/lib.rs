@@ -78,6 +78,12 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 9d: teleological check ─────────────────────────────────────
     checker::check_teleos(&module).map_err(|es| es)?;
 
+    // ── Stage 9e: safety check ────────────────────────────────────────────
+    let safety_errors = checker::SafetyChecker::check(&module);
+    if !safety_errors.is_empty() {
+        return Err(safety_errors);
+    }
+
     // ── Stage 9: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
@@ -142,7 +148,19 @@ pub fn compile_simulation(source: &str) -> Result<String, Vec<LoomError>> {
     Ok(codegen::SimulationEmitter::new().emit(&module))
 }
 
-/// Compile a Loom source string to a WebAssembly Text format (WAT) string.
+/// Compile a Loom source string to a NeuroML 2 XML document.
+///
+/// Only `being:` blocks that declare at least one `plasticity:` block are
+/// emitted as `<cell>` elements; `ecosystem:` blocks emit as `<network>`.
+pub fn compile_neuroml(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+    checker::TypeChecker::new().check(&module)?;
+    Ok(codegen::NeuroMLEmitter::emit(&module))
+}
+
 ///
 /// Runs the lex → parse → inference → type-check → exhaustiveness-check
 /// pipeline, then emits WAT instead of Rust.  Only the M3 supported subset
