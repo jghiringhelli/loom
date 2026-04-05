@@ -103,9 +103,10 @@ end
 
 -- ── AST: Annotations ─────────────────────────────────────────────────────────
 
+-- G6: Annotation has no span field; field is called key (not name).
 type Annotation =
-  key:   String
-  value: String
+  key:   String   -- the annotation name without @ prefix (e.g. "mortal", "sandboxed")
+  value: String   -- optional value; empty string if annotation has no value
 end
 
 -- ── AST: Core definitions ─────────────────────────────────────────────────────
@@ -243,23 +244,21 @@ end
 
 -- M45: Epigenetic block — Waddington (1957)
 -- Behavioral modulation without structural change.
--- modifies: which field is modulated; reverts_when: condition for reset.
+-- signal: trigger signal; modifies: which field is modulated; reverts_when: condition for reset.
 type EpigeneticBlock =
+  signal:       String
   modifies:     String
-  expression:   String
   reverts_when: Option<String>
   span:         Span
 end
 
 -- M46: Morphogen block — Turing (1952) reaction-diffusion
--- activator/inhibitor pair produces spatial differentiation.
--- threshold ∈ [0.0, 1.0]; produces: the differentiated structure name.
+-- signal: morphogen signal; threshold: concentration (String); produces: differentiated structures.
 type MorphogenBlock =
-  activator:  String
-  inhibitor:  String
-  threshold:  Float
-  produces:   String
-  span:       Span
+  signal:    String
+  threshold: String          -- stored as string, parsed as float in (0.0, 1.0]
+  produces:  List<String>    -- list of differentiated structure names
+  span:      Span
 end
 
 -- M47: Telomere block — Hayflick (1961)
@@ -273,64 +272,57 @@ end
 
 -- M48: CRISPR block — Doudna/Charpentier (2012)
 -- Targeted self-modification: replace target sequence guided by guide.
--- preserve: must hold after the edit.
+-- G6: No preserve field (tests construct CrisprBlock without it).
 type CrisprBlock =
-  target:   String
-  replace:  String
-  guide:    String
-  preserve: Option<String>
-  span:     Span
+  target:  String
+  replace: String
+  guide:   String
+  span:    Span
 end
 
 -- M49: Quorum block — Bassler (1999) — lives on EcosystemDef
--- Population-threshold collective behavior. threshold ∈ (0.0, 1.0].
+-- Population-threshold collective behavior. threshold stored as String (e.g. "0.6").
 -- signal: the autoinducer signal name; action: the collective fn to call.
 type QuorumBlock =
   signal:    String
-  threshold: Float
+  threshold: String     -- stored as String, represents a float in (0.0, 1.0]
   action:    String
   span:      Span
 end
 
 -- M50: Plasticity — Hebb (1949) synaptic weight adjustment
--- rule variants: Hebbian (fire together wire together),
--- Boltzmann (thermodynamic weight sampling).
-enum PlasticityStrategy =
+-- PlasticityRule is an enum (the strategy discriminant, NOT a named rule struct).
+-- PlasticityBlock has trigger/modifies/rule as flat fields (one rule per block).
+enum PlasticityRule =
   | Hebbian
   | Boltzmann
   | ReinforcementLearning
 end
 
-type PlasticityRule =
-  name:     String
-  strategy: PlasticityStrategy
+type PlasticityBlock =
   trigger:  String
   modifies: String
+  rule:     PlasticityRule
   span:     Span
 end
 
-type PlasticityBlock =
-  rules: List<PlasticityRule>
-  span:  Span
-end
-
 type BeingDef =
-  name:            String
-  describe:        Option<String>
-  annotations:     List<Annotation>   -- safety: @mortal @corrigible @sandboxed etc
-  matter:          Option<MatterBlock>
-  form:            Option<FormBlock>
-  function:        Option<FunctionBlock>
-  telos:           Option<TelosDef>
-  regulate_blocks: List<RegulateBlock>
-  evolve_block:    Option<EvolveBlock>
-  epigenetic:      Option<EpigeneticBlock>   -- M45: Waddington 1957
-  morphogen:       Option<MorphogenBlock>    -- M46: Turing 1952
-  telomere:        Option<TelomereBlock>     -- M47: Hayflick 1961
-  crispr:          Option<CrisprBlock>       -- M48: Doudna 2012
-  plasticity:      Option<PlasticityBlock>   -- M50: Hebb 1949
-  autopoietic:     Bool                      -- M51: Maturana/Varela 1972
-  span:            Span
+  name:             String
+  describe:         Option<String>
+  annotations:      List<Annotation>   -- safety: @mortal @corrigible @sandboxed etc
+  matter:           Option<MatterBlock>
+  form:             Option<FormBlock>
+  function:         Option<FunctionBlock>
+  telos:            Option<TelosDef>
+  regulate_blocks:  List<RegulateBlock>
+  evolve_block:     Option<EvolveBlock>
+  epigenetic_blocks: List<EpigeneticBlock>  -- G5: multiple epigenetic modulators allowed
+  morphogen_blocks:  List<MorphogenBlock>   -- G5: multiple morphogen gradients allowed
+  telomere:          Option<TelomereBlock>  -- M47: exactly one telomere limit per being
+  crispr_blocks:     List<CrisprBlock>      -- G5: multiple edit targets allowed
+  plasticity_blocks: List<PlasticityBlock>  -- G5: multiple plasticity rules allowed
+  autopoietic:      Bool                    -- M51: Maturana/Varela 1972
+  span:             Span
 end
 
 type SignalDef =
@@ -342,13 +334,13 @@ type SignalDef =
 end
 
 type EcosystemDef =
-  name:     String
-  describe: Option<String>
-  members:  List<String>
-  signals:  List<SignalDef>
-  telos:    Option<String>
-  quorum:   Option<QuorumBlock>   -- M49
-  span:     Span
+  name:          String
+  describe:      Option<String>
+  members:       List<String>
+  signals:       List<SignalDef>
+  telos:         Option<String>
+  quorum_blocks: List<QuorumBlock>   -- G5-style: Vec not Option (multiple quorum blocks)
+  span:          Span
 end
 
 -- ── AST: Interface / provides / requires ─────────────────────────────────────
@@ -672,8 +664,79 @@ fn compile_neuroml :: String -> Effect<[IO], Result<String, List<LoomError>>]
   source
 end
 
+-- ── Public API surface ────────────────────────────────────────────────────────
+--
+-- lib.rs MUST expose these public modules and re-exports.
+-- Tests import from these exact paths — the derived compiler must match.
+--
+-- Module structure:
+--   pub mod ast       — all AST types (BeingDef, Module, etc.) are pub
+--   pub mod checker   — all checker structs and check_teleos fn are pub
+--   pub mod codegen   — all emitter structs re-exported at this level
+--   pub mod error     — LoomError (enum) and Span are pub
+--   pub mod lexer     — Lexer struct with tokenize() is pub
+--   pub mod lsp       — LSP utility functions and LoomLspServer
+--   pub mod parser    — Parser struct with parse_module() is pub
+--   pub mod project   — ProjectManifest and build_project are pub
+--
+-- Crate root re-exports:
+--   pub use error::LoomError   (so tests can write `loom::LoomError`)
+--
+-- G2: Lexer public interface (lexer/mod.rs):
+--   pub struct Lexer;
+--   impl Lexer { pub fn tokenize(source: &str) -> Result<Vec<Token>, Vec<LoomError>> }
+--   Tests call Lexer::tokenize(src) NOT lex(src) directly.
+--
+-- G3: Emitter naming convention — each emitter is a zero-size struct:
+--   codegen/rust.rs:        pub struct RustEmitter;
+--                           impl RustEmitter { pub fn new() -> Self; pub fn emit(&self, m: &Module) -> String }
+--   codegen/typescript.rs:  pub struct TypeScriptEmitter;  same pattern
+--   codegen/openapi.rs:     pub struct OpenApiEmitter;     same pattern
+--   codegen/json_schema.rs: pub struct JsonSchemaEmitter;  module name is json_schema (NOT schema)
+--                           but codegen/schema is also exposed as an alias module for json_schema
+--   codegen/simulation.rs:  pub struct SimulationEmitter;  same pattern
+--   codegen/neuroml.rs:     pub struct NeuroMLEmitter;
+--                           impl NeuroMLEmitter { pub fn emit(m: &Module) -> String }  (static, no self)
+-- codegen/mod.rs re-exports:
+--   pub use rust::RustEmitter
+--   pub use typescript::TypeScriptEmitter
+--   pub use openapi::OpenApiEmitter
+--   pub use json_schema::JsonSchemaEmitter
+--   pub use simulation::SimulationEmitter
+--   pub use neuroml::NeuroMLEmitter
+--   pub mod schema { pub use super::json_schema::JsonSchemaEmitter; }
+--
+-- G4: Checker naming convention — each checker is a zero-size struct (new() + check()):
+--   checker/effects.rs:     pub struct EffectChecker;   impl { pub fn new() -> Self; pub fn check(&self, m: &Module) -> Result<(), Vec<LoomError>> }
+--   checker/privacy.rs:     pub struct PrivacyChecker;  same pattern
+--   checker/types.rs:       pub struct TypeChecker;     same pattern
+--   checker/infoflow.rs:    pub struct InfoFlowChecker; same pattern
+--   checker/typestate.rs:   pub struct TypestateChecker; same pattern
+--   checker/units.rs:       pub struct UnitsChecker;    same pattern
+--   checker/safety.rs:      pub struct SafetyChecker;
+--                           impl SafetyChecker { pub fn check(m: &Module) -> Vec<LoomError> } (static, no new())
+--   checker/teleos.rs:      pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>>  (function, not struct)
+-- checker/mod.rs re-exports all of the above publicly.
+--
+-- G7: project module (project.rs):
+--   pub struct ProjectManifest { pub name: String, pub modules: Vec<String>, pub output: String }
+--   impl ProjectManifest { pub fn from_str(s: &str) -> Result<Self, String> }
+--   pub fn build_project(files: &[&str], out_dir: &str) -> Result<(), Vec<LoomError>>
+--
+-- G8: LoomError is an ENUM (not a struct) with specific variants:
+--   LexError { msg: String, span: Span }
+--   ParseError { msg: String, span: Span }
+--   TypeError { msg: String, span: Span }
+--   UnificationError { msg: String, span: Span }
+--   NonExhaustiveMatch { missing: Vec<String>, span: Span }  -- missing is Vec not String
+--   UndeclaredDependency { name: String, span: Span }
+--   WasmUnsupported { feature: String, span: Span }
+--   General { message: String, span: Span }  -- fallback for LoomError::new()
+--
+-- G9 (additional): Parser::new takes &[Token] not Vec<Token>:
+--   pub fn new(tokens: &[Token]) -> Self  -- tests call Parser::new(&tokens)
+--
 -- ── ALX Self-Applicability Invariant ─────────────────────────────────────────
-
 -- The ALX experiment (Adversarial Loom eXperiment) measures S_realized:
 -- S_realized = (tests passing from blind derivation) / (total tests)
 -- Publication gate: S_realized >= 0.90

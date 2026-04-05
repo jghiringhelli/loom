@@ -1,0 +1,2 @@
+S_realized = 0 / 410 = 0
+S_realized = 139 / 410 = 0.339 (post-correction-1)
