@@ -17,12 +17,14 @@ pub struct Parser<'src> {
     pos: usize,
     /// Collected consequence tiers from `Effect<[X@tier, ...]>` — consumed by `parse_fn_def`.
     pub pending_effect_tiers: Vec<(String, ConsequenceTier)>,
+    /// Annotations parsed before a `fn` keyword at item level — merged into the fn.
+    pub pending_annotations: Vec<Annotation>,
 }
 
 impl<'src> Parser<'src> {
     /// Create a new parser for the given token slice.
     pub fn new(tokens: &'src [(Token, Span)]) -> Self {
-        Parser { tokens, pos: 0, pending_effect_tiers: Vec::new() }
+        Parser { tokens, pos: 0, pending_effect_tiers: Vec::new(), pending_annotations: Vec::new() }
     }
 
     // ── Token navigation ──────────────────────────────────────────────────
@@ -223,6 +225,10 @@ impl<'src> Parser<'src> {
                 self.advance();
                 let (imp, _) = self.expect_ident()?;
                 imports.push(imp);
+            } else if self.at(&Token::At) {
+                // `@key("value")` before a fn — accumulate as pending annotations.
+                let anns = self.parse_annotations();
+                self.pending_annotations.extend(anns);
             } else {
                 items.push(self.parse_item()?);
             }
@@ -369,9 +375,11 @@ impl<'src> Parser<'src> {
         self.expect(Token::Fn)?;
         let (name, _) = self.expect_ident()?;
 
-        // Optional describe: and @annotations before the type signature
+        // Optional describe: and @annotations before the type signature.
+        // Merge any annotations accumulated at item level (before the `fn` keyword).
         let describe = self.parse_describe();
-        let annotations = self.parse_annotations();
+        let mut annotations = std::mem::take(&mut self.pending_annotations);
+        annotations.extend(self.parse_annotations());
 
         // Optional type parameter list: `<A, B, C>`.
         let type_params = if self.at(&Token::Lt) {

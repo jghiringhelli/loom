@@ -69,7 +69,30 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
 
 // ── TypeScript pipeline entry point ──────────────────────────────────────────
 
-/// Compile a Loom source string to a TypeScript source string.
+/// Compile a Loom source string to a JSON Schema document.
+///
+/// Emits a JSON Schema draft 2020-12 document with `$defs` for every type
+/// definition in the module.
+pub fn compile_json_schema(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+    checker::TypeChecker::new().check(&module)?;
+    Ok(codegen::JsonSchemaEmitter::new().emit(&module))
+}
+
+/// Compile a Loom source string to an OpenAPI 3.0.3 JSON document.
+///
+/// Emits paths/operations from functions, components/schemas from types.
+pub fn compile_openapi(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+    checker::TypeChecker::new().check(&module)?;
+    Ok(codegen::OpenApiEmitter::new().emit(&module))
+}
 ///
 /// Runs the full lex → parse → type-check pipeline, then emits TypeScript.
 pub fn compile_typescript(source: &str) -> Result<String, Vec<LoomError>> {
