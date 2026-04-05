@@ -63,7 +63,19 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 6: effect check ─────────────────────────────────────────────
     checker::EffectChecker::new().check(&module)?;
 
-    // ── Stage 7: code generation ──────────────────────────────────────────
+    // ── Stage 7: algebraic property check ────────────────────────────────
+    checker::AlgebraicChecker::new().check(&module)?;
+
+    // ── Stage 8: units of measure check ──────────────────────────────────
+    checker::UnitsChecker::new().check(&module)?;
+
+    // ── Stage 9b: typestate check ─────────────────────────────────────────
+    checker::TypestateChecker::new().check(&module)?;
+
+    // ── Stage 9c: privacy check ───────────────────────────────────────────
+    checker::PrivacyChecker::new().check(&module)?;
+
+    // ── Stage 9: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
 
@@ -91,6 +103,7 @@ pub fn compile_openapi(source: &str) -> Result<String, Vec<LoomError>> {
         .parse_module()
         .map_err(|e| vec![e])?;
     checker::TypeChecker::new().check(&module)?;
+    checker::AlgebraicChecker::new().check(&module)?;
     Ok(codegen::OpenApiEmitter::new().emit(&module))
 }
 ///
@@ -104,6 +117,8 @@ pub fn compile_typescript(source: &str) -> Result<String, Vec<LoomError>> {
     checker::TypeChecker::new().check(&module)?;
     checker::ExhaustivenessChecker::new().check(&module)?;
     checker::EffectChecker::new().check(&module)?;
+    checker::AlgebraicChecker::new().check(&module)?;
+    checker::UnitsChecker::new().check(&module)?;
     Ok(codegen::TypeScriptEmitter::new().emit(&module))
 }
 

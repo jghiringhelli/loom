@@ -20,6 +20,7 @@
 //! | `describe:` / `@annotations` | JSDoc comments |
 
 use crate::ast::*;
+use crate::checker::units::{capitalize, collect_unit_labels, extract_unit};
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
 
@@ -67,15 +68,67 @@ impl TypeScriptEmitter {
             out.push('\n');
         }
 
+        // Emit branded types for flow-labeled types (outside namespace).
+        if !module.flow_labels.is_empty() {
+            out.push_str("// Information flow labels\n");
+            for fl in &module.flow_labels {
+                for type_name in &fl.types {
+                    let jsdoc = match fl.label.as_str() {
+                        "secret"  => format!("/** @secret — handle as sensitive data */\n"),
+                        "public"  => format!("/** @public — safe for any output */\n"),
+                        "tainted" => format!("/** @tainted — must be sanitized before use */\n"),
+                        "trusted" => format!("/** @trusted — validated/sanitized data */\n"),
+                        other     => format!("/** @{} */\n", other),
+                    };
+                    out.push_str(&jsdoc);
+                    out.push_str(&format!(
+                        "export type {} = string & {{ readonly _sensitivity: {:?} }};\n",
+                        type_name, fl.label
+                    ));
+                }
+            }
+            out.push('\n');
+        }
+
         // Namespace wrapper.
         out.push_str(&format!("export namespace {} {{\n", module.name));
 
         let mut body = String::new();
 
+        // Emit unit branded type aliases first.
+        let unit_aliases = self.emit_unit_type_aliases(module);
+        if !unit_aliases.is_empty() {
+            body.push('\n');
+            for line in unit_aliases.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("  ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Interface definitions → TS interface.
         for iface in &module.interface_defs {
             body.push('\n');
             body.push_str(&self.emit_interface_def(iface));
+        }
+
+        // Lifecycle state union types.
+        for lc in &module.lifecycle_defs {
+            body.push('\n');
+            let variants: Vec<String> = lc.states.iter().map(|s| format!("{:?}", s)).collect();
+            body.push_str(&format!(
+                "export type {}State = {};\n",
+                lc.type_name,
+                variants.join(" | ")
+            ));
+            body.push_str(&format!(
+                "export interface {}<State extends {}State> {{ _state: State; }}\n",
+                lc.type_name, lc.type_name
+            ));
         }
 
         // implements → TS class implementing the interface.
@@ -124,7 +177,15 @@ impl TypeScriptEmitter {
 
     fn emit_type_def(&self, td: &TypeDef) -> String {
         let fields: Vec<String> = td.fields.iter()
-            .map(|(name, ty)| format!("  {}: {};", name, self.emit_type_expr(ty)))
+            .map(|f| {
+                let mut field_out = String::new();
+                if !f.annotations.is_empty() {
+                    let labels: Vec<String> = f.annotations.iter().map(|a| format!("@{}", a.key)).collect();
+                    field_out.push_str(&format!("  /** {} — handle per data protection policy */\n", labels.join(" ")));
+                }
+                field_out.push_str(&format!("  {}: {};", f.name, self.emit_type_expr(&f.ty)));
+                field_out
+            })
             .collect();
         format!("export interface {} {{\n{}\n}}", td.name, fields.join("\n"))
     }
@@ -219,7 +280,12 @@ impl TypeScriptEmitter {
                 }
             }
             for ann in &fd.annotations {
-                out.push_str(&format!(" * @{} {}\n", ann.key, ann.value));
+                let desc = algebraic_annotation_desc(&ann.key);
+                if let Some(d) = desc {
+                    out.push_str(&format!(" * @{} — {}\n", ann.key, d));
+                } else {
+                    out.push_str(&format!(" * @{} {}\n", ann.key, ann.value));
+                }
             }
             for (eff, tier) in &fd.effect_tiers {
                 let tier_str = match tier {
@@ -312,6 +378,10 @@ impl TypeScriptEmitter {
         match ty {
             TypeExpr::Base(name) => self.map_base_type(name).to_string(),
             TypeExpr::Generic(name, params) => {
+                // Unit-annotated primitives: Float<usd> → Usd (the branded type alias)
+                if let Some(unit) = extract_unit(ty) {
+                    return capitalize(unit);
+                }
                 let ps: Vec<String> = params.iter().map(|p| self.emit_type_expr(p)).collect();
                 match name.as_str() {
                     "List" if ps.len() == 1 => format!("{}[]", ps[0]),
@@ -343,6 +413,30 @@ impl TypeScriptEmitter {
             "Unit" => "void",
             _ => "unknown",
         }
+    }
+
+    // ── Unit branded types ────────────────────────────────────────────────
+
+    /// Emit TypeScript type aliases for every unit label used in the module.
+    ///
+    /// For each unique unit (e.g. `usd`) this emits:
+    /// ```typescript
+    /// export type Usd = number & { readonly _unit: "Usd" };
+    /// ```
+    pub fn emit_unit_type_aliases(&self, module: &Module) -> String {
+        let units = collect_unit_labels(module);
+        if units.is_empty() {
+            return String::new();
+        }
+        let mut out = String::new();
+        for unit in &units {
+            let tn = capitalize(unit);
+            out.push_str(&format!(
+                "export type {} = number & {{ readonly _unit: \"{}\" }};\n",
+                tn, tn
+            ));
+        }
+        out
     }
 
     // ── Expressions ───────────────────────────────────────────────────────
@@ -488,6 +582,21 @@ impl TypeScriptEmitter {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/// Returns a human-readable description for known algebraic annotation keys,
+/// or `None` if the key is not a recognised algebraic property.
+fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
+    match key {
+        "idempotent"   => Some("safe to retry"),
+        "commutative"  => Some("argument order does not matter"),
+        "associative"  => Some("grouping does not matter"),
+        "at-most-once" => Some("must not be called more than once"),
+        "exactly-once" => Some("must be called exactly once"),
+        "pure"         => Some("no side effects"),
+        "monotonic"    => Some("output only increases"),
+        _ => None,
+    }
+}
 
 /// PascalCase / camelCase → kebab-case for file names.
 fn to_kebab_case(name: &str) -> String {

@@ -17,6 +17,7 @@
 //! | `a \|> f` | intermediate let binding |
 
 use crate::ast::*;
+use crate::checker::units::{capitalize, collect_unit_labels, extract_unit};
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,15 @@ impl RustEmitter {
         out.push_str(&format!("pub mod {} {{\n", mod_name));
         out.push_str("    use super::*;\n");
 
+        // Emit information-flow label summary comment.
+        if !module.flow_labels.is_empty() {
+            out.push_str("    // information-flow labels:\n");
+            for fl in &module.flow_labels {
+                let types_str = fl.types.join(", ");
+                out.push_str(&format!("    //   {}: {}\n", fl.label, types_str));
+            }
+        }
+
         // Emit `use super::snake_module::*;` for each import.
         for imp in &module.imports {
             out.push_str(&format!("    use super::{}::*;\n", to_snake_case(imp)));
@@ -67,10 +77,34 @@ impl RustEmitter {
         // Render the module body first to detect which stdlib imports are needed.
         let mut body = String::new();
 
+        // Emit unit newtypes first (before all other items).
+        let unit_types_src = self.emit_unit_types(module);
+        if !unit_types_src.is_empty() {
+            body.push('\n');
+            for line in unit_types_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("    ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Emit interface trait definitions.
         for iface in &module.interface_defs {
             body.push('\n');
             body.push_str(&self.emit_interface_trait(iface));
+        }
+
+        // Emit phantom state types for each lifecycle declaration.
+        for lc in &module.lifecycle_defs {
+            body.push('\n');
+            body.push_str(&format!("// Lifecycle states for {}\n", lc.type_name));
+            for state in &lc.states {
+                body.push_str(&format!("pub struct {};\n", state));
+            }
         }
 
         // Emit impl blocks for `implements`.
@@ -333,16 +367,35 @@ impl RustEmitter {
     // ── Type definition ───────────────────────────────────────────────────
 
     fn emit_type_def(&self, td: &TypeDef) -> String {
+        let has_pii = td.fields.iter().any(|f| f.annotations.iter().any(|a| a.key == "pii"));
+        let mut out = String::new();
+        if has_pii {
+            out.push_str("// loom: module contains PII fields — handle with care\n");
+        }
         let fields: Vec<String> = td
             .fields
             .iter()
-            .map(|(name, ty)| format!("    pub {}: {},", name, self.emit_type_expr(ty)))
+            .map(|f| {
+                let mut field_out = String::new();
+                for ann in &f.annotations {
+                    match ann.key.as_str() {
+                        "pii"             => field_out.push_str("    #[loom_pii]\n"),
+                        "secret"          => field_out.push_str("    #[loom_secret]\n"),
+                        "encrypt-at-rest" => field_out.push_str("    #[loom_encrypt_at_rest]\n"),
+                        "never-log"       => field_out.push_str(&format!("    // NEVER LOG: {}\n", f.name)),
+                        _ => {}
+                    }
+                }
+                field_out.push_str(&format!("    pub {}: {},", f.name, self.emit_type_expr(&f.ty)));
+                field_out
+            })
             .collect();
-        format!(
+        out.push_str(&format!(
             "#[derive(Debug, Clone, PartialEq)]\npub struct {} {{\n{}\n}}\n",
             td.name,
             fields.join("\n")
-        )
+        ));
+        out
     }
 
     // ── Enum definition ───────────────────────────────────────────────────
@@ -405,7 +458,12 @@ impl RustEmitter {
 
         // Emit @annotations as doc comments, and #[deprecated] for @deprecated.
         for ann in &fd.annotations {
-            out.push_str(&format!("/// @{}: {}\n", ann.key, ann.value));
+            let desc = algebraic_annotation_desc(&ann.key);
+            if let Some(d) = desc {
+                out.push_str(&format!("/// @{} — {}\n", ann.key, d));
+            } else {
+                out.push_str(&format!("/// @{}: {}\n", ann.key, ann.value));
+            }
             if ann.key == "deprecated" {
                 out.push_str(&format!(
                     "#[deprecated(note = \"{}\")]\n",
@@ -523,6 +581,10 @@ impl RustEmitter {
         match ty {
             TypeExpr::Base(name) => self.map_base_type(name),
             TypeExpr::Generic(name, params) => {
+                // Unit-annotated primitives: Float<usd> → Usd, Int<meters> → Meters
+                if let Some(unit) = extract_unit(ty) {
+                    return capitalize(unit);
+                }
                 let ps: Vec<String> = params.iter().map(|p| self.emit_type_expr(p)).collect();
                 // Map Loom stdlib collection types to Rust equivalents.
                 match name.as_str() {
@@ -560,6 +622,47 @@ impl RustEmitter {
             "Unit" => "()".to_string(),
             other => other.to_string(),
         }
+    }
+
+    // ── Unit newtypes ─────────────────────────────────────────────────────
+
+    /// Emit newtype structs for every unit label used in the module.
+    ///
+    /// For each unique unit (e.g. `usd`) this emits:
+    /// ```rust,ignore
+    /// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+    /// pub struct Usd(pub f64);
+    /// impl std::ops::Add for Usd { … }
+    /// impl std::ops::Sub for Usd { … }
+    /// impl std::ops::Mul<f64> for Usd { … }
+    /// ```
+    pub fn emit_unit_types(&self, module: &Module) -> String {
+        let units = collect_unit_labels(module);
+        if units.is_empty() {
+            return String::new();
+        }
+        let mut out = String::new();
+        for unit in &units {
+            let tn = capitalize(unit);
+            out.push_str(&format!(
+                "#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]\npub struct {}(pub f64);\n",
+                tn
+            ));
+            out.push_str(&format!(
+                "impl std::ops::Add for {0} {{ type Output = {0}; fn add(self, rhs: {0}) -> {0} {{ {0}(self.0 + rhs.0) }} }}\n",
+                tn
+            ));
+            out.push_str(&format!(
+                "impl std::ops::Sub for {0} {{ type Output = {0}; fn sub(self, rhs: {0}) -> {0} {{ {0}(self.0 - rhs.0) }} }}\n",
+                tn
+            ));
+            out.push_str(&format!(
+                "impl std::ops::Mul<f64> for {0} {{ type Output = {0}; fn mul(self, rhs: f64) -> {0} {{ {0}(self.0 * rhs) }} }}\n",
+                tn
+            ));
+            out.push('\n');
+        }
+        out
     }
 
     // ── Expressions ───────────────────────────────────────────────────────
@@ -743,6 +846,21 @@ impl RustEmitter {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/// Returns a human-readable description for known algebraic annotation keys,
+/// or `None` if the key is not a recognised algebraic property.
+fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
+    match key {
+        "idempotent"   => Some("safe to retry"),
+        "commutative"  => Some("argument order does not matter"),
+        "associative"  => Some("grouping does not matter"),
+        "at-most-once" => Some("must not be called more than once"),
+        "exactly-once" => Some("must be called exactly once"),
+        "pure"         => Some("no side effects"),
+        "monotonic"    => Some("output only increases"),
+        _ => None,
+    }
+}
 
 /// Convert a PascalCase module name to snake_case for the Rust `mod` declaration.
 fn to_snake_case(name: &str) -> String {
@@ -939,11 +1057,13 @@ mod tests {
             requires: None,
             invariants: vec![],
             test_defs: vec![],
+            lifecycle_defs: vec![],
+            flow_labels: vec![],
             items: vec![Item::Type(TypeDef {
                 name: "Point".to_string(),
                 fields: vec![
-                    ("x".to_string(), TypeExpr::Base("Float".to_string())),
-                    ("y".to_string(), TypeExpr::Base("Float".to_string())),
+                    FieldDef { name: "x".to_string(), ty: TypeExpr::Base("Float".to_string()), annotations: vec![], span: Span::synthetic() },
+                    FieldDef { name: "y".to_string(), ty: TypeExpr::Base("Float".to_string()), annotations: vec![], span: Span::synthetic() },
                 ],
                 span: Span::synthetic(),
             })],
@@ -969,6 +1089,8 @@ mod tests {
             requires: None,
             invariants: vec![],
             test_defs: vec![],
+            lifecycle_defs: vec![],
+            flow_labels: vec![],
             items: vec![Item::Enum(EnumDef {
                 name: "Color".to_string(),
                 variants: vec![
@@ -999,6 +1121,8 @@ mod tests {
             requires: None,
             invariants: vec![],
             test_defs: vec![],
+            lifecycle_defs: vec![],
+            flow_labels: vec![],
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),
                 describe: None,
