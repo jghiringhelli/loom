@@ -461,7 +461,89 @@ The expected number of correction iterations is a decreasing function of specifi
 
 ---
 
-## 14. Conclusion
+## 14. Phase 7: Biological Computation (M41–M43)
+
+### 14.1 The `being:` Block and the Four-Cause Frame
+
+M41–M43 add Aristotle's four causes as first-class language constructs. A `being:` block encodes a computational entity whose material composition (`matter:`), type structure (`form:`), operations (`function:`), and final cause (`telos:`) are all statically verified by the compiler. This is not a metaphor. It is a functional isomorphism: the same problem class — a self-maintaining formal system that must produce correct behavior from incomplete specification — receives the same solution class that formal type theory and life independently discovered.
+
+```loom
+being Neuron
+  matter:
+    charge: Float<mv>
+    threshold: Float<mv>
+  end
+  form:
+    type Signal = { strength: Float<mv>, frequency: Float<hz> }
+  end
+  function:
+    fn fire :: Float<mv> -> Effect<[IO], Signal>
+  end
+  telos: "efficient signal processing maximizing information transmission"
+    fitness: fn(state: Signal, env: Network) -> Float<fitness>
+  end
+end
+```
+
+### 14.2 Why `telos:` Is Required
+
+`telos:` is the final cause: the convergence target. It is not optional. A `being:` block without `telos:` is a **compile error**.
+
+The missing final cause is the type error most production systems ship. A deployed system with no stated objective is formally incomplete — Aristotle's point, now enforced by the TeleosChecker. Every real system has a telos; the question is whether it is stated. Loom requires it to be stated, typed, and checkable. The fitness function makes the objective machine-readable.
+
+### 14.3 `regulate:` — First-Class Homeostasis
+
+The `regulate:` block declares a named homeostatic controller. It requires a target value, acceptable bounds, and exhaustive response clauses. The checker verifies bound ordering and response exhaustiveness. Violations — values outside `(min, max)` — produce typed responses, not runtime panics.
+
+```loom
+regulate MembraneCharge
+  target: -70.0
+  bounds: (-90.0, -55.0)
+  response:
+    | below_threshold -> refractory_period
+    | above_threshold -> fire
+end
+```
+
+Homeostatic regulation was previously informal: a comment in a config file, a circuit breaker threshold buried in middleware. `regulate:` makes it a typed, checkable, emittable first-class construct.
+
+### 14.4 `evolve:` — Stochastic Search With a Fixed Objective
+
+The `evolve:` block declares the search strategy the being uses to approach its telos. Five strategies are available: `gradient_descent`, `stochastic_gradient`, `simulated_annealing`, `derivative_free`, and `mcmc`. The mandatory `constraint:` clause states that `E[distance_to_telos]` is non-increasing.
+
+Stochastic strategies are valid precisely because the objective is fixed and the convergence constraint is enforced. Simulated annealing accepts uphill moves; MCMC samples a distribution; stochastic gradient adds noise. None of this violates correctness because the telos does not move and the expected trajectory must converge. The `constraint:` clause is the proof obligation: it makes the search strategy's validity machine-readable.
+
+### 14.5 `ecosystem:` — Session-Typed Multi-Being Composition
+
+An `ecosystem:` block composes multiple beings with named, typed signal channels.
+
+```loom
+ecosystem NeuralNetwork
+  members: [Neuron, Synapse, GlialCell]
+  signal ActionPotential from Neuron to Synapse
+    payload: Signal
+  end
+  telos: "coherent information processing toward learned representation"
+end
+```
+
+The checker verifies that all members are declared beings, that signal endpoints are members of the ecosystem, and that `telos:` is present. The ecosystem's telos is an emergent objective distinct from any member's telos — the system-level final cause.
+
+### 14.6 Emission
+
+| Construct | Rust | TypeScript | OpenAPI | JSON Schema |
+|-----------|------|-----------|---------|-------------|
+| `being:` | struct + impl | interface + class | `x-being` | `x-being: true` |
+| `matter:` | struct fields | interface fields | properties | properties |
+| `telos:` | doc comment | JSDoc `@telos` | `x-telos` | `x-telos` |
+| `regulate:` | `debug_assert!` | runtime guard | `x-homeostasis` | `x-bounds` |
+| `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
+| `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
+| `signal` | channel type | event type | AsyncAPI channel | — |
+
+---
+
+## 15. Conclusion
 
 Loom demonstrates that five programming language research constructs — units of measure, privacy labels, algebraic operation properties, typestate, and information flow types — can be implemented together in a practical compiler that targets multiple output formats. The multi-target design means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously.
 

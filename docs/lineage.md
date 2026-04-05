@@ -337,6 +337,7 @@ Loom addresses all three at once:
 2011     Shapiro         — CRDTs: @crdt(or-set) derives the merge function
 2016     Google SRE      — SLOs: @slo(p99=200ms) as a typed contract
 2026     Loom            — All of the above. One source. Five targets. One AI.
+2026     Loom (M41–M43)  — being:/telos:/regulate:/evolve:/ecosystem: — all of the above, executable
 ```
 
 The question Aristotle was asking in 350 BCE — can meaning be expressed precisely enough that correct behavior can be derived mechanically? — has been answered in progressively richer languages across 2,376 years.
@@ -354,6 +355,8 @@ This is what Loom is.
 The lineage above runs in one direction: a theory is proved, it waits, it eventually becomes a Loom construct. But the loop is now closed in both directions.
 
 New proven theories become new Loom constructs. Loom, in turn, proves some of those theories by induction or approximation — running them against real programs, finding where the boundaries are, discovering which invariants hold universally and which require refinement. The language becomes a continuous experimental apparatus: the formal tradition feeds Loom, and Loom feeds back. Not as a computer science curiosity. As the normal cycle of a living language under the ALX model: specification → implementation → adversarial test → gap found → new construct → specification updated → repeat.
+
+M41–M43 close the loop in a new way. The biological mechanisms that Loom's constructs were previously *compared to* — homeostasis, directed evolution, telos-seeking — are now first-class language constructs: `regulate:`, `evolve:`, `telos:`. The language no longer speaks *about* biology in commentary and white papers. It speaks *in* the language it was compared to. The isomorphism has been made executable. What was illustration is now syntax. What was analogy is now a checker rule: a `being:` without `telos:` is a compile error, because a system without a final cause is formally incomplete — and Aristotle said so 2,376 years before the Loom compiler agreed.
 
 The theories that were too expensive to apply are now the baseline. The baseline improves as the theories do.
 

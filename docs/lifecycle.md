@@ -520,3 +520,57 @@ Every existing tool in the stack — Terraform, Kubernetes, Prometheus, Grafana,
 When you change a type in the Loom spec, every artifact regenerates: the Rust impl, the TypeScript SDK, the OpenAPI, the K8s deployment, the Grafana dashboard, the Pact contract, the chaos experiment. The spec is the system. The system is the spec.
 
 This is what the GS white paper calls **a mold**: a complete specification from which all correct artifacts are derived, by any sufficiently capable reader — human or AI.
+
+---
+
+## Phase 8 — Biological Computation (M41–M43)
+
+### What Was Added
+
+M41–M43 introduce Aristotle's four causes as first-class language constructs. A `being:` block encodes a computational entity with statically verified matter, form, function, and final cause. These constructs are not metaphorical — they are functional isomorphisms with the same solution class that life independently found for self-maintaining formal systems.
+
+| Keyword | Aristotelian cause | Role |
+|---------|--------------------|------|
+| `matter:` | Material cause | Fields / state composition |
+| `form:` | Formal cause | Type structure / organisation |
+| `function:` | Efficient cause | Operations the being performs |
+| `telos:` | Final cause | Convergence target (required) |
+| `regulate:` | — | Homeostatic bounds enforcement |
+| `evolve:` | — | Directed search toward telos |
+| `ecosystem:` | — | Session-typed multi-being composition |
+
+### Why Telos Is Required
+
+`telos:` is not optional. A `being:` without `telos:` is a **compile error**. The missing final cause is the type error most production systems ship: a deployed system with no stated convergence objective is formally incomplete. Aristotle's insight — that purposeless motion is incoherent — becomes a checker rule.
+
+### Emission Matrix
+
+| Construct | Rust | TypeScript | OpenAPI | JSON Schema |
+|-----------|------|-----------|---------|-------------|
+| `being:` | struct + impl block | interface + class | `x-being` extension | `x-being: true` |
+| `matter:` fields | struct fields | interface fields | schema properties | properties |
+| `form:` types | nested structs | nested interfaces | `$defs` | `$defs` |
+| `function:` sigs | impl methods | class methods | paths | — |
+| `telos:` | doc comment + `x-telos` | JSDoc `@telos` | `x-telos` | `x-telos` |
+| `regulate:` | `debug_assert!` bounds | runtime guard | `x-homeostasis` | `x-bounds` |
+| `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
+| `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
+| `signal` | channel type | event type | AsyncAPI channel | — |
+
+### The Philosophical Grounding
+
+The biological layer closes the self-bootstrapping loop in a new way: the biological mechanisms that Loom's constructs were previously *compared to* are now first-class syntax. Life solved the problem of self-maintaining formal systems over 3.5 billion years. Formal type theory independently rediscovered the same solution class over 80 years. M41–M43 make the isomorphism executable.
+
+Stochastic search strategies in `evolve:` (`stochastic_gradient`, `simulated_annealing`, `mcmc`) are valid because the `telos:` is fixed and the `constraint:` clause requires `E[distance_to_telos]` to be non-increasing. The objective does not move. The search strategy's randomness is bounded by convergence.
+
+### What M44–M50 Should Cover Next
+
+| M | Feature | Rationale |
+|---|---------|-----------|
+| M44 | Documentation update (this file) | Reflect M41–M43 across all docs |
+| M45 | Session types between beings | Honda's multiparty session types; beings communicate via typed protocols, not raw signals |
+| M46 | RDF/OWL ontology emission for beings | `being:` + `telos:` emit Turtle/JSON-LD; beings become first-class ontological entities |
+| M47 | Temporal logic for biological rhythms | `@always`, `@eventually`, `@rhythm(period=24h)` for circadian-style constraints |
+| M48 | Differential privacy for genetic data | `@dp(ε=0.1)` on `matter:` fields carrying sensitive biological data |
+| M49 | CRDT beings | `@crdt` on `being:` for replicated biological entities that merge without conflict |
+| M50 | Ecosystem orchestration emission | `ecosystem:` → K8s multi-container pod spec; signals → service mesh config |
