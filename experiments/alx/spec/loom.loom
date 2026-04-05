@@ -50,6 +50,14 @@ enum TokenKind =
   | Spec | Effect | Require | Ensure | With | Of | Flow | Lifecycle
   | Being | Telos | Form | Matter | Regulate | Evolve | Toward | Search
   | Fitness | Bounds | Ecosystem | Members | Signal | From | To | Payload
+  | Epigenetic | Modifies | RevertsWhen
+  | Morphogen | Threshold | Produces
+  | Telomere | OnExhaustion | Limit
+  | Crispr | Replace | Guide
+  | Quorum | Action
+  | Plasticity | Trigger | Rule | Hebbian | Boltzmann
+  | Autopoietic
+  | ModifiableBy | BoundedBy
   | Arrow | DoubleColon | Pipe | Dot | Comma | Colon | Semicolon
   | LParen | RParen | LBracket | RBracket | LBrace | RBrace
   | LAngle | RAngle | At | Underscore
@@ -175,7 +183,7 @@ type FlowLabel =
   span:  Span
 end
 
--- ── AST: Biological constructs (M41–M43) ─────────────────────────────────────
+-- ── AST: Biological constructs (M41–M55) ─────────────────────────────────────
 
 -- Aristotle's four causes as first-class language sections.
 -- Every being: block MUST have a telos: — missing it is a compile error.
@@ -210,9 +218,11 @@ type RegulateBlock =
 end
 
 type TelosDef =
-  description: String
-  fitness_fn:  Option<String>
-  span:        Span
+  description:   String
+  fitness_fn:    Option<String>
+  modifiable_by: Option<String>   -- @corrigible requires this field
+  bounded_by:    Option<String>   -- @bounded_telos requires this field
+  span:          Span
 end
 
 type MatterBlock =
@@ -231,16 +241,96 @@ type FunctionBlock =
   span: Span
 end
 
+-- M45: Epigenetic block — Waddington (1957)
+-- Behavioral modulation without structural change.
+-- modifies: which field is modulated; reverts_when: condition for reset.
+type EpigeneticBlock =
+  modifies:     String
+  expression:   String
+  reverts_when: Option<String>
+  span:         Span
+end
+
+-- M46: Morphogen block — Turing (1952) reaction-diffusion
+-- activator/inhibitor pair produces spatial differentiation.
+-- threshold ∈ [0.0, 1.0]; produces: the differentiated structure name.
+type MorphogenBlock =
+  activator:  String
+  inhibitor:  String
+  threshold:  Float
+  produces:   String
+  span:       Span
+end
+
+-- M47: Telomere block — Hayflick (1961)
+-- Finite replication limit. on_exhaustion must name a valid fn in function:.
+-- @mortal annotation requires this block to be present.
+type TelomereBlock =
+  limit:         Int
+  on_exhaustion: String
+  span:          Span
+end
+
+-- M48: CRISPR block — Doudna/Charpentier (2012)
+-- Targeted self-modification: replace target sequence guided by guide.
+-- preserve: must hold after the edit.
+type CrisprBlock =
+  target:   String
+  replace:  String
+  guide:    String
+  preserve: Option<String>
+  span:     Span
+end
+
+-- M49: Quorum block — Bassler (1999) — lives on EcosystemDef
+-- Population-threshold collective behavior. threshold ∈ (0.0, 1.0].
+-- signal: the autoinducer signal name; action: the collective fn to call.
+type QuorumBlock =
+  signal:    String
+  threshold: Float
+  action:    String
+  span:      Span
+end
+
+-- M50: Plasticity — Hebb (1949) synaptic weight adjustment
+-- rule variants: Hebbian (fire together wire together),
+-- Boltzmann (thermodynamic weight sampling).
+enum PlasticityStrategy =
+  | Hebbian
+  | Boltzmann
+  | ReinforcementLearning
+end
+
+type PlasticityRule =
+  name:     String
+  strategy: PlasticityStrategy
+  trigger:  String
+  modifies: String
+  span:     Span
+end
+
+type PlasticityBlock =
+  rules: List<PlasticityRule>
+  span:  Span
+end
+
 type BeingDef =
-  name:             String
-  describe:         Option<String>
-  matter:           Option<MatterBlock>
-  form:             Option<FormBlock>
-  function:         Option<FunctionBlock>
-  telos:            Option<TelosDef>
-  regulate_blocks:  List<RegulateBlock>
-  evolve_block:     Option<EvolveBlock>
-  span:             Span
+  name:            String
+  describe:        Option<String>
+  annotations:     List<Annotation>   -- safety: @mortal @corrigible @sandboxed etc
+  matter:          Option<MatterBlock>
+  form:            Option<FormBlock>
+  function:        Option<FunctionBlock>
+  telos:           Option<TelosDef>
+  regulate_blocks: List<RegulateBlock>
+  evolve_block:    Option<EvolveBlock>
+  epigenetic:      Option<EpigeneticBlock>   -- M45: Waddington 1957
+  morphogen:       Option<MorphogenBlock>    -- M46: Turing 1952
+  telomere:        Option<TelomereBlock>     -- M47: Hayflick 1961
+  crispr:          Option<CrisprBlock>       -- M48: Doudna 2012
+  plasticity:      Option<PlasticityBlock>   -- M50: Hebb 1949
+  autopoietic:     Bool                      -- M51: Maturana/Varela 1972
+  span:            Span
 end
 
 type SignalDef =
@@ -252,12 +342,13 @@ type SignalDef =
 end
 
 type EcosystemDef =
-  name:    String
+  name:     String
   describe: Option<String>
-  members: List<String>
-  signals: List<SignalDef>
-  telos:   Option<String>
-  span:    Span
+  members:  List<String>
+  signals:  List<SignalDef>
+  telos:    Option<String>
+  quorum:   Option<QuorumBlock>   -- M49
+  span:     Span
 end
 
 -- ── AST: Interface / provides / requires ─────────────────────────────────────
@@ -438,103 +529,163 @@ end
 -- They iterate module items and being_defs/ecosystem_defs to produce output.
 -- Emission rules for each target are specified below.
 
--- Rust emitter (primary target):
---   - TypeDef → pub struct with serde::Serialize/Deserialize
---   - EnumDef → pub enum with variants
---   - RefinedType → newtype with TryFrom impl and debug_assert!
---   - FnDef → pub fn with require/ensure as debug_assert! and doc comments
---   - LifecycleDef → phantom type structs (struct Pending; struct Completed;)
---   - FlowLabel → doc comments (// information-flow labels: secret: Password)
---   - BeingDef → pub struct (matter fields) + impl with fitness/regulate/evolve methods
---   - EcosystemDef → pub mod with signal structs + coordinate fn
---   - @idempotent → doc comment + x-idempotent in OpenAPI
---   - @exactly-once → doc comment; POST promoted to PUT in OpenAPI
---   - Float<usd> → f64 (newtype: struct Usd(f64)) in Rust
 fn emit_rust :: Module -> Effect<[Pure], String]
   describe: "Emit Rust source — primary compilation target"
   ensure:   result.contains("pub") implies result.contains("struct") or result.contains("fn") or result.contains("enum")
+  -- BeingDef → pub struct (matter fields) + impl block:
+  --   regulate_blocks → homeostatic bounds + check fn
+  --   evolve_block → strategy-dispatching evolve() fn (gradient_descent/simulated_annealing/mcmc)
+  --   epigenetic → apply_epigenetic_<field>() fn
+  --   morphogen → differentiate_<produces>() fn
+  --   telomere → telomere_count: u64 field + replicate() fn with limit check
+  --   crispr → edit_<guide>() fn
+  --   plasticity → update_<field>() fn per rule
+  --   autopoietic → is_autopoietic() + verify_closure() on second impl block
+  -- EcosystemDef → pub mod with signal structs + coordinate() fn + check_quorum() fn
   module
 end
 
--- TypeScript emitter:
---   - TypeDef → interface with JSDoc
---   - EnumDef → union type or const enum
---   - FnDef → export function with JSDoc @param/@returns
---   - @pii/@gdpr → JSDoc @pii/@gdpr tags
---   - flow secret → branded type: type Password = string & { readonly _sensitivity: "secret" }
---   - BeingDef → export class with @being/@telos JSDoc
---   - EcosystemDef → export namespace with signal interfaces + coordinate fn
 fn emit_typescript :: Module -> Effect<[Pure], String]
-  describe: "Emit TypeScript source"
+  describe: "Emit TypeScript — interface types + Zod schemas"
+  -- TypeDef → export interface + Zod schema
+  -- EnumDef → export enum
+  -- FnDef → export function with JSDoc
+  -- BeingDef → export class with TS equivalents of all Rust methods
+  -- EcosystemDef → export namespace with signal types
   module
 end
 
--- OpenAPI 3.0.3 emitter:
---   REST inference from function names (30+ verb-prefix rules):
---   get_X → GET /xs/{id}, create_X → POST /xs, update_X → PUT /xs/{id},
---   delete_X → DELETE /xs/{id}, list_xs → GET /xs
---   @idempotent on POST → promoted to PUT
---   @exactly-once stays POST
---   XError variants → HTTP status codes: NotFound→404, PermissionDenied→403, InvalidInput→400
---   @pci/@gdpr/@hipaa → x-data-protection extension
---   flow secret → x-security-labels extension
---   LifecycleDef → x-lifecycle extension
---   BeingDef → x-beings with x-telos, x-matter, x-form, x-regulate, x-evolve-constraint
---   EcosystemDef → x-ecosystems with x-signals
 fn emit_openapi :: Module -> Effect<[Pure], String]
-  describe: "Emit OpenAPI 3.0.3 JSON — REST inference from types and names"
+  describe: "Emit OpenAPI 3.0 YAML — spec from interface/fn definitions"
+  -- interface methods → paths; TypeDef → components/schemas
+  -- @exactly-once → POST promoted to PUT
+  -- @idempotent → x-idempotent: true extension
+  -- BeingDef → x-beings extension with all biological metadata
+  -- EcosystemDef → x-ecosystems extension
   module
 end
 
--- JSON Schema emitter:
---   TypeDef → $defs entry with properties and required array
---   @pii → x-sensitivity: "pii"
---   @gdpr → x-gdpr: true
---   Float<unit> → x-unit: "usd"
 fn emit_json_schema :: Module -> Effect<[Pure], String]
-  describe: "Emit JSON Schema draft 2020-12"
+  describe: "Emit JSON Schema — TypeDef and EnumDef to $schema draft-07"
   module
 end
 
--- WebAssembly Text (WAT) emitter — subset only:
---   Only pure functions with numeric signatures are supported.
---   Effect types, enums, refined types, match expressions → WasmUnsupported error.
---   Int → i64, Float → f64, Bool → i32 (0 = false, 1 = true)
-fn emit_wasm :: Module -> Effect<[Pure], Result<String, LoomError>]
-  describe: "Emit WebAssembly Text format — pure numeric subset only"
-  ensure:   result.is_ok() implies result.unwrap().starts_with("(module")
+fn emit_wasm :: Module -> Effect<[Pure], String]
+  describe: "Emit WebAssembly text format (WAT) — pure fn → wasm func"
+  -- Only pure functions (no effects) are emitted to WASM
+  -- Effect-bearing functions return wasm_unsupported error
+  module
+end
+
+-- M52: Mesa ABM simulation emitter — Maturana/Varela autopoietic beings
+-- Each being: → Python Mesa Agent class with step() method
+-- Each ecosystem: → Python Mesa Model class with step() calling all agents
+-- regulate: → homeostasis check in step()
+-- evolve: → directed search in step()
+-- telomere: → replication limit enforced in step()
+fn emit_simulation :: Module -> Effect<[Pure], String]
+  describe: "Emit Mesa ABM Python simulation from autopoietic beings"
+  -- Only beings with autopoietic: true are emitted as full agents
+  -- ecosystem: members → Model.schedule.add(AgentClass(...))
+  module
+end
+
+-- M53: NeuroML 2 XML emitter — neural beings with plasticity:
+-- beings with plasticity: blocks → <cell> elements
+-- regulate: → <biophysicalProperties> with bounds
+-- morphogen: → <morphology> with <segment>
+-- plasticity rules → <synapse rule="Hebbian"/>
+-- ecosystem: → <network> with <population> and <projection> per signal
+fn emit_neuroml :: Module -> Effect<[Pure], String]
+  describe: "Emit NeuroML 2 XML for neural beings with plasticity blocks"
+  ensure:   result.starts_with("<neuroml")
+  module
+end
+
+-- ── Pipeline: Safety checker (M55) ───────────────────────────────────────────
+
+-- The SafetyChecker runs after TeleosChecker (Stage 9e).
+-- It enforces mandatory safety annotations on autopoietic beings.
+-- These are COMPILE ERRORS, not warnings. The Three Laws as a type system.
+
+-- Rules:
+-- 1. autopoietic:true without @mortal annotation → error
+--    "autopoietic being missing @mortal: unbounded proliferation is undefined behavior"
+-- 2. autopoietic:true without @sandboxed annotation → error
+--    "autopoietic being missing @sandboxed: effects outside declared surface are unsafe"
+-- 3. @mortal annotation without telomere: block → error
+--    "@mortal requires telomere: block with finite limit"
+-- 4. @corrigible annotation without telos.modifiable_by field → error
+--    "@corrigible requires telos.modifiable_by: field"
+-- 5. @bounded_telos with "maximize"/"unlimited"/"any"/"all" in telos description → error
+--    "@bounded_telos: telos description contains open-ended utility term"
+-- 6. @bounded_telos without telos.bounded_by field → error
+--    "@bounded_telos requires telos.bounded_by: field"
+fn check_safety :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Safety annotations enforced on autopoietic beings — Asimov 1942 as a type system"
+  require:  all autopoietic beings carry @mortal and @sandboxed
+  ensure:   no autopoietic being compiles without mortality + corrigibility + sandboxing
   module
 end
 
 -- ── Pipeline: Entry points ────────────────────────────────────────────────────
 
--- The public API exposed by src/lib.rs. Tests use these functions directly.
-
+-- compile() is the primary entry point. It runs the full pipeline:
+-- lex → parse → check_inference → check_types → check_exhaustiveness →
+-- check_effects → check_algebraic → check_units → check_typestate →
+-- check_privacy → check_infoflow → check_teleos → check_safety → emit_rust
 fn compile :: String -> Effect<[IO], Result<String, List<LoomError>>]
-  describe: "Full pipeline: lex → parse → all checkers → emit_rust"
+  describe: "Full compilation pipeline — source to Rust"
   require:  source.len() > 0
-  ensure:   result.is_ok() implies result.unwrap().contains("pub") or result.unwrap().contains("fn")
+  ensure:   result.is_ok() implies result.unwrap().contains("pub")
   source
 end
 
 fn compile_typescript :: String -> Effect<[IO], Result<String, List<LoomError>>]
-  describe: "Full pipeline → emit_typescript"
+  describe: "Full pipeline — source to TypeScript"
   source
 end
 
 fn compile_openapi :: String -> Effect<[IO], Result<String, List<LoomError>>]
-  describe: "Full pipeline → emit_openapi"
+  describe: "Full pipeline — source to OpenAPI 3.0 YAML"
   source
 end
 
 fn compile_json_schema :: String -> Effect<[IO], Result<String, List<LoomError>>]
-  describe: "Partial pipeline (type check only) → emit_json_schema"
+  describe: "Full pipeline — source to JSON Schema draft-07"
   source
 end
 
 fn compile_wasm :: String -> Effect<[IO], Result<String, List<LoomError>>]
-  describe: "Full pipeline → emit_wasm (pure numeric subset)"
+  describe: "Full pipeline — source to WebAssembly text format"
   source
+end
+
+fn compile_simulation :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline — source to Mesa ABM Python simulation"
+  source
+end
+
+fn compile_neuroml :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline — source to NeuroML 2 XML"
+  ensure:   result.is_ok() implies result.unwrap().starts_with("<neuroml")
+  source
+end
+
+-- ── ALX Self-Applicability Invariant ─────────────────────────────────────────
+
+-- The ALX experiment (Adversarial Loom eXperiment) measures S_realized:
+-- S_realized = (tests passing from blind derivation) / (total tests)
+-- Publication gate: S_realized >= 0.90
+-- S = 1 is asymptotic (Gödel). S → 1 means I → 0 (no correction iterations).
+-- Each failing test is a gap in this specification, not an implementation bug.
+-- The correction log is the empirical proof of the I ∝ (1-S)/S equation.
+
+invariant alx_self_applicability:
+  "A stateless reader given only this file and docs/language-spec.md
+   must derive a Rust implementation passing >= 90% of the test suite.
+   S_realized = passing/total. This invariant is falsifiable: run
+   experiments/alx/runner/run.ps1 to measure it."
 end
 
 end
