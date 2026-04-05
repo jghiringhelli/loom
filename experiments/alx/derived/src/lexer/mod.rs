@@ -243,6 +243,8 @@ pub enum TokenKind {
     Percent,
     #[token("==")]
     Eq,
+    #[token("=")]
+    Assign,
     #[token("!=")]
     NotEq,
     #[token("<=")]

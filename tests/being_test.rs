@@ -62,12 +62,15 @@ fn regulate_without_bounds_fails_checker() {
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
+            annotations: vec![],
             matter: None,
             form: None,
             function: None,
             telos: Some(TelosDef {
                 description: "test".to_string(),
                 fitness_fn: None,
+                modifiable_by: None,
+                bounded_by: None,
                 span: Span::synthetic(),
             }),
             regulate_blocks: vec![RegulateBlock {
@@ -115,12 +118,15 @@ fn evolve_without_constraint_fails_checker() {
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
+            annotations: vec![],
             matter: None,
             form: None,
             function: None,
             telos: Some(TelosDef {
                 description: "test".to_string(),
                 fitness_fn: None,
+                modifiable_by: None,
+                bounded_by: None,
                 span: Span::synthetic(),
             }),
             regulate_blocks: vec![],
@@ -217,12 +223,15 @@ fn rust_emit_being_has_regulate_fn() {
         being_defs: vec![BeingDef {
             name: "Organism".to_string(),
             describe: None,
+            annotations: vec![],
             matter: None,
             form: None,
             function: None,
             telos: Some(TelosDef {
                 description: "test".to_string(),
                 fitness_fn: None,
+                modifiable_by: None,
+                bounded_by: None,
                 span: Span::synthetic(),
             }),
             regulate_blocks: vec![RegulateBlock {

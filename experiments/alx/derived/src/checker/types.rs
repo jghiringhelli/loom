@@ -19,7 +19,7 @@ impl TypeChecker {
 /// Built-in type names that are always in scope.
 const BUILTIN_TYPES: &[&str] = &[
     "Int", "Float", "String", "Bool", "Unit",
-    "List", "Option", "Result", "Effect",
+    "List", "Map", "Set", "Option", "Result", "Effect",
 ];
 
 pub fn check_types(module: &Module) -> Result<(), Vec<LoomError>> {

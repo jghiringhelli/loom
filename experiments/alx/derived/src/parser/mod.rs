@@ -250,6 +250,10 @@ impl Parser {
         // Optional trailing 'end'
         self.skip_if(&TokenKind::End);
 
+        // Any leftover pending annotations belong to the module itself
+        let leftover = self.take_pending_annotations();
+        module.annotations.extend(leftover);
+
         module.span = Span::new(start, self.current_span().end);
         Ok(module)
     }
@@ -284,6 +288,12 @@ impl Parser {
             }
         }
         let span = Span::new(start, self.current_span().end);
+        // Strip surrounding quotes from string literal values (e.g. @since("v1.0") → v1.0)
+        let value = if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
+            value[1..value.len()-1].to_string()
+        } else {
+            value
+        };
         Ok(Annotation::with_value(key, value))
     }
 
@@ -449,7 +459,7 @@ impl Parser {
         self.expect(&TokenKind::Type)?;
         let name = self.expect_ident()?;
         let type_params = self.parse_type_params_opt()?;
-        self.expect(&TokenKind::Eq)?;
+        self.expect(&TokenKind::Assign)?;
 
         // Peek for Where — if the RHS is a base type followed by 'where', it's refined
         // ALX: language-spec.md §3.3: `type Email = String where valid_email end`
@@ -594,7 +604,7 @@ impl Parser {
         self.expect(&TokenKind::Enum)?;
         let name = self.expect_ident()?;
         let type_params = self.parse_type_params_opt()?;
-        self.expect(&TokenKind::Eq)?;
+        self.expect(&TokenKind::Assign)?;
 
         let mut variants = Vec::new();
         while !self.is_at_end() && !self.check(&TokenKind::End) {
@@ -640,6 +650,18 @@ impl Parser {
             annotations.push(self.parse_annotation()?);
         }
 
+        // Optional describe: before :: (alternate syntax)
+        let mut pre_describe: Option<String> = None;
+        if self.check(&TokenKind::Describe) {
+            self.advance();
+            self.skip_if(&TokenKind::Colon);
+            pre_describe = Some(self.parse_string_lit()?);
+            // allow more annotations after describe:
+            while self.check(&TokenKind::At) {
+                annotations.push(self.parse_annotation()?);
+            }
+        }
+
         // Optional type params: <A, B>
         let type_params = self.parse_type_params_opt()?;
 
@@ -648,10 +670,11 @@ impl Parser {
         let (type_sig, effect_tiers) = self.parse_fn_type_sig()?;
 
         // Body options: describe:, require:, ensure:, body exprs, end
-        let mut describe = None;
+        let mut describe = pre_describe;
         let mut requires = Vec::new();
         let mut ensures = Vec::new();
         let mut body = Vec::new();
+        let mut inline_body: Option<String> = None;
 
         while !self.is_at_end() && !self.check(&TokenKind::End) {
             match self.peek().map(|t| t.kind.clone()) {
@@ -680,6 +703,16 @@ impl Parser {
                         span: Span::new(cspan.start, self.current_span().end),
                     });
                 }
+                // Detect `inline { ... }` verbatim block
+                Some(TokenKind::Ident(ref s)) if s == "inline" => {
+                    self.advance(); // consume 'inline'
+                    if self.check(&TokenKind::LBrace) {
+                        self.advance(); // consume '{'
+                        inline_body = Some(self.collect_brace_body());
+                    } else {
+                        body.push("inline".to_string());
+                    }
+                }
                 _ => {
                     let line = self.collect_until_end_or_keyword();
                     if !line.is_empty() {
@@ -706,20 +739,68 @@ impl Parser {
             ensures,
             with_deps: Vec::new(),
             body,
+            inline_body,
             span: Span::new(start, self.current_span().end),
         })
     }
 
+    /// Collect tokens inside a brace block (already consumed the opening `{`),
+    /// handling nested braces. Uses token spans to preserve original spacing
+    /// so that e.g. `42i64` is not split into `42 i64`.
+    fn collect_brace_body(&mut self) -> String {
+        let mut result = String::new();
+        let mut depth = 1usize;
+        let mut prev_end: usize = 0;
+        let mut first = true;
+
+        while !self.is_at_end() && depth > 0 {
+            let (kind, text, span) = match self.peek() {
+                Some(t) => (t.kind.clone(), t.text.clone(), t.span),
+                None => break,
+            };
+
+            match kind {
+                crate::lexer::TokenKind::LBrace => {
+                    depth += 1;
+                    self.advance();
+                    if !first && span.start > prev_end { result.push(' '); }
+                    result.push_str(&text);
+                    prev_end = span.end;
+                    first = false;
+                }
+                crate::lexer::TokenKind::RBrace => {
+                    depth -= 1;
+                    self.advance();
+                    if depth > 0 {
+                        if !first && span.start > prev_end { result.push(' '); }
+                        result.push_str(&text);
+                        prev_end = span.end;
+                        first = false;
+                    }
+                }
+                _ => {
+                    self.advance();
+                    if !first && span.start > prev_end { result.push(' '); }
+                    result.push_str(&text);
+                    prev_end = span.end;
+                    first = false;
+                }
+            }
+        }
+        result
+    }
+
     /// Parse `Type -> Type -> ... -> RetType`, extracting effect tiers if present.
+    /// Uses parse_type_atom (not parse_type_expr) to avoid consuming '->' as part
+    /// of a type expression — Loom uses curried notation: each '->' separates params.
     fn parse_fn_type_sig(&mut self) -> Result<(FnTypeSignature, Vec<String>), LoomError> {
         let mut all_types = Vec::new();
         let mut effect_tiers = Vec::new();
 
-        all_types.push(self.parse_type_expr()?);
+        all_types.push(self.parse_type_atom()?);
         while self.check(&TokenKind::Arrow) {
             self.advance();
-            let t = self.parse_type_expr()?;
-            all_types.push(t);
+            all_types.push(self.parse_type_atom()?);
         }
 
         // Extract effects from return type if it's Effect<[...], T>
@@ -889,14 +970,38 @@ impl Parser {
         let name = self.expect_ident()?;
         self.skip_if(&TokenKind::DoubleColon);
         self.skip_if(&TokenKind::Colon);
-        let mut body_tokens = Vec::new();
-        while !self.is_at_end() && !self.check(&TokenKind::End) {
-            body_tokens.push(self.advance().unwrap().text);
-        }
+
+        // Detect `inline { ... }` and use span-aware collection
+        let body = if self.check_ident("inline") {
+            self.advance(); // consume 'inline'
+            if self.check(&TokenKind::LBrace) {
+                self.advance(); // consume '{'
+                let content = self.collect_brace_body();
+                format!("inline {{ {} }}", content)
+            } else {
+                "inline".to_string()
+            }
+        } else {
+            let mut body_tokens = Vec::new();
+            let mut prev_end: usize = 0;
+            let mut first = true;
+            while !self.is_at_end() && !self.check(&TokenKind::End) {
+                let tok = self.peek().unwrap();
+                let span = tok.span;
+                let text = tok.text.clone();
+                self.advance();
+                if !first && span.start > prev_end { body_tokens.push(" ".to_string()); }
+                body_tokens.push(text);
+                prev_end = span.end;
+                first = false;
+            }
+            body_tokens.join("")
+        };
+
         self.skip_if(&TokenKind::End);
         Ok(TestDef {
             name,
-            body: body_tokens.join(" "),
+            body,
             span: Span::new(start, self.current_span().end),
         })
     }
@@ -1001,16 +1106,28 @@ impl Parser {
         let start = self.current_span().start;
         self.expect(&TokenKind::Matter)?;
         self.skip_if(&TokenKind::Colon);
-        // fields until 'end'
+        // fields until 'end' — accept keyword-named fields (e.g. `threshold: Float`)
         let mut fields = Vec::new();
-        while !self.is_at_end() && !self.check(&TokenKind::End) && !self.is_block_keyword() {
+        while !self.is_at_end() && !self.check(&TokenKind::End) {
+            // Stop if we hit a genuine being sub-block that is NOT followed by ':'
+            // (i.e., a sub-block opener vs a keyword used as a field name).
+            // Heuristic: peek at the token after the current one; if it's ':', treat as field.
+            if self.is_block_keyword() {
+                // Look ahead: if next-next token is ':', this keyword is a field name
+                let is_field = self.tokens.get(self.pos + 1)
+                    .map(|t| matches!(t.kind, TokenKind::Colon))
+                    .unwrap_or(false);
+                if !is_field {
+                    break; // genuine sub-block, stop field list
+                }
+            }
             match self.peek().map(|t| t.kind.clone()) {
-                Some(TokenKind::Ident(_)) => {
+                None => break,
+                _ => {
                     let f = self.parse_field()?;
                     fields.push(f);
                     self.skip_if(&TokenKind::Comma);
                 }
-                _ => break,
             }
         }
         self.skip_if(&TokenKind::End);

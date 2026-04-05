@@ -39,12 +39,15 @@ fn base_being() -> BeingDef {
     BeingDef {
         name: "Cell".to_string(),
         describe: None,
+        annotations: vec![],
         matter: None,
         form: None,
         function: None,
         telos: Some(TelosDef {
             description: "survive and replicate".to_string(),
             fitness_fn: None,
+            modifiable_by: None,
+            bounded_by: None,
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],

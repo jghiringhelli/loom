@@ -149,6 +149,10 @@ pub struct RegulateBlock {
 pub struct TelosDef {
     pub description: String,
     pub fitness_fn: Option<String>,
+    /// Required by `@corrigible`: the authority that may modify this being's telos.
+    pub modifiable_by: Option<String>,
+    /// Required by `@bounded_telos`: the operational scope that constrains this being.
+    pub bounded_by: Option<String>,
     pub span: Span,
 }
 
@@ -250,6 +254,9 @@ pub struct TelomereBlock {
 pub struct BeingDef {
     pub name: String,
     pub describe: Option<String>,
+    /// Safety and capability annotations (`@mortal`, `@corrigible`, `@sandboxed`,
+    /// `@transparent`, `@bounded_telos`).
+    pub annotations: Vec<Annotation>,
     pub matter: Option<MatterBlock>,
     pub form: Option<FormBlock>,
     pub function: Option<FunctionBlock>,

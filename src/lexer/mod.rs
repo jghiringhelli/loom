@@ -95,6 +95,8 @@ pub enum Token {
     #[token("rule")]       Rule,
     #[token("hebbian")]    Hebbian,
     #[token("boltzmann")]  Boltzmann,
+    #[token("modifiable_by")] ModifiableBy,
+    #[token("bounded_by")]    BoundedBy,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

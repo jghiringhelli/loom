@@ -141,6 +141,9 @@ pub struct FnDef {
     pub with_deps: Vec<String>,
     /// Body lines (raw text after the signature, before `end`).
     pub body: Vec<String>,
+    /// Inline body: verbatim Rust code from `inline { ... }`.
+    /// When set, overrides `body` in the Rust emitter.
+    pub inline_body: Option<String>,
     pub span: Span,
 }
 

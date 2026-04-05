@@ -415,6 +415,9 @@ impl<'src> Parser<'src> {
 
         let describe = self.parse_describe();
 
+        // Safety and capability annotations before the block body.
+        let annotations = self.parse_annotations();
+
         let mut matter = None;
         let mut form = None;
         let mut function = None;
@@ -508,9 +511,35 @@ impl<'src> Parser<'src> {
                 } else {
                     None
                 };
+                let modifiable_by = if matches!(self.tokens.get(self.pos), Some((Token::ModifiableBy, _))) {
+                    self.advance(); // consume `modifiable_by`
+                    self.expect(Token::Colon)?;
+                    if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
+                        let val = val.clone();
+                        self.pos += 1;
+                        Some(val)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                let bounded_by = if matches!(self.tokens.get(self.pos), Some((Token::BoundedBy, _))) {
+                    self.advance(); // consume `bounded_by`
+                    self.expect(Token::Colon)?;
+                    if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
+                        let val = val.clone();
+                        self.pos += 1;
+                        Some(val)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
                 let sec_end = self.current_span();
                 self.expect(Token::End)?;
-                telos = Some(TelosDef { description, fitness_fn, span: Span::merge(&sec_start, &sec_end) });
+                telos = Some(TelosDef { description, fitness_fn, modifiable_by, bounded_by, span: Span::merge(&sec_start, &sec_end) });
             } else if self.at(&Token::Regulate) {
                 let sec_start = self.current_span();
                 self.advance(); // consume `regulate`
@@ -864,6 +893,7 @@ impl<'src> Parser<'src> {
         Ok(BeingDef {
             name,
             describe,
+            annotations,
             matter,
             form,
             function,
