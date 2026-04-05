@@ -182,6 +182,21 @@ impl RustEmitter {
             }
         }
 
+        // Emit ecosystem definitions.
+        for eco in &module.ecosystem_defs {
+            let eco_src = self.emit_ecosystem(eco);
+            body.push('\n');
+            for line in eco_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("    ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Inject stdlib collection imports when they appear in the rendered body.
         if body.contains("HashMap") {
             out.push_str("    use std::collections::HashMap;\n");
@@ -216,6 +231,63 @@ impl RustEmitter {
 
         out.push_str("}\n");
         out
+    }
+
+    /// Emit all ecosystem definitions as Rust submodules.
+    fn emit_ecosystem(&self, eco: &EcosystemDef) -> String {
+        let mut out = String::new();
+        let mod_name = to_snake_case(&eco.name);
+
+        out.push_str(&format!("// Ecosystem: {}\n", eco.name));
+        if let Some(telos) = &eco.telos {
+            out.push_str(&format!("// telos: {:?}\n", telos));
+        }
+        if !eco.members.is_empty() {
+            out.push_str(&format!("// members: {}\n", eco.members.join(", ")));
+        }
+        out.push_str(&format!("pub mod {} {{\n", mod_name));
+        out.push_str("    use super::*;\n");
+
+        for sig in &eco.signals {
+            out.push_str(&format!("\n    /// Signal: {} ({} → {})\n", sig.name, sig.from, sig.to));
+            out.push_str(&format!("    pub struct {} {{\n", sig.name));
+            out.push_str(&format!(
+                "        pub payload: {}, // {}\n",
+                self.payload_to_rust_type(&sig.payload),
+                sig.payload
+            ));
+            out.push_str("    }\n");
+        }
+
+        // coordinate fn
+        let params: Vec<String> = eco.members.iter()
+            .map(|m| format!("{}: &mut {}", to_snake_case(m), m))
+            .collect();
+        if let Some(telos) = &eco.telos {
+            out.push_str("\n    /// Coordinate the ecosystem: route signals between members.\n");
+            out.push_str(&format!("    /// telos: {}\n", telos));
+        } else {
+            out.push_str("\n    /// Coordinate the ecosystem: route signals between members.\n");
+        }
+        out.push_str(&format!("    pub fn coordinate({}) {{\n", params.join(", ")));
+        out.push_str("        todo!(\"implement ecosystem coordination toward telos\")\n");
+        out.push_str("    }\n");
+
+        out.push_str("}\n");
+        out
+    }
+
+    /// Map a payload type string to a Rust type.
+    fn payload_to_rust_type(&self, payload: &str) -> String {
+        // Strip generic parameter for primitive mappings: Float<nutrients> → f64
+        let base = payload.split('<').next().unwrap_or(payload).trim();
+        match base {
+            "Float" => "f64".to_string(),
+            "Int" => "i64".to_string(),
+            "String" | "Str" => "String".to_string(),
+            "Bool" => "bool".to_string(),
+            other => other.to_string(),
+        }
     }
 
     // ── DI context struct ─────────────────────────────────────────────────
@@ -387,19 +459,40 @@ impl RustEmitter {
         }
 
         if let Some(evolve) = &being.evolve_block {
-            out.push_str("\n    /// Directed evolution toward telos.\n");
-            if !evolve.search_cases.is_empty() {
-                let strategies: Vec<String> = evolve.search_cases.iter()
-                    .map(|sc| format!("{:?} when {}", sc.strategy, sc.when))
-                    .collect();
-                out.push_str(&format!("    /// search strategies: {}\n", strategies.join(", ")));
+            // Emit a strategy-specific method for each search case
+            for sc in &evolve.search_cases {
+                let method = strategy_rust_method(&sc.strategy);
+                let strategy_name = strategy_rust_label(&sc.strategy);
+                let step_comment = strategy_rust_step_comment(&sc.strategy);
+                out.push_str(&format!("\n    /// Search strategy: {}\n", strategy_name));
+                if !sc.when.trim().is_empty() {
+                    out.push_str(&format!("    /// Condition: when {}\n", sc.when));
+                }
+                out.push_str("    /// Part of directed evolution toward telos. E[distance_to_telos] non-increasing.\n");
+                out.push_str(&format!("    pub fn {}(&mut self) -> f64 {{\n", method));
+                out.push_str(&format!("        // {}\n", step_comment));
+                out.push_str(&format!("        // constraint: {}\n", evolve.constraint));
+                out.push_str(&format!(
+                    "        todo!({:?})\n    }}\n",
+                    format!("implement {} step toward telos", strategy_name)
+                ));
             }
-            out.push_str(&format!("    /// constraint: {}\n", evolve.constraint));
-            out.push_str("    pub fn evolve_step(&mut self) {\n");
-            out.push_str(&format!(
-                "        todo!({:?})\n    }}\n",
-                format!("implement directed evolution: {}", evolve.constraint)
-            ));
+
+            // Emit the dispatcher
+            let strategy_list: Vec<&str> = evolve.search_cases.iter()
+                .map(|sc| strategy_rust_label(&sc.strategy))
+                .collect();
+            let default_method = evolve.search_cases.first()
+                .map(|sc| strategy_rust_method(&sc.strategy))
+                .unwrap_or("evolve_step_impl");
+            out.push_str("\n    /// Select and apply the appropriate search strategy based on current landscape.\n");
+            out.push_str("    /// Directed evolution: E[distance_to_telos] must be non-increasing.\n");
+            out.push_str("    pub fn evolve_step(&mut self) -> f64 {\n");
+            out.push_str("        // dispatcher: select strategy based on landscape topology\n");
+            if !strategy_list.is_empty() {
+                out.push_str(&format!("        // strategies available: {}\n", strategy_list.join(", ")));
+            }
+            out.push_str(&format!("        self.{}()  // default to first strategy\n    }}\n", default_method));
         }
 
         out.push_str("}\n");
@@ -940,6 +1033,39 @@ impl RustEmitter {
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
+/// Returns the snake_case method name for a search strategy.
+fn strategy_rust_method(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "evolve_gradient_descent",
+        SearchStrategy::StochasticGradient => "evolve_stochastic_gradient",
+        SearchStrategy::SimulatedAnnealing => "evolve_simulated_annealing",
+        SearchStrategy::DerivativeFree    => "evolve_derivative_free",
+        SearchStrategy::Mcmc              => "evolve_mcmc",
+    }
+}
+
+/// Returns a short label for a search strategy (used in comments).
+fn strategy_rust_label(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "gradient_descent",
+        SearchStrategy::StochasticGradient => "stochastic_gradient",
+        SearchStrategy::SimulatedAnnealing => "simulated_annealing",
+        SearchStrategy::DerivativeFree    => "derivative_free",
+        SearchStrategy::Mcmc              => "mcmc",
+    }
+}
+
+/// Returns a one-line implementation comment for a search strategy step.
+fn strategy_rust_step_comment(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "gradient descent step: adjust parameters along negative gradient",
+        SearchStrategy::StochasticGradient => "stochastic gradient step: noisy gradient estimation",
+        SearchStrategy::SimulatedAnnealing => "simulated annealing step: probabilistic uphill acceptance",
+        SearchStrategy::DerivativeFree    => "derivative-free step: explore without gradient information",
+        SearchStrategy::Mcmc              => "MCMC step: sample from posterior landscape",
+    }
+}
+
 /// Returns a human-readable description for known algebraic annotation keys,
 /// or `None` if the key is not a recognised algebraic property.
 fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
@@ -1152,6 +1278,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             being_defs: vec![],
+            ecosystem_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Type(TypeDef {
                 name: "Point".to_string(),
@@ -1185,6 +1312,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             being_defs: vec![],
+            ecosystem_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Enum(EnumDef {
                 name: "Color".to_string(),
@@ -1218,6 +1346,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             being_defs: vec![],
+            ecosystem_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),

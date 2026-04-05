@@ -185,6 +185,13 @@ impl TypeScriptEmitter {
         }
 
         out.push_str("}\n");
+
+        // Emit ecosystem namespaces (top-level, outside module namespace).
+        for eco in &module.ecosystem_defs {
+            out.push('\n');
+            out.push_str(&self.emit_ecosystem_ts(eco));
+        }
+
         out
     }
 
@@ -595,6 +602,59 @@ impl TypeScriptEmitter {
         }
     }
 
+    /// Emit an ecosystem as a TypeScript namespace.
+    fn emit_ecosystem_ts(&self, eco: &EcosystemDef) -> String {
+        let mut out = String::new();
+
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @ecosystem {}\n", eco.name));
+        if let Some(telos) = &eco.telos {
+            out.push_str(&format!(" * @telos {}\n", telos));
+        }
+        if !eco.members.is_empty() {
+            out.push_str(&format!(" * @members {}\n", eco.members.join(", ")));
+        }
+        out.push_str(" */\n");
+        out.push_str(&format!("export namespace {} {{\n", eco.name));
+
+        for sig in &eco.signals {
+            out.push_str(&format!("  /** Signal: {} ({} → {}) */\n", sig.name, sig.from, sig.to));
+            out.push_str(&format!("  export interface {} {{", sig.name));
+            out.push_str(&format!(" payload: {} ", self.payload_to_ts_type(&sig.payload)));
+            out.push_str("}\n");
+        }
+
+        // coordinate fn
+        let params: Vec<String> = eco.members.iter()
+            .map(|m| {
+                let param_name = m.chars().next().map(|c| c.to_lowercase().to_string())
+                    .unwrap_or_default() + &m[1..];
+                format!("{}: {}", param_name, m)
+            })
+            .collect();
+        out.push_str("\n  /** Coordinate beings toward ecosystem telos */\n");
+        out.push_str(&format!(
+            "  export async function coordinate(\n    {}\n  ): Promise<void> {{\n",
+            params.join(", ")
+        ));
+        out.push_str("    throw new Error('implement ecosystem coordination toward telos');\n");
+        out.push_str("  }\n");
+
+        out.push_str("}\n");
+        out
+    }
+
+    /// Map a payload type string to a TypeScript type.
+    fn payload_to_ts_type(&self, payload: &str) -> String {
+        let base = payload.split('<').next().unwrap_or(payload).trim();
+        match base {
+            "Float" | "Int" => "number".to_string(),
+            "String" | "Str" => "string".to_string(),
+            "Bool" => "boolean".to_string(),
+            other => other.to_string(),
+        }
+    }
+
     /// Emit a being definition as a TypeScript class.
     fn emit_being_ts(&self, being: &BeingDef) -> String {
         let mut out = String::new();
@@ -649,18 +709,44 @@ impl TypeScriptEmitter {
         }
 
         if let Some(evolve) = &being.evolve_block {
-            out.push_str("\n  /** Teleological loop: converge toward telos via directed search.\n");
-            out.push_str(&format!("   * constraint: {}\n", evolve.constraint));
+            // Emit a strategy-specific method for each search case
+            for sc in &evolve.search_cases {
+                let method = strategy_ts_method(&sc.strategy);
+                let label = strategy_ts_label(&sc.strategy);
+                let step_comment = strategy_ts_step_comment(&sc.strategy);
+                out.push_str(&format!("\n  /** {} step toward telos.", label));
+                if !sc.when.trim().is_empty() {
+                    out.push_str(&format!(" When: {}", sc.when));
+                }
+                out.push_str(" */\n");
+                out.push_str(&format!("  async {}(environment: unknown): Promise<number> {{\n", method));
+                out.push_str(&format!("    // {}\n", step_comment));
+                out.push_str(&format!("    // constraint: {}\n", evolve.constraint));
+                out.push_str(&format!(
+                    "    throw new Error('implement {} toward telos');\n  }}\n",
+                    label
+                ));
+            }
+
+            // Emit the dispatcher
+            let strategy_labels: Vec<&str> = evolve.search_cases.iter()
+                .map(|sc| strategy_ts_label(&sc.strategy))
+                .collect();
+            let default_method = evolve.search_cases.first()
+                .map(|sc| strategy_ts_method(&sc.strategy))
+                .unwrap_or("evolveImpl");
+            out.push_str("\n  /** Select and apply the appropriate search strategy.\n");
+            out.push_str("   * Directed evolution: E[distance_to_telos] non-increasing.\n");
+            if !strategy_labels.is_empty() {
+                out.push_str(&format!("   * strategies: {}\n", strategy_labels.join(", ")));
+            }
             out.push_str("   */\n");
             out.push_str("  async evolve(environment: unknown): Promise<void> {\n");
-            out.push_str("    // directed search: not random mutation — E[distance_to_telos] non-increasing\n");
-            if !evolve.search_cases.is_empty() {
-                let strategies: Vec<String> = evolve.search_cases.iter()
-                    .map(|sc| format!("{:?} when {}", sc.strategy, sc.when))
-                    .collect();
-                out.push_str(&format!("    // strategies: {}\n", strategies.join(", ")));
-            }
-            out.push_str("    throw new Error('implement directed evolution toward telos');\n  }\n");
+            out.push_str("    let distance = Infinity;\n");
+            out.push_str("    while (distance > Number.EPSILON) {\n");
+            out.push_str("      // select strategy based on landscape topology\n");
+            out.push_str(&format!("      distance = await this.{}(environment);\n", default_method));
+            out.push_str("    }\n  }\n");
         }
 
         out.push_str("}\n");
@@ -669,6 +755,39 @@ impl TypeScriptEmitter {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/// Returns the camelCase TS method name for a search strategy.
+fn strategy_ts_method(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "evolveGradientDescent",
+        SearchStrategy::StochasticGradient => "evolveStochasticGradient",
+        SearchStrategy::SimulatedAnnealing => "evolveSimulatedAnnealing",
+        SearchStrategy::DerivativeFree    => "evolveDerivativeFree",
+        SearchStrategy::Mcmc              => "evolveMcmc",
+    }
+}
+
+/// Returns a short label for a search strategy (used in comments).
+fn strategy_ts_label(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "gradient descent",
+        SearchStrategy::StochasticGradient => "stochastic gradient",
+        SearchStrategy::SimulatedAnnealing => "simulated annealing",
+        SearchStrategy::DerivativeFree    => "derivative-free",
+        SearchStrategy::Mcmc              => "MCMC",
+    }
+}
+
+/// Returns a one-line implementation comment for a search strategy step.
+fn strategy_ts_step_comment(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "adjust parameters along negative gradient",
+        SearchStrategy::StochasticGradient => "noisy gradient estimation",
+        SearchStrategy::SimulatedAnnealing => "probabilistic uphill acceptance",
+        SearchStrategy::DerivativeFree    => "explore without gradient information",
+        SearchStrategy::Mcmc              => "sample from posterior landscape",
+    }
+}
 
 /// Returns a human-readable description for known algebraic annotation keys,
 /// or `None` if the key is not a recognised algebraic property.
