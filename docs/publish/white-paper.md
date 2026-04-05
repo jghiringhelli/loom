@@ -13,7 +13,7 @@ We present Loom, an AI-native programming language that transpiles to Rust, Type
 
 The language is designed around a constraint we call *derivability*: every architectural decision, behavioral contract, and data sensitivity obligation must be expressible in a form that a stateless reader — specifically, an AI assistant with no persistent memory — can derive correct output from alone. This constraint is formalized in the Generative Specification (GS) methodology. Loom is its first language-level materialisation.
 
-The compiler has 256+ passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
+The compiler has 311 passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
 
 ---
 
@@ -375,7 +375,7 @@ The Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 All checkers are stateless and composable. Adding a new checker requires implementing a single `check(&Module) -> Result<(), Vec<LoomError>>` method.
 
-Total tests: 270+, distributed across 27 test suites covering each milestone.
+Total tests: 311, distributed across 27 test suites covering each milestone.
 
 ---
 
@@ -431,13 +431,43 @@ This module:
 
 ---
 
-## 13. Conclusion
+## 13. The Formal Tradition as Restriction Vocabulary
+
+The GS methodology offers a framing that explains why Loom's constructs work despite being individually underused in practice: every formally proved theory of correct computing is a potential *restriction layer*, activatable through specification.
+
+Hoare contracts, refined types, effect systems, algebraic completeness, REST/hypermedia architecture, linear resource management, session-typed protocols — the AI already holds all of them. They exist in its training corpus, placed there by the theorists who proved them. Without specification, the model defaults to what human practice historically permitted: the convenient shortcut, the informal approximation, the correct theory abandoned because sustaining it exceeded what teams would pay. The specification names what the model already knows. The model applies it without eroding it.
+
+This is why `flow secret` works as a keyword. It is not just syntax. It is a coordinate: the word activates Denning's lattice in the model's full training depth, not a paraphrase of information flow security, but the instruments of the field deployed at specialist precision. Naming `@exactly-once` activates Girard's linear logic. Naming `lifecycle` activates Strom and Yemini's typestate. The formal theory does not need to be explained in the source file. It needs to be named. The specification is not documentation. It is a *technique registry* whose scope is the full depth of the model's training, activated at the cost of knowing the correct words.
+
+### 13.1 The Double Pyramid
+
+This framing clarifies an apparent paradox: restriction enables expansion.
+
+Each Loom checker removes a degree of freedom from the output space. `@exactly-once` removes the class of programs where a payment is sent twice. `@pci @never-log` removes the class of programs where card numbers appear in log files. `lifecycle Payment :: Pending -> Completed` removes the class of programs where a refund is issued on an uncompleted payment.
+
+This is the downward force: fewer valid programs, the Martin direction. But the space that remains is *exactly what is correct*. Every generation session operating under these restrictions produces a program that is not merely plausible but verified. The restriction is the expansion mechanism: the AI, operating in a fully specified space, derives richer output more precisely than it would in an unconstrained one. The loss of freedom at the type level produces a gain in derivation confidence at the system level.
+
+The specification is the shared vertex: what the programmer adds as restriction is what the model derives as correct behavior. Restriction and derivation precision move in the same direction. Every constraint added narrows the output space to the subset that is correct.
+
+### 13.2 Phase Collapse
+
+The practical consequence of this model is *phase collapse*: the compression of the traditional sprint phases into a single derivation session.
+
+One `.loom` file carries intent across all outputs simultaneously. Design → Build → Test → Deploy specs → Observability → Adaptation policy. The traditional pipeline — write spec, write code, write tests, write docs, write OpenAPI, write Terraform, write runbooks — becomes a single transpilation. The iteration cost of each phase approaches zero as specification completeness increases: there is no re-specification cost between design and implementation, because the implementation *is* the specification.
+
+The expected number of correction iterations is a decreasing function of specification completeness. At S = 0 (no spec), every output requires correction. At S → 1 (complete spec), the model derives correct output in a single pass. Loom's job is to make S measurable by making specification first-class: units, privacy, lifecycle, and flow labels are not annotations — they are the specification, expressed in a syntax the compiler can verify and the model can consume without ambiguity.
+
+---
+
+## 14. Conclusion
 
 Loom demonstrates that five programming language research constructs — units of measure, privacy labels, algebraic operation properties, typestate, and information flow types — can be implemented together in a practical compiler that targets multiple output formats. The multi-target design means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously.
 
-The key enabling conditions are: (1) AI-assisted development reduces the cost of writing complex type annotations, (2) multi-target compilation amplifies the value of a single annotation, and (3) the derivability constraint of the GS methodology provides a design rubric that makes each feature's scope and interaction well-defined.
+The key enabling conditions are: (1) AI-assisted development reduces the cost of writing complex type annotations to near zero — the AI knows the theories and writes the signatures; (2) multi-target compilation amplifies the value of a single annotation; and (3) the derivability constraint of the GS methodology provides a design rubric that makes each feature's scope and interaction well-defined.
 
-The forty-year gap between programming language research and production language adoption closes not because the theory got easier, but because the cost/benefit ratio of implementation inverted.
+The forty-year gap between programming language research and production language adoption closes not because the theory got easier, but because the cost/benefit ratio inverted. The theories were always correct. The problem was always annotation fatigue, single-target value, and tooling fragmentation. Multi-target derivation from a single specification closes all three simultaneously.
+
+The convergent principle holds: declarative intent plus a capable agent plus observable outcomes plus a correction mechanism produces correct results at the completeness of the specification. Loom is the specification layer. The compiler is the correction mechanism. The AI is the capable agent.
 
 The compiler is open source. The specification is available. The gap is closed.
 
@@ -449,6 +479,9 @@ The compiler is open source. The specification is available. The gap is closed.
 - Kennedy, A. (1996). Programming languages and dimensions. *PhD thesis, University of Cambridge.*
 - Myers, A.C., & Liskov, B. (1997). A decentralized model for information flow control. *SOSP '97.*
 - Strom, R.E., & Yemini, S. (1986). Typestate: A programming language concept for enhancing software reliability. *IEEE Transactions on Software Engineering*, 12(1).
+- Girard, J.Y. (1987). Linear logic. *Theoretical Computer Science*, 50(1).
+- Honda, K. (1993). Types for dyadic interaction. *CONCUR '93.*
 - Shapiro, M., et al. (2011). Conflict-free replicated data types. *SSS 2011.*
+- Fielding, R.T. (2000). Architectural styles and the design of network-based software architectures. *PhD thesis, UC Irvine.*
 - Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
 - NASA MCO Mishap Investigation Board (1999). Mars Climate Orbiter Mission Failure Investigation Board Phase I Report.

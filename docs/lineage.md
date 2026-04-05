@@ -350,3 +350,38 @@ The engineer building a game for their daughter — picking fleas from dogs and 
 There is no minimum project size for correctness. There is no required depth of academic background. There is no annotation burden to recover. The practitioner names the domain. Loom derives the rest.
 
 This is the gift: **perfect engineering is no longer an inconvenience reserved for important projects. It is the default.**
+
+---
+
+## The Therac-25 Obligation
+
+The Therac-25 was a radiation therapy machine responsible for at least six overdose accidents between 1985 and 1987, several of them fatal. The root cause was a race condition, not in unusual software, but in the kind of shared-state concurrent code that was routine practice. No formal type system could have prevented it in the environment where it was built.
+
+This history carries a forward-looking obligation. As Loom reaches the constructs of M35–M40 — `adapt:`, `self-heal:`, AI webhook integration, autonomous operational loops — and as these constructs find their way into medical AI, autonomous vehicles, industrial control, and robotics, the gap between specification completeness and specification perfection becomes non-negotiable.
+
+The expert is not removed by this technology. They are *relocated*. Every construct added to Loom makes one class of failure structurally unreachable. But the gap between `S_actual` and `S = 1` (perfect specification completeness) always exists. In critical domains, that gap is where a human expert must permanently inhabit — not because the toolchain is insufficient, but because the *obligation to specify correctly* is irreducible.
+
+The Therac-25 accidents were not caused by missing technology. They were caused by missing obligation. The Loom constructs that close race conditions, lifecycle violations, and information flow leaks do not remove the practitioner's obligation to think carefully about the specification they write. They amplify the consequences of having thought carefully — and of not having.
+
+**The floor rises as the specification rises. The ceiling of what the AI derives rises with it. The expert at the specification gap becomes the most critical role in the system, not the least.**
+
+---
+
+## The Biological Convergence
+
+The structures Loom implements were not arrived at by examining what life does and copying it. They were arrived at by tracing what programming language theory discovered when it asked: how do you build a self-maintaining formal system?
+
+The convergence is instructive.
+
+| Loom construct | Life's solution | Function |
+|---|---|---|
+| Types persist across 5 targets | Information preserved without consumption (DNA) | Same sequence → different expressions |
+| Checkers run before codegen | Error correction before replication (proof-reading polymerase) | Errors caught before they propagate |
+| `require:`/`ensure:` invariants | Homeostatic regulation (immune checkpoints) | State maintained within bounds |
+| `@pci @never-log` persist forever | Immune memory (epigenetic marks) | Sensitivity labels are permanent |
+| One `.loom` → Rust + TS + WASM + JSON + OpenAPI | Differentiated expression (same genome, different tissues) | Single specification, multiple expressions |
+| M24–M40 extend capabilities | Evolutionary selection of constraints | Useful constructs survive; unuseful ones disappear |
+
+These are not metaphors. They are functional isomorphisms: the same problem (a self-maintaining formal system that must produce correct behavior from incomplete specification) solved by the same class of solution (type systems, homeostasis, error correction, layered constraint). Life spent 3.5 billion years finding these solutions. Formal type theory spent the last 80 years independently rediscovering them.
+
+Loom is what you get when you stop asking what is cheap to implement and start asking what is correct to implement. The answer turns out to be the same thing life built.
