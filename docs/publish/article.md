@@ -319,6 +319,8 @@ Loom's claim is simple: in an AI-native development environment, the cost of a s
 
 The forty-year gap closes not because the theory got easier. Because the programmer finally has a sufficiently capable reader.
 
+And the reader is capable because it was built by imitating the same brain that produced the theory in the first place.
+
 ---
 
 *Loom is built by Pragmaworks. The compiler is written in Rust. The design stems from the Generative Specification methodology described in the GS White Paper (Ghiringhelli, 2026). All features described are implemented in the open-source compiler.*

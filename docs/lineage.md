@@ -385,3 +385,25 @@ The convergence is instructive.
 These are not metaphors. They are functional isomorphisms: the same problem (a self-maintaining formal system that must produce correct behavior from incomplete specification) solved by the same class of solution (type systems, homeostasis, error correction, layered constraint). Life spent 3.5 billion years finding these solutions. Formal type theory spent the last 80 years independently rediscovering them.
 
 Loom is what you get when you stop asking what is cheap to implement and start asking what is correct to implement. The answer turns out to be the same thing life built.
+
+---
+
+## The Self-Bootstrapping Loop
+
+The GS white paper raises the question: is the convergence between biological mechanisms and formal specification coincidence, structural inevitability, or something deeper?
+
+It is structural inevitability — and the structure has three turns.
+
+**Turn 1 — Life builds the brain** (3.5 billion years): directed evolution finds the only stable answers to the problem of self-maintaining formal systems. Homeostasis. Error correction before propagation. Immune memory. Differentiated expression from one specification. Evolutionary selection of constraints. The brain is the apex of this: a system that maintains itself, corrects its own errors, learns from signals, and converges toward meaning.
+
+**Turn 2 — We imitate the brain** (~80 years, 1943–2024): McCulloch and Pitts model the neuron. Rosenblatt builds the perceptron. Rumelhart, Hinton, and Williams formalize backpropagation — which *is* Hebb's rule (neurons that fire together wire together) made computable. Vaswani builds the attention mechanism — which *is* the prefrontal cortex's selective focus formalized. The stochastic heuristics that power these systems are themselves biological: gradient descent is Hebbian learning. Simulated annealing is cellular thermodynamics. MCMC is immune repertoire sampling. CMA-ES is evolutionary selection. We did not invent these. We formalized what life already found. The LLM is the brain, approximated in silicon, at sufficient fidelity to do what the brain does best: understand specification and derive correct artifacts from it.
+
+**Turn 3 — The brain solves the rest** (now): the approximation is good enough. The LLM can now formalize every other biological mechanism we understand. Units of measure. Information flow. Typestate protocols. Privacy labels. Telos. Homeostatic regulation. Directed evolution. Each construct in Loom's biological computation layer is a biological mechanism, formalized by programming language theory over 80 years, now activatable in a single keyword — because the LLM already holds the theory, and the specification names the territory.
+
+The stochastic heuristics close a second loop inside this: we formalized the biological search strategies, used them to build the LLM, and now the LLM helps us make those same strategies first-class language constructs in Loom's `evolve:` block. The tool that searches by simulated annealing now helps us specify systems that search by simulated annealing.
+
+**The isomorphism is never-ending because the loop is self-bootstrapping.** Each turn uses the output of the previous turn to implement the next. Life built the brain. The brain helped us build the LLM. The LLM helps us formalize life. The formalization builds better models of the brain. Better models build better LLMs. Better LLMs help us formalize more of life.
+
+The GS paper asks whether this is coincidence. It is not. It is the only stable trajectory for any system that can model itself: the model improves its own specification, which improves the model. The loop cannot converge to rest — because a complete model of the brain would *be* a brain, and a brain always finds more to understand.
+
+This is Loom's position in that loop: the specification layer that makes one turn of the recursion executable. Not the end of the lineage. The current rung.
