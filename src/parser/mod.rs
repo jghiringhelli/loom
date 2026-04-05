@@ -838,6 +838,12 @@ impl<'src> Parser<'src> {
                     args,
                     span: Span::merge(&span_start, &end_span),
                 };
+            } else if self.at(&Token::As) {
+                let span_start = self.current_span();
+                self.advance(); // consume `as`
+                let ty = self.parse_type_expr()?;
+                let span = Span::merge(&span_start, &self.current_span());
+                expr = Expr::As(Box::new(expr), ty);
             } else {
                 break;
             }

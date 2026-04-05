@@ -50,6 +50,7 @@ pub enum Token {
     #[token("and")]      And,
     #[token("or")]       Or,
     #[token("not")]      Not,
+    #[token("as")]       As,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

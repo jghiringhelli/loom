@@ -373,6 +373,12 @@ fn infer_expr(
 
         // InlineRust is opaque — assign a fresh TypeVar, no constraints generated.
         Expr::InlineRust(_) => Ok(gen.fresh()),
+
+        Expr::As(inner, ty) => {
+            // Infer the inner expression and unify with the target type.
+            let _ = infer_expr(inner, env, subst, gen, fns)?;
+            Ok(subst.apply(ty))
+        }
     }
 }
 
@@ -549,6 +555,7 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
         Expr::FieldAccess { object, .. } => collect_let_names(object, names),
         Expr::Ident(_) | Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque
+        Expr::As(inner, _) => collect_let_names(inner, names),
     }
 }
 
@@ -610,6 +617,7 @@ fn collect_free_vars(
         }
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variables
+        Expr::As(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
     }
 }
 

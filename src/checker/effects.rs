@@ -154,6 +154,7 @@ fn collect_calls(expr: &Expr, out: &mut HashSet<String>) {
         }
         Expr::Ident(_) | Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — cannot inspect inline Rust for effects
+        Expr::As(inner, _) => collect_calls(inner, out),
     }
 }
 

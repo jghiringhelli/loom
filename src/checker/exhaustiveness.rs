@@ -122,6 +122,7 @@ impl ExhaustivenessChecker {
             Expr::FieldAccess { object, .. } => self.check_expr(object, reg, errors),
             Expr::Literal(_) | Expr::Ident(_) => {}
             Expr::InlineRust(_) => {} // opaque — no match expressions to check
+            Expr::As(inner, _) => self.check_expr(inner, reg, errors),
         }
     }
 

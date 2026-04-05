@@ -221,6 +221,8 @@ pub enum Expr {
     /// The content is emitted verbatim into the Rust output. The type checker,
     /// inference engine, and effect checker treat this node as opaque.
     InlineRust(String),
+    /// Type coercion: `expr as Type` — explicit numeric widening or narrowing.
+    As(Box<Expr>, TypeExpr),
 }
 
 /// Match arm: a single branch of a `match` expression.

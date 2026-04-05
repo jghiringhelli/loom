@@ -272,6 +272,13 @@ fn emit_expr(
                 span: Span::synthetic(),
             })
         }
+
+        Expr::As(_, _) => {
+            return Err(LoomError::WasmUnsupported {
+                feature: "as coercion".to_string(),
+                span: Span::synthetic(),
+            })
+        }
     }
     Ok(())
 }
@@ -353,6 +360,7 @@ fn collect_let_names_in(expr: &Expr, names: &mut Vec<String>) {
         Expr::FieldAccess { object, .. } => collect_let_names_in(object, names),
         Expr::Literal(_) | Expr::Ident(_) => {}
         Expr::InlineRust(_) => {} // opaque
+        Expr::As(inner, _) => collect_let_names_in(inner, names),
     }
 }
 
@@ -415,5 +423,6 @@ fn collect_free_vars_in(
         }
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variables
+        Expr::As(inner, _) => collect_free_vars_in(inner, let_bound, seen, ordered),
     }
 }
