@@ -123,6 +123,11 @@ impl ExhaustivenessChecker {
             Expr::Literal(_) | Expr::Ident(_) => {}
             Expr::InlineRust(_) => {} // opaque — no match expressions to check
             Expr::As(inner, _) => self.check_expr(inner, reg, errors),
+            Expr::Lambda { body, .. } => self.check_expr(body, reg, errors),
+            Expr::ForIn { iter, body, .. } => {
+                self.check_expr(iter, reg, errors);
+                self.check_expr(body, reg, errors);
+            }
         }
     }
 

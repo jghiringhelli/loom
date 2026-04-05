@@ -279,6 +279,13 @@ fn emit_expr(
                 span: Span::synthetic(),
             })
         }
+
+        Expr::Lambda { .. } | Expr::ForIn { .. } => {
+            return Err(LoomError::WasmUnsupported {
+                feature: "lambda / for-in (use inline rust)".to_string(),
+                span: Span::synthetic(),
+            })
+        }
     }
     Ok(())
 }
@@ -361,6 +368,11 @@ fn collect_let_names_in(expr: &Expr, names: &mut Vec<String>) {
         Expr::Literal(_) | Expr::Ident(_) => {}
         Expr::InlineRust(_) => {} // opaque
         Expr::As(inner, _) => collect_let_names_in(inner, names),
+        Expr::Lambda { body, .. } => collect_let_names_in(body, names),
+        Expr::ForIn { iter, body, .. } => {
+            collect_let_names_in(iter, names);
+            collect_let_names_in(body, names);
+        }
     }
 }
 
@@ -424,5 +436,18 @@ fn collect_free_vars_in(
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variables
         Expr::As(inner, _) => collect_free_vars_in(inner, let_bound, seen, ordered),
+        Expr::Lambda { params, body, .. } => {
+            let mut ext = let_bound.clone();
+            for (name, _) in params {
+                ext.insert(name.as_str());
+            }
+            collect_free_vars_in(body, &ext, seen, ordered);
+        }
+        Expr::ForIn { var, iter, body, .. } => {
+            collect_free_vars_in(iter, let_bound, seen, ordered);
+            let mut ext = let_bound.clone();
+            ext.insert(var.as_str());
+            collect_free_vars_in(body, &ext, seen, ordered);
+        }
     }
 }

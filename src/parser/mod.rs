@@ -531,13 +531,33 @@ impl<'src> Parser<'src> {
 
     // ── Expressions ───────────────────────────────────────────────────────
 
-    /// Parse an expression — dispatches to `let`, `match`, or operator-level.
+    /// Parse an expression — dispatches to `let`, `match`, `for`, or operator-level.
     pub fn parse_expr(&mut self) -> Result<Expr, LoomError> {
         match self.peek() {
             Some(Token::Let) => self.parse_let(),
             Some(Token::Match) => self.parse_match(),
+            Some(Token::For) => self.parse_for_in(),
             _ => self.parse_pipe(),
         }
+    }
+
+    /// Parse a `for VAR in ITER { BODY }` loop expression.
+    fn parse_for_in(&mut self) -> Result<Expr, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::For)?;
+        let (var, _) = self.expect_ident()?;
+        self.expect(Token::In)?;
+        let iter = self.parse_pipe()?;
+        self.expect(Token::LBrace)?;
+        let body = self.parse_expr()?;
+        let end_span = self.current_span();
+        self.expect(Token::RBrace)?;
+        Ok(Expr::ForIn {
+            var,
+            iter: Box::new(iter),
+            body: Box::new(body),
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse a `let NAME = expr` binding.
@@ -897,6 +917,7 @@ impl<'src> Parser<'src> {
                     unreachable!()
                 }
             }
+            Some((Token::Bar, _)) => self.parse_lambda(),
             Some((tok, span)) => Err(LoomError::parse(
                 format!("unexpected token in expression: {:?}", tok),
                 span.clone(),
@@ -906,6 +927,41 @@ impl<'src> Parser<'src> {
                 Span::synthetic(),
             )),
         }
+    }
+
+    /// Parse a lambda expression: `|param: Type, param| body`.
+    ///
+    /// The opening `|` is consumed here. Params are `name` or `name: Type`.
+    /// The closing `|` delimits the param list; the body is a single expression.
+    fn parse_lambda(&mut self) -> Result<Expr, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Bar)?; // consume opening `|`
+
+        let mut params: Vec<(String, Option<TypeExpr>)> = Vec::new();
+
+        while !self.at(&Token::Bar) && self.peek().is_some() {
+            let (name, _) = self.expect_ident()?;
+            let ty = if self.at(&Token::Colon) {
+                self.advance();
+                Some(self.parse_type_expr()?)
+            } else {
+                None
+            };
+            params.push((name, ty));
+            if self.at(&Token::Comma) {
+                self.advance();
+            }
+        }
+
+        self.expect(Token::Bar)?; // consume closing `|`
+        let body = self.parse_expr()?;
+        let end_span = self.current_span();
+
+        Ok(Expr::Lambda {
+            params,
+            body: Box::new(body),
+            span: Span::merge(&start, &end_span),
+        })
     }
 }
 

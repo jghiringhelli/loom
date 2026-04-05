@@ -353,6 +353,34 @@ impl RustEmitter {
             Expr::Ident(name) if name == "todo" => "todo!()".to_string(),
             Expr::Ident(name) => name.clone(),
             Expr::Call { func, args, .. } => {
+                // Recognize built-in HOF call forms and emit as iterator chains.
+                if let Expr::Ident(name) = func.as_ref() {
+                    match (name.as_str(), args.len()) {
+                        ("map", 2) => {
+                            return format!(
+                                "{}.iter().map({}).collect::<Vec<_>>()",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[1])
+                            );
+                        }
+                        ("filter", 2) => {
+                            return format!(
+                                "{}.iter().filter({}).cloned().collect::<Vec<_>>()",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[1])
+                            );
+                        }
+                        ("fold", 3) => {
+                            return format!(
+                                "{}.iter().fold({}, {})",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[1]),
+                                self.emit_expr(&args[2])
+                            );
+                        }
+                        _ => {}
+                    }
+                }
                 let f = self.emit_expr(func);
                 let as_str: Vec<String> = args.iter().map(|a| self.emit_expr(a)).collect();
                 format!("{}({})", f, as_str.join(", "))
@@ -391,6 +419,27 @@ impl RustEmitter {
             Expr::InlineRust(code) => code.clone(),
             Expr::As(inner, ty) => {
                 format!("({} as {})", self.emit_expr(inner), self.emit_type_expr(ty))
+            }
+            Expr::Lambda { params, body, .. } => {
+                let param_strs: Vec<String> = params
+                    .iter()
+                    .map(|(name, ty)| {
+                        if let Some(t) = ty {
+                            format!("{}: {}", name, self.emit_type_expr(t))
+                        } else {
+                            name.clone()
+                        }
+                    })
+                    .collect();
+                format!("|{}| {}", param_strs.join(", "), self.emit_expr(body))
+            }
+            Expr::ForIn { var, iter, body, .. } => {
+                format!(
+                    "for {} in ({}).iter() {{ {} }}",
+                    var,
+                    self.emit_expr(iter),
+                    self.emit_expr(body)
+                )
             }
             Expr::Match { subject, arms, .. } => {
                 let s = self.emit_expr(subject);
@@ -541,6 +590,11 @@ fn collect_let_names(expr: &Expr, out: &mut std::collections::HashSet<String>) {
         Expr::Ident(_) | Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no let bindings inside
         Expr::As(inner, _) => collect_let_names(inner, out),
+        Expr::Lambda { body, .. } => collect_let_names(body, out),
+        Expr::ForIn { iter, body, .. } => {
+            collect_let_names(iter, out);
+            collect_let_names(body, out);
+        }
     }
 }
 
@@ -593,6 +647,18 @@ fn scan_free_idents(
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variable names to scan
         Expr::As(inner, _) => scan_free_idents(inner, let_bound, seen, ordered),
+        Expr::Lambda { params, body, .. } => {
+            // Lambda params are bound within the body — extend let_bound to exclude them.
+            let mut inner_bound = let_bound.clone();
+            for (name, _) in params {
+                inner_bound.insert(name.clone());
+            }
+            scan_free_idents(body, &inner_bound, seen, ordered);
+        }
+        Expr::ForIn { iter, body, .. } => {
+            scan_free_idents(iter, let_bound, seen, ordered);
+            scan_free_idents(body, let_bound, seen, ordered);
+        }
     }
 }
 

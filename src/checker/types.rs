@@ -226,6 +226,11 @@ impl TypeChecker {
             Expr::Literal(_) => {}
             Expr::InlineRust(_) => {} // opaque — skip type checking
             Expr::As(inner, _) => self.check_expr(inner, scope, table, errors),
+            Expr::Lambda { body, .. } => self.check_expr(body, scope, table, errors),
+            Expr::ForIn { iter, body, .. } => {
+                self.check_expr(iter, scope, table, errors);
+                self.check_expr(body, scope, table, errors);
+            }
         }
     }
 

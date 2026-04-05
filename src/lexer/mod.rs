@@ -51,6 +51,8 @@ pub enum Token {
     #[token("or")]       Or,
     #[token("not")]      Not,
     #[token("as")]       As,
+    #[token("for")]      For,
+    #[token("in")]       In,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

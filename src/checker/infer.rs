@@ -379,6 +379,21 @@ fn infer_expr(
             let _ = infer_expr(inner, env, subst, gen, fns)?;
             Ok(subst.apply(ty))
         }
+
+        Expr::Lambda { params, body, .. } => {
+            // Introduce param bindings as fresh TypeVars, infer body.
+            for (name, ty_opt) in params {
+                let ty = ty_opt.as_ref().cloned().unwrap_or_else(|| gen.fresh());
+                env.insert(name.clone(), ty);
+            }
+            infer_expr(body, env, subst, gen, fns)
+        }
+
+        Expr::ForIn { iter, body, .. } => {
+            let _ = infer_expr(iter, env, subst, gen, fns)?;
+            let _ = infer_expr(body, env, subst, gen, fns)?;
+            Ok(TypeExpr::Base("Unit".to_string()))
+        }
     }
 }
 
@@ -556,6 +571,11 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
         Expr::Ident(_) | Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque
         Expr::As(inner, _) => collect_let_names(inner, names),
+        Expr::Lambda { body, .. } => collect_let_names(body, names),
+        Expr::ForIn { iter, body, .. } => {
+            collect_let_names(iter, names);
+            collect_let_names(body, names);
+        }
     }
 }
 
@@ -618,6 +638,20 @@ fn collect_free_vars(
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variables
         Expr::As(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
+        Expr::Lambda { params, body, .. } => {
+            // Lambda params are bound — exclude them from outer free-var scan.
+            let mut extended: std::collections::HashSet<&str> = let_bound.clone();
+            for (name, _) in params {
+                extended.insert(name.as_str());
+            }
+            collect_free_vars(body, &extended, seen, ordered);
+        }
+        Expr::ForIn { var, iter, body, .. } => {
+            collect_free_vars(iter, let_bound, seen, ordered);
+            let mut extended = let_bound.clone();
+            extended.insert(var.as_str());
+            collect_free_vars(body, &extended, seen, ordered);
+        }
     }
 }
 

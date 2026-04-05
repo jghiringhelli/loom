@@ -223,6 +223,21 @@ pub enum Expr {
     InlineRust(String),
     /// Type coercion: `expr as Type` — explicit numeric widening or narrowing.
     As(Box<Expr>, TypeExpr),
+    /// Lambda (anonymous function): `|param, param| body`.
+    ///
+    /// Each parameter is `(name, optional_type_annotation)`.
+    Lambda {
+        params: Vec<(String, Option<TypeExpr>)>,
+        body: Box<Expr>,
+        span: Span,
+    },
+    /// For-in loop: `for VAR in ITER { BODY }` — yields `()`.
+    ForIn {
+        var: String,
+        iter: Box<Expr>,
+        body: Box<Expr>,
+        span: Span,
+    },
 }
 
 /// Match arm: a single branch of a `match` expression.
