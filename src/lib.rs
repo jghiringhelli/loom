@@ -127,6 +127,21 @@ pub fn compile_typescript(source: &str) -> Result<String, Vec<LoomError>> {
 
 // ── WASM pipeline entry point ─────────────────────────────────────────────────
 
+/// Compile a Loom source to a Mesa Python ABM simulation.
+///
+/// Runs lex → parse → type-check → teleos-check, then emits a Mesa
+/// agent-based simulation. Each `being:` becomes an `Agent` class;
+/// each `ecosystem:` becomes a `Model` class.
+pub fn compile_simulation(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+    checker::TypeChecker::new().check(&module)?;
+    checker::check_teleos(&module).map_err(|es| es)?;
+    Ok(codegen::SimulationEmitter::new().emit(&module))
+}
+
 /// Compile a Loom source string to a WebAssembly Text format (WAT) string.
 ///
 /// Runs the lex → parse → inference → type-check → exhaustiveness-check

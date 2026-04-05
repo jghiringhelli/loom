@@ -6,11 +6,13 @@
 pub mod openapi;
 pub mod rust;
 pub mod schema;
+pub mod simulation;
 pub mod typescript;
 pub mod wasm;
 
 pub use openapi::OpenApiEmitter;
 pub use rust::RustEmitter;
 pub use schema::JsonSchemaEmitter;
+pub use simulation::SimulationEmitter;
 pub use typescript::TypeScriptEmitter;
 pub use wasm::WasmEmitter;
