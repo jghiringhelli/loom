@@ -69,6 +69,12 @@ pub enum Token {
     #[token("search")]   Search,
     #[token("fitness")]  Fitness,
     #[token("bounds")]   Bounds,
+    #[token("ecosystem")] Ecosystem,
+    #[token("members")]  Members,
+    #[token("signal")]   Signal,
+    #[token("from")]     From,
+    #[token("to")]       To,
+    #[token("payload")]  Payload,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

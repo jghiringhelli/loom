@@ -72,6 +72,8 @@ pub struct Module {
     pub lifecycle_defs: Vec<LifecycleDef>,
     /// Being (Aristotelian four-causes) declarations for this module.
     pub being_defs: Vec<BeingDef>,
+    /// Ecosystem (multi-being composition) declarations for this module.
+    pub ecosystem_defs: Vec<EcosystemDef>,
     /// Information flow label declarations (`flow secret :: TypeA, TypeB`).
     pub flow_labels: Vec<FlowLabel>,
     /// Top-level definitions in declaration order.
@@ -169,6 +171,37 @@ pub struct FormBlock {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionBlock {
     pub fns: Vec<FnDef>,
+    pub span: Span,
+}
+
+/// A signal passing between beings in an ecosystem.
+/// Derived from Honda's session types (1993): protocols as structured communication.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignalDef {
+    pub name: String,
+    /// The being sending this signal.
+    pub from: String,
+    /// The being receiving this signal.
+    pub to: String,
+    /// The payload type (as a type expression string).
+    pub payload: String,
+    pub span: Span,
+}
+
+/// An ecosystem — a composition of beings with inter-being signaling.
+///
+/// Expresses how multiple goal-directed entities interact through
+/// structured communication channels (session-typed signals).
+#[derive(Debug, Clone, PartialEq)]
+pub struct EcosystemDef {
+    pub name: String,
+    pub describe: Option<String>,
+    /// The beings participating in this ecosystem.
+    pub members: Vec<String>,
+    /// Signals flowing between beings.
+    pub signals: Vec<SignalDef>,
+    /// The combined telos of the ecosystem (emergent purpose).
+    pub telos: Option<String>,
     pub span: Span,
 }
 

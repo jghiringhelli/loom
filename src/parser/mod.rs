@@ -226,6 +226,7 @@ impl<'src> Parser<'src> {
         let mut interface_defs = Vec::new();
         let mut lifecycle_defs = Vec::new();
         let mut being_defs = Vec::new();
+        let mut ecosystem_defs = Vec::new();
         let mut flow_labels = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
@@ -238,6 +239,8 @@ impl<'src> Parser<'src> {
                 lifecycle_defs.push(self.parse_lifecycle_def()?);
             } else if self.at(&Token::Being) {
                 being_defs.push(self.parse_being_def()?);
+            } else if self.at(&Token::Ecosystem) {
+                ecosystem_defs.push(self.parse_ecosystem_def()?);
             } else if self.at(&Token::Flow) {
                 flow_labels.push(self.parse_flow_label()?);
             } else if self.at(&Token::Implements) {
@@ -275,6 +278,7 @@ impl<'src> Parser<'src> {
             test_defs,
             lifecycle_defs,
             being_defs,
+            ecosystem_defs,
             flow_labels,
             items,
             span: Span::merge(&start, &end_span),
@@ -597,6 +601,101 @@ impl<'src> Parser<'src> {
             telos,
             regulate_blocks,
             evolve_block,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse an `ecosystem Name … end` block.
+    fn parse_ecosystem_def(&mut self) -> Result<EcosystemDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Ecosystem)?;
+        let (name, _) = self.expect_ident()?;
+
+        let describe = self.parse_describe();
+
+        let mut members: Vec<String> = Vec::new();
+        let mut signals: Vec<SignalDef> = Vec::new();
+        let mut telos: Option<String> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Members) {
+                // members: [Being1, Being2, ...]
+                self.advance(); // consume `members`
+                self.expect(Token::Colon)?;
+                self.expect(Token::LBracket)?;
+                while !self.at(&Token::RBracket) && self.peek().is_some() {
+                    let (member_name, _) = self.expect_ident()?;
+                    members.push(member_name);
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
+                }
+                self.expect(Token::RBracket)?;
+            } else if self.at(&Token::Signal) {
+                // signal SignalName from BeingA to BeingB
+                //   payload: TypeExpr
+                // end
+                let sig_start = self.current_span();
+                self.advance(); // consume `signal`
+                let (sig_name, _) = self.expect_ident()?;
+                self.expect(Token::From)?;
+                let (from_name, _) = self.expect_ident()?;
+                self.expect(Token::To)?;
+                let (to_name, _) = self.expect_ident()?;
+                let mut payload = String::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Payload) {
+                        self.advance(); // consume `payload`
+                        self.expect(Token::Colon)?;
+                        // Collect payload type tokens until `end`, reconstructing source
+                        let mut parts = Vec::new();
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                parts.push(token_to_source(tok));
+                                self.pos += 1;
+                            }
+                        }
+                        payload = parts.join("");
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sig_end = self.current_span();
+                self.expect(Token::End)?;
+                signals.push(SignalDef {
+                    name: sig_name,
+                    from: from_name,
+                    to: to_name,
+                    payload,
+                    span: Span::merge(&sig_start, &sig_end),
+                });
+            } else if self.at(&Token::Telos) {
+                self.advance(); // consume `telos`
+                self.expect(Token::Colon)?;
+                match self.tokens.get(self.pos) {
+                    Some((Token::StrLit(s), _)) => {
+                        telos = Some(s.clone());
+                        self.pos += 1;
+                    }
+                    _ => return Err(LoomError::parse(
+                        "expected string literal after telos:",
+                        self.current_span(),
+                    )),
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(EcosystemDef {
+            name,
+            describe,
+            members,
+            signals,
+            telos,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1517,5 +1616,27 @@ mod tests {
         } else {
             panic!("expected EnumDef");
         }
+    }
+}
+
+/// Convert a token back to its source-level string representation.
+/// Used when collecting type expression tokens as strings (e.g., signal payload).
+fn token_to_source(tok: &Token) -> String {
+    match tok {
+        Token::Ident(s) => s.clone(),
+        Token::StrLit(s) => format!("{:?}", s),
+        Token::IntLit(n) => n.to_string(),
+        Token::FloatLit(f) => f.to_string(),
+        Token::BoolLit(b) => b.to_string(),
+        Token::Lt => "<".to_string(),
+        Token::Gt => ">".to_string(),
+        Token::Comma => ", ".to_string(),
+        Token::LParen => "(".to_string(),
+        Token::RParen => ")".to_string(),
+        Token::LBracket => "[".to_string(),
+        Token::RBracket => "]".to_string(),
+        Token::Star => "*".to_string(),
+        Token::Question => "?".to_string(),
+        _ => format!("{:?}", tok),
     }
 }

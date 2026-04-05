@@ -336,9 +336,33 @@ impl OpenApiEmitter {
             format!("  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}", schemas.join(",\n"))
         };
 
+        // Build x-ecosystems extension when ecosystem_defs are present.
+        let ecosystem_ext = if module.ecosystem_defs.is_empty() {
+            String::new()
+        } else {
+            let entries: Vec<String> = module.ecosystem_defs.iter().map(|eco| {
+                let telos_str = eco.telos.as_deref().unwrap_or("");
+                let members_json: Vec<String> = eco.members.iter().map(|m| format!("{:?}", m)).collect();
+                let signals_json: Vec<String> = eco.signals.iter().map(|sig| {
+                    format!(
+                        "{{\"name\": {:?}, \"from\": {:?}, \"to\": {:?}, \"payload\": {:?}}}",
+                        sig.name, sig.from, sig.to, sig.payload
+                    )
+                }).collect();
+                format!(
+                    "    {:?}: {{\"x-telos\": {:?}, \"x-members\": [{}], \"x-signals\": [{}]}}",
+                    eco.name,
+                    telos_str,
+                    members_json.join(", "),
+                    signals_json.join(", ")
+                )
+            }).collect();
+            format!(",\n  \"x-ecosystems\": {{\n{}\n  }}", entries.join(",\n"))
+        };
+
         format!(
-            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}{}\n}}",
-            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext, being_ext
+            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}{}{}\n}}",
+            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext, being_ext, ecosystem_ext
         )
     }
 
