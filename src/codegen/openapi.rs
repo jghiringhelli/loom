@@ -307,6 +307,9 @@ impl OpenApiEmitter {
                 if !regulate_entries.is_empty() {
                     parts.push(format!("\"x-regulate\": [{}]", regulate_entries.join(", ")));
                 }
+                if being.autopoietic {
+                    parts.push("\"x-autopoietic\": true".to_string());
+                }
                 format!("      {:?}: {{{}}}", being.name, parts.join(", "))
             }).collect();
             format!(",\n  \"x-beings\": {{\n{}\n  }}", entries.join(",\n"))
@@ -326,6 +329,9 @@ impl OpenApiEmitter {
                 if !props.is_empty() {
                     parts.push(format!("\"properties\": {{{}}}", props.join(", ")));
                 }
+            }
+            if being.autopoietic {
+                parts.push("\"x-autopoietic\": true".to_string());
             }
             schemas.push(format!("      {:?}: {{\"type\": \"object\", {}}}", being.name, parts.join(", ")));
         }

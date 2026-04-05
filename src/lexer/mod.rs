@@ -75,6 +75,7 @@ pub enum Token {
     #[token("from")]     From,
     #[token("to")]       To,
     #[token("payload")]  Payload,
+    #[token("autopoietic")] Autopoietic,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

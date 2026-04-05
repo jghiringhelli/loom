@@ -41,6 +41,7 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         }),
         regulate_blocks: vec![],
         evolve_block: Some(evolve),
+        autopoietic: false,
         span: Span::synthetic(),
     }
 }

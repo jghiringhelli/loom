@@ -496,6 +496,21 @@ impl RustEmitter {
         }
 
         out.push_str("}\n");
+        if being.autopoietic {
+            out.push_str(&format!("\nimpl {} {{\n", being.name));
+            out.push_str("    /// Autopoietic system: operationally closed, self-producing, boundary-maintaining.\n");
+            out.push_str("    /// Maturana/Varela (1972): the living system that produces and maintains itself.\n");
+            out.push_str("    /// Organizational properties: telos (purpose) + regulate (homeostasis) +\n");
+            out.push_str("    /// evolve (self-modification) + matter (boundary substrate).\n");
+            out.push_str("    pub fn is_autopoietic() -> bool { true }\n\n");
+            out.push_str("    /// Verify operational closure: all autopoietic components are functional.\n");
+            out.push_str("    pub fn verify_closure(&self) -> bool {\n");
+            out.push_str("        // operational closure requires all four layers to be non-trivially implemented\n");
+            out.push_str("        // this returns true when the four layers above the todo!() are implemented\n");
+            out.push_str("        false // todo: implement verification\n");
+            out.push_str("    }\n");
+            out.push_str("}\n");
+        }
         out
     }
 

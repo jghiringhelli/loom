@@ -55,6 +55,39 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         }
         errors.extend(validate_evolve(evolve, &being.name));
     }
+    if being.autopoietic {
+        check_autopoiesis(being, errors);
+    }
+}
+
+/// Verify that an autopoietic being satisfies all four organisational layers.
+///
+/// Maturana/Varela (1972): operational closure requires telos (purpose),
+/// regulate (homeostasis), evolve (self-modification), and matter (boundary
+/// substrate).
+fn check_autopoiesis(being: &BeingDef, errors: &mut Vec<LoomError>) {
+    let mut missing: Vec<&str> = Vec::new();
+    if being.regulate_blocks.is_empty() {
+        missing.push("regulate: (homeostasis)");
+    }
+    if being.evolve_block.is_none() {
+        missing.push("evolve: (self-modification)");
+    }
+    if being.matter.is_none() {
+        missing.push("matter: (boundary substrate)");
+    }
+    for req in missing {
+        errors.push(LoomError::type_err(
+            format!(
+                "autopoietic being '{}' is missing {}: autopoietic systems require \
+                 telos: (purpose), regulate: (homeostasis), evolve: (self-modification), and \
+                 matter: (boundary substrate). Maturana/Varela (1972): operational closure \
+                 requires all four organizational layers.",
+                being.name, req
+            ),
+            being.span.clone(),
+        ));
+    }
 }
 
 /// Validate an `evolve` block for convergence semantics and strategy consistency.

@@ -216,6 +216,9 @@ pub struct BeingDef {
     pub telos: Option<TelosDef>,
     pub regulate_blocks: Vec<RegulateBlock>,
     pub evolve_block: Option<EvolveBlock>,
+    /// Whether this being declares itself autopoietic (Maturana/Varela 1972).
+    /// Requires: telos + at least one regulate block + evolve block + matter.
+    pub autopoietic: bool,
     pub span: Span,
 }
 

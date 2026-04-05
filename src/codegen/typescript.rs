@@ -749,6 +749,17 @@ impl TypeScriptEmitter {
             out.push_str("    }\n  }\n");
         }
 
+        if being.autopoietic {
+            out.push_str("\n  /** @autopoietic true\n");
+            out.push_str("   * Maturana/Varela (1972): operationally closed, self-producing.\n");
+            out.push_str("   * Requires: telos + regulate + evolve + matter\n");
+            out.push_str("   */\n");
+            out.push_str("  static isAutopoietic(): boolean { return true; }\n\n");
+            out.push_str("  verifyOperationalClosure(): boolean {\n");
+            out.push_str("    // verify all four autopoietic layers are functional\n");
+            out.push_str("    return false; // todo: implement\n");
+            out.push_str("  }\n");
+        }
         out.push_str("}\n");
         out
     }

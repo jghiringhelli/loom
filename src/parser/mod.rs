@@ -399,6 +399,7 @@ impl<'src> Parser<'src> {
         let mut telos = None;
         let mut regulate_blocks = Vec::new();
         let mut evolve_block = None;
+        let mut autopoietic = false;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -583,6 +584,13 @@ impl<'src> Parser<'src> {
                     constraint,
                     span: Span::merge(&sec_start, &sec_end),
                 });
+            } else if self.at(&Token::Autopoietic) {
+                self.advance(); // consume `autopoietic`
+                self.expect(Token::Colon)?;
+                if let Some((Token::BoolLit(b), _)) = self.tokens.get(self.pos) {
+                    autopoietic = *b;
+                    self.pos += 1;
+                }
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -601,6 +609,7 @@ impl<'src> Parser<'src> {
             telos,
             regulate_blocks,
             evolve_block,
+            autopoietic,
             span: Span::merge(&start, &end_span),
         })
     }
