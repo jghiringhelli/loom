@@ -45,6 +45,17 @@ impl RustEmitter {
 
         // Module wrapper.
         let mod_name = to_snake_case(&module.name);
+
+        // Emit module-level describe: and @annotations as doc comments.
+        if let Some(desc) = &module.describe {
+            for line in desc.lines() {
+                out.push_str(&format!("/// {}\n", line));
+            }
+        }
+        for ann in &module.annotations {
+            out.push_str(&format!("/// @{}: {}\n", ann.key, ann.value));
+        }
+
         out.push_str(&format!("pub mod {} {{\n", mod_name));
         out.push_str("    use super::*;\n");
 
@@ -220,6 +231,26 @@ impl RustEmitter {
         let is_effectful =
             matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _));
 
+        let mut out = String::new();
+
+        // Emit describe: as a Rust doc comment.
+        if let Some(desc) = &fd.describe {
+            for line in desc.lines() {
+                out.push_str(&format!("/// {}\n", line));
+            }
+        }
+
+        // Emit @annotations as doc comments, and #[deprecated] for @deprecated.
+        for ann in &fd.annotations {
+            out.push_str(&format!("/// @{}: {}\n", ann.key, ann.value));
+            if ann.key == "deprecated" {
+                out.push_str(&format!(
+                    "#[deprecated(note = \"{}\")]\n",
+                    ann.value.replace('"', "\\\"")
+                ));
+            }
+        }
+
         let mut params: Vec<String> = Vec::new();
 
         // Inject `ctx: &<ModName>Context` as the first parameter when requested.
@@ -282,7 +313,7 @@ impl RustEmitter {
             body_lines.push("    todo!(\"Phase 1 stub — body not yet implemented\")".to_string());
         }
 
-        format!(
+        out.push_str(&format!(
             "pub fn {}{name_generics}({params}) -> {ret} {{\n{body}\n}}\n",
             fd.name,
             name_generics = if fd.type_params.is_empty() {
@@ -293,7 +324,8 @@ impl RustEmitter {
             params = params.join(", "),
             ret = ret,
             body = body_lines.join("\n"),
-        )
+        ));
+        out
     }
 
     // ── Type expressions ──────────────────────────────────────────────────
@@ -690,6 +722,8 @@ mod tests {
     fn emits_struct_for_type_def() {
         let module = Module {
             name: "M".to_string(),
+            describe: None,
+            annotations: vec![],
             spec: None,
             provides: None,
             requires: None,
@@ -713,6 +747,8 @@ mod tests {
     fn emits_enum_for_enum_def() {
         let module = Module {
             name: "M".to_string(),
+            describe: None,
+            annotations: vec![],
             spec: None,
             provides: None,
             requires: None,
@@ -736,11 +772,15 @@ mod tests {
     fn emits_debug_assert_for_require() {
         let module = Module {
             name: "M".to_string(),
+            describe: None,
+            annotations: vec![],
             spec: None,
             provides: None,
             requires: None,
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),
+                describe: None,
+                annotations: vec![],
                 type_params: vec![],
                 type_sig: FnTypeSignature {
                     params: vec![TypeExpr::Base("Int".to_string())],

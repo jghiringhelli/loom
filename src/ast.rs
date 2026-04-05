@@ -48,6 +48,10 @@ impl fmt::Display for Span {
 pub struct Module {
     /// Module name as written in source (e.g. `PricingEngine`).
     pub name: String,
+    /// Optional human-readable description (`describe: "..."`).
+    pub describe: Option<String>,
+    /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@author`).
+    pub annotations: Vec<Annotation>,
     /// Optional spec name this module implements (`spec PricingSpec`).
     pub spec: Option<String>,
     /// Capabilities the module exposes to callers.
@@ -74,6 +78,10 @@ pub enum Item {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
     pub name: String,
+    /// Optional human-readable description (`describe: "..."`).
+    pub describe: Option<String>,
+    /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@author`).
+    pub annotations: Vec<Annotation>,
     /// User-declared type parameters (e.g. `<A, B>` in `fn map<A, B>`).
     pub type_params: Vec<String>,
     /// Full type signature (parameter types + return type).
@@ -87,6 +95,16 @@ pub struct FnDef {
     /// Body expressions; the last one is the return value.
     pub body: Vec<Expr>,
     pub span: Span,
+}
+
+/// Audit annotation — key/value metadata embedded in the Loom source.
+///
+/// Examples: `@since("1.0")`, `@decision("use UUIDs for ids")`,
+/// `@deprecated("use charge_v2")`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Annotation {
+    pub key: String,
+    pub value: String,
 }
 
 /// Product type (record / struct).

@@ -103,11 +103,60 @@ impl<'src> Parser<'src> {
 
     // ── Top-level ─────────────────────────────────────────────────────────
 
+    /// Parse `describe: "..."` if present, returning the description string.
+    fn parse_describe(&mut self) -> Option<String> {
+        // describe: is `Ident("describe") Colon StrLit`
+        if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "describe") {
+            if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos + 2) {
+                    let s = s.clone();
+                    self.pos += 3;
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
+
+    /// Parse zero or more `@key("value")` annotations.
+    fn parse_annotations(&mut self) -> Vec<Annotation> {
+        let mut annotations = Vec::new();
+        while self.at(&Token::At) {
+            self.advance(); // consume `@`
+            // The key is the next identifier
+            if let Some((Token::Ident(key), _)) = self.tokens.get(self.pos) {
+                let key = key.clone();
+                self.advance();
+                // Optional `("value")` payload
+                let value = if self.at(&Token::LParen) {
+                    self.advance();
+                    if let Some((Token::StrLit(v), _)) = self.tokens.get(self.pos) {
+                        let v = v.clone();
+                        self.advance();
+                        let _ = self.expect(Token::RParen); // consume `)`, ignore error
+                        v
+                    } else {
+                        let _ = self.expect(Token::RParen);
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                };
+                annotations.push(Annotation { key, value });
+            }
+        }
+        annotations
+    }
+
     /// Parse a complete `module … end` block.
     pub fn parse_module(&mut self) -> Result<Module, LoomError> {
         let start = self.current_span();
         self.expect(Token::Module)?;
         let (name, _) = self.expect_ident()?;
+
+        // Optional describe: and @annotations in the module header
+        let describe = self.parse_describe();
+        let annotations = self.parse_annotations();
 
         // Optional `spec NAME`
         let spec = if self.at(&Token::Spec) {
@@ -144,6 +193,8 @@ impl<'src> Parser<'src> {
 
         Ok(Module {
             name,
+            describe,
+            annotations,
             spec,
             provides,
             requires,
@@ -212,11 +263,15 @@ impl<'src> Parser<'src> {
 
     // ── Function definition ───────────────────────────────────────────────
 
-    /// Parse `fn NAME[<A, B>] :: type_sig [require: expr]* [ensure: expr]* body* end`.
+    /// Parse `fn NAME[<A, B>] [describe: "..."] [@ann]* :: type_sig [require: expr]* [ensure: expr]* body* end`.
     pub fn parse_fn_def(&mut self) -> Result<FnDef, LoomError> {
         let start = self.current_span();
         self.expect(Token::Fn)?;
         let (name, _) = self.expect_ident()?;
+
+        // Optional describe: and @annotations before the type signature
+        let describe = self.parse_describe();
+        let annotations = self.parse_annotations();
 
         // Optional type parameter list: `<A, B, C>`.
         let type_params = if self.at(&Token::Lt) {
@@ -267,6 +322,8 @@ impl<'src> Parser<'src> {
 
         Ok(FnDef {
             name,
+            describe,
+            annotations,
             type_params,
             type_sig,
             requires,

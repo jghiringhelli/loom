@@ -117,6 +117,7 @@ pub enum Token {
     #[token(">")] Gt,
     #[token("~")] Tilde,
     #[token("?")] Question,
+    #[token("@")] At,
 }
 
 // Aliases for use in type-expression parsing contexts.
@@ -267,7 +268,8 @@ mod tests {
 
     #[test]
     fn errors_on_unknown_character() {
-        let result = Lexer::tokenize("fn @ type");
+        // `$` is not a valid Loom token.
+        let result = Lexer::tokenize("fn $ type");
         assert!(result.is_err());
     }
 }
