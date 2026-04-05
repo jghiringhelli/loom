@@ -1,5 +1,24 @@
 # Publication Plan
 
+## URL Ecosystem
+
+The full public presence across domains:
+
+| Domain | Purpose | Status |
+|---|---|---|
+| `genspec.dev` | GS theory community home — Jekyll, GitHub Pages | ✅ Live |
+| `zenodo.org` | White paper DOI: `10.5281/zenodo.19073543` | ✅ Published |
+| `bioiso.dev` | Biological isomorphisms + Loom + synthetic beings — Astro site | 🆕 Registered |
+| `bioiso.org` | Movement/community side of BIOISO | 🆕 Registered |
+| `pragmaworks.dev` | Company home | ✅ Live |
+| ForgeCraft | `github.com/jghiringhelli/forgecraft-mcp` | ✅ Live |
+| GitHub | `github.com/pragmaworks/loom` | ✅ Live |
+
+**bioiso.dev links to genspec.dev** for GS theory — does not duplicate it.
+**WASM playground** lives at `bioiso.dev/playground` (or `try.bioiso.dev`).
+
+---
+
 ## Precondition: Run the ALX
 
 Before any public release, run `experiments/alx/` to establish self-applicability.
@@ -43,7 +62,7 @@ crate-type = ["cdylib"]
 wasm = ["wasm-bindgen", "console_error_panic_hook"]
 ```
 
-Host at `loom-lang.dev` or `try.loom-lang.dev`. The playground is the fastest path from "heard about it" to "I understand it."
+Host at `bioiso.dev/playground` (or `try.bioiso.dev`). The playground is the fastest path from "heard about it" to "I understand it."
 
 ---
 
