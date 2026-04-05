@@ -123,14 +123,30 @@ impl<'src> Parser<'src> {
     }
 
     /// Parse zero or more `@key("value")` annotations.
+    ///
+    /// Annotation keys may contain hyphens (e.g. `@encrypt-at-rest`, `@never-log`);
+    /// hyphens are consumed by joining adjacent `Ident - Ident` sequences.
     fn parse_annotations(&mut self) -> Vec<Annotation> {
         let mut annotations = Vec::new();
         while self.at(&Token::At) {
             self.advance(); // consume `@`
-            // The key is the next identifier
-            if let Some((Token::Ident(key), _)) = self.tokens.get(self.pos) {
-                let key = key.clone();
+            // The key starts with an identifier and may continue with `-ident` segments.
+            if let Some((Token::Ident(first), _)) = self.tokens.get(self.pos) {
+                let mut key = first.clone();
                 self.advance();
+                // Consume `-ident` segments to support hyphenated keys.
+                while self.at(&Token::Minus) {
+                    if let Some((Token::Ident(_), _)) = self.tokens.get(self.pos + 1) {
+                        self.advance(); // consume `-`
+                        if let Some((Token::Ident(seg), _)) = self.tokens.get(self.pos) {
+                            key.push('-');
+                            key.push_str(seg);
+                            self.advance();
+                        }
+                    } else {
+                        break;
+                    }
+                }
                 // Optional `("value")` payload
                 let value = if self.at(&Token::LParen) {
                     self.advance();
@@ -208,6 +224,8 @@ impl<'src> Parser<'src> {
         let mut invariants = Vec::new();
         let mut test_defs = Vec::new();
         let mut interface_defs = Vec::new();
+        let mut lifecycle_defs = Vec::new();
+        let mut flow_labels = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
                 invariants.push(self.parse_invariant()?);
@@ -215,6 +233,10 @@ impl<'src> Parser<'src> {
                 test_defs.push(self.parse_test_def()?);
             } else if self.at(&Token::Interface) {
                 interface_defs.push(self.parse_interface_def()?);
+            } else if self.at(&Token::Lifecycle) {
+                lifecycle_defs.push(self.parse_lifecycle_def()?);
+            } else if self.at(&Token::Flow) {
+                flow_labels.push(self.parse_flow_label()?);
             } else if self.at(&Token::Implements) {
                 // `implements Name` can also appear inline in the module body
                 self.advance();
@@ -248,6 +270,8 @@ impl<'src> Parser<'src> {
             requires,
             invariants,
             test_defs,
+            lifecycle_defs,
+            flow_labels,
             items,
             span: Span::merge(&start, &end_span),
         })
@@ -305,6 +329,50 @@ impl<'src> Parser<'src> {
         Ok(InterfaceDef {
             name,
             methods,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `lifecycle TypeName :: State1 -> State2 -> ...`.
+    fn parse_lifecycle_def(&mut self) -> Result<LifecycleDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Lifecycle)?;
+        let (type_name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let mut states = Vec::new();
+        let (first, _) = self.expect_ident()?;
+        states.push(first);
+        while self.at(&Token::Arrow) {
+            self.advance();
+            let (state, _) = self.expect_ident()?;
+            states.push(state);
+        }
+        let end_span = self.current_span();
+        Ok(LifecycleDef {
+            type_name,
+            states,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `flow label :: TypeA, TypeB, ...`.
+    fn parse_flow_label(&mut self) -> Result<FlowLabel, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Flow)?;
+        let (label, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let mut types = Vec::new();
+        let (first_type, _) = self.expect_ident()?;
+        types.push(first_type);
+        while self.at(&Token::Comma) {
+            self.advance();
+            let (t, _) = self.expect_ident()?;
+            types.push(t);
+        }
+        let end_span = self.current_span();
+        Ok(FlowLabel {
+            label,
+            types,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -484,10 +552,19 @@ impl<'src> Parser<'src> {
     fn parse_type_fields(&mut self, name: String, start: Span) -> Result<TypeDef, LoomError> {
         let mut fields = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
+            let field_start = self.current_span();
             let (field_name, _) = self.expect_ident()?;
             self.expect(Token::Colon)?;
             let ty = self.parse_type_expr()?;
-            fields.push((field_name, ty));
+            // Parse optional field-level privacy annotations (@pii, @gdpr, etc.)
+            let annotations = self.parse_annotations();
+            let field_end = self.current_span();
+            fields.push(FieldDef {
+                name: field_name,
+                ty,
+                annotations,
+                span: Span::merge(&field_start, &field_end),
+            });
             // Optional comma between fields.
             if self.at(&Token::Comma) {
                 self.advance();

@@ -35,14 +35,37 @@ impl JsonSchemaEmitter {
     /// Returns a pretty-printed JSON string with a `$defs` section containing
     /// one schema per type/enum/refined-type definition.
     pub fn emit(&self, module: &Module) -> String {
+        // Build sensitivity map from flow_labels.
+        let sensitivity_map: std::collections::HashMap<String, String> = module.flow_labels.iter()
+            .flat_map(|fl| fl.types.iter().map(move |t| (t.clone(), fl.label.clone())))
+            .collect();
+
         let mut defs: Vec<String> = Vec::new();
 
         for item in &module.items {
             match item {
-                Item::Type(td)        => defs.push(format!("    {:?}: {}", td.name, self.emit_type_def(td))),
-                Item::Enum(ed)        => defs.push(format!("    {:?}: {}", ed.name, self.emit_enum_def(ed))),
-                Item::RefinedType(rt) => defs.push(format!("    {:?}: {}", rt.name, self.emit_refined_type(rt))),
-                Item::Fn(_)           => {}
+                Item::Type(td) => {
+                    let mut schema = self.emit_type_def(td);
+                    if let Some(label) = sensitivity_map.get(&td.name) {
+                        schema = inject_x_sensitivity(schema, label);
+                    }
+                    defs.push(format!("    {:?}: {}", td.name, schema));
+                }
+                Item::Enum(ed) => {
+                    let mut schema = self.emit_enum_def(ed);
+                    if let Some(label) = sensitivity_map.get(&ed.name) {
+                        schema = inject_x_sensitivity(schema, label);
+                    }
+                    defs.push(format!("    {:?}: {}", ed.name, schema));
+                }
+                Item::RefinedType(rt) => {
+                    let mut schema = self.emit_refined_type(rt);
+                    if let Some(label) = sensitivity_map.get(&rt.name) {
+                        schema = inject_x_sensitivity(schema, label);
+                    }
+                    defs.push(format!("    {:?}: {}", rt.name, schema));
+                }
+                Item::Fn(_) => {}
             }
         }
 
@@ -71,10 +94,24 @@ impl JsonSchemaEmitter {
 
     fn emit_type_def(&self, td: &TypeDef) -> String {
         let props: Vec<String> = td.fields.iter()
-            .map(|(name, ty)| format!("        {:?}: {}", name, self.type_expr_to_schema(ty)))
+            .map(|f| {
+                let mut schema = self.type_expr_to_schema(&f.ty);
+                // Inject x-privacy extensions when annotations are present.
+                if !f.annotations.is_empty() {
+                    // Strip trailing `}` and append extension properties.
+                    if schema.ends_with('}') {
+                        schema.pop();
+                        for ann in &f.annotations {
+                            schema.push_str(&format!(", \"x-{}\": true", ann.key));
+                        }
+                        schema.push('}');
+                    }
+                }
+                format!("        {:?}: {}", f.name, schema)
+            })
             .collect();
         let required: Vec<String> = td.fields.iter()
-            .map(|(name, _)| format!("{:?}", name))
+            .map(|f| format!("{:?}", f.name))
             .collect();
         format!(
             "{{\"type\":\"object\",\"properties\":{{{}}},\"required\":[{}]}}",
@@ -117,6 +154,13 @@ impl JsonSchemaEmitter {
         match ty {
             TypeExpr::Base(name) => self.base_type_schema(name),
             TypeExpr::Generic(name, params) => {
+                // Unit-annotated primitives: Float<usd> → {"type":"number","x-unit":"usd"}
+                if (name == "Float" || name == "Int") && params.len() == 1 {
+                    if let TypeExpr::Base(unit) = &params[0] {
+                        let base = if name == "Int" { "integer" } else { "number" };
+                        return format!("{{\"type\":{:?},\"x-unit\":{:?}}}", base, unit.as_str());
+                    }
+                }
                 let ps: Vec<String> = params.iter().map(|p| self.type_expr_to_schema(p)).collect();
                 match name.as_str() {
                     "List" if ps.len() == 1 =>
@@ -157,5 +201,17 @@ impl JsonSchemaEmitter {
             "Unit"  => "{\"type\":\"null\"}".to_string(),
             other   => format!("{{\"$ref\":\"#/$defs/{}\"}}", other),
         }
+    }
+}
+
+/// Inject an `"x-sensitivity"` extension into a JSON schema string.
+fn inject_x_sensitivity(schema: String, label: &str) -> String {
+    if schema.ends_with('}') {
+        let mut s = schema;
+        s.pop();
+        s.push_str(&format!(", \"x-sensitivity\": {:?}}}", label));
+        s
+    } else {
+        schema
     }
 }

@@ -57,6 +57,8 @@ pub enum Token {
     #[token("test")]     Test,
     #[token("interface")] Interface,
     #[token("implements")] Implements,
+    #[token("flow")]      Flow,
+    #[token("lifecycle")] Lifecycle,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

@@ -68,8 +68,38 @@ pub struct Module {
     pub invariants: Vec<Invariant>,
     /// Inline test definitions (`test name :: body_expr`).
     pub test_defs: Vec<TestDef>,
+    /// Lifecycle (typestate) declarations for this module.
+    pub lifecycle_defs: Vec<LifecycleDef>,
+    /// Information flow label declarations (`flow secret :: TypeA, TypeB`).
+    pub flow_labels: Vec<FlowLabel>,
     /// Top-level definitions in declaration order.
     pub items: Vec<Item>,
+    pub span: Span,
+}
+
+/// A typestate/lifecycle declaration.
+///
+/// Declares a type that progresses through named states in order.
+/// Functions that take/return `TypeName<State>` must respect the declared transitions.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LifecycleDef {
+    /// The type this lifecycle applies to (e.g., "Connection").
+    pub type_name: String,
+    /// Ordered list of states (e.g., ["Disconnected", "Connected", "Authenticated"]).
+    pub states: Vec<String>,
+    pub span: Span,
+}
+
+/// An information-flow label declaration (`flow secret :: TypeA, TypeB`).
+///
+/// Reserved for a future privacy/taint-tracking pass; currently parsed as a
+/// stub so the AST compiles.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FlowLabel {
+    /// The label name (e.g., `"secret"`, `"public"`).
+    pub label: String,
+    /// Type names that carry this label.
+    pub types: Vec<String>,
     pub span: Span,
 }
 
@@ -162,12 +192,21 @@ pub struct Annotation {
     pub value: String,
 }
 
+/// A field in a product type definition, with optional privacy annotations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldDef {
+    pub name: String,
+    pub ty: TypeExpr,
+    /// Privacy and compliance annotations (`@pii`, `@gdpr`, `@hipaa`, `@pci`, etc.)
+    pub annotations: Vec<Annotation>,
+    pub span: Span,
+}
+
 /// Product type (record / struct).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeDef {
     pub name: String,
-    /// Ordered list of `(field_name, field_type)` pairs.
-    pub fields: Vec<(String, TypeExpr)>,
+    pub fields: Vec<FieldDef>,
     pub span: Span,
 }
 
