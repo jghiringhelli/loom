@@ -159,6 +159,21 @@ impl TypeScriptEmitter {
             }
         }
 
+        // Emit being definitions as TypeScript classes.
+        for being in &module.being_defs {
+            body.push('\n');
+            let being_src = self.emit_being_ts(being);
+            for line in being_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("  ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Indented interface/implements blocks.
         for line in body.lines() {
             if line.trim().is_empty() {
@@ -579,6 +594,78 @@ impl TypeScriptEmitter {
             }
         }
     }
+
+    /// Emit a being definition as a TypeScript class.
+    fn emit_being_ts(&self, being: &BeingDef) -> String {
+        let mut out = String::new();
+        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @being {}\n", being.name));
+        out.push_str(&format!(" * @telos {}\n", telos_desc));
+        if let Some(matter) = &being.matter {
+            let fields_str: Vec<String> = matter.fields.iter()
+                .map(|f| format!("{}: {}", f.name, self.emit_type_expr(&f.ty)))
+                .collect();
+            out.push_str(&format!(" * @matter {{{}}}\n", fields_str.join(", ")));
+        }
+        out.push_str(" */\n");
+
+        out.push_str(&format!("export class {} {{\n", being.name));
+
+        if let Some(matter) = &being.matter {
+            if !matter.fields.is_empty() {
+                let params: Vec<String> = matter.fields.iter()
+                    .map(|f| format!("public {}: {}", f.name, self.emit_type_expr(&f.ty)))
+                    .collect();
+                out.push_str(&format!("  constructor(\n    {}\n  ) {{}}\n\n", params.join(",\n    ")));
+            }
+        }
+
+        out.push_str(&format!("  /** Evaluate fitness relative to telos: {:?} */\n", telos_desc));
+        out.push_str(&format!(
+            "  fitness(): number {{\n    throw new Error('implement fitness toward telos: {}');\n  }}\n",
+            telos_desc
+        ));
+
+        for reg in &being.regulate_blocks {
+            let pascal = to_pascal_case(&reg.variable);
+            let (low, high) = reg.bounds.as_ref()
+                .map(|(l, h)| (l.as_str(), h.as_str()))
+                .unwrap_or(("?", "?"));
+            out.push_str(&format!(
+                "\n  /** Homeostatic regulation: {} → {} within [{}, {}] */\n",
+                reg.variable, reg.target, low, high
+            ));
+            out.push_str(&format!("  regulate{}(): void {{\n", pascal));
+            if !reg.response.is_empty() {
+                let resp: Vec<String> = reg.response.iter().map(|(c, a)| format!("{} -> {}", c, a)).collect();
+                out.push_str(&format!("    // response: {}\n", resp.join(", ")));
+            }
+            out.push_str(&format!(
+                "    throw new Error('implement regulation for {}');\n  }}\n",
+                reg.variable
+            ));
+        }
+
+        if let Some(evolve) = &being.evolve_block {
+            out.push_str("\n  /** Teleological loop: converge toward telos via directed search.\n");
+            out.push_str(&format!("   * constraint: {}\n", evolve.constraint));
+            out.push_str("   */\n");
+            out.push_str("  async evolve(environment: unknown): Promise<void> {\n");
+            out.push_str("    // directed search: not random mutation — E[distance_to_telos] non-increasing\n");
+            if !evolve.search_cases.is_empty() {
+                let strategies: Vec<String> = evolve.search_cases.iter()
+                    .map(|sc| format!("{:?} when {}", sc.strategy, sc.when))
+                    .collect();
+                out.push_str(&format!("    // strategies: {}\n", strategies.join(", ")));
+            }
+            out.push_str("    throw new Error('implement directed evolution toward telos');\n  }\n");
+        }
+
+        out.push_str("}\n");
+        out
+    }
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -608,6 +695,19 @@ fn to_kebab_case(name: &str) -> String {
         out.push(ch.to_lowercase().next().unwrap());
     }
     out
+}
+
+/// snake_case → PascalCase for method names.
+fn to_pascal_case(name: &str) -> String {
+    name.split('_')
+        .map(|part| {
+            let mut c = part.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        })
+        .collect()
 }
 
 /// Collect parameter names from a FnDef body (mirrors the Rust emitter logic).

@@ -59,6 +59,16 @@ pub enum Token {
     #[token("implements")] Implements,
     #[token("flow")]      Flow,
     #[token("lifecycle")] Lifecycle,
+    #[token("being")]    Being,
+    #[token("telos")]    Telos,
+    #[token("form")]     Form,
+    #[token("matter")]   Matter,
+    #[token("regulate")] Regulate,
+    #[token("evolve")]   Evolve,
+    #[token("toward")]   Toward,
+    #[token("search")]   Search,
+    #[token("fitness")]  Fitness,
+    #[token("bounds")]   Bounds,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]

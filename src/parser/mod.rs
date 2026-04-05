@@ -225,6 +225,7 @@ impl<'src> Parser<'src> {
         let mut test_defs = Vec::new();
         let mut interface_defs = Vec::new();
         let mut lifecycle_defs = Vec::new();
+        let mut being_defs = Vec::new();
         let mut flow_labels = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
@@ -235,6 +236,8 @@ impl<'src> Parser<'src> {
                 interface_defs.push(self.parse_interface_def()?);
             } else if self.at(&Token::Lifecycle) {
                 lifecycle_defs.push(self.parse_lifecycle_def()?);
+            } else if self.at(&Token::Being) {
+                being_defs.push(self.parse_being_def()?);
             } else if self.at(&Token::Flow) {
                 flow_labels.push(self.parse_flow_label()?);
             } else if self.at(&Token::Implements) {
@@ -271,6 +274,7 @@ impl<'src> Parser<'src> {
             invariants,
             test_defs,
             lifecycle_defs,
+            being_defs,
             flow_labels,
             items,
             span: Span::merge(&start, &end_span),
@@ -377,7 +381,227 @@ impl<'src> Parser<'src> {
         })
     }
 
-    /// Parse the `{ name :: type_sig, … }` block following `provides`.
+    /// Parse a `being Name … end` block (Aristotle's four causes).
+    fn parse_being_def(&mut self) -> Result<BeingDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Being)?;
+        let (name, _) = self.expect_ident()?;
+
+        let describe = self.parse_describe();
+
+        let mut matter = None;
+        let mut form = None;
+        let mut function = None;
+        let mut telos = None;
+        let mut regulate_blocks = Vec::new();
+        let mut evolve_block = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Matter) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `matter`
+                self.expect(Token::Colon)?;
+                let mut fields = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let (field_name, field_span) = self.expect_ident()?;
+                    self.expect(Token::Colon)?;
+                    let ty = self.parse_type_expr()?;
+                    fields.push(FieldDef {
+                        name: field_name,
+                        ty,
+                        annotations: Vec::new(),
+                        span: field_span,
+                    });
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                matter = Some(MatterBlock { fields, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Form) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `form`
+                self.expect(Token::Colon)?;
+                let mut types = Vec::new();
+                let mut enums = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Type) {
+                        if let Ok(item) = self.parse_type_or_refined() {
+                            if let Item::Type(td) = item { types.push(td); }
+                        }
+                    } else if self.at(&Token::Enum) {
+                        if let Ok(ed) = self.parse_enum_def() { enums.push(ed); }
+                    } else {
+                        break;
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                form = Some(FormBlock { types, enums, span: Span::merge(&sec_start, &sec_end) });
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "function")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                let sec_start = self.current_span();
+                self.advance(); // consume "function"
+                self.advance(); // consume ":"
+                let mut fns = Vec::new();
+                while self.at(&Token::Fn) && !self.at(&Token::End) {
+                    fns.push(self.parse_fn_def()?);
+                }
+                let sec_end = self.current_span();
+                function = Some(FunctionBlock { fns, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Telos) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `telos`
+                self.expect(Token::Colon)?;
+                let description = match self.tokens.get(self.pos) {
+                    Some((Token::StrLit(s), _)) => {
+                        let s = s.clone();
+                        self.pos += 1;
+                        s
+                    }
+                    _ => return Err(LoomError::parse(
+                        "expected string literal after telos:",
+                        self.current_span(),
+                    )),
+                };
+                let fitness_fn = if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
+                    self.advance(); // consume `fitness`
+                    self.expect(Token::Colon)?;
+                    let mut parts = Vec::new();
+                    while !self.at(&Token::End) && self.peek().is_some() {
+                        if let Some((tok, _)) = self.tokens.get(self.pos) {
+                            parts.push(format!("{:?}", tok));
+                            self.pos += 1;
+                        }
+                    }
+                    Some(parts.join(" "))
+                } else {
+                    None
+                };
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                telos = Some(TelosDef { description, fitness_fn, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Regulate) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `regulate`
+                let (variable, _) = self.expect_ident()?;
+                let mut target = String::new();
+                let mut bounds = None;
+                let mut response = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "target") {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (val, _) = self.expect_ident()?;
+                        target = val;
+                    } else if self.at(&Token::Bounds) {
+                        self.advance(); // consume `bounds`
+                        self.expect(Token::Colon)?;
+                        self.expect(Token::LParen)?;
+                        let (low, _) = self.expect_ident()?;
+                        self.expect(Token::Comma)?;
+                        let (high, _) = self.expect_ident()?;
+                        self.expect(Token::RParen)?;
+                        bounds = Some((low, high));
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "response") {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        while self.at(&Token::Bar) {
+                            self.advance(); // consume `|`
+                            let (condition, _) = self.expect_ident()?;
+                            self.expect(Token::Arrow)?;
+                            let (action, _) = self.expect_ident()?;
+                            response.push((condition, action));
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                regulate_blocks.push(RegulateBlock {
+                    variable,
+                    target,
+                    bounds,
+                    response,
+                    span: Span::merge(&sec_start, &sec_end),
+                });
+            } else if self.at(&Token::Evolve) {
+                let sec_start = self.current_span();
+                self.advance(); // consume `evolve`
+                let mut search_cases = Vec::new();
+                let mut constraint = String::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Toward) {
+                        self.advance(); // consume `toward`
+                        self.expect(Token::Colon)?;
+                        self.advance(); // consume `telos` identifier
+                    } else if self.at(&Token::Search) {
+                        self.advance(); // consume `search`
+                        self.expect(Token::Colon)?;
+                        while self.at(&Token::Bar) {
+                            self.advance(); // consume `|`
+                            let (strategy_name, _) = self.expect_ident()?;
+                            let strategy = match strategy_name.as_str() {
+                                "gradient_descent"    => SearchStrategy::GradientDescent,
+                                "stochastic_gradient" => SearchStrategy::StochasticGradient,
+                                "simulated_annealing" => SearchStrategy::SimulatedAnnealing,
+                                "derivative_free"     => SearchStrategy::DerivativeFree,
+                                "mcmc"                => SearchStrategy::Mcmc,
+                                _                     => SearchStrategy::DerivativeFree,
+                            };
+                            // consume optional `when`
+                            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "when") {
+                                self.advance();
+                            }
+                            let when = if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                                let w = n.clone();
+                                self.pos += 1;
+                                w
+                            } else {
+                                String::new()
+                            };
+                            search_cases.push(SearchCase { strategy, when });
+                        }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "constraint") {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            constraint = s.clone();
+                            self.pos += 1;
+                        }
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                evolve_block = Some(EvolveBlock {
+                    search_cases,
+                    constraint,
+                    span: Span::merge(&sec_start, &sec_end),
+                });
+            } else {
+                // Unknown token in being body — skip to avoid infinite loop.
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(BeingDef {
+            name,
+            describe,
+            matter,
+            form,
+            function,
+            telos,
+            regulate_blocks,
+            evolve_block,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse `flow label :: TypeA, TypeB, ...`.
     fn parse_provides_block(&mut self) -> Result<Provides, LoomError> {
         self.expect(Token::LBrace)?;
         let mut ops = Vec::new();

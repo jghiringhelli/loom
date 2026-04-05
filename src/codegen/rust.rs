@@ -167,6 +167,21 @@ impl RustEmitter {
             }
         }
 
+        // Emit being definitions.
+        for being in &module.being_defs {
+            let being_src = self.emit_being(being);
+            body.push('\n');
+            for line in being_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("    ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
         // Inject stdlib collection imports when they appear in the rendered body.
         if body.contains("HashMap") {
             out.push_str("    use std::collections::HashMap;\n");
@@ -309,6 +324,84 @@ impl RustEmitter {
                 inv.name
             ));
         }
+        out.push_str("}\n");
+        out
+    }
+
+    /// Emit a being definition as a Rust struct + impl with fitness/regulate/evolve methods.
+    fn emit_being(&self, being: &BeingDef) -> String {
+        let mut out = String::new();
+        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+
+        out.push_str(&format!("// Being: {}\n", being.name));
+        if let Some(telos) = &being.telos {
+            out.push_str(&format!("// telos: {:?}\n", telos.description));
+        }
+        if let Some(desc) = &being.describe {
+            out.push_str(&format!("/// {}\n", desc));
+        }
+
+        out.push_str("#[derive(Debug, Clone)]\n");
+        out.push_str(&format!("pub struct {} {{\n", being.name));
+        if let Some(matter) = &being.matter {
+            for field in &matter.fields {
+                out.push_str(&format!("    pub {}: {},\n", field.name, self.emit_type_expr(&field.ty)));
+            }
+        }
+        out.push_str("}\n\n");
+
+        out.push_str(&format!("impl {} {{\n", being.name));
+
+        let fitness_todo = if let Some(t) = &being.telos {
+            if let Some(ff) = &t.fitness_fn {
+                format!("implement fitness: {}", ff)
+            } else {
+                format!("implement fitness toward telos: {}", t.description)
+            }
+        } else {
+            "implement fitness".to_string()
+        };
+        out.push_str("    /// Returns the fitness score relative to telos.\n");
+        out.push_str(&format!("    /// telos: {:?}\n", telos_desc));
+        out.push_str(&format!("    pub fn fitness(&self) -> f64 {{\n        todo!({:?})\n    }}\n", fitness_todo));
+
+        for reg in &being.regulate_blocks {
+            let var_snake = to_snake_case(&reg.variable);
+            let (low, high) = reg.bounds.as_ref()
+                .map(|(l, h)| (l.as_str(), h.as_str()))
+                .unwrap_or(("?", "?"));
+            out.push_str(&format!(
+                "\n    /// Homeostatic regulation: {} → target {} within [{}, {}]\n",
+                reg.variable, reg.target, low, high
+            ));
+            out.push_str(&format!("    pub fn regulate_{}(&mut self) {{\n", var_snake));
+            out.push_str(&format!("        // target: {}, bounds: ({}, {})\n", reg.target, low, high));
+            if !reg.response.is_empty() {
+                let resp: Vec<String> = reg.response.iter().map(|(c, a)| format!("{} -> {}", c, a)).collect();
+                out.push_str(&format!("        // response: {}\n", resp.join(", ")));
+            }
+            out.push_str(&format!(
+                "        todo!({:?})\n    }}\n",
+                format!("implement homeostatic regulation for {}", reg.variable)
+            ));
+        }
+
+        if let Some(evolve) = &being.evolve_block {
+            out.push_str("\n    /// Directed evolution toward telos.\n");
+            if !evolve.search_cases.is_empty() {
+                let strategies: Vec<String> = evolve.search_cases.iter()
+                    .map(|sc| format!("{:?} when {}", sc.strategy, sc.when))
+                    .collect();
+                out.push_str(&format!("    /// search strategies: {}\n", strategies.join(", ")));
+            }
+            out.push_str(&format!("    /// constraint: {}\n", evolve.constraint));
+            out.push_str("    pub fn evolve_step(&mut self) {\n");
+            out.push_str(&format!(
+                "        todo!({:?})\n    }}\n",
+                format!("implement directed evolution: {}", evolve.constraint)
+            ));
+        }
+
         out.push_str("}\n");
         out
     }
@@ -1058,6 +1151,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            being_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Type(TypeDef {
                 name: "Point".to_string(),
@@ -1090,6 +1184,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            being_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Enum(EnumDef {
                 name: "Color".to_string(),
@@ -1122,6 +1217,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            being_defs: vec![],
             flow_labels: vec![],
             items: vec![Item::Fn(FnDef {
                 name: "f".to_string(),

@@ -269,9 +269,76 @@ impl OpenApiEmitter {
             format!(",\n  \"x-security-labels\": {{\n{}\n  }}", entries.join(",\n"))
         };
 
+        // Build x-beings extension when being_defs are present.
+        let being_ext = if module.being_defs.is_empty() {
+            String::new()
+        } else {
+            let entries: Vec<String> = module.being_defs.iter().map(|being| {
+                let telos_str = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+                let matter_fields: Vec<String> = being.matter.as_ref()
+                    .map(|m| m.fields.iter().map(|f| format!("{:?}", f.name)).collect())
+                    .unwrap_or_default();
+                let form_types: Vec<String> = being.form.as_ref()
+                    .map(|f| {
+                        let mut names: Vec<String> = f.types.iter().map(|t| format!("{:?}", t.name)).collect();
+                        names.extend(f.enums.iter().map(|e| format!("{:?}", e.name)));
+                        names
+                    })
+                    .unwrap_or_default();
+                let regulate_entries: Vec<String> = being.regulate_blocks.iter().map(|reg| {
+                    let bounds_str = reg.bounds.as_ref()
+                        .map(|(l, h)| format!("{{\"low\": {:?}, \"high\": {:?}}}", l, h))
+                        .unwrap_or_else(|| "null".to_string());
+                    format!("{{\"variable\": {:?}, \"target\": {:?}, \"bounds\": {}}}", reg.variable, reg.target, bounds_str)
+                }).collect();
+                let mut parts = vec![
+                    format!("\"x-being\": true"),
+                    format!("\"x-telos\": {:?}", telos_str),
+                ];
+                if !form_types.is_empty() {
+                    parts.push(format!("\"x-form\": [{}]", form_types.join(", ")));
+                }
+                if !matter_fields.is_empty() {
+                    parts.push(format!("\"x-matter\": [{}]", matter_fields.join(", ")));
+                }
+                if let Some(evolve) = &being.evolve_block {
+                    parts.push(format!("\"x-evolve-constraint\": {:?}", evolve.constraint));
+                }
+                if !regulate_entries.is_empty() {
+                    parts.push(format!("\"x-regulate\": [{}]", regulate_entries.join(", ")));
+                }
+                format!("      {:?}: {{{}}}", being.name, parts.join(", "))
+            }).collect();
+            format!(",\n  \"x-beings\": {{\n{}\n  }}", entries.join(",\n"))
+        };
+
+        // Add being schemas to components/schemas.
+        for being in &module.being_defs {
+            let telos_str = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+            let mut parts = vec![
+                format!("\"x-being\": true"),
+                format!("\"x-telos\": {:?}", telos_str),
+            ];
+            if let Some(matter) = &being.matter {
+                let props: Vec<String> = matter.fields.iter()
+                    .map(|f| format!("{:?}: {{\"type\": \"string\"}}", f.name))
+                    .collect();
+                if !props.is_empty() {
+                    parts.push(format!("\"properties\": {{{}}}", props.join(", ")));
+                }
+            }
+            schemas.push(format!("      {:?}: {{\"type\": \"object\", {}}}", being.name, parts.join(", ")));
+        }
+
+        let schemas_section = if schemas.is_empty() {
+            "  \"components\": {\"schemas\": {}}".to_string()
+        } else {
+            format!("  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}", schemas.join(",\n"))
+        };
+
         format!(
-            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}\n}}",
-            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext
+            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}{}\n}}",
+            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext, being_ext
         )
     }
 

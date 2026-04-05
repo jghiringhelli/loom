@@ -75,6 +75,9 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 9c: privacy check ───────────────────────────────────────────
     checker::PrivacyChecker::new().check(&module)?;
 
+    // ── Stage 9d: teleological check ─────────────────────────────────────
+    checker::check_teleos(&module).map_err(|es| es)?;
+
     // ── Stage 9: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }

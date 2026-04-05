@@ -70,6 +70,8 @@ pub struct Module {
     pub test_defs: Vec<TestDef>,
     /// Lifecycle (typestate) declarations for this module.
     pub lifecycle_defs: Vec<LifecycleDef>,
+    /// Being (Aristotelian four-causes) declarations for this module.
+    pub being_defs: Vec<BeingDef>,
     /// Information flow label declarations (`flow secret :: TypeA, TypeB`).
     pub flow_labels: Vec<FlowLabel>,
     /// Top-level definitions in declaration order.
@@ -100,6 +102,87 @@ pub struct FlowLabel {
     pub label: String,
     /// Type names that carry this label.
     pub types: Vec<String>,
+    pub span: Span,
+}
+
+// ── Being (Aristotelian four causes) ─────────────────────────────────────────
+
+/// A search strategy for directed evolution toward telos.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SearchStrategy {
+    GradientDescent,
+    StochasticGradient,
+    SimulatedAnnealing,
+    DerivativeFree,
+    Mcmc,
+}
+
+/// A single search case: when this landscape condition holds, use this strategy.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SearchCase {
+    pub strategy: SearchStrategy,
+    pub when: String,
+}
+
+/// Directed evolution block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EvolveBlock {
+    pub search_cases: Vec<SearchCase>,
+    pub constraint: String,
+    pub span: Span,
+}
+
+/// Homeostatic regulation block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RegulateBlock {
+    pub variable: String,
+    pub target: String,
+    pub bounds: Option<(String, String)>,
+    pub response: Vec<(String, String)>,
+    pub span: Span,
+}
+
+/// Telos definition — the final cause.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TelosDef {
+    pub description: String,
+    pub fitness_fn: Option<String>,
+    pub span: Span,
+}
+
+/// Material cause block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatterBlock {
+    pub fields: Vec<FieldDef>,
+    pub span: Span,
+}
+
+/// Formal cause block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FormBlock {
+    pub types: Vec<TypeDef>,
+    pub enums: Vec<EnumDef>,
+    pub span: Span,
+}
+
+/// Efficient cause block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionBlock {
+    pub fns: Vec<FnDef>,
+    pub span: Span,
+}
+
+/// A biological being — a self-maintaining, goal-directed entity.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BeingDef {
+    pub name: String,
+    pub describe: Option<String>,
+    pub matter: Option<MatterBlock>,
+    pub form: Option<FormBlock>,
+    pub function: Option<FunctionBlock>,
+    pub telos: Option<TelosDef>,
+    pub regulate_blocks: Vec<RegulateBlock>,
+    pub evolve_block: Option<EvolveBlock>,
     pub span: Span,
 }
 
