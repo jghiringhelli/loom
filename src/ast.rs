@@ -216,6 +216,11 @@ pub enum Expr {
         right: Box<Expr>,
         span: Span,
     },
+    /// Raw Rust code block — `inline { rust_code }`.
+    ///
+    /// The content is emitted verbatim into the Rust output. The type checker,
+    /// inference engine, and effect checker treat this node as opaque.
+    InlineRust(String),
 }
 
 /// Match arm: a single branch of a `match` expression.

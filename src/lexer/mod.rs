@@ -71,6 +71,13 @@ pub enum Token {
     })]
     StrLit(String),
 
+    // ── Inline Rust block: `inline { ... }` ── captured via callback ─────
+    // The regex matches `inline` followed by optional whitespace and `{`.
+    // The callback then collects everything until the matching closing `}`,
+    // handling nested braces. The captured content is the raw Rust string.
+    #[regex(r"inline[ \t\r\n]*\{", capture_inline_block)]
+    InlineBlock(String),
+
     // ── Identifier (must come after keywords so keywords take priority) ───
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_']*", |lex| lex.slice().to_string())]
     Ident(String),
@@ -112,6 +119,41 @@ pub enum Token {
 // The tokens are identical; these constants document the dual usage.
 pub const TOKEN_LANGLE: &Token = &Token::Lt;
 pub const TOKEN_RANGLE: &Token = &Token::Gt;
+
+// ── Inline block callback ─────────────────────────────────────────────────────
+
+/// Logos callback for `inline { ... }` blocks.
+///
+/// Called after `inline\s*{` has been matched. `lex.remainder()` is the source
+/// text starting immediately after the opening `{`. The callback scans forward
+/// counting brace depth until the matching `}`, then advances the lexer past it
+/// and returns the captured content as the token payload.
+fn capture_inline_block(lex: &mut logos::Lexer<Token>) -> Option<String> {
+    let remainder = lex.remainder();
+    let bytes = remainder.as_bytes();
+    let mut depth = 1usize;
+    let mut i = 0;
+
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    let content = remainder[..i].to_string();
+                    // Advance the lexer past the content and the closing '}'.
+                    lex.bump(i + 1);
+                    return Some(content);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    // Unmatched opening brace — lex error.
+    None
+}
 
 // ── Lexer struct ─────────────────────────────────────────────────────────────
 

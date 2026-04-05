@@ -1,0 +1,21 @@
+-- Demonstration of inline rust {} escape hatch (M9).
+-- The Loom header is the GS specification; the inline body is the implementation.
+
+module InlineDemo
+
+  -- Returns a hard-coded integer via inline Rust.
+  fn forty_two :: Int
+    inline { 42i64 }
+  end
+
+  -- Builds a Vec and returns its length using inline Rust.
+  fn vec_length :: Int
+    inline { vec![1i64, 2, 3].len() as i64 }
+  end
+
+  -- Adds two numbers via inline Rust, taking params from the type sig.
+  fn add :: Int -> Int -> Int
+    inline { arg0 + arg1 }
+  end
+
+end

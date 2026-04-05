@@ -265,6 +265,13 @@ fn emit_expr(
                 span: span.clone(),
             })
         }
+
+        Expr::InlineRust(_) => {
+            return Err(LoomError::WasmUnsupported {
+                feature: "inline rust block".to_string(),
+                span: Span::synthetic(),
+            })
+        }
     }
     Ok(())
 }
@@ -345,6 +352,7 @@ fn collect_let_names_in(expr: &Expr, names: &mut Vec<String>) {
         }
         Expr::FieldAccess { object, .. } => collect_let_names_in(object, names),
         Expr::Literal(_) | Expr::Ident(_) => {}
+        Expr::InlineRust(_) => {} // opaque
     }
 }
 
@@ -406,5 +414,6 @@ fn collect_free_vars_in(
             }
         }
         Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque — no free variables
     }
 }

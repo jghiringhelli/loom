@@ -882,6 +882,15 @@ impl<'src> Parser<'src> {
                 self.expect(Token::RParen)?;
                 Ok(e)
             }
+            Some((Token::InlineBlock(_), _)) => {
+                if let Some((Token::InlineBlock(content), _)) = self.tokens.get(self.pos) {
+                    let content = content.clone();
+                    self.advance();
+                    Ok(Expr::InlineRust(content))
+                } else {
+                    unreachable!()
+                }
+            }
             Some((tok, span)) => Err(LoomError::parse(
                 format!("unexpected token in expression: {:?}", tok),
                 span.clone(),

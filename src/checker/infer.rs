@@ -370,6 +370,9 @@ fn infer_expr(
 
         // Pipe and field access return fresh TypeVars — resolved in M1.5.
         Expr::Pipe { .. } | Expr::FieldAccess { .. } => Ok(gen.fresh()),
+
+        // InlineRust is opaque — assign a fresh TypeVar, no constraints generated.
+        Expr::InlineRust(_) => Ok(gen.fresh()),
     }
 }
 
@@ -545,6 +548,7 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
         }
         Expr::FieldAccess { object, .. } => collect_let_names(object, names),
         Expr::Ident(_) | Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque
     }
 }
 
@@ -605,6 +609,7 @@ fn collect_free_vars(
             collect_free_vars(object, let_bound, seen, ordered)
         }
         Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque — no free variables
     }
 }
 

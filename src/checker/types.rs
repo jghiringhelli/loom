@@ -224,6 +224,7 @@ impl TypeChecker {
                 self.check_expr(right, scope, table, errors);
             }
             Expr::Literal(_) => {}
+            Expr::InlineRust(_) => {} // opaque — skip type checking
         }
     }
 

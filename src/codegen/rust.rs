@@ -388,6 +388,7 @@ impl RustEmitter {
                     self.emit_expr(right)
                 )
             }
+            Expr::InlineRust(code) => code.clone(),
             Expr::Match { subject, arms, .. } => {
                 let s = self.emit_expr(subject);
                 let arms_str: Vec<String> = arms
@@ -535,6 +536,7 @@ fn collect_let_names(expr: &Expr, out: &mut std::collections::HashSet<String>) {
         }
         Expr::FieldAccess { object, .. } => collect_let_names(object, out),
         Expr::Ident(_) | Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque — no let bindings inside
     }
 }
 
@@ -585,6 +587,7 @@ fn scan_free_idents(
         }
         Expr::FieldAccess { object, .. } => scan_free_idents(object, let_bound, seen, ordered),
         Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque — no free variable names to scan
     }
 }
 

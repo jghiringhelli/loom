@@ -153,6 +153,7 @@ fn collect_calls(expr: &Expr, out: &mut HashSet<String>) {
             collect_calls(right, out);
         }
         Expr::Ident(_) | Expr::Literal(_) => {}
+        Expr::InlineRust(_) => {} // opaque — cannot inspect inline Rust for effects
     }
 }
 
