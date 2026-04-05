@@ -4,7 +4,9 @@
 //! (WASM, JS, etc.) would each live in their own sub-module here.
 
 pub mod rust;
+pub mod typescript;
 pub mod wasm;
 
 pub use rust::RustEmitter;
+pub use typescript::TypeScriptEmitter;
 pub use wasm::WasmEmitter;

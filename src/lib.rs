@@ -67,6 +67,23 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     Ok(codegen::RustEmitter::new().emit(&module))
 }
 
+// ── TypeScript pipeline entry point ──────────────────────────────────────────
+
+/// Compile a Loom source string to a TypeScript source string.
+///
+/// Runs the full lex → parse → type-check pipeline, then emits TypeScript.
+pub fn compile_typescript(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+    checker::InferenceEngine::new().check(&module)?;
+    checker::TypeChecker::new().check(&module)?;
+    checker::ExhaustivenessChecker::new().check(&module)?;
+    checker::EffectChecker::new().check(&module)?;
+    Ok(codegen::TypeScriptEmitter::new().emit(&module))
+}
+
 // ── WASM pipeline entry point ─────────────────────────────────────────────────
 
 /// Compile a Loom source string to a WebAssembly Text format (WAT) string.
