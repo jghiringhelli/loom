@@ -439,6 +439,6 @@ fn rust_emit_quorum_has_check_fn() {
     };
     let module = make_module_with_ecosystem(eco);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn check_quorum_ahl"), "expected check_quorum_ahl in:\n{out}");
+    assert!(out.contains("pub fn check_quorum_a_h_l"), "expected check_quorum_a_h_l in:\n{out}");
     assert!(out.contains("Bassler"), "expected Bassler citation in:\n{out}");
 }
