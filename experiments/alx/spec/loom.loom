@@ -1,0 +1,540 @@
+-- Loom Self-Specification (ALX Experiment)
+-- ==========================================
+-- This file specifies the Loom compiler in Loom syntax.
+-- It is the primary artifact of the ALX (Adversarial Loom eXperiment):
+-- a stateless AI reader, given only this file, must be able to derive
+-- a correct Rust implementation that passes the full test suite.
+--
+-- Structure of this spec:
+--   1. Core types (AST nodes)
+--   2. Pipeline functions (lex → parse → check → emit)
+--   3. Checker interfaces and their contracts
+--   4. Codegen emitter interfaces
+--   5. The compiler entry points
+--
+-- Derivability obligation: every architectural decision here must be
+-- expressed with enough precision that a stateless reader can derive
+-- correct output without external human context.
+--
+-- Telos of the Loom compiler:
+--   "A specification language where every construct is derivable by a
+--    stateless reader. The compiler is the proof that specification
+--    completeness produces correct artifacts."
+
+module LoomCompiler
+describe: "AI-native functional language transpiling to Rust, TypeScript, WASM, OpenAPI 3.0, JSON Schema"
+
+-- ── Core position type ────────────────────────────────────────────────────────
+
+type Span =
+  start: Int
+  end: Int
+end
+
+-- ── Error type ────────────────────────────────────────────────────────────────
+
+type LoomError =
+  message: String
+  span:    Span
+end
+
+-- ── Token types ───────────────────────────────────────────────────────────────
+
+-- The lexer uses the `logos` crate. Keywords must appear BEFORE the
+-- generic Ident token in the logos enum or they lex as identifiers.
+-- Every keyword in Loom syntax must have a token variant.
+
+enum TokenKind =
+  | Module | Describe | Fn | Type | Enum | End | Let | Match | If | Then | Else
+  | Interface | Implements | Import | Provides | Requires | Invariant | Test
+  | Spec | Effect | Require | Ensure | With | Of | Flow | Lifecycle
+  | Being | Telos | Form | Matter | Regulate | Evolve | Toward | Search
+  | Fitness | Bounds | Ecosystem | Members | Signal | From | To | Payload
+  | Arrow | DoubleColon | Pipe | Dot | Comma | Colon | Semicolon
+  | LParen | RParen | LBracket | RBracket | LBrace | RBrace
+  | LAngle | RAngle | At | Underscore
+  | Plus | Minus | Star | Slash | Percent | Eq | NotEq | Lt | Gt | Le | Ge
+  | And | Or | Not | PipeArrow | Bang
+  | IntLit | FloatLit | StringLit | BoolLit
+  | Ident | Newline | Whitespace | Comment | Error
+end
+
+type Token =
+  kind: TokenKind
+  text: String
+  span: Span
+end
+
+-- ── AST: Type expressions ─────────────────────────────────────────────────────
+
+-- TypeExpr is the right-hand side of a type annotation.
+-- Base("Int") | Generic("List", [Base("T")]) | Effect([effects], ret) | ...
+-- TypeVar is only produced by the HM inference engine, never by the parser.
+
+enum TypeExpr =
+  | Base    of String
+  | Generic of String
+  | Effect  of String
+  | Option  of String
+  | Result  of String
+  | Tuple   of String
+  | TypeVar of Int
+end
+
+-- ── AST: Field definition ─────────────────────────────────────────────────────
+
+-- M20: fields carry privacy/compliance annotations (@pii, @gdpr, @pci, @hipaa,
+-- @never-log, @encrypt-at-rest). These propagate to all emission targets.
+
+type FieldDef =
+  name:        String
+  ty:          TypeExpr
+  annotations: List<Annotation>
+  span:        Span
+end
+
+-- ── AST: Annotations ─────────────────────────────────────────────────────────
+
+type Annotation =
+  key:   String
+  value: String
+end
+
+-- ── AST: Core definitions ─────────────────────────────────────────────────────
+
+type TypeDef =
+  name:   String
+  fields: List<FieldDef>
+  span:   Span
+end
+
+type EnumVariant =
+  name:    String
+  payload: Option<TypeExpr>
+  span:    Span
+end
+
+type EnumDef =
+  name:     String
+  variants: List<EnumVariant>
+  span:     Span
+end
+
+type RefinedType =
+  name:      String
+  base_type: TypeExpr
+  predicate: String
+  span:      Span
+end
+
+type FnTypeSignature =
+  params:      List<TypeExpr>
+  return_type: TypeExpr
+end
+
+enum ConsequenceTier =
+  | Pure
+  | Reversible
+  | Irreversible
+end
+
+type Contract =
+  expr: String
+  span: Span
+end
+
+type FnDef =
+  name:         String
+  describe:     Option<String>
+  annotations:  List<Annotation>
+  type_params:  List<String>
+  type_sig:     FnTypeSignature
+  effect_tiers: List<String>
+  requires:     List<Contract>
+  ensures:      List<Contract>
+  with_deps:    List<String>
+  body:         List<String>
+  span:         Span
+end
+
+-- ── AST: Semantic constructs (M19–M23) ────────────────────────────────────────
+
+-- M22: lifecycle/typestate — valid state transitions enforced at compile time.
+-- A function taking Payment<Pending> cannot be called with Payment<Completed>.
+type LifecycleDef =
+  type_name: String
+  states:    List<String>
+  span:      Span
+end
+
+-- M23: information flow labels — secret data cannot reach public outputs.
+-- TaintChecker builds the label map; InfoFlowChecker detects violations.
+type FlowLabel =
+  label: String
+  types: List<String>
+  span:  Span
+end
+
+-- ── AST: Biological constructs (M41–M43) ─────────────────────────────────────
+
+-- Aristotle's four causes as first-class language sections.
+-- Every being: block MUST have a telos: — missing it is a compile error.
+
+enum SearchStrategy =
+  | GradientDescent
+  | StochasticGradient
+  | SimulatedAnnealing
+  | DerivativeFree
+  | Mcmc
+end
+
+type SearchCase =
+  strategy: SearchStrategy
+  when:     String
+end
+
+-- evolve: is directed, not random. The constraint must assert convergence
+-- (contain "decreasing", "non-increasing", or "converg").
+type EvolveBlock =
+  search_cases: List<SearchCase>
+  constraint:   String
+  span:         Span
+end
+
+type RegulateBlock =
+  variable: String
+  target:   String
+  bounds:   Option<String>
+  response: List<String>
+  span:     Span
+end
+
+type TelosDef =
+  description: String
+  fitness_fn:  Option<String>
+  span:        Span
+end
+
+type MatterBlock =
+  fields: List<FieldDef>
+  span:   Span
+end
+
+type FormBlock =
+  types: List<TypeDef>
+  enums: List<EnumDef>
+  span:  Span
+end
+
+type FunctionBlock =
+  fns:  List<FnDef>
+  span: Span
+end
+
+type BeingDef =
+  name:             String
+  describe:         Option<String>
+  matter:           Option<MatterBlock>
+  form:             Option<FormBlock>
+  function:         Option<FunctionBlock>
+  telos:            Option<TelosDef>
+  regulate_blocks:  List<RegulateBlock>
+  evolve_block:     Option<EvolveBlock>
+  span:             Span
+end
+
+type SignalDef =
+  name:    String
+  from:    String
+  to:      String
+  payload: String
+  span:    Span
+end
+
+type EcosystemDef =
+  name:    String
+  describe: Option<String>
+  members: List<String>
+  signals: List<SignalDef>
+  telos:   Option<String>
+  span:    Span
+end
+
+-- ── AST: Interface / provides / requires ─────────────────────────────────────
+
+type InterfaceDef =
+  name:    String
+  methods: List<String>
+  span:    Span
+end
+
+type Provides =
+  interfaces: List<String>
+  span:       Span
+end
+
+type Requires =
+  dependencies: List<String>
+  span:         Span
+end
+
+type Invariant =
+  name:      String
+  condition: String
+  span:      Span
+end
+
+type TestDef =
+  name: String
+  body: String
+  span: Span
+end
+
+-- ── AST: Top-level module ─────────────────────────────────────────────────────
+
+-- Module is the compilation unit. All struct literal constructions must
+-- include ALL fields — adding a field to Module breaks every construction site.
+
+enum Item =
+  | Fn   of FnDef
+  | Type of TypeDef
+  | Enum of EnumDef
+  | RefinedType of RefinedType
+end
+
+type Module =
+  name:            String
+  describe:        Option<String>
+  annotations:     List<Annotation>
+  imports:         List<String>
+  spec:            Option<String>
+  interface_defs:  List<InterfaceDef>
+  implements:      List<String>
+  provides:        Option<Provides>
+  requires:        Option<Requires>
+  invariants:      List<Invariant>
+  test_defs:       List<TestDef>
+  lifecycle_defs:  List<LifecycleDef>
+  flow_labels:     List<FlowLabel>
+  being_defs:      List<BeingDef>
+  ecosystem_defs:  List<EcosystemDef>
+  items:           List<Item>
+  span:            Span
+end
+
+-- ── Pipeline: Lexer ───────────────────────────────────────────────────────────
+
+-- The lexer uses the `logos` 0.15 crate. Tokenize the source string into
+-- a Vec<(Token, Span)>. Keywords take precedence over Ident if they appear
+-- first in the logos enum. Whitespace and comments are skipped (not emitted).
+
+fn lex :: String -> Effect<[IO], Result<List<Token>, List<LoomError>>]
+  describe: "Tokenise Loom source into (Token, Span) pairs"
+  require:  source.len() > 0
+  ensure:   result.is_ok() implies result.unwrap().iter().all(|t| t.span.start < t.span.end)
+  source
+end
+
+-- ── Pipeline: Parser ──────────────────────────────────────────────────────────
+
+-- Recursive-descent LL(2) parser. Peeks 2 tokens ahead for disambiguation.
+-- parse_module() is the entry point. It dispatches on the current token:
+--   Token::Fn       → parse_fn_def()
+--   Token::Type     → parse_type_def()
+--   Token::Enum     → parse_enum_def()
+--   Token::Interface → parse_interface_def()
+--   Token::Lifecycle → parse_lifecycle_def()
+--   Token::Flow     → parse_flow_label()
+--   Token::Being    → parse_being_def()
+--   Token::Ecosystem → parse_ecosystem_def()
+-- Annotations accumulate in `pending_annotations` at `@` tokens and are
+-- merged into the next FnDef.
+
+fn parse :: List<Token> -> Effect<[IO], Result<Module, LoomError>]
+  describe: "Parse token stream into AST Module"
+  require:  tokens.len() > 0
+  ensure:   result.is_ok() implies result.unwrap().name.len() > 0
+  tokens
+end
+
+-- ── Pipeline: Checkers ────────────────────────────────────────────────────────
+
+-- All checkers have the same signature: Module -> Result<(), Vec<LoomError>>.
+-- They run in order. Any checker returning Err short-circuits the pipeline.
+-- All checkers are stateless and composable.
+
+-- 1. Hindley-Milner type inference: unification with type variables.
+--    Resolves TypeVar(n) nodes; validates body expression types match signatures.
+fn check_inference :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "HM unification — infer and unify all type variables"
+  module
+end
+
+-- 2. Symbol resolution and interface conformance.
+fn check_types :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Resolve all symbols; verify interface implementations"
+  module
+end
+
+-- 3. Pattern match exhaustiveness.
+fn check_exhaustiveness :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "All match arms must be exhaustive over the matched type"
+  module
+end
+
+-- 4. Effect tracking: every effectful call must be in an Effect context.
+--    Effects propagate transitively through the call chain.
+fn check_effects :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Verify all effects declared; consequence tiers respected"
+  module
+end
+
+-- 5. Algebraic properties (M21): @idempotent and @exactly-once are mutually
+--    exclusive. @commutative on non-binary functions is an error.
+fn check_algebraic :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Validate @idempotent/@exactly-once/@commutative constraints"
+  module
+end
+
+-- 6. Units of measure (M19): Float<usd> + Float<eur> is a type error.
+--    Float<usd> * Float<rate> = Float<usd>. Dimensional analysis at compile time.
+fn check_units :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Arithmetic unit consistency — prevent Mars Orbiter class failures"
+  module
+end
+
+-- 7. Typestate protocols (M22): lifecycle transitions must be respected.
+--    A function taking Payment<Pending> cannot receive Payment<Completed>.
+fn check_typestate :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Lifecycle state transitions are valid and complete"
+  module
+end
+
+-- 8. Privacy labels (M20): @pci fields must be @encrypt-at-rest and @never-log.
+--    @hipaa and @pci together require additional protection rules.
+fn check_privacy :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "PCI/HIPAA co-occurrence rules; @never-log and @encrypt-at-rest enforced"
+  module
+end
+
+-- 9. Information flow (M23): flow secret :: Password means Password cannot
+--    appear in a @public output without an explicit declassification.
+fn check_infoflow :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Secret data cannot flow to public outputs without declassification"
+  module
+end
+
+-- 10. Teleological checker (M41–M43): every being: must have a telos:.
+--     regulate: blocks must have bounds:. evolve: blocks must assert convergence.
+fn check_teleos :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+  describe: "Every being must have a telos — the missing final cause is a type error"
+  require:  every being in module.being_defs has being.telos.is_some()
+  module
+end
+
+-- ── Pipeline: Code generators ─────────────────────────────────────────────────
+
+-- All emitters have the same signature: Module -> String (infallible after checks).
+-- They iterate module items and being_defs/ecosystem_defs to produce output.
+-- Emission rules for each target are specified below.
+
+-- Rust emitter (primary target):
+--   - TypeDef → pub struct with serde::Serialize/Deserialize
+--   - EnumDef → pub enum with variants
+--   - RefinedType → newtype with TryFrom impl and debug_assert!
+--   - FnDef → pub fn with require/ensure as debug_assert! and doc comments
+--   - LifecycleDef → phantom type structs (struct Pending; struct Completed;)
+--   - FlowLabel → doc comments (// information-flow labels: secret: Password)
+--   - BeingDef → pub struct (matter fields) + impl with fitness/regulate/evolve methods
+--   - EcosystemDef → pub mod with signal structs + coordinate fn
+--   - @idempotent → doc comment + x-idempotent in OpenAPI
+--   - @exactly-once → doc comment; POST promoted to PUT in OpenAPI
+--   - Float<usd> → f64 (newtype: struct Usd(f64)) in Rust
+fn emit_rust :: Module -> Effect<[Pure], String]
+  describe: "Emit Rust source — primary compilation target"
+  ensure:   result.contains("pub") implies result.contains("struct") or result.contains("fn") or result.contains("enum")
+  module
+end
+
+-- TypeScript emitter:
+--   - TypeDef → interface with JSDoc
+--   - EnumDef → union type or const enum
+--   - FnDef → export function with JSDoc @param/@returns
+--   - @pii/@gdpr → JSDoc @pii/@gdpr tags
+--   - flow secret → branded type: type Password = string & { readonly _sensitivity: "secret" }
+--   - BeingDef → export class with @being/@telos JSDoc
+--   - EcosystemDef → export namespace with signal interfaces + coordinate fn
+fn emit_typescript :: Module -> Effect<[Pure], String]
+  describe: "Emit TypeScript source"
+  module
+end
+
+-- OpenAPI 3.0.3 emitter:
+--   REST inference from function names (30+ verb-prefix rules):
+--   get_X → GET /xs/{id}, create_X → POST /xs, update_X → PUT /xs/{id},
+--   delete_X → DELETE /xs/{id}, list_xs → GET /xs
+--   @idempotent on POST → promoted to PUT
+--   @exactly-once stays POST
+--   XError variants → HTTP status codes: NotFound→404, PermissionDenied→403, InvalidInput→400
+--   @pci/@gdpr/@hipaa → x-data-protection extension
+--   flow secret → x-security-labels extension
+--   LifecycleDef → x-lifecycle extension
+--   BeingDef → x-beings with x-telos, x-matter, x-form, x-regulate, x-evolve-constraint
+--   EcosystemDef → x-ecosystems with x-signals
+fn emit_openapi :: Module -> Effect<[Pure], String]
+  describe: "Emit OpenAPI 3.0.3 JSON — REST inference from types and names"
+  module
+end
+
+-- JSON Schema emitter:
+--   TypeDef → $defs entry with properties and required array
+--   @pii → x-sensitivity: "pii"
+--   @gdpr → x-gdpr: true
+--   Float<unit> → x-unit: "usd"
+fn emit_json_schema :: Module -> Effect<[Pure], String]
+  describe: "Emit JSON Schema draft 2020-12"
+  module
+end
+
+-- WebAssembly Text (WAT) emitter — subset only:
+--   Only pure functions with numeric signatures are supported.
+--   Effect types, enums, refined types, match expressions → WasmUnsupported error.
+--   Int → i64, Float → f64, Bool → i32 (0 = false, 1 = true)
+fn emit_wasm :: Module -> Effect<[Pure], Result<String, LoomError>]
+  describe: "Emit WebAssembly Text format — pure numeric subset only"
+  ensure:   result.is_ok() implies result.unwrap().starts_with("(module")
+  module
+end
+
+-- ── Pipeline: Entry points ────────────────────────────────────────────────────
+
+-- The public API exposed by src/lib.rs. Tests use these functions directly.
+
+fn compile :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline: lex → parse → all checkers → emit_rust"
+  require:  source.len() > 0
+  ensure:   result.is_ok() implies result.unwrap().contains("pub") or result.unwrap().contains("fn")
+  source
+end
+
+fn compile_typescript :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline → emit_typescript"
+  source
+end
+
+fn compile_openapi :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline → emit_openapi"
+  source
+end
+
+fn compile_json_schema :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Partial pipeline (type check only) → emit_json_schema"
+  source
+end
+
+fn compile_wasm :: String -> Effect<[IO], Result<String, List<LoomError>>]
+  describe: "Full pipeline → emit_wasm (pure numeric subset)"
+  source
+end
+
+end
