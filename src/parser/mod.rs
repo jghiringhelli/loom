@@ -235,6 +235,9 @@ impl<'src> Parser<'src> {
             Some((Token::From, _)) => Some("from".to_string()),
             Some((Token::Requires, _)) => Some("requires".to_string()),
             Some((Token::Module, _)) => Some("module".to_string()),
+            Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
+            Some((Token::Sense, _)) => Some("sense".to_string()),
+            Some((Token::Resonance, _)) => Some("resonance".to_string()),
             _ => None,
         }
     }
@@ -274,6 +277,9 @@ impl<'src> Parser<'src> {
             Some((Token::From, _)) => Some("from".to_string()),
             Some((Token::Requires, _)) => Some("requires".to_string()),
             Some((Token::Module, _)) => Some("module".to_string()),
+            Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
+            Some((Token::Sense, _)) => Some("sense".to_string()),
+            Some((Token::Resonance, _)) => Some("resonance".to_string()),
             _ => None,
         }
     }
@@ -1285,6 +1291,8 @@ impl<'src> Parser<'src> {
         let mut canalization: Option<CanalizationBlock> = None;
         let mut senescence: Option<SenescenceBlock> = None;
         let mut criticality: Option<CriticalityBlock> = None;
+        let mut umwelt: Option<UmweltBlock> = None;
+        let mut resonance: Option<ResonanceBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -1352,49 +1360,63 @@ impl<'src> Parser<'src> {
                         self.current_span(),
                     )),
                 };
-                let fitness_fn = if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
-                    self.advance(); // consume `fitness`
-                    self.expect(Token::Colon)?;
-                    let mut parts = Vec::new();
-                    while !self.at(&Token::End) && self.peek().is_some() {
-                        if let Some((tok, _)) = self.tokens.get(self.pos) {
-                            parts.push(format!("{:?}", tok));
-                            self.pos += 1;
+                let mut fitness_fn = None;
+                let mut modifiable_by = None;
+                let mut bounded_by = None;
+                let mut sign = None;
+                // Loop over optional fields in any order until `end`.
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
+                        self.advance(); // consume `fitness`
+                        self.expect(Token::Colon)?;
+                        let mut parts = Vec::new();
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            // Stop if we hit a known telos field keyword.
+                            let is_field = matches!(self.tokens.get(self.pos),
+                                Some((Token::ModifiableBy, _)) | Some((Token::BoundedBy, _)))
+                                || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                    if n == "sign");
+                            if is_field { break; }
+                            if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                parts.push(format!("{:?}", tok));
+                                self.pos += 1;
+                            }
                         }
-                    }
-                    Some(parts.join(" "))
-                } else {
-                    None
-                };
-                let modifiable_by = if matches!(self.tokens.get(self.pos), Some((Token::ModifiableBy, _))) {
-                    self.advance(); // consume `modifiable_by`
-                    self.expect(Token::Colon)?;
-                    if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                        let val = val.clone();
-                        self.pos += 1;
-                        Some(val)
+                        fitness_fn = Some(parts.join(" "));
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::ModifiableBy, _))) {
+                        self.advance(); // consume `modifiable_by`
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
+                            let val = val.clone();
+                            self.pos += 1;
+                            modifiable_by = Some(val);
+                        }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::BoundedBy, _))) {
+                        self.advance(); // consume `bounded_by`
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
+                            let val = val.clone();
+                            self.pos += 1;
+                            bounded_by = Some(val);
+                        }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "sign")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        self.advance(); // consume `sign`
+                        self.advance(); // consume `:`
+                        if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
+                            let val = val.clone();
+                            self.pos += 1;
+                            sign = Some(val);
+                        }
                     } else {
-                        None
+                        // Unknown token in telos block — skip to avoid infinite loop.
+                        self.advance();
                     }
-                } else {
-                    None
-                };
-                let bounded_by = if matches!(self.tokens.get(self.pos), Some((Token::BoundedBy, _))) {
-                    self.advance(); // consume `bounded_by`
-                    self.expect(Token::Colon)?;
-                    if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                        let val = val.clone();
-                        self.pos += 1;
-                        Some(val)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+                }
                 let sec_end = self.current_span();
                 self.expect(Token::End)?;
-                telos = Some(TelosDef { description, fitness_fn, modifiable_by, bounded_by, span: Span::merge(&sec_start, &sec_end) });
+                telos = Some(TelosDef { description, fitness_fn, modifiable_by, bounded_by, sign, span: Span::merge(&sec_start, &sec_end) });
             } else if self.at(&Token::Regulate) {
                 let sec_start = self.current_span();
                 self.advance(); // consume `regulate`
@@ -1757,6 +1779,93 @@ impl<'src> Parser<'src> {
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
                 criticality = Some(self.parse_criticality_block()?);
+            } else if self.at(&Token::Umwelt) {
+                // M80: umwelt: block
+                let sec_start = self.current_span();
+                self.advance(); // consume `umwelt`
+                self.expect(Token::Colon)?;
+                let mut detects: Vec<String> = Vec::new();
+                let mut blind_to: Vec<String> = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "detects")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        self.advance(); // consume `detects`
+                        self.advance(); // consume `:`
+                        self.expect(Token::LBracket)?;
+                        while !self.at(&Token::RBracket) && self.peek().is_some() {
+                            if let Ok((val, _)) = self.expect_ident() {
+                                detects.push(val);
+                            }
+                            if self.at(&Token::Comma) { self.advance(); }
+                        }
+                        self.expect(Token::RBracket)?;
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "blind_to")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        self.advance(); // consume `blind_to`
+                        self.advance(); // consume `:`
+                        self.expect(Token::LBracket)?;
+                        while !self.at(&Token::RBracket) && self.peek().is_some() {
+                            if let Ok((val, _)) = self.expect_ident() {
+                                blind_to.push(val);
+                            }
+                            if self.at(&Token::Comma) { self.advance(); }
+                        }
+                        self.expect(Token::RBracket)?;
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                umwelt = Some(UmweltBlock { detects, blind_to, span: Span::merge(&sec_start, &sec_end) });
+            } else if self.at(&Token::Resonance) {
+                // M82: resonance: block
+                let sec_start = self.current_span();
+                self.advance(); // consume `resonance`
+                self.expect(Token::Colon)?;
+                let mut correlations: Vec<CorrelationPair> = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    // correlate: SignalA with SignalB [via fn_name]
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "correlate")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        let pair_start = self.current_span();
+                        self.advance(); // consume `correlate`
+                        self.advance(); // consume `:`
+                        let (signal_a, _) = self.expect_ident()?;
+                        // consume `with`
+                        if self.at(&Token::With) { self.advance(); }
+                        let (signal_b, _) = self.expect_ident()?;
+                        // optional `via fn_name`
+                        let via = if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "via")
+                        {
+                            self.advance(); // consume `via`
+                            if let Some((Token::Ident(fn_name), _)) = self.tokens.get(self.pos) {
+                                let fn_name = fn_name.clone();
+                                self.pos += 1;
+                                Some(fn_name)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+                        let pair_end = self.current_span();
+                        correlations.push(CorrelationPair {
+                            signal_a,
+                            signal_b,
+                            via,
+                            span: Span::merge(&pair_start, &pair_end),
+                        });
+                    } else {
+                        self.advance();
+                    }
+                }
+                let sec_end = self.current_span();
+                self.expect(Token::End)?;
+                resonance = Some(ResonanceBlock { correlations, span: Span::merge(&sec_start, &sec_end) });
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -1785,6 +1894,8 @@ impl<'src> Parser<'src> {
             canalization,
             senescence,
             criticality,
+            umwelt,
+            resonance,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1993,6 +2104,7 @@ impl<'src> Parser<'src> {
             Some(Token::Ident(s)) if s == "niche_construction" => {
                 Ok(Item::NicheConstruction(self.parse_niche_construction()?))
             }
+            Some(Token::Sense) => Ok(Item::Sense(self.parse_sense_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -3215,6 +3327,56 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(NicheConstructionDef { modifies, affects, probe_fn, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M81: Parse `sense Name ... end` top-level item.
+    fn parse_sense_def(&mut self) -> Result<SenseDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Sense)?;
+        let (name, _) = self.expect_ident()?;
+        let mut channels: Vec<String> = Vec::new();
+        let mut range: Option<String> = None;
+        let mut unit: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "channels")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume `channels`
+                self.advance(); // consume `:`
+                self.expect(Token::LBracket)?;
+                while !self.at(&Token::RBracket) && self.peek().is_some() {
+                    if let Ok((val, _)) = self.expect_ident() {
+                        channels.push(val);
+                    }
+                    if self.at(&Token::Comma) { self.advance(); }
+                    if self.at(&Token::RBracket) { break; }
+                }
+                self.expect(Token::RBracket)?;
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "range")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume `range`
+                self.advance(); // consume `:`
+                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                    range = Some(s.clone());
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "unit")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume `unit`
+                self.advance(); // consume `:`
+                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                    unit = Some(s.clone());
+                    self.pos += 1;
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SenseDef { name, channels, range, unit, span: Span::merge(&start, &end_span) })
     }
 }
 

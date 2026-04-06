@@ -90,6 +90,8 @@ fn checker_rejects_empty_toward() {
         }),
         senescence: None,
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -145,6 +147,8 @@ fn checker_rejects_empty_despite() {
         }),
         senescence: None,
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {

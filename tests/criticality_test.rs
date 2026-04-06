@@ -90,6 +90,8 @@ fn checker_rejects_inverted_bounds() {
             probe_fn: None,
             span: Span::synthetic(),
         }),
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -147,6 +149,8 @@ fn checker_passes_valid_criticality() {
             probe_fn: None,
             span: Span::synthetic(),
         }),
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {

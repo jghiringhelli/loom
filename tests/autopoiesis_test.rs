@@ -50,6 +50,7 @@ fn base_being() -> BeingDef {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: None,
+            sign: None,
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],
@@ -63,6 +64,8 @@ fn base_being() -> BeingDef {
         canalization: None,
         senescence: None,
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     }
 }

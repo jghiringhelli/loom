@@ -38,6 +38,9 @@ pub mod senescence;
 pub mod hgt;
 pub mod criticality;
 pub mod nichect;
+pub mod semiosis;
+pub mod umwelt;
+pub mod resonance;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -71,3 +74,6 @@ pub use senescence::SenescenceChecker;
 pub use hgt::HgtChecker;
 pub use criticality::CriticalityChecker;
 pub use nichect::NicheConstructionChecker;
+pub use semiosis::SemiosisChecker;
+pub use umwelt::UmweltChecker;
+pub use resonance::ResonanceChecker;

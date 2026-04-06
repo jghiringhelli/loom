@@ -264,6 +264,19 @@ impl RustEmitter {
                     }
                     src
                 }
+                Item::Sense(sd) => {
+                    let mut src = format!("// sense {}:\n", sd.name);
+                    if !sd.channels.is_empty() {
+                        src.push_str(&format!("//   channels: [{}]\n", sd.channels.join(", ")));
+                    }
+                    if let Some(r) = &sd.range {
+                        src.push_str(&format!("//   range: {}\n", r));
+                    }
+                    if let Some(u) = &sd.unit {
+                        src.push_str(&format!("//   unit: {}\n", u));
+                    }
+                    src
+                }
             };
             body.push('\n');
             for line in item_src.lines() {

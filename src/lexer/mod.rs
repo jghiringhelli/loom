@@ -145,6 +145,11 @@ pub enum Token {
     #[token("senescence")]   Senescence,
     #[token("adopt")]        Adopt,
 
+    // ── Biosemiotic signal infrastructure (M78-M82) ───────────────────────────────
+    #[token("umwelt")]       Umwelt,
+    #[token("sense")]        Sense,
+    #[token("resonance")]    Resonance,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

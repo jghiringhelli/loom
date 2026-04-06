@@ -46,6 +46,7 @@ fn base_being() -> BeingDef {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: None,
+            sign: None,
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],
@@ -59,6 +60,8 @@ fn base_being() -> BeingDef {
         canalization: None,
         senescence: None,
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     }
 }
@@ -162,6 +165,7 @@ fn corrigible_without_modifiable_by_errors() {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: None,
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -183,6 +187,7 @@ fn corrigible_with_modifiable_by_ok() {
             fitness_fn: None,
             modifiable_by: Some("HumanAuthority".to_string()),
             bounded_by: None,
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -201,6 +206,7 @@ fn bounded_telos_rejects_maximize() {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -222,6 +228,7 @@ fn bounded_telos_rejects_unlimited() {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -243,6 +250,7 @@ fn bounded_telos_without_bounded_by_errors() {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: None,
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -264,6 +272,7 @@ fn bounded_telos_with_bounded_by_ok() {
             fitness_fn: None,
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
+            sign: None,
             span: Span::synthetic(),
         }),
         ..base_being()

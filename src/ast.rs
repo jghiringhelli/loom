@@ -185,6 +185,9 @@ pub struct TelosDef {
     pub modifiable_by: Option<String>,
     /// Required by `@bounded_telos`: the operational scope that constrains this being.
     pub bounded_by: Option<String>,
+    /// M79: The signal type this being interprets as directional input (Peirce semiosis).
+    /// A being is organized to interpret this sign toward its telos.
+    pub sign: Option<String>,
     pub span: Span,
 }
 
@@ -309,6 +312,12 @@ pub struct BeingDef {
     pub senescence: Option<SenescenceBlock>,
     /// M76: Criticality bounds (Langton).
     pub criticality: Option<CriticalityBlock>,
+    /// M80: Umwelt block — perceptual world declaration (Uexküll 1909).
+    /// Default: omnisensory (no umwelt = being receives any typed signal).
+    /// If present: restricts detectable signal types.
+    pub umwelt: Option<UmweltBlock>,
+    /// M82: Resonance block — cross-channel correlation discovery.
+    pub resonance: Option<ResonanceBlock>,
     pub span: Span,
 }
 
@@ -521,6 +530,60 @@ pub enum Item {
     Adopt(AdoptDecl),
     /// Niche construction — M77.
     NicheConstruction(NicheConstructionDef),
+    /// Sense declaration — a named signal channel. M81.
+    Sense(SenseDef),
+}
+
+// ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
+
+/// M80: Umwelt block — perceptual world declaration (Uexküll 1909).
+/// Default: omnisensory (no umwelt = being receives any typed signal).
+/// If present: restricts detectable signal types. The perceptual world is
+/// a purposeful limitation, not a default constraint.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UmweltBlock {
+    /// Signal types this being can detect. If empty and blind_to is also empty,
+    /// the block is a no-op (equivalent to no umwelt declaration).
+    pub detects: Vec<String>,
+    /// Signal types explicitly excluded from this being's perceptual world.
+    pub blind_to: Vec<String>,
+    pub span: Span,
+}
+
+/// M82: Resonance block — cross-channel correlation discovery.
+///
+/// Models signal relationships that escape single-channel human perception.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResonanceBlock {
+    /// Each entry: (signal_type_a, signal_type_b, optional correlation fn name)
+    pub correlations: Vec<CorrelationPair>,
+    pub span: Span,
+}
+
+/// A declared cross-channel correlation pair.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CorrelationPair {
+    pub signal_a: String,
+    pub signal_b: String,
+    /// Optional declared correlation function name.
+    pub via: Option<String>,
+    pub span: Span,
+}
+
+/// M81: Sense declaration — a named signal channel, potentially beyond human perception.
+/// Mantis shrimp model: any measurable physical quantity can be a first-class signal.
+/// Examples: electromagnetic spectrum bands, acoustic ranges, chemical gradients,
+/// quantum states, gravitational waves, magnetic field intensity.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SenseDef {
+    pub name: String,
+    /// Named sub-channels within this sense dimension.
+    pub channels: Vec<String>,
+    /// Optional physical range description (e.g. "1e-12m to 1e3m").
+    pub range: Option<String>,
+    /// Optional unit declaration (e.g. "Hz", "nm", "mol/L").
+    pub unit: Option<String>,
+    pub span: Span,
 }
 
 // ── M66: Aspect-Oriented Specification ───────────────────────────────────────

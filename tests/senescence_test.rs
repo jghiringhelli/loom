@@ -90,6 +90,8 @@ fn checker_rejects_empty_onset() {
             span: Span::synthetic(),
         }),
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -145,6 +147,8 @@ fn checker_passes_valid_senescence() {
             span: Span::synthetic(),
         }),
         criticality: None,
+        umwelt: None,
+        resonance: None,
         span: Span::synthetic(),
     };
     let module = Module {
