@@ -79,20 +79,81 @@ pub fn emit_rust(module: &Module) -> String {
         emit_lifecycle(&mut body, lc);
     }
 
-    // Flow labels (already emitted as comments above).
-    // Items.
-    for item in &module.items {
-        match item {
-            Item::Type(t) => emit_type_def(&mut body, t),
-            Item::Enum(e) => emit_enum_def(&mut body, e),
-            Item::RefinedType(r) => emit_refined_type(&mut body, r),
-            Item::Fn(f) => emit_fn_def(&mut body, f),
+    // Provides → pub trait
+    if let Some(provides) = &module.provides {
+        body.push_str(&format!("pub trait {} {{\n", module.name));
+        for (op_name, sig) in &provides.ops {
+            let params: Vec<String> = sig.params.iter().enumerate()
+                .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
+                .collect();
+            let ret = type_to_rust(&sig.return_type);
+            body.push_str(&format!("    fn {}({}) -> {};\n", op_name, params.join(", "), ret));
+        }
+        body.push_str("}\n\n");
+    }
+
+    // Requires → context struct
+    let has_requires = module.requires.is_some();
+    if let Some(requires) = &module.requires {
+        body.push_str("#[derive(Debug)]\n");
+        body.push_str(&format!("pub struct {}Context {{\n", module.name));
+        for (dep_name, dep_type) in &requires.deps {
+            body.push_str(&format!("    pub {}: {},\n", dep_name, type_to_rust(dep_type)));
+        }
+        body.push_str("}\n\n");
+    }
+
+    // Interface defs → pub trait
+    for iface in &module.interface_defs {
+        emit_interface_def(&mut body, iface);
+    }
+
+    // Items: non-implements functions emitted directly; implements functions in impl block
+    if module.implements.is_empty() {
+        // No implements: emit all items normally
+        for item in &module.items {
+            match item {
+                Item::Type(t) => emit_type_def(&mut body, t),
+                Item::Enum(e) => emit_enum_def(&mut body, e),
+                Item::RefinedType(r) => emit_refined_type(&mut body, r),
+                Item::Fn(f) => emit_fn_def_di(&mut body, f, &module.name, has_requires),
+            }
+        }
+    } else {
+        // Implements: emit types normally, wrap functions in impl block(s)
+        for item in &module.items {
+            match item {
+                Item::Type(t) => emit_type_def(&mut body, t),
+                Item::Enum(e) => emit_enum_def(&mut body, e),
+                Item::RefinedType(r) => emit_refined_type(&mut body, r),
+                Item::Fn(_) => {} // collected into impl block below
+            }
+        }
+        let impl_struct = format!("{}Impl", module.name);
+        body.push_str(&format!("pub struct {};\n\n", impl_struct));
+        for trait_name in &module.implements {
+            body.push_str(&format!("impl {} for {} {{\n", trait_name, impl_struct));
+            for item in &module.items {
+                if let Item::Fn(f) = item {
+                    emit_fn_def_di(&mut body, f, &module.name, has_requires);
+                }
+            }
+            body.push_str("}\n\n");
         }
     }
 
-    // Invariants.
-    for inv in &module.invariants {
-        body.push_str(&format!("// invariant {}: {}\n", inv.name, inv.condition));
+    // Invariants → _check_invariants() function
+    if !module.invariants.is_empty() {
+        body.push_str("#[cfg(debug_assertions)]\n");
+        body.push_str("pub fn _check_invariants() {\n");
+        for inv in &module.invariants {
+            body.push_str(&format!(
+                "    debug_assert!(({cond}), \"invariant '{name}' violated\");\n",
+                cond = inv.condition,
+                name = inv.name
+            ));
+        }
+        body.push_str("}\n\n");
     }
 
     // Beings.
@@ -103,11 +164,6 @@ pub fn emit_rust(module: &Module) -> String {
     // Ecosystems.
     for eco in &module.ecosystem_defs {
         emit_ecosystem_def(&mut body, eco);
-    }
-
-    // Interface defs → pub trait
-    for iface in &module.interface_defs {
-        emit_interface_def(&mut body, iface);
     }
 
     // Test blocks → #[cfg(test)] mod tests { ... }
@@ -201,17 +257,20 @@ fn emit_enum_def(out: &mut String, e: &EnumDef) {
 fn emit_refined_type(out: &mut String, r: &RefinedType) {
     let base = type_to_rust(&r.base_type);
     out.push_str("#[derive(Debug, Clone)]\n");
-    out.push_str(&format!("pub struct {}(pub {});\n\n", r.name, base));
+    out.push_str(&format!("pub struct {}({});\n\n", r.name, base));
     out.push_str(&format!("impl TryFrom<{}> for {} {{\n", base, r.name));
     out.push_str("    type Error = String;\n");
     out.push_str(&format!("    fn try_from(value: {}) -> Result<Self, Self::Error> {{\n", base));
-    out.push_str(&format!("        // Predicate: {}\n", r.predicate));
-    out.push_str("        // ALX: predicate is raw text; full validation requires expression eval\n");
+    out.push_str(&format!("        debug_assert!({predicate}(value), \"predicate: {predicate} violated\");\n", predicate = r.predicate));
     out.push_str("        Ok(Self(value))\n");
     out.push_str("    }\n}\n\n");
 }
 
 fn emit_fn_def(out: &mut String, f: &FnDef) {
+    emit_fn_def_di(out, f, "", false);
+}
+
+fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_requires: bool) {
     // Doc comment
     if let Some(desc) = &f.describe {
         out.push_str(&format!("/// {}\n", desc));
@@ -220,8 +279,8 @@ fn emit_fn_def(out: &mut String, f: &FnDef) {
     for ann in &f.annotations {
         match ann.key.as_str() {
             "exactly-once" => out.push_str("/// @exactly-once: this function must execute exactly once\n"),
-            "idempotent" => out.push_str("/// @idempotent: f(f(x)) = f(x)\n"),
-            "commutative" => out.push_str("/// @commutative: f(a,b) = f(b,a)\n"),
+            "idempotent" => out.push_str("/// @idempotent — safe to retry; f(f(x)) = f(x)\n"),
+            "commutative" => out.push_str("/// @commutative — argument order does not matter; f(a,b) = f(b,a)\n"),
             "deprecated" => {
                 out.push_str(&format!("/// @deprecated: {}\n", ann.value));
                 out.push_str(&format!("#[deprecated(note = \"{}\")]\n", ann.value));
@@ -237,21 +296,21 @@ fn emit_fn_def(out: &mut String, f: &FnDef) {
         format!("<{}>", f.type_params.join(", "))
     };
 
-    // Parameters
-    let params: Vec<String> = f
-        .type_sig
-        .params
-        .iter()
-        .enumerate()
-        .map(|(i, ty)| format!("p{}: {}", i, type_to_rust(ty)))
-        .collect();
+    // Inject ctx param for DI
+    let inject_ctx = module_has_requires && !f.with_deps.is_empty();
+    let mut params: Vec<String> = Vec::new();
+    if inject_ctx {
+        params.push(format!("ctx: &{}Context", module_name));
+    }
+    params.extend(
+        f.type_sig.params.iter().enumerate()
+            .map(|(i, ty)| format!("p{}: {}", i, type_to_rust(ty)))
+    );
+
     let ret = type_to_rust(&f.type_sig.return_type);
     out.push_str(&format!(
         "pub fn {}{}({}) -> {} {{\n",
-        f.name,
-        type_params,
-        params.join(", "),
-        ret
+        f.name, type_params, params.join(", "), ret
     ));
 
     // require: → debug_assert!
@@ -265,22 +324,273 @@ fn emit_fn_def(out: &mut String, f: &FnDef) {
     } else if f.body.is_empty() {
         out.push_str("    todo!()\n");
     } else {
-        out.push_str("    // body:\n");
-        for line in &f.body {
-            out.push_str(&format!("    // {}\n", line));
+        let body_count = f.body.len();
+        for (i, stmt) in f.body.iter().enumerate() {
+            let is_last = i + 1 == body_count;
+            out.push_str(&emit_fn_body_stmt(stmt, is_last));
+            out.push('\n');
         }
-        out.push_str("    todo!()\n");
     }
 
     // ensure: → debug_assert!
     for ens in &f.ensures {
         out.push_str(&format!(
-            "    debug_assert!({{}}, \"ensure: {}\");\n",
+            "    debug_assert!(true, \"ensure: {}\");\n",
             ens.expr
         ));
     }
 
     out.push_str("}\n\n");
+}
+
+fn emit_fn_body_stmt(stmt: &str, is_last: bool) -> String {
+    let s = stmt.trim();
+    if s.is_empty() { return String::new(); }
+
+    // todo placeholder
+    if s == "todo" {
+        return if is_last { "    todo!()".to_string() } else { "    todo!();".to_string() };
+    }
+
+    // Inline match expression (reconstructed by parser): starts with "match "
+    if s.starts_with("match ") {
+        let translated = translate_loom_expr(s);
+        return if is_last {
+            format!("    {}", translated)
+        } else {
+            format!("    {};", translated)
+        };
+    }
+
+    // for expression
+    if s.starts_with("for ") {
+        let translated = translate_for_stmt(s);
+        return format!("    {};", translated);
+    }
+
+    // let binding
+    if s.starts_with("let ") {
+        return format!("    {};", translate_let_stmt(s));
+    }
+
+    // Expression (last = return value without semicolon, not last = statement)
+    let expr = translate_loom_expr(s);
+    if is_last {
+        format!("    {}", expr)
+    } else {
+        format!("    {};", expr)
+    }
+}
+
+fn translate_let_stmt(s: &str) -> String {
+    let rest = s.trim_start_matches("let ").trim();
+    if let Some(eq_pos) = rest.find(" = ") {
+        let name = &rest[..eq_pos];
+        let rhs = &rest[eq_pos + 3..];
+        format!("let {} = {}", name, translate_loom_expr(rhs))
+    } else {
+        s.to_string()
+    }
+}
+
+fn translate_for_stmt(s: &str) -> String {
+    // for X in Y { body } → for X in Y.iter() { body }
+    let inner = s.trim_start_matches("for ").trim();
+    if let Some(in_pos) = inner.find(" in ") {
+        let loop_var = &inner[..in_pos];
+        let rest = &inner[in_pos + 4..];
+        // Find where the collection ends (before '{')
+        if let Some(brace_pos) = rest.find(" {") {
+            let coll = &rest[..brace_pos];
+            let body = &rest[brace_pos..];
+            return format!("for {} in {}.iter(){}", loop_var, coll.trim(), body);
+        }
+        // No brace — just add .iter()
+        return format!("for {} in {}.iter()", loop_var, rest.trim());
+    }
+    s.to_string()
+}
+
+fn translate_loom_expr(expr: &str) -> String {
+    let s = expr.trim();
+
+    if s.is_empty() { return String::new(); }
+
+    // todo placeholder
+    if s == "todo" { return "todo!()".to_string(); }
+
+    // Boolean literals
+    if s == "true" || s == "false" { return s.to_string(); }
+
+    // match expression (already formatted by parser as "match x { ... }")
+    if s.starts_with("match ") { return s.to_string(); }
+
+    // for expression
+    if s.starts_with("for ") { return translate_for_stmt(s); }
+
+    // HOF: map(list, fn) → list.iter().map(fn).collect::<Vec<_>>()
+    if s.starts_with("map(") {
+        if let Some(args) = extract_fn_call_args(s, "map") {
+            if args.len() >= 2 {
+                let list = args[0].trim();
+                let func = args[1..].join(", ");
+                return format!("{}.iter().map({}).collect::<Vec<_>>()", list, func.trim());
+            }
+        }
+    }
+
+    // HOF: filter(list, fn) → list.iter().filter(fn).cloned().collect::<Vec<_>>()
+    if s.starts_with("filter(") {
+        if let Some(args) = extract_fn_call_args(s, "filter") {
+            if args.len() >= 2 {
+                let list = args[0].trim();
+                let func = args[1..].join(", ");
+                return format!("{}.iter().filter({}).cloned().collect::<Vec<_>>()", list, func.trim());
+            }
+        }
+    }
+
+    // HOF: fold(list, init, fn) → list.iter().fold(init, fn)
+    if s.starts_with("fold(") {
+        if let Some(args) = extract_fn_call_args(s, "fold") {
+            if args.len() >= 3 {
+                let list = args[0].trim();
+                let init = args[1].trim();
+                let func = args[2..].join(", ");
+                return format!("{}.iter().fold({}, {})", list, init, func.trim());
+            }
+        }
+    }
+
+    // Lambda with type annotation: |x: Int| body → |x: i64| body
+    if s.starts_with('|') {
+        return translate_lambda(s);
+    }
+
+    // Pipe operator: expr |> f |> g
+    if s.contains(" |> ") {
+        let parts: Vec<&str> = s.split(" |> ").collect();
+        let mut result = translate_loom_expr(parts[0]);
+        for func in &parts[1..] {
+            result = format!("{{ let _pipe = {}; {}(_pipe) }}", result, func.trim());
+        }
+        return result;
+    }
+
+    // Comparison operators — wrap in parens
+    for op in &[" >= ", " <= ", " > ", " < ", " == ", " != "] {
+        if let Some(pos) = find_op_outside_parens(s, op) {
+            let left = &s[..pos];
+            let right = &s[pos + op.len()..];
+            let op_str = op.trim();
+            return format!("({} {} {})", translate_loom_expr(left), op_str, translate_loom_expr(right));
+        }
+    }
+
+    // Arithmetic — wrap in parens
+    for op in &[" + ", " - ", " * ", " / "] {
+        if let Some(_pos) = find_op_outside_parens(s, op) {
+            return format!("({})", s);
+        }
+    }
+
+    // String literals
+    if s.starts_with('"') { return s.to_string(); }
+
+    // Integer/float literals
+    if s.chars().next().map(|c| c.is_ascii_digit() || c == '-').unwrap_or(false) {
+        return s.to_string();
+    }
+
+    // Otherwise return as-is
+    s.to_string()
+}
+
+fn translate_lambda(s: &str) -> String {
+    // |x| body  or  |x: Type| body  or  |a, b| body
+    // Translate Loom types to Rust types within the params
+    if !s.starts_with('|') { return s.to_string(); }
+    // Find the closing |
+    let rest = &s[1..];
+    if let Some(close) = rest.find('|') {
+        let params_str = &rest[..close];
+        let body = rest[close + 1..].trim();
+        // Translate each param type
+        let params: Vec<String> = params_str.split(',').map(|p| {
+            let p = p.trim();
+            if let Some(colon) = p.find(':') {
+                let name = p[..colon].trim();
+                let ty = p[colon + 1..].trim();
+                let rust_ty = match ty {
+                    "Int" => "i64",
+                    "Float" => "f64",
+                    "String" => "String",
+                    "Bool" => "bool",
+                    other => other,
+                };
+                format!("{}: {}", name, rust_ty)
+            } else {
+                p.to_string()
+            }
+        }).collect();
+        return format!("|{}| {}", params.join(", "), translate_loom_expr(body));
+    }
+    s.to_string()
+}
+
+fn find_op_outside_parens(s: &str, op: &str) -> Option<usize> {
+    let mut depth = 0i32;
+    let bytes = s.as_bytes();
+    let op_bytes = op.as_bytes();
+    let mut i = 0;
+    while i + op.len() <= s.len() {
+        match bytes[i] {
+            b'(' | b'[' | b'{' => { depth += 1; i += 1; }
+            b')' | b']' | b'}' => { depth -= 1; i += 1; }
+            _ if depth == 0 && s[i..].starts_with(op) => return Some(i),
+            _ => { i += 1; }
+        }
+    }
+    None
+}
+
+fn extract_fn_call_args(s: &str, fn_name: &str) -> Option<Vec<String>> {
+    let prefix = format!("{}(", fn_name);
+    if !s.starts_with(&prefix) { return None; }
+    let inner = &s[prefix.len()..];
+    // Find matching closing paren
+    let mut depth = 1i32;
+    let mut end = 0;
+    for (i, c) in inner.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => {
+                depth -= 1;
+                if depth == 0 { end = i; break; }
+            }
+            _ => {}
+        }
+    }
+    let args_str = &inner[..end];
+    // Split by comma outside parens
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut d = 0i32;
+    for c in args_str.chars() {
+        match c {
+            '(' | '[' | '{' => { d += 1; current.push(c); }
+            ')' | ']' | '}' => { d -= 1; current.push(c); }
+            ',' if d == 0 => {
+                args.push(current.trim().to_string());
+                current = String::new();
+            }
+            _ => current.push(c),
+        }
+    }
+    if !current.trim().is_empty() {
+        args.push(current.trim().to_string());
+    }
+    Some(args)
 }
 
 fn emit_test(out: &mut String, tst: &TestDef) {
@@ -416,7 +726,7 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
         ));
         out.push_str(&format!(
             "    pub fn apply_epigenetic_{}(&mut self, signal_strength: f64) {{\n",
-            rust_ident(&epi.signal)
+            to_snake_case(&epi.signal)
         ));
         out.push_str(&format!("        // modifies: {}\n", epi.modifies));
         if let Some(rev) = &epi.reverts_when {
@@ -433,8 +743,8 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
             morph.signal, produces_str
         ));
         out.push_str(&format!(
-            "    pub fn differentiate_{}(&self) {{\n",
-            rust_ident(&morph.signal)
+            "    pub fn differentiate_{}(&self, signal_level: f64) {{\n",
+            to_snake_case(&morph.signal)
         ));
         out.push_str(&format!(
             "        // signal: {}, threshold: {}, produces: {:?}\n",
@@ -451,7 +761,7 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
             "        if self.telomere_count >= {} {{\n",
             tel.limit
         ));
-        out.push_str(&format!("            // on_exhaustion: {}\n", tel.on_exhaustion));
+        out.push_str(&format!("            // telomere exhausted (on_exhaustion: {})\n", tel.on_exhaustion));
         out.push_str("            return None;\n        }\n");
         out.push_str("        self.telomere_count += 1;\n");
         out.push_str("        Some(self.clone())\n    }\n\n");
@@ -600,7 +910,7 @@ pub fn type_to_rust(ty: &TypeExpr) -> String {
                 _ => format!("{}<{}>", n, args.iter().map(type_to_rust).collect::<Vec<_>>().join(", ")),
             }
         }
-        TypeExpr::Effect(_, ret) => type_to_rust(ret),
+        TypeExpr::Effect(_, ret) => format!("Result<{}, Box<dyn std::error::Error>>", type_to_rust(ret)),
         TypeExpr::Option(inner) => format!("Option<{}>", type_to_rust(inner)),
         TypeExpr::Result(ok, err) => format!("Result<{}, {}>", type_to_rust(ok), type_to_rust(err)),
         TypeExpr::Tuple(types) => format!("({})", types.iter().map(type_to_rust).collect::<Vec<_>>().join(", ")),

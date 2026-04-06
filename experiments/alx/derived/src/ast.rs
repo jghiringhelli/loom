@@ -357,13 +357,13 @@ pub struct InterfaceDef {
 
 #[derive(Debug, Clone)]
 pub struct Provides {
-    pub interfaces: Vec<String>,
+    pub ops: Vec<(String, FnTypeSignature)>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone)]
 pub struct Requires {
-    pub dependencies: Vec<String>,
+    pub deps: Vec<(String, TypeExpr)>,
     pub span: Span,
 }
 

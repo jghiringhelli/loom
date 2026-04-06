@@ -19,205 +19,166 @@ impl OpenApiEmitter {
 }
 
 pub fn emit_openapi(module: &Module) -> String {
-    let mut out = String::new();
+    // Build OpenAPI 3.0.3 document as JSON
 
-    out.push_str("openapi: \"3.0.0\"\n");
-    out.push_str("info:\n");
-    out.push_str(&format!("  title: \"{}\"\n", module.name));
+    // Info
+    let mut info = serde_json::json!({
+        "title": module.name,
+        "version": "1.0.0"
+    });
     if let Some(desc) = &module.describe {
-        out.push_str(&format!("  description: \"{}\"\n", desc));
-    }
-    out.push_str("  version: \"1.0.0\"\n");
-
-    // x-lifecycle extensions
-    if !module.lifecycle_defs.is_empty() {
-        out.push_str("  x-lifecycle:\n");
-        for lc in &module.lifecycle_defs {
-            out.push_str(&format!(
-                "    {}: [{}]\n",
-                lc.type_name,
-                lc.states.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ")
-            ));
-        }
+        info["description"] = serde_json::json!(desc);
     }
 
-    // x-security-labels from flow labels
-    if !module.flow_labels.is_empty() {
-        out.push_str("  x-security-labels:\n");
-        for fl in &module.flow_labels {
-            out.push_str(&format!(
-                "    {}: [{}]\n",
-                fl.label,
-                fl.types.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ")
-            ));
-        }
-    }
-
-    // Paths from functions
-    out.push_str("paths:\n");
-    let mut has_paths = false;
+    // Paths
+    let mut paths = serde_json::Map::new();
     for item in &module.items {
         if let Item::Fn(f) = item {
             let (method, path) = infer_http_method_and_path(f, module);
-            out.push_str(&format!("  {}:\n", path));
-            out.push_str(&format!("    {}:\n", method));
+
+            let has_effects = !f.effect_tiers.is_empty()
+                || matches!(f.type_sig.return_type, TypeExpr::Effect(_, _));
+
+            let mut operation = serde_json::json!({
+                "operationId": f.name,
+            });
             if let Some(desc) = &f.describe {
-                out.push_str(&format!("      description: \"{}\"\n", desc));
+                operation["description"] = serde_json::json!(desc);
+                operation["summary"] = serde_json::json!(desc);
             }
-            out.push_str("      operationId: \"");
-            out.push_str(&f.name);
-            out.push_str("\"\n");
 
             // Annotations
             for ann in &f.annotations {
                 match ann.key.as_str() {
-                    "idempotent" => out.push_str("      x-idempotent: true\n"),
-                    "exactly-once" => out.push_str("      x-exactly-once: true\n"),
+                    "idempotent" => { operation["x-idempotent"] = serde_json::json!(true); }
+                    "exactly-once" => { operation["x-exactly-once"] = serde_json::json!(true); }
+                    "at-most-once" => {
+                        operation["x-at-most-once"] = serde_json::json!(true);
+                        operation["x-retry-policy"] = serde_json::json!("never");
+                    }
+                    "commutative" => { operation["x-commutative"] = serde_json::json!(true); }
+                    "associative" => { operation["x-associative"] = serde_json::json!(true); }
                     _ => {}
                 }
             }
 
-            // Request body for POST/PUT/PATCH
+            if has_effects {
+                operation["x-loom-async"] = serde_json::json!(true);
+            }
+
+            // Request body for non-GET methods with params
             if matches!(method.as_str(), "post" | "put" | "patch") && !f.type_sig.params.is_empty() {
-                out.push_str("      requestBody:\n");
-                out.push_str("        required: true\n");
-                out.push_str("        content:\n");
-                out.push_str("          application/json:\n");
-                out.push_str("            schema:\n");
-                out.push_str(&format!(
-                    "              $ref: '#/components/schemas/{}'\n",
-                    param_schema_name(f)
-                ));
+                operation["requestBody"] = serde_json::json!({
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": type_to_openapi_schema(&f.type_sig.params[0])
+                        }
+                    }
+                });
             }
 
             // Responses
             let status = if method == "post" { "201" } else { "200" };
-            out.push_str("      responses:\n");
-            out.push_str(&format!("        \"{}\":\n", status));
-            out.push_str("          description: Success\n");
-            out.push_str("          content:\n");
-            out.push_str("            application/json:\n");
-            out.push_str("              schema:\n");
-            out.push_str(&format!(
-                "                $ref: '#/components/schemas/{}'\n",
-                return_schema_name(f)
-            ));
+            let ret_schema = type_to_openapi_schema(&f.type_sig.return_type);
+            operation["responses"] = serde_json::json!({
+                status: {
+                    "description": "Success",
+                    "content": {
+                        "application/json": {
+                            "schema": ret_schema
+                        }
+                    }
+                }
+            });
 
-            has_paths = true;
+            let path_entry = paths.entry(path).or_insert_with(|| serde_json::json!({}));
+            path_entry[method] = operation;
         }
-    }
-    if !has_paths {
-        out.push_str("  {}\n");
     }
 
     // Components/schemas from types
-    out.push_str("components:\n  schemas:\n");
-    let mut has_schemas = false;
+    let mut schemas = serde_json::Map::new();
     for item in &module.items {
         match item {
             Item::Type(t) => {
-                emit_openapi_type_schema(&mut out, t);
-                has_schemas = true;
+                let mut props = serde_json::Map::new();
+                let mut required = Vec::new();
+                for field in &t.fields {
+                    props.insert(field.name.clone(), type_to_openapi_schema(&field.ty));
+                    required.push(serde_json::json!(field.name));
+                }
+                schemas.insert(t.name.clone(), serde_json::json!({
+                    "type": "object",
+                    "properties": props,
+                    "required": required,
+                }));
             }
             Item::Enum(e) => {
-                emit_openapi_enum_schema(&mut out, e);
-                has_schemas = true;
+                let values: Vec<serde_json::Value> = e.variants.iter()
+                    .map(|v| serde_json::json!(v.name))
+                    .collect();
+                schemas.insert(e.name.clone(), serde_json::json!({
+                    "type": "string",
+                    "enum": values,
+                }));
             }
             _ => {}
         }
     }
-    if !has_schemas {
-        out.push_str("    {}\n");
-    }
+
+    let mut doc = serde_json::json!({
+        "openapi": "3.0.3",
+        "info": info,
+        "paths": paths,
+        "components": {
+            "schemas": schemas
+        }
+    });
 
     // x-beings extension
     if !module.being_defs.is_empty() {
-        out.push_str("x-beings:\n");
-        for being in &module.being_defs {
-            out.push_str(&format!("  {}:\n", being.name));
-            if let Some(telos) = &being.telos {
-                out.push_str(&format!("    x-telos: \"{}\"\n", telos.description));
+        let beings: serde_json::Map<String, serde_json::Value> = module.being_defs.iter().map(|b| {
+            let mut being_ext = serde_json::Map::new();
+            if let Some(telos) = &b.telos {
+                being_ext.insert("x-telos".to_string(), serde_json::json!(telos.description));
             }
-            if being.autopoietic {
-                out.push_str("    x-autopoietic: true\n");
+            if b.autopoietic {
+                being_ext.insert("x-autopoietic".to_string(), serde_json::json!(true));
             }
-            if !being.regulate_blocks.is_empty() {
-                out.push_str("    x-homeostasis:\n");
-                for reg in &being.regulate_blocks {
-                    out.push_str(&format!("      {}: {}\n", reg.variable, reg.target));
-                }
-            }
-        }
+            (b.name.clone(), serde_json::Value::Object(being_ext))
+        }).collect();
+        doc["x-beings"] = serde_json::Value::Object(beings);
     }
 
-    // x-ecosystems extension
-    if !module.ecosystem_defs.is_empty() {
-        out.push_str("x-ecosystems:\n");
-        for eco in &module.ecosystem_defs {
-            out.push_str(&format!("  {}:\n", eco.name));
-            if let Some(telos) = &eco.telos {
-                out.push_str(&format!("    x-telos: \"{}\"\n", telos));
-            }
-            out.push_str(&format!(
-                "    members: [{}]\n",
-                eco.members.iter().map(|m| format!("\"{}\"", m)).collect::<Vec<_>>().join(", ")
-            ));
-        }
-    }
-
-    out
+    serde_json::to_string_pretty(&doc).unwrap_or_default()
 }
 
-fn emit_openapi_type_schema(out: &mut String, t: &TypeDef) {
-    out.push_str(&format!("    {}:\n", t.name));
-    out.push_str("      type: object\n");
-    if !t.fields.is_empty() {
-        out.push_str("      properties:\n");
-        for field in &t.fields {
-            out.push_str(&format!("        {}:\n", field.name));
-            let (schema_type, format) = type_to_json_schema_type(&field.ty);
-            out.push_str(&format!("          type: {}\n", schema_type));
-            if let Some(fmt) = format {
-                out.push_str(&format!("          format: {}\n", fmt));
-            }
-            // Privacy annotations
-            for ann in &field.annotations {
-                match ann.key.as_str() {
-                    "pci" => out.push_str("          x-pci: true\n"),
-                    "hipaa" => out.push_str("          x-hipaa: true\n"),
-                    "never-log" => out.push_str("          x-never-log: true\n"),
-                    "pii" => out.push_str("          x-pii: true\n"),
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
-fn emit_openapi_enum_schema(out: &mut String, e: &EnumDef) {
-    out.push_str(&format!("    {}:\n", e.name));
-    out.push_str("      type: string\n");
-    out.push_str(&format!(
-        "      enum: [{}]\n",
-        e.variants.iter().map(|v| format!("\"{}\"", v.name)).collect::<Vec<_>>().join(", ")
-    ));
-}
-
-fn type_to_json_schema_type(ty: &TypeExpr) -> (String, Option<String>) {
+fn type_to_openapi_schema(ty: &TypeExpr) -> serde_json::Value {
     match ty {
         TypeExpr::Base(n) => match n.as_str() {
-            "Int" => ("integer".into(), Some("int64".into())),
-            "Float" => ("number".into(), Some("double".into())),
-            "String" => ("string".into(), None),
-            "Bool" => ("boolean".into(), None),
-            _ => ("object".into(), None),
+            "Int" => serde_json::json!({"type": "integer", "format": "int64"}),
+            "Float" => serde_json::json!({"type": "number"}),
+            "String" => serde_json::json!({"type": "string"}),
+            "Bool" => serde_json::json!({"type": "boolean"}),
+            "Unit" => serde_json::json!({"type": "null"}),
+            _ => serde_json::json!({"$ref": format!("#/components/schemas/{}", n)}),
         },
-        TypeExpr::Generic(n, _) => match n.as_str() {
-            "List" => ("array".into(), None),
-            "Float" => ("number".into(), None),
-            _ => ("object".into(), None),
+        TypeExpr::Generic(n, args) => match n.as_str() {
+            "List" if !args.is_empty() => serde_json::json!({
+                "type": "array",
+                "items": type_to_openapi_schema(&args[0])
+            }),
+            "Option" if !args.is_empty() => serde_json::json!({
+                "oneOf": [type_to_openapi_schema(&args[0]), {"type": "null"}]
+            }),
+            _ => serde_json::json!({"$ref": format!("#/components/schemas/{}", n)}),
         },
-        _ => ("object".into(), None),
+        TypeExpr::Option(inner) => serde_json::json!({
+            "oneOf": [type_to_openapi_schema(inner), {"type": "null"}]
+        }),
+        TypeExpr::Effect(_, ret) => type_to_openapi_schema(ret),
+        _ => serde_json::json!({"type": "object"}),
     }
 }
 
@@ -257,6 +218,9 @@ fn infer_http_method_and_path(f: &FnDef, module: &Module) -> (String, String) {
         || name.starts_with("destroy") || name.starts_with("drop")
     {
         "delete"
+    } else if !f.type_sig.params.is_empty() {
+        // Default: functions with params → POST (unless @idempotent → PUT)
+        if has_idempotent || has_exactly_once { "put" } else { "post" }
     } else {
         "get"
     };

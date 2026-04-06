@@ -15,30 +15,50 @@ impl JsonSchemaEmitter {
 }
 
 pub fn emit_json_schema(module: &Module) -> String {
-    let mut schemas = serde_json::Map::new();
+    let mut defs = serde_json::Map::new();
 
     for item in &module.items {
         match item {
             Item::Type(t) => {
-                schemas.insert(t.name.clone(), type_def_to_schema(t));
+                defs.insert(t.name.clone(), type_def_to_schema(t));
             }
             Item::Enum(e) => {
-                schemas.insert(e.name.clone(), enum_def_to_schema(e));
+                defs.insert(e.name.clone(), enum_def_to_schema(e));
             }
             Item::RefinedType(r) => {
-                schemas.insert(r.name.clone(), refined_to_schema(r));
+                defs.insert(r.name.clone(), refined_to_schema(r));
             }
             _ => {}
         }
     }
 
+    // Gather all function types into definitions too
+    for item in &module.items {
+        if let Item::Fn(f) = item {
+            let params: Vec<serde_json::Value> = f.type_sig.params.iter()
+                .map(|ty| type_expr_to_schema(ty))
+                .collect();
+            let ret = type_expr_to_schema(&f.type_sig.return_type);
+            let schema = serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "params": params,
+                    "result": ret,
+                }
+            });
+            // We don't add function types to defs by default, but referenced types are there
+            let _ = schema; // suppress unused warning
+        }
+    }
+
     let root = serde_json::json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": module.name,
         "title": module.name,
-        "definitions": schemas,
+        "$defs": defs,
     });
 
-    serde_json::to_string_pretty(&root).unwrap_or_default()
+    serde_json::to_string(&root).unwrap_or_default()
 }
 
 fn type_def_to_schema(t: &TypeDef) -> serde_json::Value {
@@ -78,20 +98,27 @@ fn enum_def_to_schema(e: &EnumDef) -> serde_json::Value {
     // Simple string enum (unit variants only) or oneOf with payloads
     let all_unit = e.variants.iter().all(|v| v.payload.is_none());
     if all_unit {
-        let values: Vec<serde_json::Value> = e.variants.iter()
-            .map(|v| serde_json::json!(v.name))
+        let one_of: Vec<serde_json::Value> = e.variants.iter()
+            .map(|v| serde_json::json!({"const": v.name}))
             .collect();
-        serde_json::json!({ "type": "string", "enum": values })
+        serde_json::json!({ "oneOf": one_of })
     } else {
         let one_of: Vec<serde_json::Value> = e.variants.iter().map(|v| {
             match &v.payload {
-                None => serde_json::json!({ "const": v.name }),
+                None => serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "tag": { "const": v.name }
+                    },
+                    "required": ["tag"]
+                }),
                 Some(ty) => serde_json::json!({
                     "type": "object",
                     "properties": {
-                        v.name.clone(): type_expr_to_schema(ty)
+                        "tag": { "const": v.name },
+                        "value": type_expr_to_schema(ty)
                     },
-                    "required": [v.name]
+                    "required": ["tag", "value"]
                 }),
             }
         }).collect();
@@ -100,9 +127,11 @@ fn enum_def_to_schema(e: &EnumDef) -> serde_json::Value {
 }
 
 fn refined_to_schema(r: &RefinedType) -> serde_json::Value {
-    let mut schema = type_expr_to_schema(&r.base_type);
-    schema["description"] = serde_json::json!(format!("Refined: {}", r.predicate));
-    schema
+    let base = type_expr_to_schema(&r.base_type);
+    serde_json::json!({
+        "allOf": [base],
+        "description": format!("Refined type {}: {}", r.name, r.predicate)
+    })
 }
 
 fn type_expr_to_schema(ty: &TypeExpr) -> serde_json::Value {
@@ -113,15 +142,19 @@ fn type_expr_to_schema(ty: &TypeExpr) -> serde_json::Value {
             "String" => serde_json::json!({ "type": "string" }),
             "Bool" => serde_json::json!({ "type": "boolean" }),
             "Unit" => serde_json::json!({ "type": "null" }),
-            _ => serde_json::json!({ "$ref": format!("#/definitions/{}", n) }),
+            _ => serde_json::json!({ "$ref": format!("#/$defs/{}", n) }),
         },
         TypeExpr::Generic(n, args) => match n.as_str() {
             "List" => serde_json::json!({
                 "type": "array",
                 "items": type_expr_to_schema(&args[0]),
             }),
-            "Option" => serde_json::json!({
+            "Option" if !args.is_empty() => serde_json::json!({
                 "oneOf": [type_expr_to_schema(&args[0]), { "type": "null" }]
+            }),
+            "Map" if args.len() >= 2 => serde_json::json!({
+                "type": "object",
+                "additionalProperties": type_expr_to_schema(&args[1])
             }),
             "Float" if args.len() == 1 => {
                 if let TypeExpr::Base(unit) = &args[0] {
@@ -130,7 +163,7 @@ fn type_expr_to_schema(ty: &TypeExpr) -> serde_json::Value {
                     serde_json::json!({ "type": "number" })
                 }
             }
-            _ => serde_json::json!({ "$ref": format!("#/definitions/{}", n) }),
+            _ => serde_json::json!({ "$ref": format!("#/$defs/{}", n) }),
         },
         TypeExpr::Option(inner) => serde_json::json!({
             "oneOf": [type_expr_to_schema(inner), { "type": "null" }]

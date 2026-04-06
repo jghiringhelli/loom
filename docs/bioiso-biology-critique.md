@@ -403,6 +403,33 @@ Real biological properties emerge from lower-level interactions — consciousnes
 
 ---
 
+## The Safety Architecture — Why It Matters for Your Feedback
+
+If a software system can satisfy formal definitions of living systems, the immediate question becomes: what prevents it from being unsafe?
+
+If `autopoietic: true` can be meaningfully asserted, then a system with open-ended self-modification, no death mechanism, and no external goal-correction capability is also a meaningful description — and a concerning one. The language addresses this structurally.
+
+Any being declared `autopoietic: true` requires **all four** of the following annotations or it does not compile:
+
+```loom
+being: Cell
+  @mortal          -- requires telomere: block; the being has a finite lifespan
+  @corrigible      -- requires telos.modifiable_by field; an external authority can redirect its goal
+  @sandboxed       -- its self-modification effects cannot escape its declared matter: and ecosystem:
+  @bounded_telos   -- its goal statement cannot contain open-ended utility terms without a declared bound
+  autopoietic: true
+  ...
+end
+```
+
+These are **compile-time type errors**, not behavioral rules. They are structurally enforced — a system without a death mechanism, without external goal-correction capability, without sandboxing, cannot be *described* in this language. It is not prohibited at runtime; it is excluded at specification time, in the same way a type system excludes adding a string to an integer before the program runs.
+
+This is the Asimov distinction: Asimov's Three Laws are behavioral rules that can be violated, overridden, or gamed. These constraints are structural — there is no runtime path to a sandboxed being reaching outside its sandbox because the type checker would have rejected the program before it ran.
+
+**Question for you:** Does structural exclusion of unsafe properties at the specification level provide meaningful safety guarantees for self-modifying systems? Is there a class of unsafe emergent behaviors these constraints cannot prevent — behaviors that are locally compliant with each constraint but globally dangerous in combination?
+
+---
+
 ## Specific Questions I Need Answered
 
 1. **Is heritability definitional for epigenetics?** If yes, Loom's epigenetic blocks are better called "conditional behavioral modulation" and the epigenetics name should be dropped.

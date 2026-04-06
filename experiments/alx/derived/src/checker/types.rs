@@ -84,6 +84,17 @@ pub fn check_types(module: &Module) -> Result<(), Vec<LoomError>> {
         if !declared_interfaces.contains(base) && !declared_types.contains(base) {
             // ALX: the interface might be imported; we allow it
         }
+        // Check all required methods are provided
+        if let Some(iface) = module.interface_defs.iter().find(|i| i.name == base) {
+            for method in &iface.methods {
+                if !declared_fns.contains(&method.name) {
+                    errors.push(LoomError::new(
+                        format!("implements {}: missing method '{}' required by interface", impl_name, method.name),
+                        module.span,
+                    ));
+                }
+            }
+        }
     }
 
     // Ecosystem members must refer to declared beings.
@@ -122,6 +133,10 @@ fn check_type_expr(
             if name.len() == 1 && name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
                 return;
             }
+            // Allow lowercase names — they are unit annotations (usd, eur, km, etc.)
+            if name.chars().next().map(|c| c.is_lowercase()).unwrap_or(false) {
+                return;
+            }
             if !declared.contains(name.as_str()) {
                 errors.push(LoomError::new(
                     format!("unknown type '{}'", name),
@@ -130,7 +145,9 @@ fn check_type_expr(
             }
         }
         TypeExpr::Generic(name, args) => {
-            if !declared.contains(name.as_str()) && name != "Effect" {
+            // Float<unit> / Int<unit>: unit args are not types, skip their check
+            let is_unit_parameterized = matches!(name.as_str(), "Float" | "Int");
+            if !is_unit_parameterized && !declared.contains(name.as_str()) && name != "Effect" {
                 // ALX: generic type names may be type params themselves
                 if name.len() > 1 || !name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
                     // Not a type variable — check it
@@ -143,7 +160,9 @@ fn check_type_expr(
                 }
             }
             for arg in args {
-                check_type_expr(arg, declared, errors, span);
+                if !is_unit_parameterized {
+                    check_type_expr(arg, declared, errors, span);
+                }
             }
         }
         TypeExpr::Option(inner) | TypeExpr::Effect(_, inner) => {

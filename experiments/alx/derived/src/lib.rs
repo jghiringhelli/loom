@@ -63,7 +63,7 @@ pub fn compile_json_schema(source: &str) -> Result<String, Vec<LoomError>> {
 pub fn compile_wasm(source: &str) -> Result<String, Vec<LoomError>> {
     let module = lex_and_parse(source)?;
     run_checks(&module)?;
-    Ok(codegen::wasm::emit_wasm(&module))
+    codegen::wasm::emit_wasm(&module)
 }
 
 /// Full pipeline: source → Mesa ABM Python simulation (M52).

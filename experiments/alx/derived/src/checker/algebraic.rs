@@ -1,7 +1,7 @@
 // ALX: derived from loom.loom §"check_algebraic"
 // Validate @idempotent/@exactly-once/@commutative constraints.
 
-use crate::ast::{Module, Item};
+use crate::ast::{Module, Item, TypeExpr};
 use crate::error::LoomError;
 
 pub fn check_algebraic(module: &Module) -> Result<(), Vec<LoomError>> {
@@ -14,22 +14,36 @@ pub fn check_algebraic(module: &Module) -> Result<(), Vec<LoomError>> {
             let at_most_once = f.annotations.iter().any(|a| a.key == "at-most-once");
             let commutative = f.annotations.iter().any(|a| a.key == "commutative");
 
-            // @idempotent and @exactly-once are mutually exclusive.
+            let has_effects = !f.effect_tiers.is_empty()
+                || matches!(f.type_sig.return_type, TypeExpr::Effect(_, _));
+
+            // @idempotent and @exactly-once are contradictory.
             if idempotent && exactly_once {
                 errors.push(LoomError::new(
                     format!(
-                        "function '{}': @idempotent and @exactly-once are mutually exclusive",
+                        "function '{}': idempotent and exactly-once are contradictory",
                         f.name
                     ),
                     f.span,
                 ));
             }
 
-            // @exactly-once and @at-most-once are mutually exclusive.
+            // @exactly-once and @at-most-once have conflicting multiplicity.
             if exactly_once && at_most_once {
                 errors.push(LoomError::new(
                     format!(
-                        "function '{}': @exactly-once and @at-most-once are mutually exclusive",
+                        "function '{}': conflicting multiplicity annotations: @exactly-once and @at-most-once",
+                        f.name
+                    ),
+                    f.span,
+                ));
+            }
+
+            // @exactly-once requires an effectful function.
+            if exactly_once && !has_effects {
+                errors.push(LoomError::new(
+                    format!(
+                        "function '{}': exactly-once requires an effectful function (Effect<[...], T> return type)",
                         f.name
                     ),
                     f.span,

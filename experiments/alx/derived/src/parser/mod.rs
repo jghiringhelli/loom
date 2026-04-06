@@ -210,29 +210,47 @@ impl Parser {
                 Some(TokenKind::Provides) => {
                     self.advance();
                     self.skip_if(&TokenKind::Colon);
-                    let mut interfaces = Vec::new();
-                    // comma-separated or single
-                    loop {
-                        let n = self.expect_ident()?;
-                        interfaces.push(n);
-                        if !self.skip_if(&TokenKind::Comma) {
-                            break;
+                    let mut ops = Vec::new();
+                    if self.check(&TokenKind::LBrace) {
+                        self.advance(); // consume '{'
+                        while !self.is_at_end() && !self.check(&TokenKind::RBrace) {
+                            let op_name = self.expect_ident()?;
+                            self.expect(&TokenKind::DoubleColon)?;
+                            let (type_sig, _) = self.parse_fn_type_sig()?;
+                            ops.push((op_name, type_sig));
+                            self.skip_if(&TokenKind::Comma);
                         }
+                        self.skip_if(&TokenKind::RBrace);
+                    } else {
+                        // Fallback: single interface name
+                        let n = self.expect_ident()?;
+                        ops.push((n, FnTypeSignature { params: vec![], return_type: TypeExpr::Base("()".to_string()) }));
                     }
-                    module.provides = Some(Provides { interfaces, span: Span::default() });
+                    module.provides = Some(Provides { ops, span: Span::default() });
                 }
                 Some(TokenKind::Requires) => {
                     self.advance();
                     self.skip_if(&TokenKind::Colon);
                     let mut deps = Vec::new();
-                    loop {
-                        let n = self.expect_ident()?;
-                        deps.push(n);
-                        if !self.skip_if(&TokenKind::Comma) {
-                            break;
+                    if self.check(&TokenKind::LBrace) {
+                        self.advance(); // consume '{'
+                        while !self.is_at_end() && !self.check(&TokenKind::RBrace) {
+                            let dep_name = self.expect_ident()?;
+                            self.expect(&TokenKind::Colon)?;
+                            let dep_type = self.parse_type_expr()?;
+                            deps.push((dep_name, dep_type));
+                            self.skip_if(&TokenKind::Comma);
+                        }
+                        self.skip_if(&TokenKind::RBrace);
+                    } else {
+                        // Fallback: comma-separated names only
+                        loop {
+                            let n = self.expect_ident()?;
+                            deps.push((n, TypeExpr::Base("Unknown".to_string())));
+                            if !self.skip_if(&TokenKind::Comma) { break; }
                         }
                     }
-                    module.requires = Some(Requires { dependencies: deps, span: Span::default() });
+                    module.requires = Some(Requires { deps, span: Span::default() });
                 }
                 Some(TokenKind::Describe) => {
                     // module-level describe: (already consumed above or repeated)
@@ -496,9 +514,9 @@ impl Parser {
         if let Ok(base_te) = self.parse_type_atom() {
             if self.check(&TokenKind::Where) {
                 self.advance(); // consume 'where'
-                // Collect predicate until 'end'
+                // Collect predicate until 'end' or top-level keyword
                 let mut pred_tokens = Vec::new();
-                while !self.is_at_end() && !self.check(&TokenKind::End) {
+                while !self.is_at_end() && !self.check(&TokenKind::End) && !self.is_top_level_keyword() {
                     pred_tokens.push(self.advance().unwrap().text);
                 }
                 self.skip_if(&TokenKind::End);
@@ -675,6 +693,7 @@ impl Parser {
         let mut ensures = Vec::new();
         let mut body = Vec::new();
         let mut inline_body: Option<String> = None;
+        let mut with_deps: Vec<String> = Vec::new();
 
         while !self.is_at_end() && !self.check(&TokenKind::End) {
             match self.peek().map(|t| t.kind.clone()) {
@@ -713,15 +732,30 @@ impl Parser {
                         body.push("inline".to_string());
                     }
                 }
+                Some(TokenKind::With) => {
+                    self.advance(); // consume 'with'
+                    if let Ok(dep) = self.expect_ident() {
+                        with_deps.push(dep);
+                    }
+                }
+                Some(TokenKind::Let) => {
+                    let stmt = self.collect_let_statement();
+                    if !stmt.is_empty() { body.push(stmt); }
+                }
+                Some(TokenKind::Match) => {
+                    let stmt = self.collect_match_expression();
+                    if !stmt.is_empty() { body.push(stmt); }
+                }
+                Some(TokenKind::For) => {
+                    let stmt = self.collect_for_expression();
+                    if !stmt.is_empty() { body.push(stmt); }
+                }
                 _ => {
-                    let line = self.collect_until_end_or_keyword();
-                    if !line.is_empty() {
-                        body.push(line);
-                    } else {
-                        // Avoid infinite loop on unexpected tokens
-                        if !self.is_at_end() && !self.check(&TokenKind::End) {
-                            self.advance();
-                        }
+                    let stmt = self.collect_expression_to_boundary();
+                    if !stmt.is_empty() {
+                        body.push(stmt);
+                    } else if !self.is_at_end() && !self.check(&TokenKind::End) {
+                        self.advance(); // avoid infinite loop
                     }
                 }
             }
@@ -737,7 +771,7 @@ impl Parser {
             effect_tiers,
             requires,
             ensures,
-            with_deps: Vec::new(),
+            with_deps,
             body,
             inline_body,
             span: Span::new(start, self.current_span().end),
@@ -824,38 +858,265 @@ impl Parser {
     /// Collect tokens until a newline-equivalent boundary.
     /// ALX: body expressions are one expression per logical line.
     fn collect_line(&mut self) -> String {
-        let stop_kinds: Vec<fn(&TokenKind) -> bool> = vec![
-            |k| matches!(k, TokenKind::Require | TokenKind::Ensure | TokenKind::Describe | TokenKind::End),
-        ];
-        let mut tokens = Vec::new();
+        let mut parts: Vec<String> = Vec::new();
+        let mut prev_end: usize = 0;
+        let mut first = true;
         while let Some(t) = self.peek() {
-            if stop_kinds.iter().any(|f| f(&t.kind)) {
+            let span = t.span;
+            if matches!(t.kind, TokenKind::Require | TokenKind::Ensure | TokenKind::Describe | TokenKind::End) {
                 break;
             }
-            tokens.push(self.advance().unwrap().text);
+            let text = self.advance().unwrap().text;
+            if !first && span.start > prev_end { parts.push(" ".to_string()); }
+            parts.push(text);
+            prev_end = span.end;
+            first = false;
         }
-        tokens.join(" ")
+        parts.join("")
     }
 
     fn collect_until_end_or_keyword(&mut self) -> String {
-        let mut tokens = Vec::new();
-        loop {
-            match self.peek().map(|t| t.kind.clone()) {
-                None
-                | Some(TokenKind::End)
-                | Some(TokenKind::Require)
-                | Some(TokenKind::Ensure)
-                | Some(TokenKind::Describe) => break,
+        // Legacy method - now delegates to collect_expression_to_boundary
+        self.collect_expression_to_boundary()
+    }
+
+    fn collect_let_statement(&mut self) -> String {
+        self.advance(); // consume 'let'
+        let mut result = String::from("let");
+        let mut prev_end: usize = 0;
+        let mut first = true;
+        let mut paren_depth: i32 = 0;
+        let mut last_was_expr_end = false;
+
+        while let Some(t) = self.peek() {
+            let span = t.span;
+            let is_value = matches!(t.kind,
+                TokenKind::Ident(_) | TokenKind::IntLit(_) | TokenKind::FloatLit(_) |
+                TokenKind::StringLit(_) | TokenKind::True | TokenKind::False
+            );
+
+            // At depth 0, after an expr end, if next token is a fresh value → stop
+            if paren_depth == 0 && last_was_expr_end && is_value {
+                break;
+            }
+
+            match t.kind.clone() {
+                TokenKind::End | TokenKind::Require | TokenKind::Ensure | TokenKind::Describe => break,
+                TokenKind::Let | TokenKind::Match | TokenKind::With | TokenKind::For => break,
+                TokenKind::LParen | TokenKind::LBracket => {
+                    paren_depth += 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { result.push(' '); }
+                    result.push_str(&text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = false;
+                }
+                TokenKind::RParen | TokenKind::RBracket => {
+                    paren_depth -= 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { result.push(' '); }
+                    result.push_str(&text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = paren_depth == 0;
+                }
                 _ => {
-                    tokens.push(self.advance().unwrap().text);
-                    // Stop at end of logical line
-                    if tokens.len() > 1 {
-                        break;
-                    }
+                    let text = self.advance().unwrap().text;
+                    if first || span.start > prev_end { result.push(' '); }
+                    result.push_str(&text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = is_value && paren_depth == 0;
                 }
             }
         }
-        tokens.join(" ")
+        result
+    }
+
+    fn collect_expression_to_boundary(&mut self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+        let mut prev_end: usize = 0;
+        let mut first = true;
+        let mut paren_depth: i32 = 0;
+        let mut last_was_expr_end = false;
+
+        while let Some(t) = self.peek() {
+            let span = t.span;
+            let is_value = matches!(t.kind,
+                TokenKind::Ident(_) | TokenKind::IntLit(_) | TokenKind::FloatLit(_) |
+                TokenKind::StringLit(_) | TokenKind::True | TokenKind::False
+            );
+
+            // At depth 0, after an expr end, if next token is a fresh value → stop
+            if paren_depth == 0 && last_was_expr_end && is_value {
+                break;
+            }
+
+            match t.kind.clone() {
+                TokenKind::End | TokenKind::Require | TokenKind::Ensure | TokenKind::Describe => break,
+                TokenKind::Let | TokenKind::Match | TokenKind::With | TokenKind::For => break,
+                TokenKind::LParen | TokenKind::LBracket => {
+                    paren_depth += 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = false;
+                }
+                TokenKind::RParen | TokenKind::RBracket => {
+                    paren_depth -= 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = paren_depth == 0;
+                }
+                _ => {
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                    last_was_expr_end = is_value && paren_depth == 0;
+                }
+            }
+        }
+        parts.join("")
+    }
+
+    fn collect_match_expression(&mut self) -> String {
+        self.advance(); // consume 'match'
+        // Collect subject tokens until first '|' or 'end'
+        let mut subject_parts: Vec<String> = Vec::new();
+        let mut prev_end: usize = 0;
+        let mut first = true;
+        while let Some(t) = self.peek() {
+            let span = t.span;
+            match t.kind.clone() {
+                TokenKind::Pipe | TokenKind::End => break,
+                _ => {
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { subject_parts.push(" ".to_string()); }
+                    subject_parts.push(text);
+                    prev_end = span.end;
+                    first = false;
+                }
+            }
+        }
+        let subject = subject_parts.join("").trim().to_string();
+
+        // Collect arms: | Pattern [if guard] -> body
+        let mut arms: Vec<String> = Vec::new();
+        while !self.is_at_end() && !self.check(&TokenKind::End) {
+            if self.skip_if(&TokenKind::Pipe) {
+                // Collect pattern tokens until 'if', '->', '|', or 'end'
+                let mut pat_parts: Vec<String> = Vec::new();
+                let mut guard: Option<String> = None;
+                let mut prev_e: usize = 0;
+                let mut fst = true;
+                while let Some(t) = self.peek() {
+                    let span = t.span;
+                    match t.kind.clone() {
+                        TokenKind::Arrow => { self.advance(); break; }
+                        TokenKind::If => {
+                            self.advance(); // consume 'if'
+                            let mut g_parts: Vec<String> = Vec::new();
+                            let mut gpe: usize = 0;
+                            let mut gf = true;
+                            while let Some(t2) = self.peek() {
+                                let s2 = t2.span;
+                                match t2.kind.clone() {
+                                    TokenKind::Arrow => { self.advance(); break; }
+                                    TokenKind::Pipe | TokenKind::End => break,
+                                    _ => {
+                                        let txt = self.advance().unwrap().text;
+                                        if !gf && s2.start > gpe { g_parts.push(" ".to_string()); }
+                                        g_parts.push(txt);
+                                        gpe = s2.end; gf = false;
+                                    }
+                                }
+                            }
+                            guard = Some(g_parts.join("").trim().to_string());
+                            break;
+                        }
+                        TokenKind::Pipe | TokenKind::End => break,
+                        _ => {
+                            let text = self.advance().unwrap().text;
+                            if !fst && span.start > prev_e { pat_parts.push(" ".to_string()); }
+                            pat_parts.push(text);
+                            prev_e = span.end; fst = false;
+                        }
+                    }
+                }
+                // Collect arm body until next '|' or 'end'
+                let mut body_parts: Vec<String> = Vec::new();
+                let mut bpe: usize = 0;
+                let mut bf = true;
+                while let Some(t) = self.peek() {
+                    let span = t.span;
+                    match t.kind.clone() {
+                        TokenKind::Pipe | TokenKind::End => break,
+                        _ => {
+                            let text = self.advance().unwrap().text;
+                            if !bf && span.start > bpe { body_parts.push(" ".to_string()); }
+                            body_parts.push(text);
+                            bpe = span.end; bf = false;
+                        }
+                    }
+                }
+                let pat = pat_parts.join("").trim().to_string();
+                let body_str = body_parts.join("").trim().to_string();
+                let arm = if let Some(g) = guard {
+                    format!("{} if ({}) => {}", pat, g, body_str)
+                } else {
+                    format!("{} => {}", pat, body_str)
+                };
+                arms.push(arm);
+            } else {
+                self.advance(); // skip unexpected
+            }
+        }
+        self.skip_if(&TokenKind::End);
+
+        if arms.is_empty() {
+            format!("match {} {{}}", subject)
+        } else {
+            format!("match {} {{ {} }}", subject, arms.join(", "))
+        }
+    }
+
+    fn collect_for_expression(&mut self) -> String {
+        self.advance(); // consume 'for'
+        let mut parts: Vec<String> = Vec::new();
+        let mut prev_end: usize = 0;
+        let mut first = true;
+        let mut brace_depth: i32 = 0;
+        while let Some(t) = self.peek() {
+            let span = t.span;
+            match t.kind.clone() {
+                TokenKind::LBrace => {
+                    brace_depth += 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                }
+                TokenKind::RBrace => {
+                    brace_depth -= 1;
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                    if brace_depth <= 0 { break; }
+                }
+                TokenKind::End | TokenKind::Require | TokenKind::Ensure | TokenKind::Describe
+                    if brace_depth <= 0 => { break; }
+                _ => {
+                    let text = self.advance().unwrap().text;
+                    if !first && span.start > prev_end { parts.push(" ".to_string()); }
+                    parts.push(text);
+                    prev_end = span.end; first = false;
+                }
+            }
+        }
+        format!("for {}", parts.join(""))
     }
 
     // ── Interface definition ──────────────────────────────────────────────────
@@ -869,7 +1130,28 @@ impl Parser {
         let mut methods = Vec::new();
         while !self.is_at_end() && !self.check(&TokenKind::End) {
             if self.check(&TokenKind::Fn) {
-                methods.push(self.parse_fn_def()?);
+                // Parse fn name + type sig only — no body parsing for interfaces
+                self.advance(); // consume 'fn'
+                let fn_name = self.expect_ident()?;
+                let fn_type_params = self.parse_type_params_opt()?;
+                // Optional :: before type sig (interfaces may omit it)
+                self.skip_if(&TokenKind::DoubleColon);
+                let (type_sig, effect_tiers) = self.parse_fn_type_sig()?;
+                let fn_span = Span::new(start, self.current_span().end);
+                methods.push(FnDef {
+                    name: fn_name,
+                    type_params: fn_type_params,
+                    type_sig,
+                    effect_tiers,
+                    describe: None,
+                    annotations: Vec::new(),
+                    requires: Vec::new(),
+                    ensures: Vec::new(),
+                    body: Vec::new(),
+                    inline_body: None,
+                    with_deps: Vec::new(),
+                    span: fn_span,
+                });
             } else {
                 self.advance();
             }

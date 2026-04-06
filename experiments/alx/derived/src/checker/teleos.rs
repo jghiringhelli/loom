@@ -21,6 +21,37 @@ pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>> {
             ));
         }
 
+        // autopoietic: true requires regulate:, evolve:, and matter:
+        if being.autopoietic {
+            if being.regulate_blocks.is_empty() {
+                errors.push(LoomError::new(
+                    format!(
+                        "being '{}': autopoietic being requires at least one regulate: block",
+                        being.name
+                    ),
+                    being.span,
+                ));
+            }
+            if being.evolve_block.is_none() {
+                errors.push(LoomError::new(
+                    format!(
+                        "being '{}': autopoietic being requires evolve: block",
+                        being.name
+                    ),
+                    being.span,
+                ));
+            }
+            if being.matter.is_none() {
+                errors.push(LoomError::new(
+                    format!(
+                        "being '{}': autopoietic being requires matter: block",
+                        being.name
+                    ),
+                    being.span,
+                ));
+            }
+        }
+
         // regulate: blocks must have bounds:
         for reg in &being.regulate_blocks {
             if reg.bounds.is_none() {
