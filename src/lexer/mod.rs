@@ -150,6 +150,23 @@ pub enum Token {
     #[token("sense")]        Sense,
     #[token("resonance")]    Resonance,
 
+    // ── Store declaration keywords (M92) ────────────────────────────────────────
+    #[token("store")]       Store,
+    #[token("table")]       Table,
+    #[token("node")]        GraphNode,
+    #[token("edge")]        Edge,
+    #[token("ttl")]         Ttl,
+    #[token("index")]       Index,
+    #[token("retention")]   Retention,
+    #[token("resolution")]  Resolution,
+    #[token("format")]      Format,
+    #[token("compression")] Compression,
+    #[token("capacity")]    Capacity,
+    #[token("eviction")]    Eviction,
+    #[token("fact")]        Fact,
+    #[token("dimension")]   Dimension,
+    #[token("embedding")]   Embedding,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

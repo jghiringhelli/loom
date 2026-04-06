@@ -41,6 +41,8 @@ pub mod nichect;
 pub mod semiosis;
 pub mod umwelt;
 pub mod resonance;
+pub mod conservation;
+pub mod store;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -77,3 +79,5 @@ pub use nichect::NicheConstructionChecker;
 pub use semiosis::SemiosisChecker;
 pub use umwelt::UmweltChecker;
 pub use resonance::ResonanceChecker;
+pub use conservation::ConservationChecker;
+pub use store::StoreChecker;

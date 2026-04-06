@@ -168,13 +168,17 @@ impl<'src> Parser<'src> {
                         break;
                     }
                 }
-                // Optional `("value")` payload
+                // Optional `("value")` or `(Ident)` payload
                 let value = if self.at(&Token::LParen) {
                     self.advance();
                     if let Some((Token::StrLit(v), _)) = self.tokens.get(self.pos) {
                         let v = v.clone();
                         self.advance();
                         let _ = self.expect(Token::RParen); // consume `)`, ignore error
+                        v
+                    } else if let Some(v) = self.token_as_ident() {
+                        self.advance();
+                        let _ = self.expect(Token::RParen);
                         v
                     } else {
                         let _ = self.expect(Token::RParen);
@@ -238,6 +242,21 @@ impl<'src> Parser<'src> {
             Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
             Some((Token::Sense, _)) => Some("sense".to_string()),
             Some((Token::Resonance, _)) => Some("resonance".to_string()),
+            Some((Token::Store, _))       => Some("store".to_string()),
+            Some((Token::Table, _))       => Some("table".to_string()),
+            Some((Token::GraphNode, _))   => Some("node".to_string()),
+            Some((Token::Edge, _))        => Some("edge".to_string()),
+            Some((Token::Ttl, _))         => Some("ttl".to_string()),
+            Some((Token::Index, _))       => Some("index".to_string()),
+            Some((Token::Retention, _))   => Some("retention".to_string()),
+            Some((Token::Resolution, _))  => Some("resolution".to_string()),
+            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Compression, _)) => Some("compression".to_string()),
+            Some((Token::Capacity, _))    => Some("capacity".to_string()),
+            Some((Token::Eviction, _))    => Some("eviction".to_string()),
+            Some((Token::Fact, _))        => Some("fact".to_string()),
+            Some((Token::Dimension, _))   => Some("dimension".to_string()),
+            Some((Token::Embedding, _))   => Some("embedding".to_string()),
             _ => None,
         }
     }
@@ -280,6 +299,21 @@ impl<'src> Parser<'src> {
             Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
             Some((Token::Sense, _)) => Some("sense".to_string()),
             Some((Token::Resonance, _)) => Some("resonance".to_string()),
+            Some((Token::Store, _))       => Some("store".to_string()),
+            Some((Token::Table, _))       => Some("table".to_string()),
+            Some((Token::GraphNode, _))   => Some("node".to_string()),
+            Some((Token::Edge, _))        => Some("edge".to_string()),
+            Some((Token::Ttl, _))         => Some("ttl".to_string()),
+            Some((Token::Index, _))       => Some("index".to_string()),
+            Some((Token::Retention, _))   => Some("retention".to_string()),
+            Some((Token::Resolution, _))  => Some("resolution".to_string()),
+            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Compression, _)) => Some("compression".to_string()),
+            Some((Token::Capacity, _))    => Some("capacity".to_string()),
+            Some((Token::Eviction, _))    => Some("eviction".to_string()),
+            Some((Token::Fact, _))        => Some("fact".to_string()),
+            Some((Token::Dimension, _))   => Some("dimension".to_string()),
+            Some((Token::Embedding, _))   => Some("embedding".to_string()),
             _ => None,
         }
     }
@@ -2105,6 +2139,7 @@ impl<'src> Parser<'src> {
                 Ok(Item::NicheConstruction(self.parse_niche_construction()?))
             }
             Some(Token::Sense) => Ok(Item::Sense(self.parse_sense_def()?)),
+            Some(Token::Store) => Ok(Item::Store(self.parse_store_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2122,7 +2157,7 @@ impl<'src> Parser<'src> {
     pub fn parse_fn_def(&mut self) -> Result<FnDef, LoomError> {
         let start = self.current_span();
         self.expect(Token::Fn)?;
-        let (name, _) = self.expect_ident()?;
+        let (name, _) = self.expect_any_name()?;
 
         // Optional describe: and @annotations before the type signature.
         // Merge any annotations accumulated at item level (before the `fn` keyword).
@@ -3378,6 +3413,245 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(SenseDef { name, channels, range, unit, span: Span::merge(&start, &end_span) })
     }
+
+    // ── M92: Store declarations ───────────────────────────────────────────────
+
+    /// Parse a `store Name :: Kind ... end` declaration. M92.
+    fn parse_store_def(&mut self) -> Result<StoreDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Store)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let kind = self.parse_store_kind()?;
+
+        let mut schema: Vec<StoreSchemaEntry> = Vec::new();
+        let mut config: Vec<StoreConfigEntry> = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Table) {
+                schema.push(self.parse_store_table_entry()?);
+            } else if self.at(&Token::GraphNode) {
+                schema.push(self.parse_store_node_entry()?);
+            } else if self.at(&Token::Edge) {
+                schema.push(self.parse_store_edge_entry()?);
+            } else if self.at(&Token::Fact) {
+                schema.push(self.parse_store_fact_entry()?);
+            } else if self.at(&Token::Dimension) {
+                schema.push(self.parse_store_dimension_entry()?);
+            } else if self.at(&Token::Embedding) {
+                schema.push(self.parse_store_embedding_entry()?);
+            } else if self.at(&Token::Ttl) || self.at(&Token::Retention) || self.at(&Token::Resolution)
+                || self.at(&Token::Format) || self.at(&Token::Compression) || self.at(&Token::Capacity)
+                || self.at(&Token::Eviction) || self.at(&Token::Index)
+            {
+                let entry_span = self.current_span();
+                let key = self.token_as_ident().unwrap_or_default();
+                self.advance();
+                self.expect(Token::Colon)?;
+                let value = self.parse_store_config_value()?;
+                config.push(StoreConfigEntry { key, value, span: entry_span });
+            } else if let Some(kw) = self.token_as_ident() {
+                let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                if kw == "key" && next_is_colon {
+                    let entry_span = self.current_span();
+                    self.advance(); // "key"
+                    self.advance(); // ":"
+                    let ty = self.parse_type_expr()?;
+                    schema.push(StoreSchemaEntry::KeyType { ty, span: entry_span });
+                } else if kw == "value" && next_is_colon {
+                    let entry_span = self.current_span();
+                    self.advance(); // "value"
+                    self.advance(); // ":"
+                    let ty = self.parse_type_expr()?;
+                    schema.push(StoreSchemaEntry::ValueType { ty, span: entry_span });
+                } else if kw == "event" {
+                    let entry_span = self.current_span();
+                    self.advance(); // "event"
+                    let (ev_name, _) = self.expect_ident()?;
+                    self.expect(Token::ColonColon)?;
+                    let fields = self.parse_inline_fields()?;
+                    schema.push(StoreSchemaEntry::Event { name: ev_name, fields, span: entry_span });
+                } else if kw == "schema" {
+                    let entry_span = self.current_span();
+                    self.advance(); // "schema"
+                    let (col_name, _) = self.expect_ident()?;
+                    self.expect(Token::ColonColon)?;
+                    let fields = self.parse_inline_fields()?;
+                    schema.push(StoreSchemaEntry::Collection { name: col_name, fields, span: entry_span });
+                } else if next_is_colon {
+                    let entry_span = self.current_span();
+                    self.advance(); // key
+                    self.advance(); // ":"
+                    let value = self.parse_store_config_value()?;
+                    config.push(StoreConfigEntry { key: kw, value, span: entry_span });
+                } else {
+                    self.advance();
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(StoreDef { name, kind, schema, config, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse a store kind identifier (e.g. `Relational`, `KeyValue`, `InMemory(Relational)`).
+    fn parse_store_kind(&mut self) -> Result<StoreKind, LoomError> {
+        let kind_name = if let Some(n) = self.token_as_ident() {
+            self.advance();
+            n
+        } else {
+            let (n, _) = self.expect_ident()?;
+            n
+        };
+        let kind = match kind_name.as_str() {
+            "Relational" => StoreKind::Relational,
+            "KeyValue"   => StoreKind::KeyValue,
+            "Graph"      => StoreKind::Graph,
+            "Document"   => StoreKind::Document,
+            "Columnar"   => StoreKind::Columnar,
+            "Snowflake"  => StoreKind::Snowflake,
+            "Hypercube"  => StoreKind::Hypercube,
+            "TimeSeries" => StoreKind::TimeSeries,
+            "Vector"     => StoreKind::Vector,
+            "FlatFile"   => StoreKind::FlatFile,
+            "InMemory"   => {
+                if self.at(&Token::LParen) {
+                    self.advance();
+                    let inner = self.parse_store_kind()?;
+                    let _ = self.expect(Token::RParen);
+                    StoreKind::InMemory(Box::new(inner))
+                } else {
+                    StoreKind::InMemory(Box::new(StoreKind::Relational))
+                }
+            }
+            _ => StoreKind::Document,
+        };
+        Ok(kind)
+    }
+
+    /// Parse a `table Name ... end` block inside a store.
+    fn parse_store_table_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Table)?;
+        let (name, _) = self.expect_ident()?;
+        let mut fields = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            let field_start = self.current_span();
+            let field_name = match self.tokens.get(self.pos) {
+                Some((Token::Ident(n), _)) => { let n = n.clone(); self.pos += 1; n }
+                _ => break,
+            };
+            if !self.at(&Token::Colon) { break; }
+            self.advance();
+            let ty = self.parse_type_expr()?;
+            let annotations = self.parse_annotations();
+            let field_end = self.current_span();
+            fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
+            if self.at(&Token::Comma) { self.advance(); }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(StoreSchemaEntry::Table { name, fields, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse a `node Name :: { field: Type, ... }` entry.
+    fn parse_store_node_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::GraphNode)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let fields = self.parse_inline_fields()?;
+        Ok(StoreSchemaEntry::Node { name, fields, span: Span::merge(&start, &self.current_span()) })
+    }
+
+    /// Parse an `edge Name :: Source -> Target [{ fields }]` entry.
+    fn parse_store_edge_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Edge)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let (source, _) = self.expect_ident()?;
+        self.expect(Token::Arrow)?;
+        let (target, _) = self.expect_ident()?;
+        let fields = if self.at(&Token::LBrace) {
+            self.parse_inline_fields()?
+        } else {
+            Vec::new()
+        };
+        Ok(StoreSchemaEntry::Edge { name, source, target, fields, span: Span::merge(&start, &self.current_span()) })
+    }
+
+    /// Parse a `fact Name :: { field: Type, ... }` entry.
+    fn parse_store_fact_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Fact)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let fields = self.parse_inline_fields()?;
+        Ok(StoreSchemaEntry::Fact { name, fields, span: Span::merge(&start, &self.current_span()) })
+    }
+
+    /// Parse a `dimension Name :: { field: Type, ... }` entry.
+    fn parse_store_dimension_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Dimension)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let fields = self.parse_inline_fields()?;
+        Ok(StoreSchemaEntry::DimensionEntry { name, fields, span: Span::merge(&start, &self.current_span()) })
+    }
+
+    /// Parse an `embedding :: { field: Type, ... }` entry.
+    fn parse_store_embedding_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Embedding)?;
+        self.expect(Token::ColonColon)?;
+        let fields = self.parse_inline_fields()?;
+        Ok(StoreSchemaEntry::EmbeddingEntry { fields, span: Span::merge(&start, &self.current_span()) })
+    }
+
+    /// Parse inline `{ field: Type [@ann], ... }` field list.
+    fn parse_inline_fields(&mut self) -> Result<Vec<FieldDef>, LoomError> {
+        self.expect(Token::LBrace)?;
+        let mut fields = Vec::new();
+        while !self.at(&Token::RBrace) && self.peek().is_some() {
+            let field_start = self.current_span();
+            let field_name = match self.tokens.get(self.pos) {
+                Some((Token::Ident(n), _)) => { let n = n.clone(); self.pos += 1; n }
+                _ => break,
+            };
+            if !self.at(&Token::Colon) { break; }
+            self.advance();
+            let ty = self.parse_type_expr()?;
+            let annotations = self.parse_annotations();
+            let field_end = self.current_span();
+            fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
+            if self.at(&Token::Comma) { self.advance(); }
+        }
+        self.expect(Token::RBrace)?;
+        Ok(fields)
+    }
+
+    /// Parse a store config value — handles `90days`, `1second`, idents, strings.
+    fn parse_store_config_value(&mut self) -> Result<String, LoomError> {
+        match self.tokens.get(self.pos) {
+            Some((Token::IntLit(n), _)) => {
+                let n = n.to_string();
+                self.pos += 1;
+                if let Some((Token::Ident(suffix), _)) = self.tokens.get(self.pos) {
+                    let suffix = suffix.clone();
+                    self.pos += 1;
+                    Ok(format!("{}{}", n, suffix))
+                } else {
+                    Ok(n)
+                }
+            }
+            _ => self.parse_value_as_string(),
+        }
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -3474,6 +3748,21 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Canalize     => Some("canalize"),
         Token::Pathway      => Some("pathway"),
         Token::Senescence   => Some("senescence"),
+        Token::Store       => Some("store"),
+        Token::Table       => Some("table"),
+        Token::GraphNode   => Some("node"),
+        Token::Edge        => Some("edge"),
+        Token::Ttl         => Some("ttl"),
+        Token::Index       => Some("index"),
+        Token::Retention   => Some("retention"),
+        Token::Resolution  => Some("resolution"),
+        Token::Format      => Some("format"),
+        Token::Compression => Some("compression"),
+        Token::Capacity    => Some("capacity"),
+        Token::Eviction    => Some("eviction"),
+        Token::Fact        => Some("fact"),
+        Token::Dimension   => Some("dimension"),
+        Token::Embedding   => Some("embedding"),
         Token::Adopt        => Some("adopt"),
         _                   => None,
     }

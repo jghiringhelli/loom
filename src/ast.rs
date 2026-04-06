@@ -532,6 +532,8 @@ pub enum Item {
     NicheConstruction(NicheConstructionDef),
     /// Sense declaration — a named signal channel. M81.
     Sense(SenseDef),
+    /// Store declaration — first-class persistence schema. M92.
+    Store(StoreDef),
 }
 
 // ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
@@ -912,6 +914,73 @@ pub struct CertificateField {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CertificateDef {
     pub fields: Vec<CertificateField>,
+    pub span: Span,
+}
+
+// ── M92: Store declarations ───────────────────────────────────────────────────
+
+/// Store kind — the data model algebra.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StoreKind {
+    Relational,
+    KeyValue,
+    Graph,
+    Document,
+    Columnar,
+    Snowflake,
+    Hypercube,
+    TimeSeries,
+    Vector,
+    InMemory(Box<StoreKind>),
+    FlatFile,
+}
+
+/// A store declaration — first-class persistence with typed schema.
+///
+/// Each store kind has a distinct data algebra with academically grounded
+/// query strategies. The `store:` construct makes polyglot persistence
+/// a compile-time concern rather than a runtime configuration problem.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoreDef {
+    pub name: String,
+    pub kind: StoreKind,
+    /// Schema entries — tables, nodes, edges, collections, etc.
+    pub schema: Vec<StoreSchemaEntry>,
+    /// Optional store-level configuration (ttl, retention, index, etc.)
+    pub config: Vec<StoreConfigEntry>,
+    pub span: Span,
+}
+
+/// A schema entry in a store declaration.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StoreSchemaEntry {
+    /// `table Name ... end` — relational table
+    Table { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `node Name :: { ... }` — graph node type
+    Node { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `edge Name :: Source -> Target { ... }` — graph edge type
+    Edge { name: String, source: String, target: String, fields: Vec<FieldDef>, span: Span },
+    /// `key: Type` — key-value key declaration
+    KeyType { ty: TypeExpr, span: Span },
+    /// `value: Type` — key-value value declaration
+    ValueType { ty: TypeExpr, span: Span },
+    /// `event Name :: { ... }` — time series event
+    Event { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `embedding :: { ... }` — vector embedding
+    EmbeddingEntry { fields: Vec<FieldDef>, span: Span },
+    /// `fact Name :: { ... }` — OLAP fact table
+    Fact { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `dimension Name :: { ... }` — OLAP dimension
+    DimensionEntry { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `schema Name :: { ... }` — document collection schema
+    Collection { name: String, fields: Vec<FieldDef>, span: Span },
+}
+
+/// Key-value configuration entry in a store.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoreConfigEntry {
+    pub key: String,
+    pub value: String,
     pub span: Span,
 }
 

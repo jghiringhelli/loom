@@ -277,6 +277,9 @@ impl RustEmitter {
                     }
                     src
                 }
+                Item::Store(sd) => {
+                    format!("// store {} :: {:?}\n", sd.name, sd.kind)
+                }
             };
             body.push('\n');
             for line in item_src.lines() {
