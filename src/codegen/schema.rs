@@ -141,11 +141,21 @@ impl JsonSchemaEmitter {
 
     fn emit_refined_type(&self, rt: &RefinedType) -> String {
         let base = self.type_expr_to_schema(&rt.base_type);
-        // Embed the base schema and add a description noting it is refined.
-        format!(
-            "{{\"allOf\":[{}],\"description\":\"Refined type: {}\"}}",
-            base, rt.name
-        )
+        let constraints = extract_constraints(&rt.predicate);
+        if constraints.is_empty() {
+            format!(
+                "{{\"allOf\":[{}],\"description\":\"Refined type: {}\"}}",
+                base, rt.name
+            )
+        } else {
+            // Merge base schema with extracted constraints
+            let base_trimmed = base.trim_start_matches('{').trim_end_matches('}');
+            let constraint_str = constraints.join(",");
+            format!(
+                "{{{},{}}}",
+                base_trimmed, constraint_str
+            )
+        }
     }
 
     // ── Type expressions → inline schema ─────────────────────────────────
@@ -213,5 +223,74 @@ fn inject_x_sensitivity(schema: String, label: &str) -> String {
         s
     } else {
         schema
+    }
+}
+
+// ── Constraint extraction from refinement predicates ─────────────────────────
+
+/// Extracts JSON Schema constraints from a refinement predicate expression.
+///
+/// Recognizes patterns like `self >= N`, `self <= N`, `self > N`, `self < N`
+/// and emits corresponding `"minimum"`, `"maximum"`, `"exclusiveMinimum"`,
+/// `"exclusiveMaximum"` JSON Schema keywords.
+fn extract_constraints(predicate: &Expr) -> Vec<String> {
+    let mut constraints = Vec::new();
+    collect_constraints(predicate, &mut constraints);
+    constraints
+}
+
+fn collect_constraints(expr: &Expr, out: &mut Vec<String>) {
+    match expr {
+        Expr::BinOp { op, left, right, .. } => {
+            match op {
+                BinOpKind::And => {
+                    collect_constraints(left, out);
+                    collect_constraints(right, out);
+                }
+                BinOpKind::Ge if is_self(left) => {
+                    if let Some(n) = extract_int_literal(right) {
+                        out.push(format!("\"minimum\":{}", n));
+                    }
+                }
+                BinOpKind::Le if is_self(left) => {
+                    if let Some(n) = extract_int_literal(right) {
+                        out.push(format!("\"maximum\":{}", n));
+                    }
+                }
+                BinOpKind::Gt if is_self(left) => {
+                    if let Some(n) = extract_int_literal(right) {
+                        out.push(format!("\"exclusiveMinimum\":{}", n));
+                    }
+                }
+                BinOpKind::Lt if is_self(left) => {
+                    if let Some(n) = extract_int_literal(right) {
+                        out.push(format!("\"exclusiveMaximum\":{}", n));
+                    }
+                }
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_self(expr: &Expr) -> bool {
+    matches!(expr, Expr::Ident(name) if name == "self")
+}
+
+fn extract_int_literal(expr: &Expr) -> Option<i64> {
+    match expr {
+        Expr::Literal(Literal::Int(n)) => Some(*n),
+        // Handle unary minus: 0 - n
+        Expr::BinOp { op: BinOpKind::Sub, left, right, .. } => {
+            if let (Expr::Literal(Literal::Int(0)), Expr::Literal(Literal::Int(n))) =
+                (left.as_ref(), right.as_ref())
+            {
+                Some(-n)
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }

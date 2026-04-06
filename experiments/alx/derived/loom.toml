@@ -1,0 +1,5 @@
+[project]
+name = "loom-example"
+version = "0.1.0"
+modules = ["corpus/project/math.loom", "corpus/project/stats.loom"]
+output = "out/"

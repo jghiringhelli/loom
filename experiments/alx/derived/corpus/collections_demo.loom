@@ -1,0 +1,22 @@
+-- collections_demo.loom: exercises List<T>, Map<K,V>, and Set<T>.
+-- Demonstrates M6 standard library type mappings.
+
+module Collections
+
+fn count_items :: List<Int> -> Int
+  0
+end
+
+fn lookup :: Map<String, Int> -> Bool
+  true
+end
+
+fn deduplicate :: Set<String> -> Int
+  0
+end
+
+fn transform :: List<Bool> -> Map<String, Int>
+  todo
+end
+
+end

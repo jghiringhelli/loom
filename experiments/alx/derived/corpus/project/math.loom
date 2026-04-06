@@ -1,0 +1,13 @@
+-- math.loom: pure math utilities.
+
+module Math
+
+fn square :: Int -> Int
+  0
+end
+
+fn double :: Int -> Int
+  0
+end
+
+end

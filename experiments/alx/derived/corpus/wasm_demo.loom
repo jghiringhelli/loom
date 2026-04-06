@@ -1,0 +1,32 @@
+-- WASM demo: pure arithmetic module.
+-- Exercises the M3 WASM back-end supported subset:
+-- Int/Bool primitives, let bindings, BinOp arithmetic and comparison,
+-- direct function calls.  No enums, effects, refined types, or match.
+
+module WasmDemo
+
+fn double :: Int -> Int
+  let result = n + n
+  result
+end
+
+fn add :: Int -> Int -> Int
+  a + b
+end
+
+fn square :: Int -> Int
+  let r = n * n
+  r
+end
+
+fn is_positive :: Int -> Bool
+  n > 0
+end
+
+fn sum_of_squares :: Int -> Int -> Int
+  let sq1 = square(a)
+  let sq2 = square(b)
+  sq1 + sq2
+end
+
+end

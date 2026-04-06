@@ -1,0 +1,31 @@
+-- UserService: effectful module with sum types and refined types.
+-- Demonstrates Effect<[IO], T>, enums with payloads, and refined types.
+
+module UserService
+spec UserServiceSpec
+
+type User =
+  id: Int,
+  name: String,
+  active: Bool
+end
+
+enum UserError =
+  | NotFound of String
+  | InvalidInput of String
+  | PermissionDenied
+end
+
+type Email = String where valid_email
+
+fn find_user :: Int -> Effect<[IO], User>
+  require: user_id > 0
+  ensure: result.id > 0
+  todo
+end
+
+fn validate_name :: String -> Bool
+  true
+end
+
+end
