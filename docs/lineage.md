@@ -327,6 +327,12 @@ Loom addresses all three at once:
                            (formal treatises on synthetic life disguised as speculation)
 1966     Landin          — Let expressions; block structure
 1969     Hoare           — require: / ensure: as formal assertions
+1866     Peirce          — Sign theory: a sign points toward the state the interpreting system
+                           is organized to reach (semiosis as goal-directed interpretation)
+1909     Uexküll         — Umwelt: biological signals are meaningful only within the species-
+                           specific perceptual world of the organism interpreting them
+1944     Barbieri        — Ribotype theory: translation as semiotic process; the ribosome as
+                           code-maker; molecular information as sign-mediated (not Shannon bits)
 1972     Maturana/Varela — Autopoiesis: operationally closed self-producing systems
 1972     Martin-Löf      — Dependent types: values in types
 1976     Denning         — Information flow lattice: secret cannot reach public
