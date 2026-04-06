@@ -52,6 +52,21 @@ impl RefinementChecker {
         self.check_base_type(&rt.base_type, &rt.span, known_types, errors);
         self.check_predicate_references_self(&rt.predicate, &rt.name, &rt.span, errors);
         self.check_predicate_well_formed(&rt.predicate, &rt.span, errors);
+
+        // When `smt` feature is enabled, verify predicate satisfiability via Z3.
+        #[cfg(feature = "smt")]
+        self.check_predicate_satisfiable(rt, errors);
+    }
+
+    /// SMT-based satisfiability check (requires `smt` feature).
+    #[cfg(feature = "smt")]
+    fn check_predicate_satisfiable(
+        &self,
+        _rt: &RefinedType,
+        _errors: &mut Vec<LoomError>,
+    ) {
+        // TODO: Translate predicate to SMT-LIB2 format and call Z3.
+        // For now, this is a placeholder for the Z3 integration.
     }
 
     /// Verify the base type is a known primitive or user-defined type.

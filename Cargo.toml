@@ -17,6 +17,14 @@ path = "src/bin/loom_lsp.rs"
 name = "loom"
 path = "src/lib.rs"
 
+[features]
+default = ["core"]
+core = []
+smt = []
+temporal = []
+separation = []
+full = ["smt", "temporal", "separation"]
+
 [dependencies]
 logos    = "0.15"
 thiserror = "2"
