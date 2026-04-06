@@ -70,6 +70,8 @@ pub struct Module {
     pub test_defs: Vec<TestDef>,
     /// Lifecycle (typestate) declarations for this module.
     pub lifecycle_defs: Vec<LifecycleDef>,
+    /// Temporal logic property blocks for this module.
+    pub temporal_defs: Vec<TemporalDef>,
     /// Being (Aristotelian four-causes) declarations for this module.
     pub being_defs: Vec<BeingDef>,
     /// Ecosystem (multi-being composition) declarations for this module.
@@ -92,6 +94,32 @@ pub struct LifecycleDef {
     /// Ordered list of states (e.g., ["Disconnected", "Connected", "Authenticated"]).
     pub states: Vec<String>,
     pub span: Span,
+}
+
+/// A temporal logic property block.
+///
+/// Declares LTL properties over a lifecycle's state space:
+/// `always`, `eventually`, `never`, `precedes`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TemporalDef {
+    /// Name of this temporal property block (e.g., "PaymentRules").
+    pub name: String,
+    /// Individual temporal properties declared in this block.
+    pub properties: Vec<TemporalProperty>,
+    pub span: Span,
+}
+
+/// A single temporal property within a `temporal` block.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TemporalProperty {
+    /// `always: <predicate>` — holds in every reachable state.
+    Always { predicate: Expr, span: Span },
+    /// `eventually: <type> reaches <state>` — some future state is reached.
+    Eventually { type_name: String, target_state: String, span: Span },
+    /// `never: <state> transitions to <state>` — forbidden transition.
+    Never { from_state: String, to_state: String, span: Span },
+    /// `precedes: <state> before <state>` — ordering constraint.
+    Precedes { first: String, second: String, span: Span },
 }
 
 /// An information-flow label declaration (`flow secret :: TypeA, TypeB`).

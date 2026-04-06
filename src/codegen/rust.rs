@@ -107,6 +107,34 @@ impl RustEmitter {
             }
         }
 
+        // Emit temporal property blocks as documentation comments.
+        for temporal in &module.temporal_defs {
+            body.push('\n');
+            body.push_str(&format!("// temporal invariants: {}\n", temporal.name));
+            for prop in &temporal.properties {
+                match prop {
+                    TemporalProperty::Always { .. } => {
+                        body.push_str("//   always: [invariant verified at compile time]\n");
+                    }
+                    TemporalProperty::Eventually { type_name, target_state, .. } => {
+                        body.push_str(&format!(
+                            "//   eventually: {} reaches {}\n", type_name, target_state
+                        ));
+                    }
+                    TemporalProperty::Never { from_state, to_state, .. } => {
+                        body.push_str(&format!(
+                            "//   never: {} transitions to {} [enforced]\n", from_state, to_state
+                        ));
+                    }
+                    TemporalProperty::Precedes { first, second, .. } => {
+                        body.push_str(&format!(
+                            "//   precedes: {} before {} [enforced]\n", first, second
+                        ));
+                    }
+                }
+            }
+        }
+
         // Emit impl blocks for `implements`.
         for iface_name in &module.implements {
             // Find the interface def in this module (or a stub if not found)
@@ -1447,6 +1475,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            temporal_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],
@@ -1481,6 +1510,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            temporal_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],
@@ -1515,6 +1545,7 @@ mod tests {
             invariants: vec![],
             test_defs: vec![],
             lifecycle_defs: vec![],
+            temporal_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],

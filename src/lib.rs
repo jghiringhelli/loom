@@ -75,6 +75,9 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 9b: typestate check ─────────────────────────────────────────
     checker::TypestateChecker::new().check(&module)?;
 
+    // ── Stage 9b2: temporal logic check ───────────────────────────────────
+    checker::TemporalChecker::new().check(&module)?;
+
     // ── Stage 9c: privacy check ───────────────────────────────────────────
     checker::PrivacyChecker::new().check(&module)?;
 

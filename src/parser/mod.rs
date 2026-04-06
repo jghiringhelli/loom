@@ -152,19 +152,18 @@ impl<'src> Parser<'src> {
         let mut annotations = Vec::new();
         while self.at(&Token::At) {
             self.advance(); // consume `@`
-            // The key starts with an identifier and may continue with `-ident` segments.
-            if let Some((Token::Ident(first), _)) = self.tokens.get(self.pos) {
-                let mut key = first.clone();
+            // The key starts with an identifier (or keyword used as identifier)
+            // and may continue with `-ident` segments.
+            if let Some(first) = self.token_as_ident() {
+                let mut key = first;
                 self.advance();
                 // Consume `-ident` segments to support hyphenated keys.
                 while self.at(&Token::Minus) {
-                    if let Some((Token::Ident(_), _)) = self.tokens.get(self.pos + 1) {
+                    if let Some(seg) = self.peek_next_as_ident() {
                         self.advance(); // consume `-`
-                        if let Some((Token::Ident(seg), _)) = self.tokens.get(self.pos) {
-                            key.push('-');
-                            key.push_str(seg);
-                            self.advance();
-                        }
+                        key.push('-');
+                        key.push_str(&seg);
+                        self.advance();
                     } else {
                         break;
                     }
@@ -188,6 +187,39 @@ impl<'src> Parser<'src> {
             }
         }
         annotations
+    }
+
+    /// Try to interpret the current token as an identifier string.
+    /// Handles keyword tokens that may appear as annotation keys.
+    fn token_as_ident(&self) -> Option<String> {
+        match self.tokens.get(self.pos) {
+            Some((Token::Ident(s), _)) => Some(s.clone()),
+            Some((Token::Never, _)) => Some("never".to_string()),
+            Some((Token::Always, _)) => Some("always".to_string()),
+            Some((Token::Before, _)) => Some("before".to_string()),
+            Some((Token::Temporal, _)) => Some("temporal".to_string()),
+            Some((Token::Eventually, _)) => Some("eventually".to_string()),
+            Some((Token::Precedes, _)) => Some("precedes".to_string()),
+            Some((Token::Reaches, _)) => Some("reaches".to_string()),
+            Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            _ => None,
+        }
+    }
+
+    /// Try to interpret the next token (pos+1) as an identifier string.
+    fn peek_next_as_ident(&self) -> Option<String> {
+        match self.tokens.get(self.pos + 1) {
+            Some((Token::Ident(s), _)) => Some(s.clone()),
+            Some((Token::Never, _)) => Some("never".to_string()),
+            Some((Token::Always, _)) => Some("always".to_string()),
+            Some((Token::Before, _)) => Some("before".to_string()),
+            Some((Token::Temporal, _)) => Some("temporal".to_string()),
+            Some((Token::Eventually, _)) => Some("eventually".to_string()),
+            Some((Token::Precedes, _)) => Some("precedes".to_string()),
+            Some((Token::Reaches, _)) => Some("reaches".to_string()),
+            Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            _ => None,
+        }
     }
 
     /// Parse a complete `module … end` block.
@@ -247,6 +279,7 @@ impl<'src> Parser<'src> {
         let mut test_defs = Vec::new();
         let mut interface_defs = Vec::new();
         let mut lifecycle_defs = Vec::new();
+        let mut temporal_defs = Vec::new();
         let mut being_defs = Vec::new();
         let mut ecosystem_defs = Vec::new();
         let mut flow_labels = Vec::new();
@@ -259,6 +292,8 @@ impl<'src> Parser<'src> {
                 interface_defs.push(self.parse_interface_def()?);
             } else if self.at(&Token::Lifecycle) {
                 lifecycle_defs.push(self.parse_lifecycle_def()?);
+            } else if self.at(&Token::Temporal) {
+                temporal_defs.push(self.parse_temporal_def()?);
             } else if self.at(&Token::Being) {
                 being_defs.push(self.parse_being_def()?);
             } else if self.at(&Token::Ecosystem) {
@@ -299,6 +334,7 @@ impl<'src> Parser<'src> {
             invariants,
             test_defs,
             lifecycle_defs,
+            temporal_defs,
             being_defs,
             ecosystem_defs,
             flow_labels,
@@ -381,6 +417,87 @@ impl<'src> Parser<'src> {
         Ok(LifecycleDef {
             type_name,
             states,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a temporal property block:
+    /// ```loom
+    /// temporal Name
+    ///   always: <predicate>
+    ///   eventually: <Type> reaches <State>
+    ///   never: <State> transitions to <State>
+    ///   precedes: <State> before <State>
+    /// end
+    /// ```
+    fn parse_temporal_def(&mut self) -> Result<TemporalDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Temporal)?;
+        let (name, _) = self.expect_ident()?;
+
+        let mut properties = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            let prop_span = self.current_span();
+            if self.at(&Token::Always) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let predicate = self.parse_expr()?;
+                properties.push(TemporalProperty::Always {
+                    predicate,
+                    span: Span::merge(&prop_span, &self.current_span()),
+                });
+            } else if self.at(&Token::Eventually) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (type_name, _) = self.expect_ident()?;
+                self.expect(Token::Reaches)?;
+                let (target_state, _) = self.expect_ident()?;
+                properties.push(TemporalProperty::Eventually {
+                    type_name,
+                    target_state,
+                    span: Span::merge(&prop_span, &self.current_span()),
+                });
+            } else if self.at(&Token::Never) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (from_state, _) = self.expect_ident()?;
+                self.expect(Token::Transitions)?;
+                self.expect(Token::To)?;
+                let (to_state, _) = self.expect_ident()?;
+                properties.push(TemporalProperty::Never {
+                    from_state,
+                    to_state,
+                    span: Span::merge(&prop_span, &self.current_span()),
+                });
+            } else if self.at(&Token::Precedes) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (first, _) = self.expect_ident()?;
+                self.expect(Token::Before)?;
+                let (second, _) = self.expect_ident()?;
+                properties.push(TemporalProperty::Precedes {
+                    first,
+                    second,
+                    span: Span::merge(&prop_span, &self.current_span()),
+                });
+            } else {
+                return Err(LoomError::parse(
+                    format!(
+                        "expected temporal property (always, eventually, never, precedes), got {:?}",
+                        self.peek()
+                    ),
+                    self.current_span(),
+                ));
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(TemporalDef {
+            name,
+            properties,
             span: Span::merge(&start, &end_span),
         })
     }

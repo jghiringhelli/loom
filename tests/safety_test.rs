@@ -19,6 +19,7 @@ fn make_module(being: BeingDef) -> Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
+            temporal_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],

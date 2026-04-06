@@ -97,6 +97,14 @@ pub enum Token {
     #[token("boltzmann")]  Boltzmann,
     #[token("modifiable_by")] ModifiableBy,
     #[token("bounded_by")]    BoundedBy,
+    #[token("temporal")]      Temporal,
+    #[token("always")]        Always,
+    #[token("eventually")]    Eventually,
+    #[token("never")]         Never,
+    #[token("precedes")]      Precedes,
+    #[token("reaches")]       Reaches,
+    #[token("transitions")]   Transitions,
+    #[token("before")]        Before,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
