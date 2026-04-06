@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
-    branches: ["**"]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -72,7 +72,6 @@ jobs:
   alx:
     name: ALX S_realized
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docs/lineage-collapsed-loop'
     steps:
       - uses: actions/checkout@v4
 
