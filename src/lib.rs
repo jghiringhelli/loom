@@ -81,6 +81,27 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 9b3: separation logic check ─────────────────────────────────
     checker::SeparationChecker::new().check(&module)?;
 
+    // ── Stage 9f: gradual typing check ───────────────────────────────────────
+    checker::GradualChecker::new().check(&module)?;
+
+    // ── Stage 9g: probabilistic types check ──────────────────────────────────
+    checker::ProbabilisticChecker::new().check(&module)?;
+
+    // ── Stage 9h: dependent types check ──────────────────────────────────────
+    checker::DependentChecker::new().check(&module)?;
+
+    // ── Stage 9i: side-channel timing check ──────────────────────────────────
+    checker::SideChannelChecker::new().check(&module)?;
+
+    // ── Stage 9j: category theory check ──────────────────────────────────────
+    checker::CategoryChecker::new().check(&module)?;
+
+    // ── Stage 9k: Curry-Howard correspondence check ───────────────────────────
+    checker::CurryHowardChecker::new().check(&module)?;
+
+    // ── Stage 9l: self-certifying compilation check ───────────────────────────
+    checker::SelfCertChecker::new().check(&module)?;
+
     // ── Stage 9c: privacy check ───────────────────────────────────────────
     checker::PrivacyChecker::new().check(&module)?;
 
