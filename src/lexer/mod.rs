@@ -136,6 +136,15 @@ pub enum Token {
     // ── Annotation algebra keywords (M66b) ───────────────────────────────────────
     #[token("annotation")]   Annotation,
 
+    // ── Biological gap milestones (M68-M77) ──────────────────────────────────────
+    #[token("degenerate")]   Degenerate,
+    #[token("fallback")]     Fallback,
+    #[token("checkpoint")]   Checkpoint,
+    #[token("canalize")]     Canalize,
+    #[token("pathway")]      Pathway,
+    #[token("senescence")]   Senescence,
+    #[token("adopt")]        Adopt,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

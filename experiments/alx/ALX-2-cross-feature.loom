@@ -1,0 +1,156 @@
+-- ALX-2: Cross-Feature Coherence
+-- ================================
+-- Tests that M1-M67 features compose without interference.
+-- Each section stresses a cross-cutting concern that spans multiple milestone features.
+
+module ALX2CrossFeature
+describe: "ALX-2 — cross-feature coherence: M1-M67 in combination"
+
+-- ── Cross 1: AOP + Separation + Temporal ─────────────────────────────────────
+
+fn audit_fn :: String -> Bool
+  true
+end
+
+fn log_security_event :: String -> Bool
+  true
+end
+
+fn transfer_funds @idempotent :: String -> Bool
+  separation:
+    owns: source_wallet
+    owns: dest_wallet
+    owns: audit_log
+    disjoint: source_wallet * dest_wallet
+    frame: audit_log
+    proof: separation_verified
+  end
+  true
+end
+
+aspect SecurityAuditAspect
+  pointcut: fn where @idempotent
+  before: audit_fn
+  after_throwing: log_security_event
+  order: 1
+end
+
+temporal TransferOrdering
+  precedes: audit_fn before transfer_funds
+  always: source_wallet_balance_nonneg
+  never: Completed transitions to Pending
+end
+
+-- ── Cross 2: Biological Being + Correctness ───────────────────────────────────
+
+being AuditAgent
+  @mortal
+  @corrigible
+  @sandboxed
+
+  telos: "maximize_objectives"
+  modifiable_by: operator
+  end
+
+  telomere:
+    limit: 5000000
+    on_exhaustion: apoptosis
+  end
+
+  matter:
+    records_stored: Int
+  end
+
+  regulate temperature
+    target: optimal_level
+    bounds: (minimum_val, maximum_val)
+    response: | above -> cool | below -> heat
+  end
+
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  autopoietic: true
+end
+
+-- ── Cross 3: Gradual + Timing Safety + Probabilistic ─────────────────────────
+
+fn classify_transaction :: String -> Bool
+  gradual:
+    boundary: ml_model_api
+    trust: low
+    blame: caller
+  end
+  timing_safety:
+    constant_time: true
+    protected_branch: true
+  end
+  distribution:
+    prior: low_fraud_rate
+    confidence: high_confidence
+  end
+  false
+end
+
+-- ── Cross 4: Dependent Types + Curry-Howard + Separation ─────────────────────
+
+proposition TransferSafety = Int where 1 > 0
+
+fn verified_transfer :: String -> Bool
+  proof: transfer_safety_holds
+  separation:
+    owns: ledger
+    owns: external_accounts
+    frame: external_accounts
+  end
+  true
+end
+
+-- ── Cross 5: Annotation algebra ──────────────────────────────────────────────
+
+annotation secure_transfer(source: String, dest: String)
+
+-- ── Cross 6: Category theory + self-certifying ───────────────────────────────
+
+functor TransactionFunctor
+  law: identity_law
+  law: composition_law
+end
+
+certificate:
+  type_safety = proven
+  memory_safety = verified
+end
+
+-- ── Cross 7: Correctness report ──────────────────────────────────────────────
+
+correctness_report:
+  proved:
+    - type_safety:          type_checker_passed
+    - separation_verified:  separation_logic_proved
+    - audit_precedes_funds: temporal_checker_passed
+    - no_timing_leak:       side_channel_checker_passed
+    - functor_laws_hold:    category_theory_checked
+    - transfer_proved:      curry_howard_verified
+  unverified:
+    - ml_model_correctness: requires_external_audit
+end
+
+-- ── Supporting fns ────────────────────────────────────────────────────────────
+
+fn apply_transaction :: String -> String
+  x
+end
+
+fn compress_logs :: String -> Bool
+  true
+end
+
+fn archive_and_retire :: String -> Bool
+  true
+end
+
+end

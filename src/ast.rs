@@ -95,6 +95,8 @@ pub struct LifecycleDef {
     pub type_name: String,
     /// Ordered list of states (e.g., ["Disconnected", "Connected", "Authenticated"]).
     pub states: Vec<String>,
+    /// M69: Optional cell-cycle checkpoints (Hartwell).
+    pub checkpoints: Vec<CheckpointDef>,
     pub span: Span,
 }
 
@@ -301,6 +303,12 @@ pub struct BeingDef {
     pub autopoietic: bool,
     pub crispr_blocks: Vec<CrisprBlock>,
     pub plasticity_blocks: Vec<PlasticityBlock>,
+    /// M70: Canalization block (Waddington).
+    pub canalization: Option<CanalizationBlock>,
+    /// M74: Senescence block (Campisi).
+    pub senescence: Option<SenescenceBlock>,
+    /// M76: Criticality bounds (Langton).
+    pub criticality: Option<CriticalityBlock>,
     pub span: Span,
 }
 
@@ -390,6 +398,102 @@ pub struct TestDef {
     pub span: Span,
 }
 
+// ── M68: Degeneracy (Edelman) ────────────────────────────────────────────────
+/// Multiple structurally distinct components can perform the same function.
+/// Edelman (1987): degeneracy is the ability of structurally different elements to
+/// perform the same function — distinct from redundancy.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DegenerateBlock {
+    pub primary: String,
+    pub fallback: String,
+    pub equivalence_proof: Option<String>,
+    pub span: Span,
+}
+
+// ── M69: Cell Cycle Checkpoints (Hartwell) ───────────────────────────────────
+/// Named checkpoint within a lifecycle transition.
+/// Hartwell (1974): checkpoints pause the cell cycle until conditions are met.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CheckpointDef {
+    pub name: String,
+    pub requires: String,
+    pub on_fail: String,
+    pub span: Span,
+}
+
+// ── M70: Canalization (Waddington) ───────────────────────────────────────────
+/// Developmental channel converging on a phenotype despite perturbations.
+/// Waddington (1942): canalization is the tendency to produce the same phenotype
+/// regardless of genetic or environmental perturbations.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CanalizationBlock {
+    pub toward: String,
+    pub despite: Vec<String>,
+    pub convergence_proof: Option<String>,
+    pub span: Span,
+}
+
+// ── M71: Metabolic Pathways (Krebs) ──────────────────────────────────────────
+/// One step in a metabolic pathway.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PathwayStep {
+    pub from: String,
+    pub via: String,
+    pub to: String,
+    pub span: Span,
+}
+
+/// Named metabolic pathway (Krebs cycle as archetype).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PathwayDef {
+    pub name: String,
+    pub steps: Vec<PathwayStep>,
+    pub compensate: Option<String>,
+    pub span: Span,
+}
+
+// ── M74: Senescence (Campisi) ────────────────────────────────────────────────
+/// Irreversible growth arrest with secretory phenotype.
+/// Campisi (2001): senescent cells cease dividing but remain metabolically active.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SenescenceBlock {
+    pub onset: String,
+    pub degradation: String,
+    pub sasp: Option<String>,
+    pub span: Span,
+}
+
+// ── M75: HGT ─────────────────────────────────────────────────────────────────
+/// Horizontal gene transfer: adopt an interface from another module.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AdoptDecl {
+    pub interface: String,
+    pub from_module: String,
+    pub span: Span,
+}
+
+// ── M76: Criticality Bounds (Langton) ────────────────────────────────────────
+/// Edge-of-chaos bounds: system must operate between ordered and chaotic regimes.
+/// Langton (1990): maximal computation occurs at the phase transition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CriticalityBlock {
+    pub lower: f64,
+    pub upper: f64,
+    pub probe_fn: Option<String>,
+    pub span: Span,
+}
+
+// ── M77: Niche Construction (Odling-Smee) ────────────────────────────────────
+/// Organisms modify their environment, feeding back on selection pressures.
+/// Odling-Smee (1988): niche construction is a second inheritance system.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NicheConstructionDef {
+    pub modifies: String,
+    pub affects: Vec<String>,
+    pub probe_fn: Option<String>,
+    pub span: Span,
+}
+
 /// Top-level item in a module body.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
@@ -409,6 +513,14 @@ pub enum Item {
     AnnotationDecl(AnnotationDecl),
     /// Module correctness report — M67.
     CorrectnessReport(CorrectnessReport),
+    /// Metabolic pathway — M71.
+    Pathway(PathwayDef),
+    /// Symbiotic import — M72.
+    SymbioticImport { module: String, kind: String, span: Span },
+    /// Horizontal gene transfer adopt — M75.
+    Adopt(AdoptDecl),
+    /// Niche construction — M77.
+    NicheConstruction(NicheConstructionDef),
 }
 
 // ── M66: Aspect-Oriented Specification ───────────────────────────────────────
@@ -611,6 +723,8 @@ pub struct FnDef {
     pub termination: Option<String>,
     /// Curry-Howard proof annotations (`proof:` clauses). M64.
     pub proofs: Vec<ProofAnnotation>,
+    /// M68: Degeneracy block (Edelman) — primary and fallback implementations.
+    pub degenerate: Option<DegenerateBlock>,
     /// Body expressions; the last one is the return value.
     pub body: Vec<Expr>,
     pub span: Span,
@@ -682,6 +796,10 @@ pub struct RefinedType {
     pub base_type: TypeExpr,
     /// The predicate expression that must hold for any value of this type.
     pub predicate: Expr,
+    /// M73: Optional error correction handler (on_violation).
+    pub on_violation: Option<String>,
+    /// M73: Optional repair function.
+    pub repair_fn: Option<String>,
     pub span: Span,
 }
 

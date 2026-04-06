@@ -235,6 +235,35 @@ impl RustEmitter {
                     }
                     src
                 }
+                Item::Pathway(pw) => {
+                    let mut src = format!("// pathway {}:\n", pw.name);
+                    for step in &pw.steps {
+                        src.push_str(&format!("//   {} -[{}]-> {}\n", step.from, step.via, step.to));
+                    }
+                    if let Some(c) = &pw.compensate {
+                        src.push_str(&format!("//   compensate: {}\n", c));
+                    }
+                    src
+                }
+                Item::SymbioticImport { module, kind, .. } => {
+                    format!("// symbiotic: kind: {}, module: {}\n", kind, module)
+                }
+                Item::Adopt(decl) => {
+                    format!(
+                        "// adopt: {} from {}\nuse {}::{};\n",
+                        decl.interface, decl.from_module, decl.from_module, decl.interface
+                    )
+                }
+                Item::NicheConstruction(nc) => {
+                    let mut src = format!("// niche_construction: modifies: {}\n", nc.modifies);
+                    if !nc.affects.is_empty() {
+                        src.push_str(&format!("//   affects: [{}]\n", nc.affects.join(", ")));
+                    }
+                    if let Some(p) = &nc.probe_fn {
+                        src.push_str(&format!("//   probe_fn: {}\n", p));
+                    }
+                    src
+                }
             };
             body.push('\n');
             for line in item_src.lines() {
@@ -718,6 +747,26 @@ impl RustEmitter {
         }
 
         out.push_str("}\n");
+        // M70: Emit canalization comment.
+        if let Some(can) = &being.canalization {
+            out.push_str(&format!("// canalize: toward: {}\n", can.toward));
+            if !can.despite.is_empty() {
+                out.push_str(&format!("//   despite: [{}]\n", can.despite.join(", ")));
+            }
+            if let Some(cp) = &can.convergence_proof {
+                out.push_str(&format!("//   convergence_proof: {}\n", cp));
+            }
+        }
+        // M74: Emit senescence comment.
+        if let Some(sen) = &being.senescence {
+            out.push_str(&format!("// senescence: onset: {}, degradation: {}\n", sen.onset, sen.degradation));
+            if let Some(s) = &sen.sasp { out.push_str(&format!("//   sasp: {}\n", s)); }
+        }
+        // M76: Emit criticality comment.
+        if let Some(crit) = &being.criticality {
+            out.push_str(&format!("// criticality: lower: {}, upper: {}\n", crit.lower, crit.upper));
+            if let Some(p) = &crit.probe_fn { out.push_str(&format!("//   probe_fn: {}\n", p)); }
+        }
         if being.autopoietic {
             out.push_str(&format!("\nimpl {} {{\n", being.name));
             out.push_str("    /// Autopoietic system: operationally closed, self-producing, boundary-maintaining.\n");
@@ -844,7 +893,7 @@ impl RustEmitter {
     fn emit_refined_type(&self, rt: &RefinedType) -> String {
         let base = self.emit_type_expr(&rt.base_type);
         let pred = self.emit_predicate(&rt.predicate);
-        format!(
+        let mut out = format!(
             "#[derive(Debug, Clone, PartialEq)]\n\
              pub struct {name}({base});\n\n\
              impl TryFrom<{base}> for {name} {{\n\
@@ -859,7 +908,15 @@ impl RustEmitter {
             name = rt.name,
             base = base,
             pred = pred,
-        )
+        );
+        // M73: Emit error-correction annotations as comments.
+        if let Some(ov) = &rt.on_violation {
+            out.push_str(&format!("// on_violation: {}\n", ov));
+        }
+        if let Some(rf) = &rt.repair_fn {
+            out.push_str(&format!("// repair_fn: {}\n", rf));
+        }
+        out
     }
 
     fn emit_proposition(&self, prop: &PropositionDef) -> String {
@@ -1062,6 +1119,16 @@ impl RustEmitter {
         // Emit proof annotations as comments.
         for proof in &fd.proofs {
             out.push_str(&format!("// proof: {}\n", proof.strategy));
+        }
+
+        // Emit degenerate block as comments (M68).
+        if let Some(dg) = &fd.degenerate {
+            out.push_str("// degenerate:\n");
+            out.push_str(&format!("//   primary: {}\n", dg.primary));
+            out.push_str(&format!("//   fallback: {}\n", dg.fallback));
+            if let Some(ep) = &dg.equivalence_proof {
+                out.push_str(&format!("//   equivalence_proof: {}\n", ep));
+            }
         }
 
         let mut params: Vec<String> = Vec::new();
@@ -1778,6 +1845,7 @@ mod tests {
                 timing_safety: None,
                 termination: None,
                 proofs: vec![],
+                degenerate: None,
                 body: vec![],
                 span: Span::synthetic(),
             })],

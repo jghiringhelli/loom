@@ -223,6 +223,18 @@ impl<'src> Parser<'src> {
             Some((Token::Monad, _)) => Some("monad".to_string()),
             Some((Token::Law, _)) => Some("law".to_string()),
             Some((Token::Certificate, _)) => Some("certificate".to_string()),
+            Some((Token::Degenerate, _)) => Some("degenerate".to_string()),
+            Some((Token::Fallback, _)) => Some("fallback".to_string()),
+            Some((Token::Checkpoint, _)) => Some("checkpoint".to_string()),
+            Some((Token::Canalize, _)) => Some("canalize".to_string()),
+            Some((Token::Pathway, _)) => Some("pathway".to_string()),
+            Some((Token::Senescence, _)) => Some("senescence".to_string()),
+            Some((Token::Adopt, _)) => Some("adopt".to_string()),
+            Some((Token::Toward, _)) => Some("toward".to_string()),
+            Some((Token::Modifies, _)) => Some("modifies".to_string()),
+            Some((Token::From, _)) => Some("from".to_string()),
+            Some((Token::Requires, _)) => Some("requires".to_string()),
+            Some((Token::Module, _)) => Some("module".to_string()),
             _ => None,
         }
     }
@@ -250,6 +262,18 @@ impl<'src> Parser<'src> {
             Some((Token::Monad, _)) => Some("monad".to_string()),
             Some((Token::Law, _)) => Some("law".to_string()),
             Some((Token::Certificate, _)) => Some("certificate".to_string()),
+            Some((Token::Degenerate, _)) => Some("degenerate".to_string()),
+            Some((Token::Fallback, _)) => Some("fallback".to_string()),
+            Some((Token::Checkpoint, _)) => Some("checkpoint".to_string()),
+            Some((Token::Canalize, _)) => Some("canalize".to_string()),
+            Some((Token::Pathway, _)) => Some("pathway".to_string()),
+            Some((Token::Senescence, _)) => Some("senescence".to_string()),
+            Some((Token::Adopt, _)) => Some("adopt".to_string()),
+            Some((Token::Toward, _)) => Some("toward".to_string()),
+            Some((Token::Modifies, _)) => Some("modifies".to_string()),
+            Some((Token::From, _)) => Some("from".to_string()),
+            Some((Token::Requires, _)) => Some("requires".to_string()),
+            Some((Token::Module, _)) => Some("module".to_string()),
             _ => None,
         }
     }
@@ -345,6 +369,14 @@ impl<'src> Parser<'src> {
                 self.advance();
                 let (imp, _) = self.expect_ident()?;
                 imports.push(imp);
+            } else if self.at(&Token::Adopt) {
+                items.push(Item::Adopt(self.parse_adopt_decl()?));
+            } else if self.at(&Token::Pathway) {
+                items.push(Item::Pathway(self.parse_pathway_def()?));
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "symbiotic") {
+                items.push(self.parse_symbiotic_import()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "niche_construction") {
+                items.push(Item::NicheConstruction(self.parse_niche_construction()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -449,10 +481,59 @@ impl<'src> Parser<'src> {
             let (state, _) = self.expect_ident()?;
             states.push(state);
         }
+        // M69: Optional checkpoint body
+        let mut checkpoints = Vec::new();
+        if self.at(&Token::Checkpoint) {
+            while !self.at(&Token::End) && self.peek().is_some() {
+                if self.at(&Token::Checkpoint) {
+                    let cp_start = self.current_span();
+                    self.advance(); // consume `checkpoint`
+                    self.expect(Token::Colon)?;
+                    let (name, _) = self.expect_ident()?;
+                    let mut requires_str = String::new();
+                    let mut on_fail_str = String::new();
+                    while !self.at(&Token::End) && self.peek().is_some() {
+                        if let Some(key) = self.token_as_ident() {
+                            if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                                self.advance(); // key
+                                self.advance(); // colon
+                                let (val, _) = self.expect_ident()?;
+                                match key.as_str() {
+                                    "requires" => requires_str = val,
+                                    "on_fail" => on_fail_str = val,
+                                    _ => {}
+                                }
+                                continue;
+                            }
+                        }
+                        break;
+                    }
+                    let cp_end = self.current_span();
+                    self.expect(Token::End)?;
+                    checkpoints.push(CheckpointDef {
+                        name,
+                        requires: requires_str,
+                        on_fail: on_fail_str,
+                        span: Span::merge(&cp_start, &cp_end),
+                    });
+                } else {
+                    self.advance();
+                }
+            }
+            let end_span = self.current_span();
+            self.expect(Token::End)?;
+            return Ok(LifecycleDef {
+                type_name,
+                states,
+                checkpoints,
+                span: Span::merge(&start, &end_span),
+            });
+        }
         let end_span = self.current_span();
         Ok(LifecycleDef {
             type_name,
             states,
+            checkpoints,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1090,12 +1171,25 @@ impl<'src> Parser<'src> {
                         self.advance();
                         self.expect(Token::Colon)?;
                         // Parse `- property_name: checker_name` lines
+                        // property_name may be a keyword (e.g. `separation`), so use token_as_ident
                         while self.at(&Token::Minus) {
                             let claim_span = self.current_span();
                             self.advance(); // past `-`
-                            let (property, _) = self.expect_ident()?;
+                            let property = if let Some(s) = self.token_as_ident() {
+                                self.advance();
+                                s
+                            } else {
+                                let (s, _) = self.expect_ident()?;
+                                s
+                            };
                             self.expect(Token::Colon)?;
-                            let (checker, _) = self.expect_ident()?;
+                            let checker = if let Some(s) = self.token_as_ident() {
+                                self.advance();
+                                s
+                            } else {
+                                let (s, _) = self.expect_ident()?;
+                                s
+                            };
                             proved.push(ProvedClaim {
                                 property,
                                 checker,
@@ -1108,9 +1202,21 @@ impl<'src> Parser<'src> {
                         self.expect(Token::Colon)?;
                         while self.at(&Token::Minus) {
                             self.advance(); // past `-`
-                            let (property, _) = self.expect_ident()?;
+                            let property = if let Some(s) = self.token_as_ident() {
+                                self.advance();
+                                s
+                            } else {
+                                let (s, _) = self.expect_ident()?;
+                                s
+                            };
                             self.expect(Token::Colon)?;
-                            let (reason, _) = self.expect_ident()?;
+                            let reason = if let Some(s) = self.token_as_ident() {
+                                self.advance();
+                                s
+                            } else {
+                                let (s, _) = self.expect_ident()?;
+                                s
+                            };
                             unverified.push((property, reason));
                         }
                     }
@@ -1176,6 +1282,9 @@ impl<'src> Parser<'src> {
         let mut telomere: Option<TelomereBlock> = None;
         let mut crispr_blocks: Vec<CrisprBlock> = Vec::new();
         let mut plasticity_blocks: Vec<PlasticityBlock> = Vec::new();
+        let mut canalization: Option<CanalizationBlock> = None;
+        let mut senescence: Option<SenescenceBlock> = None;
+        let mut criticality: Option<CriticalityBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -1355,14 +1464,27 @@ impl<'src> Parser<'src> {
                                 "mcmc"                => SearchStrategy::Mcmc,
                                 _                     => SearchStrategy::DerivativeFree,
                             };
-                            // consume optional `when`
-                            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "when") {
-                                self.advance();
+                            // consume optional `when <condition>` — only if next is `when` keyword
+                            // followed by an ident that is NOT itself followed by `:` (which would
+                            // indicate the start of the next clause, e.g. `constraint:`).
+                            let when_present = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "when");
+                            if when_present {
+                                self.advance(); // consume `when`
                             }
-                            let when = if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
-                                let w = n.clone();
-                                self.pos += 1;
-                                w
+                            let when = if when_present {
+                                // Read the condition ident, but only if not followed by `:`
+                                let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                                if !next_is_colon {
+                                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                                        let w = n.clone();
+                                        self.pos += 1;
+                                        w
+                                    } else {
+                                        String::new()
+                                    }
+                                } else {
+                                    String::new()
+                                }
                             } else {
                                 String::new()
                             };
@@ -1502,7 +1624,7 @@ impl<'src> Parser<'src> {
                     } else if self.at(&Token::OnExhaustion) {
                         self.advance();
                         self.expect(Token::Colon)?;
-                        let (val, _) = self.expect_ident()?;
+                        let (val, _) = self.expect_any_name()?;
                         on_exhaustion = val;
                     } else {
                         self.advance();
@@ -1627,6 +1749,14 @@ impl<'src> Parser<'src> {
                     rule,
                     span: Span::merge(&sec_start, &sec_end),
                 });
+            } else if self.at(&Token::Canalize) {
+                canalization = Some(self.parse_canalization_block()?);
+            } else if self.at(&Token::Senescence) {
+                senescence = Some(self.parse_senescence_block()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "criticality")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                criticality = Some(self.parse_criticality_block()?);
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -1652,6 +1782,9 @@ impl<'src> Parser<'src> {
             autopoietic,
             crispr_blocks,
             plasticity_blocks,
+            canalization,
+            senescence,
+            criticality,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1854,6 +1987,12 @@ impl<'src> Parser<'src> {
             Some(Token::Ident(s)) if s == "correctness_report" => {
                 Ok(Item::CorrectnessReport(self.parse_correctness_report()?))
             }
+            Some(Token::Adopt) => Ok(Item::Adopt(self.parse_adopt_decl()?)),
+            Some(Token::Pathway) => Ok(Item::Pathway(self.parse_pathway_def()?)),
+            Some(Token::Ident(s)) if s == "symbiotic" => Ok(self.parse_symbiotic_import()?),
+            Some(Token::Ident(s)) if s == "niche_construction" => {
+                Ok(Item::NicheConstruction(self.parse_niche_construction()?))
+            }
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1946,6 +2085,13 @@ impl<'src> Parser<'src> {
             }
         }
 
+        // M68: Optional degenerate block.
+        let degenerate = if self.at(&Token::Degenerate) {
+            Some(self.parse_degenerate_block()?)
+        } else {
+            None
+        };
+
         // Body expressions until `end`.
         let mut body = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
@@ -1970,6 +2116,7 @@ impl<'src> Parser<'src> {
             timing_safety,
             termination,
             proofs,
+            degenerate,
             body,
             span: Span::merge(&start, &end_span),
         })
@@ -1997,11 +2144,46 @@ impl<'src> Parser<'src> {
             let base_type = self.parse_type_expr()?;
             self.expect(Token::Where)?;
             let predicate = self.parse_expr()?;
+            // M73: Optional on_violation / repair_fn block.
+            let mut on_violation: Option<String> = None;
+            let mut repair_fn: Option<String> = None;
+            let mut has_error_correction = false;
+            while !self.at(&Token::End) && self.peek().is_some() {
+                if let Some(key) = self.token_as_ident() {
+                    if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                        match key.as_str() {
+                            "on_violation" => {
+                                self.advance(); // key
+                                self.advance(); // colon
+                                let (val, _) = self.expect_ident()?;
+                                on_violation = Some(val);
+                                has_error_correction = true;
+                                continue;
+                            }
+                            "repair_fn" => {
+                                self.advance(); // key
+                                self.advance(); // colon
+                                let (val, _) = self.expect_ident()?;
+                                repair_fn = Some(val);
+                                has_error_correction = true;
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                break;
+            }
             let end_span = self.current_span();
+            if has_error_correction {
+                self.expect(Token::End)?;
+            }
             Ok(Item::RefinedType(RefinedType {
                 name,
                 base_type,
                 predicate,
+                on_violation,
+                repair_fn,
                 span: Span::merge(&start, &end_span),
             }))
         } else {
@@ -2102,6 +2284,8 @@ impl<'src> Parser<'src> {
             name,
             base_type,
             predicate,
+            on_violation: None,
+            repair_fn: None,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -2722,6 +2906,316 @@ impl<'src> Parser<'src> {
             span: Span::merge(&start, &end_span),
         })
     }
+
+    // ── M68: Degeneracy block ─────────────────────────────────────────────
+
+    /// Parse `degenerate: primary: X fallback: Y [equivalence_proof: Z] end`.
+    fn parse_degenerate_block(&mut self) -> Result<DegenerateBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Degenerate)?;
+        self.expect(Token::Colon)?;
+        let mut primary = String::new();
+        let mut fallback = String::new();
+        let mut equivalence_proof: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    let (val, _) = self.expect_ident()?;
+                    match key.as_str() {
+                        "primary" => primary = val,
+                        "fallback" => fallback = val,
+                        "equivalence_proof" => equivalence_proof = Some(val),
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(DegenerateBlock {
+            primary,
+            fallback,
+            equivalence_proof,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    // ── M70: Canalization block ───────────────────────────────────────────
+
+    /// Parse `canalize: toward: X despite: [A, B] [convergence_proof: Z] end`.
+    fn parse_canalization_block(&mut self) -> Result<CanalizationBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Canalize)?;
+        self.expect(Token::Colon)?;
+        let mut toward = String::new();
+        let mut despite: Vec<String> = Vec::new();
+        let mut convergence_proof: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    match key.as_str() {
+                        "toward" => {
+                            let (val, _) = self.expect_ident()?;
+                            toward = val;
+                        }
+                        "despite" => {
+                            self.expect(Token::LBracket)?;
+                            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                                if let Ok((v, _)) = self.expect_ident() { despite.push(v); }
+                                if self.at(&Token::Comma) { self.advance(); }
+                                if self.at(&Token::RBracket) { break; }
+                            }
+                            self.expect(Token::RBracket)?;
+                        }
+                        "convergence_proof" => {
+                            let (val, _) = self.expect_ident()?;
+                            convergence_proof = Some(val);
+                        }
+                        _ => { let _ = self.expect_ident(); }
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(CanalizationBlock { toward, despite, convergence_proof, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M71: Pathway ──────────────────────────────────────────────────────
+
+    /// Parse `pathway Name <steps> end`.
+    fn parse_pathway_def(&mut self) -> Result<PathwayDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Pathway)?;
+        let (name, _) = self.expect_ident()?;
+        let mut steps: Vec<PathwayStep> = Vec::new();
+        let mut compensate: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // compensate: X
+            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "compensate")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // compensate
+                self.advance(); // colon
+                let (val, _) = self.expect_ident()?;
+                compensate = Some(val);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(_), _)))
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Minus, _)))
+                && matches!(self.tokens.get(self.pos + 2), Some((Token::LBracket, _)))
+            {
+                // from -[via]-> to
+                let step_start = self.current_span();
+                let (from, _) = self.expect_ident()?;
+                self.expect(Token::Minus)?;
+                self.expect(Token::LBracket)?;
+                let (via, _) = self.expect_ident()?;
+                self.expect(Token::RBracket)?;
+                self.expect(Token::Arrow)?;
+                let (to, _) = self.expect_ident()?;
+                steps.push(PathwayStep { from, via, to, span: step_start });
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(PathwayDef { name, steps, compensate, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M72: Symbiotic import ─────────────────────────────────────────────
+
+    /// Parse `symbiotic: kind: mutualistic|commensal|parasitic module: M`.
+    fn parse_symbiotic_import(&mut self) -> Result<Item, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume "symbiotic" ident
+        self.expect(Token::Colon)?;
+        let mut kind = String::new();
+        let mut module = String::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    let (val, _) = self.expect_ident()?;
+                    match key.as_str() {
+                        "kind" => kind = val,
+                        "module" => module = val,
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        Ok(Item::SymbioticImport { module, kind, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M74: Senescence block ─────────────────────────────────────────────
+
+    /// Parse `senescence: onset: X degradation: Y [sasp: Z] end`.
+    fn parse_senescence_block(&mut self) -> Result<SenescenceBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Senescence)?;
+        self.expect(Token::Colon)?;
+        let mut onset = String::new();
+        let mut degradation = String::new();
+        let mut sasp: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    let (val, _) = self.expect_ident()?;
+                    match key.as_str() {
+                        "onset" => onset = val,
+                        "degradation" => degradation = val,
+                        "sasp" => sasp = Some(val),
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SenescenceBlock { onset, degradation, sasp, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M75: HGT adopt ───────────────────────────────────────────────────
+
+    /// Parse `adopt: Interface from Module`.
+    fn parse_adopt_decl(&mut self) -> Result<AdoptDecl, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Adopt)?;
+        self.expect(Token::Colon)?;
+        let (interface, _) = self.expect_ident()?;
+        // consume "from" (keyword token)
+        self.expect(Token::From)?;
+        let (from_module, _) = self.expect_ident()?;
+        let end_span = self.current_span();
+        Ok(AdoptDecl { interface, from_module, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M76: Criticality block ────────────────────────────────────────────
+
+    /// Parse `criticality: lower: N upper: N [probe_fn: X] end`.
+    fn parse_criticality_block(&mut self) -> Result<CriticalityBlock, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume "criticality" ident
+        self.expect(Token::Colon)?;
+        let mut lower = 0.0f64;
+        let mut upper = 1.0f64;
+        let mut probe_fn: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    match key.as_str() {
+                        "lower" => {
+                            match self.peek() {
+                                Some(Token::FloatLit(_)) => {
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        lower = *f;
+                                    }
+                                    self.advance();
+                                }
+                                Some(Token::IntLit(_)) => {
+                                    if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                        lower = *n as f64;
+                                    }
+                                    self.advance();
+                                }
+                                _ => { let _ = self.expect_ident(); }
+                            }
+                        }
+                        "upper" => {
+                            match self.peek() {
+                                Some(Token::FloatLit(_)) => {
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        upper = *f;
+                                    }
+                                    self.advance();
+                                }
+                                Some(Token::IntLit(_)) => {
+                                    if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                        upper = *n as f64;
+                                    }
+                                    self.advance();
+                                }
+                                _ => { let _ = self.expect_ident(); }
+                            }
+                        }
+                        "probe_fn" => {
+                            let (val, _) = self.expect_ident()?;
+                            probe_fn = Some(val);
+                        }
+                        _ => { let _ = self.expect_ident(); }
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(CriticalityBlock { lower, upper, probe_fn, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M77: Niche construction ───────────────────────────────────────────
+
+    /// Parse `niche_construction: modifies: X affects: [A, B] [probe_fn: Z] end`.
+    fn parse_niche_construction(&mut self) -> Result<NicheConstructionDef, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume "niche_construction" ident
+        self.expect(Token::Colon)?;
+        let mut modifies = String::new();
+        let mut affects: Vec<String> = Vec::new();
+        let mut probe_fn: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    match key.as_str() {
+                        "modifies" => {
+                            let (val, _) = self.expect_ident()?;
+                            modifies = val;
+                        }
+                        "affects" => {
+                            self.expect(Token::LBracket)?;
+                            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                                if let Ok((v, _)) = self.expect_ident() { affects.push(v); }
+                                if self.at(&Token::Comma) { self.advance(); }
+                                if self.at(&Token::RBracket) { break; }
+                            }
+                            self.expect(Token::RBracket)?;
+                        }
+                        "probe_fn" => {
+                            let (val, _) = self.expect_ident()?;
+                            probe_fn = Some(val);
+                        }
+                        _ => { let _ = self.expect_ident(); }
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(NicheConstructionDef { modifies, affects, probe_fn, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -2812,6 +3306,13 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Matter       => Some("matter"),
         Token::Regulate     => Some("regulate"),
         Token::Evolve       => Some("evolve"),
+        Token::Degenerate   => Some("degenerate"),
+        Token::Fallback     => Some("fallback"),
+        Token::Checkpoint   => Some("checkpoint"),
+        Token::Canalize     => Some("canalize"),
+        Token::Pathway      => Some("pathway"),
+        Token::Senescence   => Some("senescence"),
+        Token::Adopt        => Some("adopt"),
         _                   => None,
     }
 }

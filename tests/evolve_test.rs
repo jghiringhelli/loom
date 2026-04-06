@@ -52,6 +52,9 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         autopoietic: false,
         crispr_blocks: vec![],
         plasticity_blocks: vec![],
+        canalization: None,
+        senescence: None,
+        criticality: None,
         span: Span::synthetic(),
     }
 }

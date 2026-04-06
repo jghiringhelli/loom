@@ -1,0 +1,56 @@
+   Compiling loom v0.1.0 (C:\workspace\PragmaWorks\loom)
+warning: unused variable: `predicate`
+   --> src\checker\refinement.rs:100:9
+    |
+100 |         predicate: &Expr,
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_predicate`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\codegen\openapi.rs:147:13
+    |
+147 |         let mut ops: Vec<RestOp> = fns.iter()
+    |             ----^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `schemas_section`
+   --> src\codegen\openapi.rs:237:13
+    |
+237 |         let schemas_section = if schemas.is_empty() {
+    |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_schemas_section`
+
+warning: unused variable: `is_collection`
+   --> src\codegen\openapi.rs:501:13
+    |
+501 |         let is_collection = returns_list(&fd.type_sig.return_type)
+    |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_is_collection`
+
+warning: unused variable: `span`
+    --> src\parser\mod.rs:2744:21
+     |
+2744 |                 let span = Span::merge(&span_start, &self.current_span());
+     |                     ^^^^ help: if this is intentional, prefix it with an underscore: `_span`
+
+warning: function `expr_contains_self` is never used
+   --> src\checker\refinement.rs:143:4
+    |
+143 | fn expr_contains_self(expr: &Expr) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `emit_fn_def` is never used
+    --> src\codegen\rust.rs:1017:8
+     |
+  33 | impl RustEmitter {
+     | ---------------- method in this implementation
+...
+1017 |     fn emit_fn_def(&self, fd: &FnDef) -> String {
+     |        ^^^^^^^^^^^
+
+warning: `loom` (lib) generated 7 warnings (run `cargo fix --lib -p loom` to apply 5 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.56s

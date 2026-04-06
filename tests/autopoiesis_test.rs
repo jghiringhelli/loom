@@ -60,6 +60,9 @@ fn base_being() -> BeingDef {
         autopoietic: false,
         crispr_blocks: vec![],
         plasticity_blocks: vec![],
+        canalization: None,
+        senescence: None,
+        criticality: None,
         span: Span::synthetic(),
     }
 }
