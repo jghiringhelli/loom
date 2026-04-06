@@ -866,6 +866,23 @@ impl RustEmitter {
             out.push_str(&format!("// effect-tier: {} -> {}\n", eff, tier_str));
         }
 
+        // Emit separation block as doc comments.
+        if let Some(sep) = &fd.separation {
+            out.push_str("// separation logic:\n");
+            for owned in &sep.owns {
+                out.push_str(&format!("//   owns: {}\n", owned));
+            }
+            for (a, b) in &sep.disjoint {
+                out.push_str(&format!("//   disjoint: {} * {}\n", a, b));
+            }
+            for f in &sep.frame {
+                out.push_str(&format!("//   frame: {}\n", f));
+            }
+            if let Some(proof) = &sep.proof {
+                out.push_str(&format!("//   proof: {}\n", proof));
+            }
+        }
+
         let mut params: Vec<String> = Vec::new();
 
         // Inject `ctx: &<ModName>Context` as the first parameter when requested.
@@ -1570,6 +1587,7 @@ mod tests {
                 }],
                 ensures: vec![],
                 with_deps: vec![],
+                separation: None,
                 body: vec![],
                 span: Span::synthetic(),
             })],

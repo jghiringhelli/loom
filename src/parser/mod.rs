@@ -202,6 +202,11 @@ impl<'src> Parser<'src> {
             Some((Token::Precedes, _)) => Some("precedes".to_string()),
             Some((Token::Reaches, _)) => Some("reaches".to_string()),
             Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            Some((Token::Separation, _)) => Some("separation".to_string()),
+            Some((Token::Owns, _)) => Some("owns".to_string()),
+            Some((Token::Disjoint, _)) => Some("disjoint".to_string()),
+            Some((Token::Frame, _)) => Some("frame".to_string()),
+            Some((Token::Proof, _)) => Some("proof".to_string()),
             _ => None,
         }
     }
@@ -498,6 +503,73 @@ impl<'src> Parser<'src> {
         Ok(TemporalDef {
             name,
             properties,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a `separation:` block inside a function body.
+    ///
+    /// Syntax:
+    /// ```text
+    /// separation:
+    ///   owns: resource_name
+    ///   disjoint: A * B
+    ///   frame: preserved_field
+    ///   proof: assertion_name
+    /// end
+    /// ```
+    fn parse_separation_block(&mut self) -> Result<SeparationBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Separation)?;
+        self.expect(Token::Colon)?;
+
+        let mut owns: Vec<String> = Vec::new();
+        let mut disjoint: Vec<(String, String)> = Vec::new();
+        let mut frame: Vec<String> = Vec::new();
+        let mut proof: Option<String> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Owns) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (name, _) = self.expect_ident()?;
+                owns.push(name);
+            } else if self.at(&Token::Disjoint) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (left, _) = self.expect_ident()?;
+                self.expect(Token::Star)?;
+                let (right, _) = self.expect_ident()?;
+                disjoint.push((left, right));
+            } else if self.at(&Token::Frame) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (name, _) = self.expect_ident()?;
+                frame.push(name);
+            } else if self.at(&Token::Proof) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (assertion, _) = self.expect_ident()?;
+                proof = Some(assertion);
+            } else {
+                return Err(LoomError::parse(
+                    format!(
+                        "expected separation clause (owns, disjoint, frame, proof), got {:?}",
+                        self.peek()
+                    ),
+                    self.current_span(),
+                ));
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(SeparationBlock {
+            owns,
+            disjoint,
+            frame,
+            proof,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1271,7 +1343,8 @@ impl<'src> Parser<'src> {
         let mut ensures = Vec::new();
         let mut with_deps = Vec::new();
 
-        // Collect `require:` / `ensure:` / `with` clauses.
+        // Collect `require:` / `ensure:` / `with` / `separation:` clauses.
+        let mut separation: Option<SeparationBlock> = None;
         loop {
             if self.at(&Token::Require) {
                 requires.push(self.parse_contract()?);
@@ -1281,6 +1354,8 @@ impl<'src> Parser<'src> {
                 self.advance();
                 let (dep, _) = self.expect_ident()?;
                 with_deps.push(dep);
+            } else if self.at(&Token::Separation) {
+                separation = Some(self.parse_separation_block()?);
             } else {
                 break;
             }
@@ -1304,6 +1379,7 @@ impl<'src> Parser<'src> {
             requires,
             ensures,
             with_deps,
+            separation,
             body,
             span: Span::merge(&start, &end_span),
         })

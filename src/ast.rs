@@ -399,6 +399,30 @@ pub enum Item {
 
 // ── Definitions ───────────────────────────────────────────────────────────────
 
+/// Separation logic block — O'Hearn, Reynolds, Yang (2001-2002).
+///
+/// Declares owned resources, disjointness constraints, frame preservation,
+/// and an optional proof assertion for a function.
+///
+/// # Formal semantics
+/// The separating conjunction `P * Q` asserts that `P` and `Q` hold for
+/// *disjoint* portions of the heap simultaneously.  The frame rule then allows
+/// local reasoning: a function that only touches its declared `owns:` resources
+/// cannot affect anything outside that footprint, so every caller can rely on
+/// unowned state being unchanged.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SeparationBlock {
+    /// Resources exclusively owned by this function (`owns: name`).
+    pub owns: Vec<String>,
+    /// Pairs that must be heap-disjoint (`disjoint: A * B`).
+    pub disjoint: Vec<(String, String)>,
+    /// Resources that are in scope but not modified (`frame: name`).
+    pub frame: Vec<String>,
+    /// Optional proof assertion, e.g. `"frame_rule_verified"`.
+    pub proof: Option<String>,
+    pub span: Span,
+}
+
 /// Function definition.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
@@ -420,6 +444,8 @@ pub struct FnDef {
     pub ensures: Vec<Contract>,
     /// Effect / dependency injections (`with` clause names).
     pub with_deps: Vec<String>,
+    /// Optional separation logic block (`separation: owns: ... disjoint: ... end`).
+    pub separation: Option<SeparationBlock>,
     /// Body expressions; the last one is the return value.
     pub body: Vec<Expr>,
     pub span: Span,

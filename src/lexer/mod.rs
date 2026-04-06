@@ -105,6 +105,12 @@ pub enum Token {
     #[token("reaches")]       Reaches,
     #[token("transitions")]   Transitions,
     #[token("before")]        Before,
+    // ── Separation logic keywords (M57) ─────────────────────────────────────
+    #[token("separation")]    Separation,
+    #[token("owns")]          Owns,
+    #[token("disjoint")]      Disjoint,
+    #[token("frame")]         Frame,
+    #[token("proof")]         Proof,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
