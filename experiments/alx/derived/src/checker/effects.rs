@@ -4,7 +4,7 @@
 
 use crate::ast::{Module, Item, TypeExpr};
 use crate::error::LoomError;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// G4: EffectChecker struct — tests call `EffectChecker::new().check(&module)`.
 pub struct EffectChecker;
@@ -19,8 +19,8 @@ impl EffectChecker {
 pub fn check_effects(module: &Module) -> Result<(), Vec<LoomError>> {
     let mut errors = Vec::new();
 
-    // Build map: fn_name → effect_set (None = pure, Some(vec) = has effects)
-    let mut fn_effects: HashMap<String, Option<Vec<String>>> = HashMap::new();
+    // Build map: fn_name → effect_set (empty = pure, non-empty = has effects)
+    let mut fn_effects: HashMap<String, HashSet<String>> = HashMap::new();
     for item in &module.items {
         if let Item::Fn(f) = item {
             let effect_set = extract_effects(&f.type_sig.return_type);
@@ -33,63 +33,58 @@ pub fn check_effects(module: &Module) -> Result<(), Vec<LoomError>> {
         if let Item::Fn(f) = item {
             let caller_effects = extract_effects(&f.type_sig.return_type);
 
-            // Scan body for function calls
+            // Collect called function names from body text
+            let mut called_fns: HashSet<String> = HashSet::new();
             for stmt in &f.body {
-                for (callee_name, callee_effects) in &fn_effects {
-                    if callee_name == &f.name { continue; } // no self-check
-                    // Check if callee is called in this body statement
+                for callee_name in fn_effects.keys() {
+                    if callee_name == &f.name { continue; }
                     if body_calls_fn(stmt, callee_name) {
-                        if let Some(needed_effects) = callee_effects {
-                            if needed_effects.is_empty() { continue; }
-                            match &caller_effects {
-                                None => {
-                                    // Pure function calling effectful function
-                                    errors.push(LoomError::new(
-                                        format!(
-                                            "function '{}': pure function calls effectful function '{}' (effects: {:?})",
-                                            f.name, callee_name, needed_effects
-                                        ),
-                                        f.span,
-                                    ));
-                                }
-                                Some(declared) => {
-                                    // Check all needed effects are in declared set
-                                    for needed in needed_effects {
-                                        if !declared.contains(needed) {
-                                            errors.push(LoomError::new(
-                                                format!(
-                                                    "function '{}': calls '{}' which requires effect '{}', but only declares {:?}",
-                                                    f.name, callee_name, needed, declared
-                                                ),
-                                                f.span,
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        called_fns.insert(callee_name.clone());
+                    }
+                }
+            }
+            if let Some(inline) = &f.inline_body {
+                for callee_name in fn_effects.keys() {
+                    if callee_name == &f.name { continue; }
+                    if body_calls_fn(inline, callee_name) {
+                        called_fns.insert(callee_name.clone());
                     }
                 }
             }
 
-            // Also check inline_body for calls
-            if let Some(inline) = &f.inline_body {
-                for (callee_name, callee_effects) in &fn_effects {
-                    if callee_name == &f.name { continue; }
-                    if body_calls_fn(inline, callee_name) {
-                        if let Some(needed_effects) = callee_effects {
-                            if needed_effects.is_empty() { continue; }
-                            if caller_effects.is_none() {
-                                errors.push(LoomError::new(
-                                    format!(
-                                        "function '{}': pure function calls effectful function '{}'",
-                                        f.name, callee_name
-                                    ),
-                                    f.span,
-                                ));
-                            }
-                        }
-                    }
+            // Compute transitive effects from callees
+            let mut transitive_effects: HashSet<String> = HashSet::new();
+            for callee in &called_fns {
+                if let Some(callee_effs) = fn_effects.get(callee) {
+                    transitive_effects.extend(callee_effs.iter().cloned());
+                }
+            }
+
+            if transitive_effects.is_empty() { continue; }
+
+            // Pure function calling effectful function
+            if caller_effects.is_empty() {
+                errors.push(LoomError::effect(
+                    format!(
+                        "pure function `{}` calls effectful function(s); transitive effects: {:?}",
+                        f.name,
+                        transitive_effects.iter().cloned().collect::<Vec<_>>()
+                    ),
+                    f.span,
+                ));
+                continue;
+            }
+
+            // Check all needed effects are in declared set
+            for needed in &transitive_effects {
+                if !caller_effects.contains(needed) {
+                    errors.push(LoomError::effect(
+                        format!(
+                            "function `{}` uses effect `{}` but does not declare it",
+                            f.name, needed
+                        ),
+                        f.span,
+                    ));
                 }
             }
         }
@@ -102,15 +97,14 @@ pub fn check_effects(module: &Module) -> Result<(), Vec<LoomError>> {
     }
 }
 
-fn extract_effects(ty: &TypeExpr) -> Option<Vec<String>> {
+fn extract_effects(ty: &TypeExpr) -> HashSet<String> {
     match ty {
-        TypeExpr::Effect(effects, _) => Some(effects.clone()),
-        _ => None,
+        TypeExpr::Effect(effects, _) => effects.iter().cloned().collect(),
+        _ => HashSet::new(),
     }
 }
 
 fn body_calls_fn(body: &str, fn_name: &str) -> bool {
-    // Check if the body text contains a call like fn_name(
     let pattern = format!("{}(", fn_name);
     body.contains(&pattern)
 }

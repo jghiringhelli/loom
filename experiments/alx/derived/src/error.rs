@@ -55,6 +55,12 @@ pub enum LoomError {
     #[error("wasm unsupported: {feature} at {span:?}")]
     WasmUnsupported { feature: String, span: Span },
 
+    #[error("effect error: {msg} at {span:?}")]
+    EffectError { msg: String, span: Span },
+
+    #[error("info-flow error: {msg} at {span:?}")]
+    InfoFlowError { msg: String, span: Span },
+
     #[error("{message} at {span:?}")]
     General { message: String, span: Span },
 }
@@ -73,6 +79,26 @@ impl LoomError {
         LoomError::new(message, Span::default())
     }
 
+    /// Create an effect error.
+    pub fn effect(msg: impl Into<String>, span: Span) -> Self {
+        LoomError::EffectError { msg: msg.into(), span }
+    }
+
+    /// Create a type error.
+    pub fn type_err(msg: impl Into<String>, span: Span) -> Self {
+        LoomError::TypeError { msg: msg.into(), span }
+    }
+
+    /// Create a unification error.
+    pub fn unification(msg: impl Into<String>, span: Span) -> Self {
+        LoomError::UnificationError { msg: msg.into(), span }
+    }
+
+    /// Create an info-flow error.
+    pub fn infoflow(msg: impl Into<String>, span: Span) -> Self {
+        LoomError::InfoFlowError { msg: msg.into(), span }
+    }
+
     /// Return the error kind name. Used by tests to assert on specific error categories.
     pub fn kind(&self) -> &str {
         match self {
@@ -83,6 +109,8 @@ impl LoomError {
             LoomError::NonExhaustiveMatch { .. }=> "NonExhaustiveMatch",
             LoomError::UndeclaredDependency { .. } => "UndeclaredDependency",
             LoomError::WasmUnsupported { .. }   => "WasmUnsupported",
+            LoomError::EffectError { .. }       => "EffectError",
+            LoomError::InfoFlowError { .. }     => "InfoFlowError",
             LoomError::General { .. }           => "LoomError",
         }
     }
@@ -97,6 +125,8 @@ impl LoomError {
             LoomError::NonExhaustiveMatch { span, .. }=> *span,
             LoomError::UndeclaredDependency { span, .. } => *span,
             LoomError::WasmUnsupported { span, .. }   => *span,
+            LoomError::EffectError { span, .. }       => *span,
+            LoomError::InfoFlowError { span, .. }     => *span,
             LoomError::General { span, .. }           => *span,
         }
     }

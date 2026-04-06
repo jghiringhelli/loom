@@ -128,15 +128,12 @@ fn apply_subst(subst: &Substitution, ty: &TypeExpr) -> TypeExpr {
 pub fn check_inference(module: &Module) -> Result<(), Vec<LoomError>> {
     let mut errors = Vec::new();
 
-    // For each function, verify the type signature is self-consistent.
+    // For each function, verify the type signature is self-consistent
+    // and body expression types match the declared return type.
     for item in &module.items {
         if let crate::ast::Item::Fn(fn_def) = item {
-            // Check that the signature has at least a return type.
-            // ALX: full body inference is beyond spec; we check structural consistency.
             let sig = &fn_def.type_sig;
-            if sig.params.is_empty() && matches!(sig.return_type, TypeExpr::Base(ref s) if s == "Unit") {
-                // Pure unit function — OK
-            }
+
             // Detect type variable cycles in the signature
             let mut subst = Substitution::new();
             let all_types: Vec<&TypeExpr> = sig.params.iter().chain(std::iter::once(&sig.return_type)).collect();
@@ -144,11 +141,28 @@ pub fn check_inference(module: &Module) -> Result<(), Vec<LoomError>> {
                 for tj in all_types[i + 1..].iter() {
                     if let (TypeExpr::TypeVar(a), TypeExpr::TypeVar(b)) = (ti, tj) {
                         if a == b {
-                            // Same type variable used in multiple positions — OK (polymorphism)
+                            // Same type variable — OK
                         }
                     }
-                    // Try to detect obvious contradictions
                     let _ = unify_with(&mut subst, ti, tj, fn_def.span);
+                }
+            }
+
+            // Infer body expression type from raw text and check against return type
+            if !fn_def.body.is_empty() {
+                let last_line = fn_def.body.last().map(|s| s.trim()).unwrap_or("");
+                if let Some(body_type) = infer_expr_type(last_line, &sig.params) {
+                    let ret_type = effective_return_type(&sig.return_type);
+                    // Check: body type should unify with return type
+                    if !types_compatible(&body_type, ret_type) {
+                        errors.push(LoomError::UnificationError {
+                            msg: format!(
+                                "body expression type {:?} does not match declared return type {:?}",
+                                body_type, ret_type
+                            ),
+                            span: fn_def.span,
+                        });
+                    }
                 }
             }
         }
@@ -175,5 +189,128 @@ pub fn check_inference(module: &Module) -> Result<(), Vec<LoomError>> {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// Infer the type of a raw expression string.
+fn infer_expr_type(expr: &str, params: &[TypeExpr]) -> Option<TypeExpr> {
+    let s = expr.trim();
+    if s.is_empty() || s == "todo" { return None; }
+
+    // Skip complex expressions — match, field access, function calls, pipes
+    if s.starts_with("match ") || s.contains('.') || s.contains('(') || s.contains("|>") {
+        return None;
+    }
+
+    // Integer literal (standalone)
+    if s.parse::<i64>().is_ok() {
+        return Some(TypeExpr::Base("Int".to_string()));
+    }
+
+    // Float literal
+    if s.contains('.') && s.parse::<f64>().is_ok() {
+        return Some(TypeExpr::Base("Float".to_string()));
+    }
+
+    // Bool literal
+    if s == "true" || s == "false" {
+        return Some(TypeExpr::Base("Bool".to_string()));
+    }
+
+    // String literal
+    if s.starts_with('"') && s.ends_with('"') {
+        return Some(TypeExpr::Base("String".to_string()));
+    }
+
+    // Simple arithmetic: "n + 1", "n + true"
+    if contains_arithmetic_op(s) {
+        // If any operand is a bool literal, that's definitely a type error
+        if contains_bool_operand(s) {
+            return Some(TypeExpr::Base("Bool".to_string()));
+        }
+        // Infer as Int for simple expressions without field access
+        return Some(TypeExpr::Base("Int".to_string()));
+    }
+
+    // Comparison operators → Bool
+    for op in &[" > ", " < ", " >= ", " <= ", " == ", " != "] {
+        if s.contains(op) {
+            return Some(TypeExpr::Base("Bool".to_string()));
+        }
+    }
+
+    None
+}
+
+fn contains_arithmetic_op(s: &str) -> bool {
+    // Check for + - * / outside of string literals and function calls
+    let bytes = s.as_bytes();
+    let mut depth = 0i32;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b'+' | b'*' | b'/' if depth == 0 => return true,
+            b'-' if depth == 0 && i > 0 && bytes[i-1] == b' ' => return true,
+            _ => {}
+        }
+        i += 1;
+    }
+    false
+}
+
+fn contains_bool_operand(s: &str) -> bool {
+    for token in s.split_whitespace() {
+        let t = token.trim_matches(|c: char| !c.is_alphanumeric());
+        if t == "true" || t == "false" { return true; }
+    }
+    false
+}
+
+/// Check if all operands in an arithmetic expression are literals (not identifiers).
+fn all_operands_are_literals(s: &str) -> bool {
+    for token in s.split_whitespace() {
+        let t = token.trim();
+        if t == "+" || t == "-" || t == "*" || t == "/" { continue; }
+        // Must be a numeric literal or a bool literal
+        if t.parse::<i64>().is_ok() || t.parse::<f64>().is_ok() || t == "true" || t == "false" {
+            continue;
+        }
+        return false;
+    }
+    true
+}
+
+/// Check if two types are compatible (can be unified).
+fn types_compatible(t1: &TypeExpr, t2: &TypeExpr) -> bool {
+    match (t1, t2) {
+        (TypeExpr::Base(a), TypeExpr::Base(b)) => a == b,
+        // Int is compatible with Float<unit> (numeric arithmetic)
+        (TypeExpr::Base(a), TypeExpr::Generic(n, _)) | (TypeExpr::Generic(n, _), TypeExpr::Base(a))
+            if n == "Float" && (a == "Int" || a == "Float") => true,
+        (TypeExpr::Generic(a, ap), TypeExpr::Generic(b, bp)) => {
+            a == b && ap.len() == bp.len()
+                && ap.iter().zip(bp.iter()).all(|(x, y)| types_compatible(x, y))
+        }
+        (TypeExpr::Effect(_, ret), other) | (other, TypeExpr::Effect(_, ret)) => {
+            types_compatible(ret, other)
+        }
+        (TypeExpr::TypeVar(_), _) | (_, TypeExpr::TypeVar(_)) => true,
+        _ => false,
+    }
+}
+
+/// Unwrap parameterized types to base types for compatibility checking.
+/// Float<usd> → Float, Effect<[IO], Int> → Int
+fn effective_return_type(ty: &TypeExpr) -> &TypeExpr {
+    match ty {
+        TypeExpr::Generic(name, _) if name == "Float" => {
+            // Float<unit> is still a float — return a synthetic base doesn't work
+            // Just return the type itself; types_compatible handles Generic vs Base
+            ty
+        }
+        TypeExpr::Effect(_, ret) => effective_return_type(ret),
+        _ => ty,
     }
 }

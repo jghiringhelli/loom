@@ -74,6 +74,26 @@ pub fn emit_rust(module: &Module) -> String {
     // Render body into a buffer first to detect needed stdlib imports.
     let mut body = String::new();
 
+    // Unit newtype structs for Float<unit> parameters
+    let mut emitted_units: std::collections::HashSet<String> = std::collections::HashSet::new();
+    collect_unit_types(module, &mut emitted_units);
+    for unit in &emitted_units {
+        let struct_name = capitalize(unit);
+        body.push_str(&format!(
+            "#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]\npub struct {}(pub f64);\n\n",
+            struct_name
+        ));
+        // Implement Add/Sub for same-unit arithmetic
+        body.push_str(&format!(
+            "impl std::ops::Add for {} {{\n    type Output = {};\n    fn add(self, rhs: {}) -> {} {{ {}(self.0 + rhs.0) }}\n}}\n\n",
+            struct_name, struct_name, struct_name, struct_name, struct_name
+        ));
+        body.push_str(&format!(
+            "impl std::ops::Sub for {} {{\n    type Output = {};\n    fn sub(self, rhs: {}) -> {} {{ {}(self.0 - rhs.0) }}\n}}\n\n",
+            struct_name, struct_name, struct_name, struct_name, struct_name
+        ));
+    }
+
     // Lifecycle phantom state types.
     for lc in &module.lifecycle_defs {
         emit_lifecycle(&mut body, lc);
@@ -202,7 +222,7 @@ pub fn emit_rust(module: &Module) -> String {
 }
 
 fn emit_lifecycle(out: &mut String, lc: &LifecycleDef) {
-    out.push_str(&format!("// Lifecycle: {} states\n", lc.type_name));
+    out.push_str(&format!("// Lifecycle states for {}\n", lc.type_name));
     for state in &lc.states {
         out.push_str(&format!(
             "#[derive(Debug, Clone, PartialEq)]\npub struct {};\n",
@@ -225,9 +245,13 @@ fn emit_type_def(out: &mut String, t: &TypeDef) {
     };
     out.push_str(&format!("pub struct {}{} {{\n", t.name, params));
     for field in &t.fields {
-        // Privacy annotations as doc comments
+        // Privacy annotations
         for ann in &field.annotations {
-            out.push_str(&format!("    // @{}\n", ann.key));
+            match ann.key.as_str() {
+                "pii" => out.push_str("    #[loom_pii]\n"),
+                "never-log" => out.push_str("    // NEVER LOG — this field must not appear in logs\n"),
+                _ => out.push_str(&format!("    // @{}\n", ann.key)),
+            }
         }
         let ty_str = type_to_rust(&field.ty);
         out.push_str(&format!("    pub {}: {},\n", rust_field_name(&field.name), ty_str));
@@ -275,6 +299,14 @@ fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_req
     if let Some(desc) = &f.describe {
         out.push_str(&format!("/// {}\n", desc));
     }
+    // Effect tier doc comments
+    for tier in &f.effect_tiers {
+        if let Some(at_pos) = tier.find('@') {
+            let effect_name = &tier[..at_pos];
+            let tier_name = &tier[at_pos + 1..];
+            out.push_str(&format!("// effect-tier: {} -> {}\n", effect_name, tier_name));
+        }
+    }
     // Annotation doc comments
     for ann in &f.annotations {
         match ann.key.as_str() {
@@ -304,7 +336,7 @@ fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_req
     }
     params.extend(
         f.type_sig.params.iter().enumerate()
-            .map(|(i, ty)| format!("p{}: {}", i, type_to_rust(ty)))
+            .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
     );
 
     let ret = type_to_rust(&f.type_sig.return_type);
@@ -594,14 +626,41 @@ fn extract_fn_call_args(s: &str, fn_name: &str) -> Option<Vec<String>> {
 }
 
 fn emit_test(out: &mut String, tst: &TestDef) {
-    // Test blocks: detect `inline { ... }` and emit verbatim, otherwise emit as comment
     out.push_str("    #[test]\n");
     out.push_str(&format!("    fn {}() {{\n", rust_ident(&tst.name)));
-    // If body starts with "inline {", strip the wrapper and emit verbatim
     let body = tst.body.trim();
     if let Some(rest) = body.strip_prefix("inline {") {
         let inner = rest.trim_end_matches('}').trim();
         out.push_str(&format!("        {}\n", inner));
+    } else if body.contains("for_all") {
+        // Expand for_all with edge case testing
+        // Parse for_all(|x: Type| expr) and emit edge case loop
+        if let Some(lambda_start) = body.find("|") {
+            let after_pipe = &body[lambda_start + 1..];
+            if let Some(colon_pos) = after_pipe.find(':') {
+                let var_name = after_pipe[..colon_pos].trim();
+                if let Some(pipe2) = after_pipe.find('|') {
+                    let type_part = after_pipe[colon_pos + 1..pipe2].trim();
+                    let expr = after_pipe[pipe2 + 1..].trim().trim_end_matches(')');
+                    let rust_type = match type_part {
+                        "Int" => "i64",
+                        "Float" => "f64",
+                        "Bool" => "bool",
+                        _ => "i64",
+                    };
+                    let edge_values = match type_part {
+                        "Int" => "vec![0i64, 1, -1, i64::MAX, i64::MIN, 42, -42]",
+                        "Float" => "vec![0.0f64, 1.0, -1.0, f64::MAX, f64::MIN, f64::NAN]",
+                        _ => "vec![0i64]",
+                    };
+                    out.push_str(&format!("        let _edge_cases: Vec<{}> = {};\n", rust_type, edge_values));
+                    out.push_str(&format!("        for {} in &_edge_cases {{\n", var_name));
+                    out.push_str(&format!("            let {} = *{};\n", var_name, var_name));
+                    out.push_str(&format!("            assert!({}, \"for_all failed for {{:?}}\", {});\n", expr.trim(), var_name));
+                    out.push_str("        }\n");
+                }
+            }
+        }
     } else if !body.is_empty() {
         out.push_str(&format!("        {}\n", body));
     }
@@ -617,7 +676,7 @@ fn emit_interface_def(out: &mut String, iface: &InterfaceDef) {
     out.push_str(&format!("pub trait {}{} {{\n", iface.name, params));
     for method in &iface.methods {
         let params: Vec<String> = method.type_sig.params.iter().enumerate()
-            .map(|(i, ty)| format!("p{}: {}", i, type_to_rust(ty)))
+            .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
             .collect();
         let ret = type_to_rust(&method.type_sig.return_type);
         out.push_str(&format!("    fn {}({}) -> {};\n", method.name, params.join(", "), ret));
@@ -647,7 +706,11 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
     if let Some(matter) = &being.matter {
         for field in &matter.fields {
             for ann in &field.annotations {
-                out.push_str(&format!("    // @{}\n", ann.key));
+                match ann.key.as_str() {
+                    "pii" => out.push_str("    #[loom_pii]\n"),
+                    "never-log" => out.push_str("    // NEVER LOG — this field must not appear in logs\n"),
+                    _ => out.push_str(&format!("    // @{}\n", ann.key)),
+                }
             }
             out.push_str(&format!(
                 "    pub {}: {},\n",
@@ -700,11 +763,12 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
         out.push_str("        todo!()\n    }\n\n");
     }
 
-    // evolve() method
+    // evolve() method — emit per-strategy methods + dispatcher
     if let Some(evolve) = &being.evolve_block {
         out.push_str("    /// Directed search toward telos.\n");
         out.push_str(&format!("    /// constraint: {}\n", evolve.constraint));
-        out.push_str("    pub fn evolve(&mut self) {\n");
+
+        // Per-strategy methods
         for case in &evolve.search_cases {
             let strategy = match case.strategy {
                 SearchStrategy::GradientDescent => "gradient_descent",
@@ -713,9 +777,36 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
                 SearchStrategy::DerivativeFree => "derivative_free",
                 SearchStrategy::Mcmc => "mcmc",
             };
-            out.push_str(&format!("        // {} when {}\n", strategy, case.when));
+            out.push_str(&format!("    pub fn evolve_{}(&mut self) {{\n", strategy));
+            if !case.when.is_empty() {
+                out.push_str(&format!("        // when: {}\n", case.when));
+            }
+            out.push_str("        todo!()\n    }\n\n");
         }
-        out.push_str("        todo!()\n    }\n\n");
+
+        // Dispatcher method
+        out.push_str("    pub fn evolve_step(&mut self) {\n");
+        for case in &evolve.search_cases {
+            let strategy = match case.strategy {
+                SearchStrategy::GradientDescent => "gradient_descent",
+                SearchStrategy::StochasticGradient => "stochastic_gradient",
+                SearchStrategy::SimulatedAnnealing => "simulated_annealing",
+                SearchStrategy::DerivativeFree => "derivative_free",
+                SearchStrategy::Mcmc => "mcmc",
+            };
+            if !case.when.is_empty() {
+                out.push_str(&format!("        // when {}: ", case.when));
+            } else {
+                out.push_str("        ");
+            }
+            out.push_str(&format!("self.evolve_{}();\n", strategy));
+        }
+        out.push_str("    }\n\n");
+
+        // Legacy evolve() method
+        out.push_str("    pub fn evolve(&mut self) {\n");
+        out.push_str("        self.evolve_step();\n");
+        out.push_str("    }\n\n");
     }
 
     // epigenetic method
@@ -775,7 +866,7 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
         ));
         out.push_str(&format!(
             "    pub fn edit_{}(&mut self) {{\n",
-            rust_ident(&crispr.guide)
+            to_snake_case(&crispr.guide)
         ));
         out.push_str(&format!(
             "        // target: {}, replace with: {}\n",
@@ -792,7 +883,7 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
         ));
         out.push_str(&format!(
             "    pub fn update_{}(&mut self) {{\n",
-            rust_ident(&plasticity.modifies)
+            to_snake_case(&plasticity.modifies)
         ));
         out.push_str(&format!("        // trigger: {}\n", plasticity.trigger));
         out.push_str("        todo!()\n    }\n\n");
@@ -806,7 +897,7 @@ fn emit_being_def(out: &mut String, being: &BeingDef) {
                 .params
                 .iter()
                 .enumerate()
-                .map(|(i, ty)| format!("p{}: {}", i, type_to_rust(ty)))
+                .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
                 .collect();
             let ret = type_to_rust(&f.type_sig.return_type);
             out.push_str(&format!(
@@ -839,7 +930,7 @@ fn emit_ecosystem_def(out: &mut String, eco: &EcosystemDef) {
     if let Some(telos) = &eco.telos {
         out.push_str(&format!("/// telos: {}\n", telos));
     }
-    out.push_str(&format!("pub mod {} {{\n", rust_ident(&eco.name)));
+    out.push_str(&format!("pub mod {} {{\n", to_snake_case(&eco.name)));
     out.push_str("    use super::*;\n\n");
 
     // Signal structs
@@ -860,16 +951,20 @@ fn emit_ecosystem_def(out: &mut String, eco: &EcosystemDef) {
     }
     out.push_str("        todo!()\n    }\n\n");
 
-    // check_quorum() function
+    // check_quorum_<signal_snake>() function with Bassler citation
     if let Some(quorum) = eco.quorum_blocks.first() {
+        let signal_snake = to_snake_case(&quorum.signal);
         out.push_str(&format!(
-            "    /// Check quorum (threshold: {}) for signal '{}'.\n",
+            "    /// Check quorum (threshold: {}) for signal '{}'. Bassler 2002.\n",
             quorum.threshold,
             quorum.signal
         ));
-        out.push_str("    pub fn check_quorum(population_size: usize, active: usize) -> bool {\n");
         out.push_str(&format!(
-            "        // threshold: {}\n        active > 0 && population_size > 0\n",
+            "    pub fn check_quorum_{}(population_size: usize, active: usize) -> bool {{\n",
+            signal_snake
+        ));
+        out.push_str(&format!(
+            "        // threshold: {} (Bassler 2002)\n        active > 0 && population_size > 0\n",
             quorum.threshold
         ));
         out.push_str("    }\n\n");
@@ -960,11 +1055,63 @@ pub fn rust_ident(name: &str) -> String {
     name.replace('-', "_").replace(' ', "_").to_lowercase()
 }
 
-fn capitalize(s: &str) -> String {
+pub fn capitalize(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
         None => String::new(),
         Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
+/// Collect all unit labels used in Float<unit> type expressions across the module.
+pub fn collect_unit_types(module: &Module, units: &mut std::collections::HashSet<String>) {
+    for item in &module.items {
+        match item {
+            Item::Fn(f) => {
+                collect_units_from_type(&f.type_sig.return_type, units);
+                for p in &f.type_sig.params {
+                    collect_units_from_type(p, units);
+                }
+            }
+            Item::Type(t) => {
+                for field in &t.fields {
+                    collect_units_from_type(&field.ty, units);
+                }
+            }
+            _ => {}
+        }
+    }
+    for being in &module.being_defs {
+        if let Some(matter) = &being.matter {
+            for field in &matter.fields {
+                collect_units_from_type(&field.ty, units);
+            }
+        }
+    }
+}
+
+fn collect_units_from_type(ty: &TypeExpr, units: &mut std::collections::HashSet<String>) {
+    match ty {
+        TypeExpr::Generic(name, args) if name == "Float" && args.len() == 1 => {
+            if let TypeExpr::Base(unit) = &args[0] {
+                units.insert(unit.clone());
+            }
+        }
+        TypeExpr::Generic(_, args) => {
+            for arg in args { collect_units_from_type(arg, units); }
+        }
+        TypeExpr::Effect(_, ret) => collect_units_from_type(ret, units),
+        TypeExpr::Option(inner) => collect_units_from_type(inner, units),
+        TypeExpr::Result(ok, err) => {
+            collect_units_from_type(ok, units);
+            collect_units_from_type(err, units);
+        }
+        TypeExpr::Tuple(ts) => { for t in ts { collect_units_from_type(t, units); } }
+        TypeExpr::Fn(a, b) => {
+            collect_units_from_type(a, units);
+            collect_units_from_type(b, units);
+        }
+        _ => {}
     }
 }
 

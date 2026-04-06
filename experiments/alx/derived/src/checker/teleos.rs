@@ -90,6 +90,8 @@ pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>> {
                     evolve.span,
                 ));
             }
+            // Check for mutually exclusive strategies without when conditions
+            check_strategy_exclusivity(&evolve.search_cases, &being.name, evolve.span, &mut errors);
         }
 
         // epigenetic: signal and modifies must be non-empty
@@ -190,6 +192,38 @@ pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>> {
                 eco.span,
             ));
         }
+        // Ecosystem must have at least one signal
+        if eco.signals.is_empty() {
+            errors.push(LoomError::new(
+                format!(
+                    "ecosystem '{}': no signals — an ecosystem must define at least one signal channel",
+                    eco.name
+                ),
+                eco.span,
+            ));
+        }
+        // Signal from/to must reference known members
+        for sig in &eco.signals {
+            if !eco.members.contains(&sig.from) {
+                errors.push(LoomError::new(
+                    format!(
+                        "ecosystem '{}', signal '{}': from '{}' is not a known member",
+                        eco.name, sig.name, sig.from
+                    ),
+                    sig.span,
+                ));
+            }
+            if !eco.members.contains(&sig.to) {
+                errors.push(LoomError::new(
+                    format!(
+                        "ecosystem '{}', signal '{}': to '{}' is not a known member",
+                        eco.name, sig.name, sig.to
+                    ),
+                    sig.span,
+                ));
+            }
+        }
+        // Quorum validation
         for quorum in &eco.quorum_blocks {
             if quorum.signal.is_empty() {
                 errors.push(LoomError::new(
@@ -203,6 +237,18 @@ pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>> {
                     quorum.span,
                 ));
             }
+            // Validate threshold is a valid number in (0.0, 1.0]
+            if let Ok(t) = quorum.threshold.parse::<f64>() {
+                if t <= 0.0 || t > 1.0 {
+                    errors.push(LoomError::new(
+                        format!(
+                            "ecosystem '{}', quorum: threshold {} out of range (0.0, 1.0]",
+                            eco.name, quorum.threshold
+                        ),
+                        quorum.span,
+                    ));
+                }
+            }
         }
     }
 
@@ -210,5 +256,31 @@ pub fn check_teleos(module: &Module) -> Result<(), Vec<LoomError>> {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// Check that mutually exclusive strategies (gradient_descent vs derivative_free)
+/// have non-empty when conditions to distinguish them.
+fn check_strategy_exclusivity(
+    cases: &[crate::ast::SearchCase],
+    being_name: &str,
+    span: crate::error::Span,
+    errors: &mut Vec<LoomError>,
+) {
+    use crate::ast::SearchStrategy;
+    let has_gradient = cases.iter().any(|c| c.strategy == SearchStrategy::GradientDescent || c.strategy == SearchStrategy::StochasticGradient);
+    let has_deriv_free = cases.iter().any(|c| c.strategy == SearchStrategy::DerivativeFree);
+    if has_gradient && has_deriv_free {
+        // Both gradient-based and derivative-free are present — need when conditions
+        let all_have_when = cases.iter().all(|c| !c.when.is_empty());
+        if !all_have_when {
+            errors.push(LoomError::new(
+                format!(
+                    "being '{}', evolve: gradient-based and derivative-free strategies are mutually exclusive — each search: case must have a when: condition",
+                    being_name
+                ),
+                span,
+            ));
+        }
     }
 }

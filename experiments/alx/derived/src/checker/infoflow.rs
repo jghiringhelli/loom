@@ -29,40 +29,73 @@ pub fn check_infoflow(module: &Module) -> Result<(), Vec<LoomError>> {
         }
     }
 
+    if labels.is_empty() { return Ok(()); }
+
     let secret_types: HashSet<&String> = labels
         .iter()
         .filter(|(_, v)| v.as_str() == "secret")
         .map(|(k, _)| k)
         .collect();
-    let public_types: HashSet<&String> = labels
+    let tainted_types: HashSet<&String> = labels
         .iter()
-        .filter(|(_, v)| v.as_str() == "public")
+        .filter(|(_, v)| v.as_str() == "tainted")
         .map(|(k, _)| k)
         .collect();
 
-    // For each function, if a param is secret and the return type is public, error.
     for item in &module.items {
         if let Item::Fn(f) = item {
+            // Check for declassification hint in function name
+            let is_declassification = f.name.contains("declassify")
+                || f.name.contains("sanitize")
+                || f.name.contains("hash")
+                || f.name.contains("anonymize");
+            if is_declassification { continue; }
+
             let has_secret_param = f.type_sig.params.iter().any(|p| {
                 type_name_of(p)
                     .map(|n| secret_types.contains(&n))
                     .unwrap_or(false)
             });
-            let returns_public = type_name_of(&f.type_sig.return_type)
-                .map(|n| public_types.contains(&n))
-                .unwrap_or(false);
 
-            if has_secret_param && returns_public {
-                // Check for declassification hint in function name
-                let is_declassification = f.name.contains("declassify")
-                    || f.name.contains("sanitize")
-                    || f.name.contains("hash")
-                    || f.name.contains("anonymize");
+            let has_tainted_param = f.type_sig.params.iter().any(|p| {
+                type_name_of(p)
+                    .map(|n| tainted_types.contains(&n))
+                    .unwrap_or(false)
+            });
 
-                if !is_declassification {
-                    errors.push(LoomError::new(
+            // Return type: if not labeled, treat as public
+            let return_type_name = type_name_of(&f.type_sig.return_type);
+            let return_label = return_type_name
+                .as_ref()
+                .and_then(|n| labels.get(n.as_str()))
+                .map(|s| s.as_str())
+                .unwrap_or("public");
+
+            // Secret → public without declassification
+            if has_secret_param && return_label == "public" {
+                errors.push(LoomError::infoflow(
+                    format!(
+                        "information flow violation in '{}': secret data flows to public output without declassification",
+                        f.name
+                    ),
+                    f.span,
+                ));
+            }
+
+            // Tainted data used in DB-like operations
+            if has_tainted_param {
+                let is_db_op = f.name.contains("find")
+                    || f.name.contains("query")
+                    || f.name.contains("save")
+                    || f.name.contains("insert")
+                    || f.name.contains("update")
+                    || f.name.contains("delete")
+                    || f.name.contains("execute")
+                    || f.name.contains("fetch");
+                if is_db_op {
+                    errors.push(LoomError::infoflow(
                         format!(
-                            "function '{}': secret data flows to public output without declassification",
+                            "information flow violation in '{}': tainted data used in database operation without sanitization",
                             f.name
                         ),
                         f.span,

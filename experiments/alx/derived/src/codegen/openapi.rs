@@ -151,6 +151,81 @@ pub fn emit_openapi(module: &Module) -> String {
         doc["x-beings"] = serde_json::Value::Object(beings);
     }
 
+    // x-ecosystems extension
+    if !module.ecosystem_defs.is_empty() {
+        let ecosystems: serde_json::Map<String, serde_json::Value> = module.ecosystem_defs.iter().map(|eco| {
+            let mut eco_ext = serde_json::Map::new();
+            eco_ext.insert("members".to_string(), serde_json::json!(eco.members));
+            let signals: Vec<serde_json::Value> = eco.signals.iter().map(|s| {
+                serde_json::json!({
+                    "name": s.name,
+                    "from": s.from,
+                    "to": s.to,
+                    "payload": s.payload
+                })
+            }).collect();
+            eco_ext.insert("signals".to_string(), serde_json::json!(signals));
+            if let Some(telos) = &eco.telos {
+                eco_ext.insert("telos".to_string(), serde_json::json!(telos));
+            }
+            (eco.name.clone(), serde_json::Value::Object(eco_ext))
+        }).collect();
+        doc["x-ecosystems"] = serde_json::Value::Object(ecosystems);
+    }
+
+    // x-security-labels extension for flow labels
+    if !module.flow_labels.is_empty() {
+        let mut labels_map = serde_json::Map::new();
+        for fl in &module.flow_labels {
+            labels_map.insert(
+                fl.label.clone(),
+                serde_json::json!(fl.types),
+            );
+        }
+        doc["x-security-labels"] = serde_json::Value::Object(labels_map);
+    }
+
+    // x-lifecycle extension for lifecycle defs
+    if !module.lifecycle_defs.is_empty() {
+        let lifecycles: serde_json::Map<String, serde_json::Value> = module.lifecycle_defs.iter().map(|lc| {
+            let mut transitions = Vec::new();
+            for i in 0..lc.states.len().saturating_sub(1) {
+                transitions.push(serde_json::json!({
+                    "from": lc.states[i],
+                    "to": lc.states[i + 1]
+                }));
+            }
+            (lc.type_name.clone(), serde_json::json!({
+                "states": lc.states,
+                "transitions": transitions
+            }))
+        }).collect();
+        doc["x-lifecycle"] = serde_json::Value::Object(lifecycles);
+    }
+
+    // x-data-protection extension for PII/privacy fields
+    {
+        let mut pii_fields: Vec<serde_json::Value> = Vec::new();
+        for item in &module.items {
+            if let Item::Type(t) = item {
+                for field in &t.fields {
+                    let ann_keys: Vec<&str> = field.annotations.iter().map(|a| a.key.as_str()).collect();
+                    if ann_keys.contains(&"pii") || ann_keys.contains(&"gdpr") || ann_keys.contains(&"hipaa") || ann_keys.contains(&"pci") {
+                        let mut entry = serde_json::Map::new();
+                        entry.insert("field".to_string(), serde_json::json!(format!("{}.{}", t.name, field.name)));
+                        for ann in &field.annotations {
+                            entry.insert(format!("x-{}", ann.key), serde_json::json!(true));
+                        }
+                        pii_fields.push(serde_json::Value::Object(entry));
+                    }
+                }
+            }
+        }
+        if !pii_fields.is_empty() {
+            doc["x-data-protection"] = serde_json::json!(pii_fields);
+        }
+    }
+
     serde_json::to_string_pretty(&doc).unwrap_or_default()
 }
 

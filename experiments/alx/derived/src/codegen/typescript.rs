@@ -54,12 +54,28 @@ pub fn emit_typescript(module: &Module) -> String {
     }
     if !module.flow_labels.is_empty() { out.push('\n'); }
 
-    // Lifecycle → state union type
+    // Unit-branded types for Float<unit>
+    let mut unit_types: std::collections::HashSet<String> = std::collections::HashSet::new();
+    crate::codegen::rust::collect_unit_types(module, &mut unit_types);
+    for unit in &unit_types {
+        let branded_name = capitalize(unit);
+        out.push_str(&format!(
+            "export type {} = number & {{ readonly _unit: \"{}\" }};\n",
+            branded_name, unit
+        ));
+    }
+    if !unit_types.is_empty() { out.push('\n'); }
+
+    // Lifecycle → state union type + generic interface
     for lc in &module.lifecycle_defs {
         out.push_str(&format!(
             "export type {}State = {};\n",
             lc.type_name,
             lc.states.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(" | ")
+        ));
+        out.push_str(&format!(
+            "export interface {}<State extends {}State> {{ readonly _state: State; }}\n",
+            lc.type_name, lc.type_name
         ));
     }
     if !module.lifecycle_defs.is_empty() { out.push('\n'); }
@@ -274,9 +290,41 @@ fn emit_ts_being(being: &BeingDef, out: &mut String) {
         ));
     }
 
-    // evolve()
-    if being.evolve_block.is_some() {
-        out.push_str("  evolve(): void { throw new Error('not implemented'); }\n\n");
+    // evolve — per-strategy methods + dispatcher
+    if let Some(evolve) = &being.evolve_block {
+        for case in &evolve.search_cases {
+            let strategy = match case.strategy {
+                SearchStrategy::GradientDescent => "GradientDescent",
+                SearchStrategy::StochasticGradient => "StochasticGradient",
+                SearchStrategy::SimulatedAnnealing => "SimulatedAnnealing",
+                SearchStrategy::DerivativeFree => "DerivativeFree",
+                SearchStrategy::Mcmc => "Mcmc",
+            };
+            out.push_str(&format!(
+                "  evolve{}(): void {{ throw new Error('not implemented'); }}\n\n",
+                strategy
+            ));
+        }
+        // Dispatcher with convergence loop
+        out.push_str("  evolveStep(): void {\n");
+        out.push_str("    let distance = this.fitness();\n");
+        out.push_str("    while (distance > 0) {\n");
+        for case in &evolve.search_cases {
+            let strategy = match case.strategy {
+                SearchStrategy::GradientDescent => "GradientDescent",
+                SearchStrategy::StochasticGradient => "StochasticGradient",
+                SearchStrategy::SimulatedAnnealing => "SimulatedAnnealing",
+                SearchStrategy::DerivativeFree => "DerivativeFree",
+                SearchStrategy::Mcmc => "Mcmc",
+            };
+            out.push_str(&format!("      this.evolve{}();\n", strategy));
+        }
+        out.push_str("      distance = this.fitness();\n");
+        out.push_str("    }\n");
+        out.push_str("  }\n\n");
+
+        // Keep legacy evolve()
+        out.push_str("  evolve(): void { this.evolveStep(); }\n\n");
     }
 
     // replicate() with telomere limit
@@ -402,6 +450,14 @@ fn type_to_zod(ty: &TypeExpr) -> String {
         },
         TypeExpr::Option(inner) => format!("{}.optional()", type_to_zod(inner)),
         _ => "z.unknown()".into(),
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
     }
 }
 
