@@ -471,6 +471,22 @@ flow public  :: UserId, Email, Bool
 **TypeScript output:** branded types `type Password = string & { readonly _sensitivity: "secret" }`  
 **OpenAPI output:** `x-security-labels` extension.
 
+#### Biological Grounding: PTM Enzyme Classes
+
+The three operations of the information flow checker — **read**, **write**, **declassify** — have a precise molecular-level instantiation in Post-Translational Modification (PTM) biology:
+
+| Loom operation | PTM enzyme class | Biological function |
+|---|---|---|
+| `write` | **Writers** (kinases, acetyltransferases, methyltransferases) | Add a modification to a protein; encode information into structure |
+| `declassify` | **Erasers** (phosphatases, deacetylases, demethylases) | Remove a modification; release a constraint; permit information flow |
+| `read` | **Readers** (SH2 domains, bromodomains, chromodomains) | Recognize a modification; interpret the signal; act on it |
+
+The cell's PTM regulatory layer is a distributed, dynamically reconfigurable information flow system. A phosphorylation mark (write) activates a downstream reader (read); a phosphatase (declassify) removes it, resetting the permission. The capacity of this signaling layer can be measured in Shannon bits — how many distinguishable states the combinatorial PTM landscape can represent.
+
+This is convergent evidence from molecular biology that read/write/declassify are the right primitives, not just a type-theory choice. Denning (1976) derived the information flow lattice from first principles of secure information systems. PTM biology independently arrived at the same three-operation structure as the cell's native information security model. The isomorphism holds at the level of function, not just metaphor: both systems solve the same problem — controlling what information reaches what interpreter under what conditions.
+
+Note: this is the **Shannon layer** of Loom's biological information model (capacity, directional constraints, labels). The `telos:` construct is the **biosemiotic layer** (sign-mediated interpretation toward a final state). See the lineage document for the full Peirce/Uexküll/Barbieri/Shannon distinction.
+
 ---
 
 ## 10. Annotations Reference

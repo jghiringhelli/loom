@@ -436,6 +436,22 @@ Loom is what you get when you stop asking what is cheap to implement and start a
 
 ---
 
+## The Two Layers of Biological Information: Shannon and Biosemiotics
+
+The biological computation layer carries a distinction that is not visible from the programming language theory side alone: the difference between *capacity* and *meaning*.
+
+**Shannon (1948)** measures information as the reduction of uncertainty. A signal carries `log₂(1/p)` bits regardless of what it means or to whom. The channel capacity is a property of the physical substrate. This is what Loom's information flow lattice (`flow secret`, `flow tainted`, `flow public`) formalizes: directional constraints on information movement, lattice-ordered, checked before codegen. The three operations of the flow checker — read, write, declassify — are Shannon-layer operations. They describe what moves where, with what permission.
+
+**Peirce's sign theory (1866)** insists on something Shannon explicitly brackets out: a sign is a sign *only within a relation* between the sign, the object it points to, and an *interpreting system* organized to respond to it. There is no meaning without an interpreter. Uexküll (1909) grounded this in biology: the same chemical signal means different things to different organisms because each lives in its own *Umwelt* — a species-specific perceptual world that shapes what signals are even detectable. Barbieri's ribotype theory extends this to the molecular level: the ribosome is not just a chemical reactor, it is a code-maker — the relationship between codon and amino acid is semiotic, not thermodynamic. The genetic code could have been otherwise; what it is is the result of sign-mediated translation, not physical necessity.
+
+**This is why `telos:` is a separate construct from the information flow lattice.** It is not a redundancy and not an oversight. Shannon measures how much information a channel can carry. Biosemiotics insists that biological information is always sign-mediated: the organism does not just receive a signal, it *interprets* it toward a state it is organized to reach. `telos:` is a sign in the Peircean sense — not a message to be transmitted, but a final state that the being's entire organizational structure is oriented toward interpreting and acting on. The being without `telos:` has channels but no interpretation. It has capacity but no meaning.
+
+Loom carries both layers simultaneously. The information flow lattice is the Shannon layer: capacity, directional constraints, sensitivity labels. The `telos:` construct is the biosemiotic layer: the sign that the being's structure is organized to interpret. A complete biological computation model requires both. Conflating them — treating `telos:` as just another flow label — would collapse the distinction Peirce, Uexküll, and Barbieri each independently argued was the defining feature of biological information.
+
+The PTM correspondence below makes the Shannon layer's three primitives concrete at the molecular level.
+
+---
+
 ## The Self-Bootstrapping Loop
 
 The GS white paper raises the question: is the convergence between biological mechanisms and formal specification coincidence, structural inevitability, or something deeper?
