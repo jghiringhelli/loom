@@ -167,6 +167,10 @@ impl RustEmitter {
                 Item::Enum(ed) => self.emit_enum_def(ed),
                 Item::Fn(fd) => self.emit_fn_def_with_context(fd, &module.name, module.requires.is_some()),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
+                Item::Proposition(prop) => self.emit_proposition(prop),
+                Item::Functor(f) => self.emit_functor(f),
+                Item::Monad(m) => self.emit_monad(m),
+                Item::Certificate(cert) => self.emit_certificate(cert),
             };
             body.push('\n');
             for line in item_src.lines() {
@@ -794,6 +798,58 @@ impl RustEmitter {
         )
     }
 
+    fn emit_proposition(&self, prop: &PropositionDef) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("// proposition: {} = {:?}\n", prop.name, prop.base_type));
+        let base = match &prop.base_type {
+            TypeExpr::Base(n) => self.map_base_type(n),
+            other => self.emit_type_expr(other),
+        };
+        out.push_str(&format!("pub type {} = {};\n", prop.name, base));
+        out
+    }
+
+    fn emit_functor(&self, f: &FunctorDef) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("// Functor: {} — category theory (Mac Lane 1971)\n", f.name));
+        let type_params = if f.type_params.is_empty() {
+            String::new()
+        } else {
+            format!("<{}>", f.type_params.join(", "))
+        };
+        out.push_str(&format!("pub trait Functor{}{} {{\n", f.name, type_params));
+        for law in &f.laws {
+            out.push_str(&format!("    // law: {}\n", law.name));
+        }
+        out.push_str("}\n");
+        out
+    }
+
+    fn emit_monad(&self, m: &MonadDef) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("// Monad: {} — category theory (Mac Lane 1971)\n", m.name));
+        let type_params = if m.type_params.is_empty() {
+            String::new()
+        } else {
+            format!("<{}>", m.type_params.join(", "))
+        };
+        out.push_str(&format!("pub trait Monad{}{} {{\n", m.name, type_params));
+        for law in &m.laws {
+            out.push_str(&format!("    // law: {}\n", law.name));
+        }
+        out.push_str("}\n");
+        out
+    }
+
+    fn emit_certificate(&self, cert: &CertificateDef) -> String {
+        let mut out = String::new();
+        out.push_str("// Self-certifying compilation certificate (Necula 1997):\n");
+        for field in &cert.fields {
+            out.push_str(&format!("//   {}: {}\n", field.name, field.value));
+        }
+        out
+    }
+
     /// Emit a refinement predicate expression, replacing `self` with `value`.
     fn emit_predicate(&self, expr: &Expr) -> String {
         match expr {
@@ -881,6 +937,53 @@ impl RustEmitter {
             if let Some(proof) = &sep.proof {
                 out.push_str(&format!("//   proof: {}\n", proof));
             }
+        }
+
+        // Emit gradual typing block as comments.
+        if let Some(gradual) = &fd.gradual {
+            out.push_str("// gradual typing:\n");
+            if let Some(it) = &gradual.input_type {
+                out.push_str(&format!("//   input_type: {}\n", it));
+            }
+            if let Some(b) = &gradual.boundary {
+                out.push_str(&format!("//   boundary: {}\n", b));
+            }
+            if let Some(ot) = &gradual.output_type {
+                out.push_str(&format!("//   output_type: {}\n", ot));
+            }
+            if let Some(cf) = &gradual.on_cast_failure {
+                out.push_str(&format!("//   on_cast_failure: {}\n", cf));
+            }
+            if let Some(bl) = &gradual.blame {
+                out.push_str(&format!("//   blame: {}\n", bl));
+            }
+        }
+
+        // Emit distribution block as comments.
+        if let Some(dist) = &fd.distribution {
+            out.push_str("// distribution:\n");
+            out.push_str(&format!("//   model: {}\n", dist.model));
+            if let Some(m) = &dist.mean { out.push_str(&format!("//   mean: {}\n", m)); }
+            if let Some(v) = &dist.variance { out.push_str(&format!("//   variance: {}\n", v)); }
+            if let Some(c) = &dist.convergence { out.push_str(&format!("//   convergence: {}\n", c)); }
+        }
+
+        // Emit timing_safety block as comments.
+        if let Some(ts) = &fd.timing_safety {
+            out.push_str("// timing_safety:\n");
+            out.push_str(&format!("//   constant_time: {}\n", ts.constant_time));
+            if let Some(lb) = &ts.leaks_bits { out.push_str(&format!("//   leaks_bits: {}\n", lb)); }
+            if let Some(m) = &ts.method { out.push_str(&format!("//   method: {}\n", m)); }
+        }
+
+        // Emit termination claim as comment.
+        if let Some(t) = &fd.termination {
+            out.push_str(&format!("// termination: {}\n", t));
+        }
+
+        // Emit proof annotations as comments.
+        for proof in &fd.proofs {
+            out.push_str(&format!("// proof: {}\n", proof.strategy));
         }
 
         let mut params: Vec<String> = Vec::new();
@@ -1008,6 +1111,7 @@ impl RustEmitter {
                 let es: Vec<String> = elems.iter().map(|e| self.emit_type_expr(e)).collect();
                 format!("({})", es.join(", "))
             }
+            TypeExpr::Dynamic => "Box<dyn std::any::Any>".to_string(),
             // TypeVar should be resolved before codegen; emit a placeholder if it leaks.
             TypeExpr::TypeVar(id) => format!("/* infer:?{} */", id),
         }
@@ -1588,6 +1692,11 @@ mod tests {
                 ensures: vec![],
                 with_deps: vec![],
                 separation: None,
+                gradual: None,
+                distribution: None,
+                timing_safety: None,
+                termination: None,
+                proofs: vec![],
                 body: vec![],
                 span: Span::synthetic(),
             })],
