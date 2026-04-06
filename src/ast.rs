@@ -395,6 +395,14 @@ pub enum Item {
     Type(TypeDef),
     Enum(EnumDef),
     RefinedType(RefinedType),
+    /// Proposition (dependent type). M61.
+    Proposition(PropositionDef),
+    /// Functor declaration. M63.
+    Functor(FunctorDef),
+    /// Monad declaration. M63.
+    Monad(MonadDef),
+    /// Self-certifying compilation certificate. M65.
+    Certificate(CertificateDef),
 }
 
 // ── Definitions ───────────────────────────────────────────────────────────────
@@ -423,6 +431,45 @@ pub struct SeparationBlock {
     pub span: Span,
 }
 
+/// Gradual typing block — Scott, Siek (2006). M59.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GradualBlock {
+    pub input_type: Option<String>,
+    pub boundary: Option<String>,
+    pub output_type: Option<String>,
+    pub on_cast_failure: Option<String>,
+    pub blame: Option<String>,
+    pub span: Span,
+}
+
+/// Probabilistic types distribution block. M60.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DistributionBlock {
+    pub model: String,
+    pub mean: Option<String>,
+    pub variance: Option<String>,
+    pub bounds: Option<String>,
+    pub convergence: Option<String>,
+    pub stability: Option<String>,
+    pub span: Span,
+}
+
+/// Side-channel timing safety block. M62.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimingSafetyBlock {
+    pub constant_time: bool,
+    pub leaks_bits: Option<String>,
+    pub method: Option<String>,
+    pub span: Span,
+}
+
+/// Proof annotation for Curry-Howard correspondence. M64.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProofAnnotation {
+    pub strategy: String,
+    pub span: Span,
+}
+
 /// Function definition.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
@@ -446,6 +493,16 @@ pub struct FnDef {
     pub with_deps: Vec<String>,
     /// Optional separation logic block (`separation: owns: ... disjoint: ... end`).
     pub separation: Option<SeparationBlock>,
+    /// Gradual typing block (`gradual:` clause). M59.
+    pub gradual: Option<GradualBlock>,
+    /// Probabilistic distribution block (`distribution:` clause). M60.
+    pub distribution: Option<DistributionBlock>,
+    /// Side-channel timing safety block (`timing_safety:` clause). M62.
+    pub timing_safety: Option<TimingSafetyBlock>,
+    /// Termination claim (`termination:` clause). M61.
+    pub termination: Option<String>,
+    /// Curry-Howard proof annotations (`proof:` clauses). M64.
+    pub proofs: Vec<ProofAnnotation>,
     /// Body expressions; the last one is the return value.
     pub body: Vec<Expr>,
     pub span: Span,
@@ -520,6 +577,55 @@ pub struct RefinedType {
     pub span: Span,
 }
 
+/// Proposition (dependent type claim). M61.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropositionDef {
+    pub name: String,
+    pub base_type: TypeExpr,
+    pub predicate: Option<Expr>,
+    pub span: Span,
+}
+
+/// A law declaration inside a functor or monad. M63.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LawDecl {
+    pub name: String,
+    pub span: Span,
+}
+
+/// Functor definition — category theory. M63.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctorDef {
+    pub name: String,
+    pub type_params: Vec<String>,
+    pub laws: Vec<LawDecl>,
+    pub span: Span,
+}
+
+/// Monad definition — category theory. M63.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonadDef {
+    pub name: String,
+    pub type_params: Vec<String>,
+    pub laws: Vec<LawDecl>,
+    pub span: Span,
+}
+
+/// A single field in a compilation certificate. M65.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CertificateField {
+    pub name: String,
+    pub value: String,
+    pub span: Span,
+}
+
+/// Compilation certificate definition. M65.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CertificateDef {
+    pub fields: Vec<CertificateField>,
+    pub span: Span,
+}
+
 // ── Type expressions ──────────────────────────────────────────────────────────
 
 /// Type expression — the right-hand side of a type annotation.
@@ -537,6 +643,8 @@ pub enum TypeExpr {
     Result(Box<TypeExpr>, Box<TypeExpr>),
     /// Unnamed tuple — `(A, B, C)`.
     Tuple(Vec<TypeExpr>),
+    /// Gradual / dynamic type (written `?` in source). M59.
+    Dynamic,
     /// Inference variable introduced by the HM engine. Never produced by the
     /// parser; fully resolved before code generation.
     TypeVar(u32),
