@@ -54,6 +54,9 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 3: type inference ───────────────────────────────────────────
     checker::InferenceEngine::new().check(&module)?;
 
+    // ── Stage 2b: aspect-oriented specification check ─────────────────────
+    checker::AspectChecker::new().check(&module)?;
+
     // ── Stage 4: type check ───────────────────────────────────────────────
     checker::TypeChecker::new().check(&module)?;
 
@@ -153,6 +156,7 @@ pub fn compile_typescript(source: &str) -> Result<String, Vec<LoomError>> {
         .parse_module()
         .map_err(|e| vec![e])?;
     checker::InferenceEngine::new().check(&module)?;
+    checker::AspectChecker::new().check(&module)?;
     checker::TypeChecker::new().check(&module)?;
     checker::ExhaustivenessChecker::new().check(&module)?;
     checker::EffectChecker::new().check(&module)?;

@@ -60,6 +60,7 @@ fn regulate_without_bounds_fails_checker() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
@@ -117,6 +118,7 @@ fn evolve_without_constraint_fails_checker() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
@@ -223,6 +225,7 @@ fn rust_emit_being_has_regulate_fn() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Organism".to_string(),
             describe: None,

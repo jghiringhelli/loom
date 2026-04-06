@@ -63,6 +63,7 @@ fn ecosystem_without_signals_fails() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "EmptyEco".to_string(),
@@ -104,6 +105,7 @@ fn ecosystem_signal_unknown_being_fails() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "BadEco".to_string(),
@@ -222,6 +224,7 @@ fn rust_emit_ecosystem_has_module() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -264,6 +267,7 @@ fn rust_emit_ecosystem_has_signal_structs() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -316,6 +320,7 @@ fn rust_emit_ecosystem_has_coordinate_fn() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -358,6 +363,7 @@ fn typescript_emit_ecosystem_has_namespace() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -400,6 +406,7 @@ fn openapi_emit_ecosystem_has_x_ecosystems() {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),

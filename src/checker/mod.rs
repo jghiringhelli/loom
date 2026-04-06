@@ -27,6 +27,7 @@ pub mod sidechannel;
 pub mod category;
 pub mod curryhow;
 pub mod selfcert;
+pub mod aspect;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -49,3 +50,4 @@ pub use sidechannel::SideChannelChecker;
 pub use category::CategoryChecker;
 pub use curryhow::CurryHowardChecker;
 pub use selfcert::SelfCertChecker;
+pub use aspect::AspectChecker;

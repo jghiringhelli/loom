@@ -207,6 +207,11 @@ impl<'src> Parser<'src> {
             Some((Token::Disjoint, _)) => Some("disjoint".to_string()),
             Some((Token::Frame, _)) => Some("frame".to_string()),
             Some((Token::Proof, _)) => Some("proof".to_string()),
+            Some((Token::Aspect, _)) => Some("aspect".to_string()),
+            Some((Token::Pointcut, _)) => Some("pointcut".to_string()),
+            Some((Token::Around, _)) => Some("around".to_string()),
+            Some((Token::After, _)) => Some("after".to_string()),
+            Some((Token::Annotation, _)) => Some("annotation".to_string()),
             Some((Token::Gradual, _)) => Some("gradual".to_string()),
             Some((Token::Boundary, _)) => Some("boundary".to_string()),
             Some((Token::Blame, _)) => Some("blame".to_string()),
@@ -310,6 +315,7 @@ impl<'src> Parser<'src> {
         let mut being_defs = Vec::new();
         let mut ecosystem_defs = Vec::new();
         let mut flow_labels = Vec::new();
+        let mut aspect_defs = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
                 invariants.push(self.parse_invariant()?);
@@ -327,6 +333,8 @@ impl<'src> Parser<'src> {
                 ecosystem_defs.push(self.parse_ecosystem_def()?);
             } else if self.at(&Token::Flow) {
                 flow_labels.push(self.parse_flow_label()?);
+            } else if self.at(&Token::Aspect) {
+                aspect_defs.push(self.parse_aspect_def()?);
             } else if self.at(&Token::Implements) {
                 // `implements Name` can also appear inline in the module body
                 self.advance();
@@ -365,6 +373,7 @@ impl<'src> Parser<'src> {
             being_defs,
             ecosystem_defs,
             flow_labels,
+            aspect_defs,
             items,
             span: Span::merge(&start, &end_span),
         })
@@ -849,6 +858,277 @@ impl<'src> Parser<'src> {
                 }
             }
         }
+    }
+
+    // ── M66: Aspect-Oriented Specification ───────────────────────────────────
+
+    /// Parse an `aspect Name ... end` block.
+    ///
+    /// ```text
+    /// aspect SecurityAspect
+    ///   pointcut: fn where @requires_auth
+    ///   before:   verify_token
+    ///   after_throwing: log_security_event
+    ///   order: 1
+    /// end
+    /// ```
+    fn parse_aspect_def(&mut self) -> Result<AspectDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Aspect)?;
+        let (name, _) = self.expect_ident()?;
+
+        let mut pointcut: Option<PointcutExpr> = None;
+        let mut before: Vec<String> = Vec::new();
+        let mut after: Vec<String> = Vec::new();
+        let mut after_throwing: Vec<String> = Vec::new();
+        let mut around: Vec<String> = Vec::new();
+        let mut on_failure: Option<String> = None;
+        let mut max_attempts: Option<u32> = None;
+        let mut order: Option<u32> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Pointcut) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                pointcut = Some(self.parse_pointcut_expr()?);
+            } else if self.at(&Token::Before) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (fn_name, _) = self.expect_ident()?;
+                before.push(fn_name);
+            } else if self.at(&Token::After) {
+                // Distinguish `after:` from `after_throwing:` via peek
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (fn_name, _) = self.expect_ident()?;
+                after.push(fn_name);
+            } else if self.at(&Token::Around) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (fn_name, _) = self.expect_ident()?;
+                around.push(fn_name);
+            } else if let Some(kw) = self.token_as_ident() {
+                match kw.as_str() {
+                    "after_throwing" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (fn_name, _) = self.expect_ident()?;
+                        after_throwing.push(fn_name);
+                    }
+                    "on_failure" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let (fn_name, _) = self.expect_ident()?;
+                        on_failure = Some(fn_name);
+                    }
+                    "max_attempts" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            max_attempts = Some(*n as u32);
+                            self.advance();
+                        }
+                    }
+                    "order" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            order = Some(*n as u32);
+                            self.advance();
+                        }
+                    }
+                    _ => {
+                        return Err(LoomError::parse(
+                            format!("unexpected aspect clause `{}`", kw),
+                            self.current_span(),
+                        ));
+                    }
+                }
+            } else {
+                return Err(LoomError::parse(
+                    format!("expected aspect clause, got {:?}", self.peek()),
+                    self.current_span(),
+                ));
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(AspectDef {
+            name,
+            pointcut,
+            before,
+            after,
+            after_throwing,
+            around,
+            on_failure,
+            max_attempts,
+            order,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a pointcut expression: `fn where @annotation [and/or ...]`
+    fn parse_pointcut_expr(&mut self) -> Result<PointcutExpr, LoomError> {
+        self.expect(Token::Fn)?;
+        self.expect(Token::Where)?;
+        self.parse_pointcut_condition()
+    }
+
+    /// Parse the condition part of a pointcut expression (after `fn where`).
+    fn parse_pointcut_condition(&mut self) -> Result<PointcutExpr, LoomError> {
+        let left = self.parse_pointcut_atom()?;
+        if self.at(&Token::And) {
+            self.advance();
+            let right = self.parse_pointcut_condition()?;
+            Ok(PointcutExpr::And(Box::new(left), Box::new(right)))
+        } else if self.at(&Token::Or) {
+            self.advance();
+            let right = self.parse_pointcut_condition()?;
+            Ok(PointcutExpr::Or(Box::new(left), Box::new(right)))
+        } else {
+            Ok(left)
+        }
+    }
+
+    /// Parse a single pointcut atom: `@annotation` or `effect includes Name`.
+    fn parse_pointcut_atom(&mut self) -> Result<PointcutExpr, LoomError> {
+        if self.at(&Token::At) {
+            self.advance();
+            let (ann_name, _) = self.expect_ident()?;
+            Ok(PointcutExpr::HasAnnotation(ann_name))
+        } else if self.at(&Token::Effect) || self.token_as_ident().as_deref() == Some("effect") {
+            self.advance();
+            // `effect includes EffectName`
+            if self.token_as_ident().as_deref() == Some("includes") {
+                self.advance();
+                let (effect_name, _) = self.expect_ident()?;
+                return Ok(PointcutExpr::EffectIncludes(effect_name));
+            }
+            Err(LoomError::parse(
+                "expected `includes` after `effect` in pointcut",
+                self.current_span(),
+            ))
+        } else {
+            Err(LoomError::parse(
+                format!("expected pointcut atom, got {:?}", self.peek()),
+                self.current_span(),
+            ))
+        }
+    }
+
+    // ── M66b: Annotation Algebra ──────────────────────────────────────────────
+
+    /// Parse an `annotation Name(params)` declaration (may be annotated with
+    /// meta-annotations before it, accumulated in `pending_annotations`).
+    ///
+    /// ```text
+    /// @separation(owns: [a, b])
+    /// @timing_safety(constant_time: true)
+    /// annotation concurrent_transfer(a: String, b: String)
+    /// ```
+    fn parse_annotation_decl(&mut self) -> Result<AnnotationDecl, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Annotation)?;
+        let (name, _) = self.expect_ident()?;
+
+        // Optional typed parameter list: `(param_name: TypeName, ...)`
+        let mut params: Vec<(String, String)> = Vec::new();
+        if self.at(&Token::LParen) {
+            self.advance();
+            while !self.at(&Token::RParen) && self.peek().is_some() {
+                let (param_name, _) = self.expect_ident()?;
+                self.expect(Token::Colon)?;
+                let (type_name, _) = self.expect_ident()?;
+                params.push((param_name, type_name));
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::RParen)?;
+        }
+
+        // Meta-annotations are any @annotations accumulated before this declaration
+        let meta_annotations = std::mem::take(&mut self.pending_annotations);
+
+        let end_span = self.current_span();
+        Ok(AnnotationDecl {
+            name,
+            params,
+            meta_annotations,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    // ── M67: Correctness Report ───────────────────────────────────────────────
+
+    /// Parse a `correctness_report: proved: ... unverified: ... end` block.
+    ///
+    /// ```text
+    /// correctness_report:
+    ///   proved:
+    ///     - membrane_integrity: separation_logic_proved
+    ///     - homeostasis:        refinement_bounds_verified
+    ///   unverified:
+    ///     - smt_check: requires_smt_feature
+    /// end
+    /// ```
+    fn parse_correctness_report(&mut self) -> Result<CorrectnessReport, LoomError> {
+        let start = self.current_span();
+        // Consume `correctness_report` ident + `:`
+        self.advance(); // past `correctness_report` ident
+        self.expect(Token::Colon)?;
+
+        let mut proved: Vec<ProvedClaim> = Vec::new();
+        let mut unverified: Vec<(String, String)> = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(section) = self.token_as_ident() {
+                match section.as_str() {
+                    "proved" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        // Parse `- property_name: checker_name` lines
+                        while self.at(&Token::Minus) {
+                            let claim_span = self.current_span();
+                            self.advance(); // past `-`
+                            let (property, _) = self.expect_ident()?;
+                            self.expect(Token::Colon)?;
+                            let (checker, _) = self.expect_ident()?;
+                            proved.push(ProvedClaim {
+                                property,
+                                checker,
+                                span: claim_span,
+                            });
+                        }
+                    }
+                    "unverified" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        while self.at(&Token::Minus) {
+                            self.advance(); // past `-`
+                            let (property, _) = self.expect_ident()?;
+                            self.expect(Token::Colon)?;
+                            let (reason, _) = self.expect_ident()?;
+                            unverified.push((property, reason));
+                        }
+                    }
+                    _ => break,
+                }
+            } else {
+                break;
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(CorrectnessReport {
+            proved,
+            unverified,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `flow label :: TypeA, TypeB, ...`.
@@ -1570,6 +1850,10 @@ impl<'src> Parser<'src> {
             Some(Token::Functor) => Ok(Item::Functor(self.parse_functor_def()?)),
             Some(Token::Monad) => Ok(Item::Monad(self.parse_monad_def()?)),
             Some(Token::Certificate) => Ok(Item::Certificate(self.parse_certificate_def()?)),
+            Some(Token::Annotation) => Ok(Item::AnnotationDecl(self.parse_annotation_decl()?)),
+            Some(Token::Ident(s)) if s == "correctness_report" => {
+                Ok(Item::CorrectnessReport(self.parse_correctness_report()?))
+            }
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),

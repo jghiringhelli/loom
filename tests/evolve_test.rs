@@ -20,6 +20,7 @@ fn make_module(being: BeingDef) -> loom::ast::Module {
         test_defs: vec![],
         lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],

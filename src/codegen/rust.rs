@@ -135,6 +135,34 @@ impl RustEmitter {
             }
         }
 
+        // Emit aspect blocks as doc comments (M66).
+        for aspect in &module.aspect_defs {
+            body.push('\n');
+            body.push_str(&format!(
+                "// aspect: {} (order: {})\n",
+                aspect.name,
+                aspect.order.map_or("unset".to_string(), |o| o.to_string())
+            ));
+            if let Some(pointcut) = &aspect.pointcut {
+                body.push_str(&format!("//   pointcut: {}\n", Self::fmt_pointcut(pointcut)));
+            }
+            for b in &aspect.before {
+                body.push_str(&format!("//   before: {}\n", b));
+            }
+            for a in &aspect.after {
+                body.push_str(&format!("//   after: {}\n", a));
+            }
+            for a in &aspect.after_throwing {
+                body.push_str(&format!("//   after_throwing: {}\n", a));
+            }
+            for a in &aspect.around {
+                body.push_str(&format!("//   around: {}\n", a));
+            }
+            if let Some(f) = &aspect.on_failure {
+                body.push_str(&format!("//   on_failure: {}\n", f));
+            }
+        }
+
         // Emit impl blocks for `implements`.
         for iface_name in &module.implements {
             // Find the interface def in this module (or a stub if not found)
@@ -171,6 +199,42 @@ impl RustEmitter {
                 Item::Functor(f) => self.emit_functor(f),
                 Item::Monad(m) => self.emit_monad(m),
                 Item::Certificate(cert) => self.emit_certificate(cert),
+                Item::AnnotationDecl(decl) => {
+                    // Annotation declarations emit as doc comments recording the algebra.
+                    let mut src = format!("// annotation {}(", decl.name);
+                    let params: Vec<String> = decl.params.iter()
+                        .map(|(n, t)| format!("{}: {}", n, t))
+                        .collect();
+                    src.push_str(&params.join(", "));
+                    src.push(')');
+                    if !decl.meta_annotations.is_empty() {
+                        let meta: Vec<String> = decl.meta_annotations.iter()
+                            .map(|a| format!("@{}", a.key))
+                            .collect();
+                        src.push_str(&format!(" [meta: {}]", meta.join(", ")));
+                    }
+                    src
+                }
+                Item::CorrectnessReport(report) => {
+                    // Correctness reports emit as structured doc comments.
+                    let mut src = String::from("// correctness_report:\n");
+                    if !report.proved.is_empty() {
+                        src.push_str("//   proved:\n");
+                        for claim in &report.proved {
+                            src.push_str(&format!(
+                                "//     - {}: {}\n",
+                                claim.property, claim.checker
+                            ));
+                        }
+                    }
+                    if !report.unverified.is_empty() {
+                        src.push_str("//   unverified:\n");
+                        for (property, reason) in &report.unverified {
+                            src.push_str(&format!("//     - {}: {}\n", property, reason));
+                        }
+                    }
+                    src
+                }
             };
             body.push('\n');
             for line in item_src.lines() {
@@ -848,6 +912,20 @@ impl RustEmitter {
             out.push_str(&format!("//   {}: {}\n", field.name, field.value));
         }
         out
+    }
+
+    /// Format a pointcut expression as a human-readable string for doc comments.
+    fn fmt_pointcut(pc: &PointcutExpr) -> String {
+        match pc {
+            PointcutExpr::HasAnnotation(ann) => format!("fn where @{}", ann),
+            PointcutExpr::EffectIncludes(eff) => format!("fn where effect includes {}", eff),
+            PointcutExpr::And(l, r) => {
+                format!("{} and {}", Self::fmt_pointcut(l), Self::fmt_pointcut(r))
+            }
+            PointcutExpr::Or(l, r) => {
+                format!("{} or {}", Self::fmt_pointcut(l), Self::fmt_pointcut(r))
+            }
+        }
     }
 
     /// Emit a refinement predicate expression, replacing `self` with `value`.
@@ -1597,6 +1675,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],
@@ -1632,6 +1711,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],
@@ -1667,6 +1747,7 @@ mod tests {
             test_defs: vec![],
             lifecycle_defs: vec![],
             temporal_defs: vec![],
+            aspect_defs: vec![],
             being_defs: vec![],
             ecosystem_defs: vec![],
             flow_labels: vec![],

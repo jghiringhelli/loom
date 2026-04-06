@@ -128,6 +128,13 @@ pub enum Token {
     #[token("law")]          Law,
     // ── Self-certifying compilation keywords (M65) ───────────────────────────────
     #[token("certificate")]  Certificate,
+    // ── AOP aspect keywords (M66) ────────────────────────────────────────────────
+    #[token("aspect")]       Aspect,
+    #[token("pointcut")]     Pointcut,
+    #[token("around")]       Around,
+    #[token("after")]        After,
+    // ── Annotation algebra keywords (M66b) ───────────────────────────────────────
+    #[token("annotation")]   Annotation,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
