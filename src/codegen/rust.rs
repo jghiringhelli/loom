@@ -747,14 +747,16 @@ impl RustEmitter {
 
     fn emit_refined_type(&self, rt: &RefinedType) -> String {
         let base = self.emit_type_expr(&rt.base_type);
-        let pred = self.emit_expr(&rt.predicate);
+        let pred = self.emit_predicate(&rt.predicate);
         format!(
             "#[derive(Debug, Clone, PartialEq)]\n\
              pub struct {name}({base});\n\n\
              impl TryFrom<{base}> for {name} {{\n\
              \x20\x20\x20\x20type Error = String;\n\
              \x20\x20\x20\x20fn try_from(value: {base}) -> Result<Self, Self::Error> {{\n\
-             \x20\x20\x20\x20\x20\x20\x20\x20debug_assert!({pred}, \"refined type invariant violated for {name}\");\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20if !({pred}) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20return Err(format!(\"refined type invariant violated for {name}: {{:?}}\", value));\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
              \x20\x20\x20\x20\x20\x20\x20\x20Ok({name}(value))\n\
              \x20\x20\x20\x20}}\n\
              }}\n",
@@ -762,6 +764,33 @@ impl RustEmitter {
             base = base,
             pred = pred,
         )
+    }
+
+    /// Emit a refinement predicate expression, replacing `self` with `value`.
+    fn emit_predicate(&self, expr: &Expr) -> String {
+        match expr {
+            Expr::Ident(name) if name == "self" => "value".to_string(),
+            Expr::BinOp { op, left, right, .. } => {
+                let l = self.emit_predicate(left);
+                let r = self.emit_predicate(right);
+                let op_str = match op {
+                    BinOpKind::Add => "+",
+                    BinOpKind::Sub => "-",
+                    BinOpKind::Mul => "*",
+                    BinOpKind::Div => "/",
+                    BinOpKind::Eq => "==",
+                    BinOpKind::Ne => "!=",
+                    BinOpKind::Lt => "<",
+                    BinOpKind::Le => "<=",
+                    BinOpKind::Gt => ">",
+                    BinOpKind::Ge => ">=",
+                    BinOpKind::And => "&&",
+                    BinOpKind::Or => "||",
+                };
+                format!("({} {} {})", l, op_str, r)
+            }
+            _ => self.emit_expr(expr),
+        }
     }
 
     // ── Function definition ───────────────────────────────────────────────

@@ -57,6 +57,9 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 4: type check ───────────────────────────────────────────────
     checker::TypeChecker::new().check(&module)?;
 
+    // ── Stage 4b: refinement type check ──────────────────────────────────
+    checker::RefinementChecker::new().check(&module)?;
+
     // ── Stage 5: exhaustiveness check ────────────────────────────────────
     checker::ExhaustivenessChecker::new().check(&module)?;
 

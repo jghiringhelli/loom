@@ -213,8 +213,8 @@ end
         "expected TryFrom impl:\n{}", out
     );
     assert!(
-        out.contains("debug_assert!(score_valid"),
-        "expected predicate debug_assert:\n{}", out
+        out.contains("if !(score_valid)") || out.contains("if !score_valid"),
+        "expected predicate validation check:\n{}", out
     );
 }
 
