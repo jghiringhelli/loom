@@ -1,51 +1,44 @@
 # Status.md
 
-## Last Updated: 2026-04-04
+## Last Updated: 2025-07-18
 ## Session Summary
-Project initialized with ForgeCraft. Tags: UNIVERSAL, CLI, LIBRARY.
+M56 Refinement Types — core implementation complete. ALX gate passed at 0.90.
 
-## Project Structure
-```
-[Run 'tree -L 3 --dirsfirst' to populate]
-```
+## Test Count
+- **Real compiler:** 424/424 tests passing ✅
+- **ALX S_realized:** 369/410 = 0.9000 — GATE PASSED ✅
 
 ## Feature Tracker
 | Feature | Status | Branch | Notes |
 |---------|--------|--------|-------|
-| Lexer | ✅ Done | main | Phase 1 |
-| Recursive-descent parser | ✅ Done | main | Phase 1 |
-| Type checker (symbol resolution) | ✅ Done | main | Phase 1 |
-| Effect checker (transitive effects) | ✅ Done | main | Phase 1 |
-| Rust code emitter | ✅ Done | main | Phase 1 |
-| CLI (`loom compile`) | ✅ Done | main | Phase 1 |
-| Full expression parser | ✅ Done | main | Phase 1 |
-| Corpus examples | ✅ Done | main | Phase 1 |
-| M2: Pattern Exhaustiveness Checking | ✅ Done | main | Phase 2, 8 tests |
-| M3: WASM Back-end | ✅ Done | main | Phase 2, 8 tests |
-| M1: Type Inference | ✅ Done | main | Phase 2, 14 tests |
-| M4: Language Server Protocol | ✅ Done | main | Phase 2, 9 tests |
-| M5: Dependency Injection | ✅ Done | main | Phase 3, 9 tests |
-| M6: Standard Library Type Mappings | ✅ Done | main | Phase 3, 10 tests |
-| M7: Generic Functions | ✅ Done | main | Phase 3, 7 tests |
-| M8: Multi-Module Project Compilation | ✅ Done | main | Phase 3, 6 tests |
+| M1–M8 (Phases 1–3) | ✅ Done | main | Core language |
+| M9–M12 (Phase 4) | ✅ Done | main | Inline, coerce, iter, algebraic types |
+| M13–M15 (Phase 5) | ✅ Done | main | OpenAPI, JSON Schema, TypeScript |
+| M16–M18 | ✅ Done | main | Contracts, typestate, privacy |
+| M19–M23 | ✅ Done | main | Being, teleos, safety, info-flow, units |
+| M41–M52 (Phase 8) | ✅ Done | main | Biological autopoiesis layer |
+| ALX Convergence | ✅ 0.90 | docs/lineage-collapsed-loop | Self-compiling experiment |
+| M56: Refinement Types | 🔧 In Progress | docs/lineage-collapsed-loop | Core done, SMT placeholder |
 
-## Known Bugs
-| ID | Description | Severity | Status |
-|----|-------------|----------|--------|
-| | | | |
-
-## Technical Debt
-| Item | Impact | Effort | Priority |
-|------|--------|--------|----------|
-| | | | |
+## M56 — Completed Work
+- Parser: unary minus support (`-expr` → `0 - expr`)
+- Inference: refined types resolve to base types via `refined_base_map`
+- RefinementChecker: structural predicate validation (Stage 4b in pipeline)
+- Rust codegen: `debug_assert!` → proper `TryFrom` with `Err` return
+- Rust codegen: `emit_predicate` replaces `self` → `value` in predicates
+- JSON Schema/OpenAPI: extract `minimum`/`maximum` from `self >= N and self <= M`
+- Cargo features: `core`, `smt`, `temporal`, `separation`, `full` gates
+- 14 new tests (11 integration + 3 unit)
 
 ## Current Context
-- Working on: Phase 3 complete — all 8 milestones shipped (M1–M8)
-- Blocked by: nothing
-- Decisions pending: none
-- Next steps: Phase 4 planning
+- Working on: M56 refinement types — core complete, SMT integration next
+- Branch: `docs/lineage-collapsed-loop`
+- Next steps: M58 temporal logic, M57 separation logic
 
 ## Architecture Decision Log
 | Date | Decision | Rationale | Status |
 |------|----------|-----------|--------|
-| | | | |
+| 2025-07-18 | Loom uses single `=` for equality | Language design: simpler syntax | Active |
+| 2025-07-18 | Refined types resolve to base in inference | Enables arithmetic on refined params | Active |
+| 2025-07-18 | Feature-gated expensive passes | Cargo features for optional Z3/SMT | Active |
+| 2025-07-18 | Bare predicates accepted without `self` | Backward compat with `valid_email` pattern | Active |
