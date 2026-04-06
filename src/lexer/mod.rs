@@ -111,6 +111,23 @@ pub enum Token {
     #[token("disjoint")]      Disjoint,
     #[token("frame")]         Frame,
     #[token("proof")]         Proof,
+    // ── Gradual typing keywords (M59) ────────────────────────────────────────────
+    #[token("gradual")]      Gradual,
+    #[token("boundary")]     Boundary,
+    #[token("blame")]        Blame,
+    // ── Probabilistic types keywords (M60) ───────────────────────────────────────
+    #[token("distribution")] Distribution,
+    // ── Dependent types keywords (M61) ───────────────────────────────────────────
+    #[token("proposition")]  Proposition,
+    #[token("termination")]  Termination,
+    // ── Side-channel keywords (M62) ──────────────────────────────────────────────
+    #[token("timing_safety")] TimingSafety,
+    // ── Category theory keywords (M63) ───────────────────────────────────────────
+    #[token("functor")]      Functor,
+    #[token("monad")]        Monad,
+    #[token("law")]          Law,
+    // ── Self-certifying compilation keywords (M65) ───────────────────────────────
+    #[token("certificate")]  Certificate,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
