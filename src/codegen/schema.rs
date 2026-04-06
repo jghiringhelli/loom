@@ -66,6 +66,7 @@ impl JsonSchemaEmitter {
                     defs.push(format!("    {:?}: {}", rt.name, schema));
                 }
                 Item::Fn(_) => {}
+                _ => {}
             }
         }
 
@@ -198,6 +199,7 @@ impl JsonSchemaEmitter {
                     items.join(", "), items.len(), items.len())
             }
             TypeExpr::Effect(_, inner) => self.type_expr_to_schema(inner),
+            TypeExpr::Dynamic => "{\"type\":\"object\"}".to_string(),
             TypeExpr::TypeVar(_) => "{\"type\":\"object\"}".to_string(),
         }
     }

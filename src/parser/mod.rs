@@ -207,6 +207,17 @@ impl<'src> Parser<'src> {
             Some((Token::Disjoint, _)) => Some("disjoint".to_string()),
             Some((Token::Frame, _)) => Some("frame".to_string()),
             Some((Token::Proof, _)) => Some("proof".to_string()),
+            Some((Token::Gradual, _)) => Some("gradual".to_string()),
+            Some((Token::Boundary, _)) => Some("boundary".to_string()),
+            Some((Token::Blame, _)) => Some("blame".to_string()),
+            Some((Token::Distribution, _)) => Some("distribution".to_string()),
+            Some((Token::Proposition, _)) => Some("proposition".to_string()),
+            Some((Token::Termination, _)) => Some("termination".to_string()),
+            Some((Token::TimingSafety, _)) => Some("timing_safety".to_string()),
+            Some((Token::Functor, _)) => Some("functor".to_string()),
+            Some((Token::Monad, _)) => Some("monad".to_string()),
+            Some((Token::Law, _)) => Some("law".to_string()),
+            Some((Token::Certificate, _)) => Some("certificate".to_string()),
             _ => None,
         }
     }
@@ -223,6 +234,17 @@ impl<'src> Parser<'src> {
             Some((Token::Precedes, _)) => Some("precedes".to_string()),
             Some((Token::Reaches, _)) => Some("reaches".to_string()),
             Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            Some((Token::Gradual, _)) => Some("gradual".to_string()),
+            Some((Token::Boundary, _)) => Some("boundary".to_string()),
+            Some((Token::Blame, _)) => Some("blame".to_string()),
+            Some((Token::Distribution, _)) => Some("distribution".to_string()),
+            Some((Token::Proposition, _)) => Some("proposition".to_string()),
+            Some((Token::Termination, _)) => Some("termination".to_string()),
+            Some((Token::TimingSafety, _)) => Some("timing_safety".to_string()),
+            Some((Token::Functor, _)) => Some("functor".to_string()),
+            Some((Token::Monad, _)) => Some("monad".to_string()),
+            Some((Token::Law, _)) => Some("law".to_string()),
+            Some((Token::Certificate, _)) => Some("certificate".to_string()),
             _ => None,
         }
     }
@@ -572,6 +594,261 @@ impl<'src> Parser<'src> {
             proof,
             span: Span::merge(&start, &end_span),
         })
+    }
+
+    /// Parse `gradual:` block.
+    fn parse_gradual_block(&mut self) -> Result<GradualBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Gradual)?;
+        self.expect(Token::Colon)?;
+        let mut input_type: Option<String> = None;
+        let mut boundary: Option<String> = None;
+        let mut output_type: Option<String> = None;
+        let mut on_cast_failure: Option<String> = None;
+        let mut blame: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if let Some((tok, _)) = self.tokens.get(self.pos + 1) {
+                    if matches!(tok, crate::lexer::Token::Colon) {
+                        self.advance(); // key
+                        self.advance(); // colon
+                        let val = self.parse_value_as_string()?;
+                        match key.as_str() {
+                            "input_type"      => input_type = Some(val),
+                            "boundary"        => boundary = Some(val),
+                            "output_type"     => output_type = Some(val),
+                            "on_cast_failure" => on_cast_failure = Some(val),
+                            "blame"           => blame = Some(val),
+                            _ => {}
+                        }
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(GradualBlock { input_type, boundary, output_type, on_cast_failure, blame, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `distribution:` block.
+    fn parse_distribution_block(&mut self) -> Result<DistributionBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Distribution)?;
+        self.expect(Token::Colon)?;
+        let mut model = String::new();
+        let mut mean: Option<String> = None;
+        let mut variance: Option<String> = None;
+        let mut bounds: Option<String> = None;
+        let mut convergence: Option<String> = None;
+        let mut stability: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if let Some((tok, _)) = self.tokens.get(self.pos + 1) {
+                    if matches!(tok, crate::lexer::Token::Colon) {
+                        self.advance(); // key
+                        self.advance(); // colon
+                        let val = self.parse_value_as_string()?;
+                        match key.as_str() {
+                            "model"       => model = val,
+                            "mean"        => mean = Some(val),
+                            "variance"    => variance = Some(val),
+                            "bounds"      => bounds = Some(val),
+                            "convergence" => convergence = Some(val),
+                            "stability"   => stability = Some(val),
+                            _ => {}
+                        }
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(DistributionBlock { model, mean, variance, bounds, convergence, stability, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `timing_safety:` block.
+    fn parse_timing_safety_block(&mut self) -> Result<TimingSafetyBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::TimingSafety)?;
+        self.expect(Token::Colon)?;
+        let mut constant_time = false;
+        let mut leaks_bits: Option<String> = None;
+        let mut method: Option<String> = None;
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if let Some((tok, _)) = self.tokens.get(self.pos + 1) {
+                    if matches!(tok, crate::lexer::Token::Colon) {
+                        self.advance(); // key
+                        self.advance(); // colon
+                        let val = self.parse_value_as_string()?;
+                        match key.as_str() {
+                            "constant_time" => constant_time = val == "true",
+                            "leaks_bits"    => leaks_bits = Some(val),
+                            "method"        => method = Some(val),
+                            _ => {}
+                        }
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(TimingSafetyBlock { constant_time, leaks_bits, method, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `proposition NAME = TypeExpr [where expr]`.
+    fn parse_proposition_def(&mut self) -> Result<PropositionDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Proposition)?;
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::Eq)?;
+        let base_type = self.parse_type_expr()?;
+        let predicate = if self.at(&Token::Where) {
+            self.advance();
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+        let end_span = self.current_span();
+        Ok(PropositionDef { name, base_type, predicate, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `functor NAME<TypeParams> [law: name]* end`.
+    fn parse_functor_def(&mut self) -> Result<FunctorDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Functor)?;
+        let (name, _) = self.expect_ident()?;
+        let type_params = self.parse_optional_type_params()?;
+        let mut laws = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Law) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let law_span = self.current_span();
+                let (law_name, _) = self.expect_ident()?;
+                laws.push(LawDecl { name: law_name, span: law_span });
+            } else {
+                break;
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(FunctorDef { name, type_params, laws, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `monad NAME<TypeParams> [law: name]* end`.
+    fn parse_monad_def(&mut self) -> Result<MonadDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Monad)?;
+        let (name, _) = self.expect_ident()?;
+        let type_params = self.parse_optional_type_params()?;
+        let mut laws = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Law) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let law_span = self.current_span();
+                let (law_name, _) = self.expect_ident()?;
+                laws.push(LawDecl { name: law_name, span: law_span });
+            } else {
+                break;
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(MonadDef { name, type_params, laws, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `certificate: field = value ... end`.
+    fn parse_certificate_def(&mut self) -> Result<CertificateDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Certificate)?;
+        self.expect(Token::Colon)?;
+        let mut fields = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if let Some((tok, _)) = self.tokens.get(self.pos + 1) {
+                    if matches!(tok, crate::lexer::Token::Eq) {
+                        let field_span = self.current_span();
+                        self.advance(); // key
+                        self.advance(); // =
+                        let val = self.parse_value_as_string()?;
+                        fields.push(CertificateField { name: key, value: val, span: field_span });
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(CertificateDef { fields, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Helper: parse optional `<A, B, ...>` type parameter list.
+    fn parse_optional_type_params(&mut self) -> Result<Vec<String>, LoomError> {
+        if self.at(&Token::Lt) {
+            self.advance();
+            let mut params = Vec::new();
+            while !self.at(&Token::Gt) && self.peek().is_some() {
+                let (param, _) = self.expect_ident()?;
+                params.push(param);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::Gt)?;
+            Ok(params)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Parse a value as a string — handles idents, string literals, numbers, booleans, `?`.
+    fn parse_value_as_string(&mut self) -> Result<String, LoomError> {
+        match self.tokens.get(self.pos) {
+            Some((Token::StrLit(s), _)) => {
+                let s = s.clone();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::IntLit(n), _)) => {
+                let s = n.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::FloatLit(f), _)) => {
+                let s = f.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::BoolLit(b), _)) => {
+                let s = b.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::Question, _)) => {
+                self.pos += 1;
+                Ok("?".to_string())
+            }
+            _ => {
+                if let Some(name) = self.token_as_ident() {
+                    self.pos += 1;
+                    Ok(name)
+                } else {
+                    Err(LoomError::parse(
+                        format!("expected value, got {:?}", self.tokens.get(self.pos).map(|(t,_)| t)),
+                        self.current_span(),
+                    ))
+                }
+            }
+        }
     }
 
     /// Parse `flow label :: TypeA, TypeB, ...`.
@@ -1286,11 +1563,13 @@ impl<'src> Parser<'src> {
         match self.peek() {
             Some(Token::Fn) => Ok(Item::Fn(self.parse_fn_def()?)),
             Some(Token::Type) => {
-                // Distinguish `type Name = base where pred` (refined) from
-                // `type Name = field: T, … end` (product type).
                 Ok(self.parse_type_or_refined()?)
             }
             Some(Token::Enum) => Ok(Item::Enum(self.parse_enum_def()?)),
+            Some(Token::Proposition) => Ok(Item::Proposition(self.parse_proposition_def()?)),
+            Some(Token::Functor) => Ok(Item::Functor(self.parse_functor_def()?)),
+            Some(Token::Monad) => Ok(Item::Monad(self.parse_monad_def()?)),
+            Some(Token::Certificate) => Ok(Item::Certificate(self.parse_certificate_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1343,8 +1622,13 @@ impl<'src> Parser<'src> {
         let mut ensures = Vec::new();
         let mut with_deps = Vec::new();
 
-        // Collect `require:` / `ensure:` / `with` / `separation:` clauses.
+        // Collect `require:` / `ensure:` / `with` / `separation:` / new M59-M64 clauses.
         let mut separation: Option<SeparationBlock> = None;
+        let mut gradual: Option<GradualBlock> = None;
+        let mut distribution: Option<DistributionBlock> = None;
+        let mut timing_safety: Option<TimingSafetyBlock> = None;
+        let mut termination: Option<String> = None;
+        let mut proofs: Vec<ProofAnnotation> = Vec::new();
         loop {
             if self.at(&Token::Require) {
                 requires.push(self.parse_contract()?);
@@ -1356,6 +1640,23 @@ impl<'src> Parser<'src> {
                 with_deps.push(dep);
             } else if self.at(&Token::Separation) {
                 separation = Some(self.parse_separation_block()?);
+            } else if self.at(&Token::Gradual) {
+                gradual = Some(self.parse_gradual_block()?);
+            } else if self.at(&Token::Distribution) {
+                distribution = Some(self.parse_distribution_block()?);
+            } else if self.at(&Token::TimingSafety) {
+                timing_safety = Some(self.parse_timing_safety_block()?);
+            } else if self.at(&Token::Termination) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_ident()?;
+                termination = Some(val);
+            } else if self.at(&Token::Proof) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let start_proof = self.current_span();
+                let (strategy, _) = self.expect_ident()?;
+                proofs.push(ProofAnnotation { strategy, span: start_proof });
             } else {
                 break;
             }
@@ -1380,6 +1681,11 @@ impl<'src> Parser<'src> {
             ensures,
             with_deps,
             separation,
+            gradual,
+            distribution,
+            timing_safety,
+            termination,
+            proofs,
             body,
             span: Span::merge(&start, &end_span),
         })
@@ -1543,6 +1849,10 @@ impl<'src> Parser<'src> {
                 }
                 self.expect(Token::RParen)?;
                 Ok(first)
+            }
+            Some(Token::Question) => {
+                self.advance();
+                Ok(TypeExpr::Dynamic)
             }
             Some(Token::Ident(_)) => {
                 let (name, _) = self.expect_ident()?;

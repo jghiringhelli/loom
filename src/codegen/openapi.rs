@@ -204,6 +204,7 @@ impl OpenApiEmitter {
                     schemas.push(format!("      {:?}: {}", rt.name, schema));
                 }
                 Item::Fn(_) => {}
+                _ => {}
             }
         }
 

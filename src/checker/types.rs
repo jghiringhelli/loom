@@ -68,6 +68,7 @@ impl SymbolTable {
                     table.types.insert(rt.name.clone());
                     table.refined_types.insert(rt.name.clone());
                 }
+                _ => {}
             }
         }
         table

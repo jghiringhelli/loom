@@ -133,6 +133,7 @@ fn collect_known_types(module: &Module) -> HashSet<String> {
             Item::Enum(ed) => { types.insert(ed.name.clone()); }
             Item::RefinedType(rt) => { types.insert(rt.name.clone()); }
             Item::Fn(_) => {}
+            _ => {}
         }
     }
     types

@@ -147,6 +147,7 @@ impl TypeScriptEmitter {
                 Item::Enum(ed) => self.emit_enum_def(ed),
                 Item::Fn(fd) => self.emit_fn_def(fd),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
+                _ => String::new(),
             };
             for line in item_src.lines() {
                 if line.is_empty() {
@@ -423,6 +424,7 @@ impl TypeScriptEmitter {
                 let es: Vec<String> = elems.iter().map(|e| self.emit_type_expr(e)).collect();
                 format!("[{}]", es.join(", "))
             }
+            TypeExpr::Dynamic => "any".to_string(),
             TypeExpr::TypeVar(id) => format!("/* infer:?{} */", id),
         }
     }

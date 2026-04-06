@@ -64,6 +64,7 @@ impl Substitution {
             TypeExpr::Tuple(elems) => {
                 TypeExpr::Tuple(elems.iter().map(|e| self.apply(e)).collect())
             }
+            TypeExpr::Dynamic => ty.clone(),
         }
     }
 
@@ -160,6 +161,9 @@ pub fn unify(t1: &TypeExpr, t2: &TypeExpr, subst: &mut Substitution, span: Span)
             Ok(())
         }
 
+        // Dynamic type is compatible with anything.
+        (TypeExpr::Dynamic, _) | (_, TypeExpr::Dynamic) => Ok(()),
+
         // All other combinations are mismatches.
         _ => Err(LoomError::UnificationError {
             msg: format!("type mismatch: `{:?}` vs `{:?}`", t1, t2),
@@ -180,6 +184,7 @@ pub fn occurs(v: u32, ty: &TypeExpr) -> bool {
         TypeExpr::Option(inner) => occurs(v, inner),
         TypeExpr::Result(ok, err) => occurs(v, ok) || occurs(v, err),
         TypeExpr::Tuple(elems) => elems.iter().any(|e| occurs(v, e)),
+        TypeExpr::Dynamic => false,
     }
 }
 
