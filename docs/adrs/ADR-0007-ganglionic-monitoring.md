@@ -229,3 +229,92 @@ weights. The system gets better at Loom-universe pattern matching over time.
 - M106: Migration (evolvable layer)
 - M108: Diagram emission (proprioception layer)
 - M111: Evolution vector checker (semantic clustering)
+
+---
+
+## Chronicle Integration — The Hippocampal Layer is Already Built
+
+**Chronicle MCP** (`workspace/PragmaWorks/mcp/chronicle`) implements a fully working
+hippocampal memory system. Layer 3 of this architecture does NOT need to be built from
+scratch. Chronicle IS the hippocampus. Loom's monitoring architecture integrates with it.
+
+### Memory type mapping
+
+| Chronicle type | Decay | Loom source |
+|---|---|---|
+| `episodic` | fast (half-life ~7d) | `journal:` block entries (M104) — events, anomalies, what happened |
+| `semantic` | slow (half-life ~35d) | type lattice facts, checker warnings — what is currently true |
+| `procedural` | none | Migration patterns (M106), ALX-proven sequences — how to evolve |
+| `architectural` | none | ADRs, `manifest:` blocks (M101) — why it was built this way |
+| `insight` | none (synthesized) | M111 evolutionary clusters — cross-being patterns |
+
+### Storage tier mapping
+
+| Chronicle tier | Loom equivalent |
+|---|---|
+| `buffer` → `working` → `core` | Layer 1 signal → Layer 2 propagation → Layer 3 consolidation |
+| Tier promotion at 3/10 accesses | Pattern is "learnt" when confirmed across 3+ beings or 10+ ALX runs |
+| Weight formula: `w += boost × (1-w)` | Same formula for evolutionary pattern reinforcement in M111 |
+
+### What Chronicle's roadmap item "vector embeddings" already is
+
+Chronicle's roadmap lists "Vector embeddings for semantic `recall`" as a future item.
+Loom's M111 EvolutionVectorChecker provides exactly these vectors: a 12-dimensional
+type-lattice embedding where each dimension encodes semantic position in the type space
+(numeric_int, numeric_float, numeric_precise, string_raw, ..., monetary, boolean, composite).
+
+These vectors can be stored directly in Chronicle's `embedding` field on each memory.
+A `journal:` entry about a Float→Double migration gets vector `[0,1,0, 0,0,0, ...]`.
+Chronicle's recall then surfaces semantically similar past migrations — cross-project,
+cross-session, across all beings that have ever evolved through similar type space.
+
+### The Distill pipeline IS the sleep consolidation cycle
+
+Chronicle's `DistillService` builds a prompt from session memories and asks an LLM to
+synthesize `profile`, `lesson`, `playbook`, and `bias` insights. This is exactly the
+hippocampal sleep consolidation pattern:
+
+```
+journal: entries (episodic)  →  Chronicle session_end  →  distill  →  insight memories
+                                                                          ↓
+                                                              micro-LLM fine-tune corpus
+```
+
+The micro-LLM's training data IS Chronicle's `insight` table. The distill step
+consolidates episodic journal entries into cross-session procedural and architectural
+memories that then become training examples for the Loom-specific model.
+
+### Integration architecture
+
+```
+Loom being (runtime)
+  │  journal: entry (M104) ─────────────────────────────► Chronicle: remember(episodic)
+  │  migration: step (M106) ────────────────────────────► Chronicle: remember(procedural)
+  │  regulate: violation ────────────────────────────────► Chronicle: remember(episodic) + trigger
+  │  M111 vector match ──────────────────────────────────► Chronicle: embedding on memory
+  │
+  └─ ALX experiment result ─────────────────────────────► Chronicle: remember(architectural)
+
+Chronicle session_end
+  └─ distill ─────────────────────────────────────────► insights table
+                                                         └─ micro-LLM fine-tune corpus
+                                                              └─ GGUF INT4 weights
+                                                                   └─ Loom runtime Layer 3
+```
+
+### What this means for implementation order
+
+1. **Now (structural):** `journal:` and `migration:` blocks already emit the right data.
+   No new Loom compiler work needed for Chronicle integration.
+2. **Layer 1 complete:** Ganglionic monitoring is structural enforcement (compile-time).
+3. **Layer 2 next:** Wire `umwelt: detects:` signals to a signal bus interface that
+   Chronicle's trigger system can observe.
+4. **Layer 3:** Chronicle + M111 vectors + distill pipeline → micro-LLM training corpus.
+   Build the BPE tokenizer on Loom's ~200-token vocabulary. Train, quantize (GGUF INT4).
+5. **Layer 4:** MCP connection to external LLM, consuming Chronicle's `core` tier memories
+   as context and filing GitHub issues from `AnomalyReport` structured values.
+
+The key simplification: **do not build a separate memory system for Loom's self-monitoring.
+Use Chronicle. Loom programs ARE Chronicle clients.** Each being that runs produces
+Chronicle memories. The distill pipeline is the connection between episodic experience
+and architectural knowledge. The micro-LLM emerges from the consolidated insights table.
