@@ -1,14 +1,14 @@
 # Status.md
 
-## Last Updated: 2026-04-06
+## Last Updated: 2026-04-11
 ## Session Summary
-M83-M87: sense stdlib and tensor types. M93/M94: operational and analytical store checkers with codegen stubs. 621 tests passing.
+M98/M99: session types and algebraic effect handlers. 678 tests passing (up from 634 baseline).
 
 ## Test Count
-- **Total tests:** 621/621 passing ✅
-- **M93 operational stores:** Relational (unique PK, field uniqueness, FK references), KeyValue (TTL validation, hashed key hint), Document (schema-flexible, dynamic Json fields)
-- **M94 analytical stores:** Columnar (scalar field requirement, partition key), Snowflake (fact+dimension validation, measure annotations), Hypercube (axis/measure structure, >12 dimension warning per Gray 1996)
-- **Rust codegen:** Typed struct stubs with connector comments for all store kinds
+- **Total tests:** 678 passing ✅
+- **M98 Session Types:** 6 new tests — two-role session parse, multi-step, duality declaration, duality violation checker, Channel fn sig, @implements annotation
+- **M99 Algebraic Effect Handlers:** 6 new tests — single/multi operation, type params, handle block, multiple handlers, Effect<[Log]> type expr
+- Also: `describe:` now accepted anywhere in fn body (not just before `::`), `implements` added to token_as_ident()
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -51,13 +51,17 @@ M83-M87: sense stdlib and tensor types. M93/M94: operational and analytical stor
 | M95: Specialized Stores | ✅ Done | Graph (provenance/weight annotations, edge referential integrity), TimeSeries (retention/resolution validation), Vector (HNSW/IVFFlat/LSH/BruteForce index validation) |
 | M96: Local Stores | ✅ Done | InMemory (LRU/LFU/ARC eviction per Megiddo 2003, capacity validation), FlatFile (Parquet/Arrow/HDF5/CSV/JsonLines/MsgPack + compression) |
 | M97: Distributed Stores | ✅ Done | Distributed MapReduce (Dean & Ghemawat 2004): map/reduce/combine pipeline; DistributedLog (Kreps 2011): partitioned append-only log with consumer offset declarations |
+| M98: Session Types | ✅ Done | session/role/send/recv/duality, SessionChecker (Honda 1993) |
+| M99: Effect Handlers | ✅ Done | effect/operation/handle/with, EffectHandlerChecker (Plotkin & Pretnar 2009) |
 | ALX-1 through ALX-4 | ✅ Done | Self-fix loop experiments all green |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
-- All 621 tests passing (594 baseline + 9 M95-M97 + 18 M83-M87/M93-M94)
-- Parser fix: parse_inline_fields accepts keyword tokens as contextual field names (e.g. `type`, `action`)
-- Pre-field annotations in inline fields: `{ @provenance field: Type, ... }`
+- **678 tests passing** (634 baseline + 12 M98/M99 + additional from M85/M88/M84)
+- Session types: `session` keyword, role blocks, duality checking (send/recv correspondence)
+- Effect handlers: `effect` keyword, `operation` declarations, `handle...with` blocks, exhaustiveness checking
+- Parser: `describe:` now valid anywhere in fn body (not just before `::`)
+- Token: `implements` added to `token_as_ident()` enabling `@implements(...)` annotations
 
 ## Next Steps
 1. **publish-merge**: Merge `docs/lineage-collapsed-loop` → `main`, then `cargo publish loom-lang v0.1.0`
