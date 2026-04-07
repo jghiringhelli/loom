@@ -279,6 +279,11 @@ pub enum Token {
     #[token("~")] Tilde,
     #[token("?")] Question,
     #[token("@")] At,
+    // ── Provenance (M102) ─────────────────────────────────────────────────────
+    #[token("provenance")]  Provenance,
+    // ── Boundary exports/seals (M103) ─────────────────────────────────────────
+    #[token("export")]  Export,
+    #[token("seal")]    Seal,
 }
 
 // Aliases for use in type-expression parsing contexts.

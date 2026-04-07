@@ -96,6 +96,7 @@ fn checker_rejects_empty_onset() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -157,6 +158,7 @@ fn checker_passes_valid_senescence() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {

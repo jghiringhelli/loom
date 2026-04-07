@@ -25,6 +25,20 @@ fn read_alx(filename: &str) -> String {
 #[test]
 fn alx1_full_feature_matrix_compiles() {
     let source = read_alx("ALX-1-feature-matrix.loom");
+    // Debug: show fn names in module to diagnose aspect checker
+    let tokens = loom::lexer::Lexer::tokenize(&source).expect("lex");
+    let module = loom::parser::Parser::new(&tokens).parse_module().expect("parse ALX-1");
+    let fn_names: Vec<&str> = module.items.iter().filter_map(|i| {
+        if let loom::ast::Item::Fn(f) = i { Some(f.name.as_str()) } else { None }
+    }).collect();
+    eprintln!("Module items count: {}", module.items.len());
+    eprintln!("Fn names in module.items: {:?}", fn_names);
+    // Debug: run the aspect checker directly to see what it finds
+    let aspect_result = loom::checker::AspectChecker::new().check(&module);
+    eprintln!("Direct aspect check result: {:?}", aspect_result.is_ok());
+    if let Err(ref errs) = aspect_result {
+        for e in errs { eprintln!("  Aspect error: {:?}", e); }
+    }
     let result = compile(&source);
     assert!(
         result.is_ok(),

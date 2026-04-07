@@ -96,6 +96,7 @@ fn checker_rejects_empty_toward() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -157,6 +158,7 @@ fn checker_rejects_empty_despite() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {

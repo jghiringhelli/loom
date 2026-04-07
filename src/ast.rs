@@ -347,6 +347,8 @@ pub struct BeingDef {
     pub journal: Option<JournalBlock>,
     /// M105: Scenario blocks — executable acceptance criteria (Beck 2002 / BDD).
     pub scenarios: Vec<ScenarioBlock>,
+    /// M103: Boundary block — public API surface declaration.
+    pub boundary: Option<BoundaryBlock>,
     pub span: Span,
 }
 
@@ -661,6 +663,8 @@ pub enum Item {
     /// Property-based test declaration — M109.
     /// QuickCheck (Claessen & Hughes 2000) → fast-check → Hypothesis → Loom `property:`.
     Property(PropertyBlock),
+    /// Boundary block — module-level API surface declaration. M103.
+    BoundaryBlock(BoundaryBlock),
 }
 
 // ── M109: Property-Based Testing (QuickCheck 2000 → fast-check → Hypothesis) ──
@@ -683,6 +687,42 @@ pub struct PropertyBlock {
     pub shrink: bool,
     /// Number of random samples to generate (default: 100).
     pub samples: u64,
+    pub span: Span,
+}
+
+// ── M102: Provenance — Data Lineage Tracking (W3C PROV-DM 2013) ──────────────
+
+/// Data lineage label — tracks the origin and transformation chain of a value.
+///
+/// W3C PROV-DM (2013) data provenance model → Buneman (2001) "Why and Where"
+/// provenance → Loom `@provenance` annotation (M102).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProvenanceLabel {
+    /// Origin identifier (e.g. "sensor:temperature", "api:exchange").
+    pub source: String,
+    /// Chain of transformations applied to the value.
+    pub transformation: Vec<String>,
+    /// Confidence level 0.0–1.0. None = unspecified.
+    pub confidence: Option<f64>,
+    /// Whether to record a timestamp when the value is produced.
+    pub timestamp: bool,
+}
+
+// ── M103: Boundary — Explicit Public API Surface Declaration ─────────────────
+
+/// A boundary block — declares exactly which types and functions are public API.
+///
+/// Everything not listed is private by default. The compiler enforces that no
+/// internal type leaks through a public function signature.
+/// Parnas (1972) information hiding → Composable GS property → Loom `boundary:` (M103).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoundaryBlock {
+    /// Names explicitly exported as public API.
+    pub exports: Vec<String>,
+    /// Names explicitly declared private (must not appear in public signatures).
+    pub private: Vec<String>,
+    /// Names exported but not extendable outside the declaring module.
+    pub sealed: Vec<String>,
     pub span: Span,
 }
 

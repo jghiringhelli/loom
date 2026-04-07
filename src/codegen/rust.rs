@@ -305,6 +305,15 @@ impl RustEmitter {
                         pb.name
                     )
                 }
+                Item::BoundaryBlock(bb) => {
+                    // M103: boundary block emits a doc comment summarising the API surface.
+                    format!(
+                        "// boundary: exports=[{}] private=[{}] sealed=[{}]\n",
+                        bb.exports.join(", "),
+                        bb.private.join(", "),
+                        bb.sealed.join(", ")
+                    )
+                }
             };
             body.push('\n');
             for line in item_src.lines() {

@@ -76,6 +76,7 @@ fn test_m101_missing_file_is_error() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
 
@@ -147,6 +148,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
 

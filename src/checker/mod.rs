@@ -56,6 +56,8 @@ pub mod minimal;
 pub mod journal;
 pub mod scenario;
 pub mod property_checker;
+pub mod provenance;
+pub mod boundary;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -107,3 +109,5 @@ pub use minimal::MinimalChecker;
 pub use journal::JournalChecker;
 pub use scenario::ScenarioChecker;
 pub use property_checker::PropertyChecker;
+pub use provenance::ProvenanceChecker;
+pub use boundary::BoundaryChecker;

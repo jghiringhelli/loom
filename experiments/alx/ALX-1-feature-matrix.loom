@@ -181,6 +181,16 @@ end
 
 -- ── M66: AOP Aspects ─────────────────────────────────────────────────────────
 
+fn audit_call :: Unit -> Unit
+  require: true
+  ensure: true
+end
+
+fn log_call :: Unit -> Unit
+  require: true
+  ensure: true
+end
+
 aspect SecurityAspect
   pointcut: fn where @trace
   before: audit_call
@@ -218,6 +228,12 @@ being BiologicalBeing
   @corrigible
 
   telos: "demonstrate biological features"
+  modifiable_by: operator
+  end
+
+  telomere:
+    limit: 100000
+    on_exhaustion: apoptosis
   end
 
   matter:
@@ -319,7 +335,12 @@ being EvolvingService
     data: String
   end
 
-  migration AddDataField
+  telomere:
+    limit: 200000
+    on_exhaustion: apoptosis
+  end
+
+  migration AddDataField:
     from: 1
     to: 2
     breaking: false

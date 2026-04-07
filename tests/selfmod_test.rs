@@ -96,6 +96,7 @@ fn base_being() -> BeingDef {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     }
 }

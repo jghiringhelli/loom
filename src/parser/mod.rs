@@ -298,6 +298,9 @@ impl<'src> Parser<'src> {
             Some((Token::Handle, _))      => Some("handle".to_string()),
             Some((Token::Operation, _))   => Some("operation".to_string()),
             Some((Token::Implements, _))  => Some("implements".to_string()),
+            Some((Token::Export, _))      => Some("export".to_string()),
+            Some((Token::Seal, _))        => Some("seal".to_string()),
+            Some((Token::Provenance, _))  => Some("provenance".to_string()),
             _ => None,
         }
     }
@@ -367,6 +370,9 @@ impl<'src> Parser<'src> {
             Some((Token::Duality, _))     => Some("duality".to_string()),
             Some((Token::Handle, _))      => Some("handle".to_string()),
             Some((Token::Operation, _))   => Some("operation".to_string()),
+            Some((Token::Export, _))      => Some("export".to_string()),
+            Some((Token::Seal, _))        => Some("seal".to_string()),
+            Some((Token::Provenance, _))  => Some("provenance".to_string()),
             _ => None,
         }
     }
@@ -1642,6 +1648,7 @@ impl<'src> Parser<'src> {
         let mut journal: Option<JournalBlock> = None;
         let mut scenarios: Vec<ScenarioBlock> = Vec::new();
         let mut migrations: Vec<MigrationBlock> = Vec::new();
+        let mut boundary: Option<BoundaryBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -2294,6 +2301,8 @@ impl<'src> Parser<'src> {
                 journal = Some(self.parse_journal_block()?);
             } else if self.at(&Token::Scenario) {
                 scenarios.push(self.parse_scenario_block()?);
+            } else if self.at(&Token::Boundary) {
+                boundary = Some(self.parse_boundary_block()?);
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -2328,6 +2337,7 @@ impl<'src> Parser<'src> {
             migrations,
             journal,
             scenarios,
+            boundary,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -2395,6 +2405,9 @@ impl<'src> Parser<'src> {
                 self.advance(); // consume `:`
                 if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                     adapter = Some(s.clone());
+                    self.pos += 1;
+                } else if let Some(name) = self.token_as_ident() {
+                    adapter = Some(name);
                     self.pos += 1;
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "breaking")
@@ -2968,6 +2981,7 @@ impl<'src> Parser<'src> {
             Some(Token::Effect) => Ok(Item::Effect(self.parse_effect_def()?)),
             Some(Token::UseCase) => Ok(Item::UseCase(self.parse_usecase_block()?)),
             Some(Token::Property) => Ok(Item::Property(self.parse_property_block()?)),
+            Some(Token::Boundary) => Ok(Item::BoundaryBlock(self.parse_boundary_block()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -5012,7 +5026,83 @@ impl<'src> Parser<'src> {
 
     // -- M109: Property-based test block (QuickCheck 2000 -> fast-check -> Hypothesis) --
 
-    /// Parse a `property NAME: forall VAR: TYPE invariant: EXPR [shrink: BOOL] [samples: INT] end`.
+    // -- M103: Boundary block (Parnas 1972 information hiding) --
+
+    /// Parse a `boundary: export: A B C private: D E seal: F end` block.
+    ///
+    /// Grammar:
+    /// ```text
+    /// boundary:
+    ///   export: Name1 Name2
+    ///   private: Name3
+    ///   seal: Name4
+    /// end
+    /// ```
+    fn parse_boundary_block(&mut self) -> Result<BoundaryBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Boundary)?;
+        self.expect(Token::Colon)?;
+        let mut exports = Vec::new();
+        let mut private = Vec::new();
+        let mut sealed = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Export) {
+                self.advance(); // consume `export`
+                self.expect(Token::Colon)?;
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let is_next_section = self.at(&Token::Export)
+                        || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "private")
+                        || self.at(&Token::Seal);
+                    if is_next_section { break; }
+                    if let Some(name) = self.token_as_ident() {
+                        exports.push(name);
+                        self.pos += 1;
+                    } else {
+                        break;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "private")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume `private`
+                self.advance(); // consume `:`
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let is_next_section = self.at(&Token::Export)
+                        || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "private")
+                        || self.at(&Token::Seal);
+                    if is_next_section { break; }
+                    if let Some(name) = self.token_as_ident() {
+                        private.push(name);
+                        self.pos += 1;
+                    } else {
+                        break;
+                    }
+                }
+            } else if self.at(&Token::Seal) {
+                self.advance(); // consume `seal`
+                self.expect(Token::Colon)?;
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let is_next_section = self.at(&Token::Export)
+                        || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "private")
+                        || self.at(&Token::Seal);
+                    if is_next_section { break; }
+                    if let Some(name) = self.token_as_ident() {
+                        sealed.push(name);
+                        self.pos += 1;
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(BoundaryBlock { exports, private, sealed, span: Span::merge(&start, &end_span) })
+    }
+
+
     ///
     /// Accepts both forms:
     /// - `property NAME: forall ...` (name then optional colon)

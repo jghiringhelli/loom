@@ -261,14 +261,25 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     }
 
     // ── Stage 9w: property-based test validation (M109) ───────────────────
-    // samples: 0 is a hard error; var-not-referenced is a warning.
-    let property_errors: Vec<LoomError> = checker::PropertyChecker::new()
+
+    // ── Stage 9x: provenance lineage check (M102) ─────────────────────────
+    let provenance_errors: Vec<LoomError> = checker::ProvenanceChecker::new()
         .check(&module)
         .into_iter()
         .filter(|e| !format!("{}", e).contains("[warn]"))
         .collect();
-    if !property_errors.is_empty() {
-        return Err(property_errors);
+    if !provenance_errors.is_empty() {
+        return Err(provenance_errors);
+    }
+
+    // ── Stage 9y: boundary information hiding check (M103) ────────────────
+    let boundary_errors: Vec<LoomError> = checker::BoundaryChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !boundary_errors.is_empty() {
+        return Err(boundary_errors);
     }
 
     // ── Stage 9: code generation ──────────────────────────────────────────

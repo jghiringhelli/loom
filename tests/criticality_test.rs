@@ -96,6 +96,7 @@ fn checker_rejects_inverted_bounds() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -159,6 +160,7 @@ fn checker_passes_valid_criticality() {
         migrations: vec![],
         journal: None,
         scenarios: vec![],
+        boundary: None,
         span: Span::synthetic(),
     };
     let module = Module {
