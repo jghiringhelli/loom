@@ -2347,7 +2347,8 @@ impl<'src> Parser<'src> {
         let start = self.current_span();
         self.expect(Token::Migration)?;
         let (name, _) = self.expect_ident()?;
-        self.expect(Token::Colon)?;
+        // Optional colon after migration name.
+        if self.at(&Token::Colon) { self.advance(); }
 
         let mut from_field = String::new();
         let mut to_field = String::new();
@@ -3199,11 +3200,16 @@ impl<'src> Parser<'src> {
         let mut fields = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             let field_start = self.current_span();
+            // Parse optional field-level annotations before the field name (@pii, @gdpr, etc.)
+            let leading_annotations = self.parse_annotations();
+            if self.at(&Token::End) { break; }
             let (field_name, _) = self.expect_ident()?;
             self.expect(Token::Colon)?;
             let ty = self.parse_type_expr()?;
-            // Parse optional field-level privacy annotations (@pii, @gdpr, etc.)
-            let annotations = self.parse_annotations();
+            // Also accept trailing annotations after the type expression.
+            let mut trailing_annotations = self.parse_annotations();
+            let mut annotations = leading_annotations;
+            annotations.append(&mut trailing_annotations);
             let field_end = self.current_span();
             fields.push(FieldDef {
                 name: field_name,
@@ -5007,10 +5013,17 @@ impl<'src> Parser<'src> {
     // -- M109: Property-based test block (QuickCheck 2000 -> fast-check -> Hypothesis) --
 
     /// Parse a `property NAME: forall VAR: TYPE invariant: EXPR [shrink: BOOL] [samples: INT] end`.
+    ///
+    /// Accepts both forms:
+    /// - `property NAME: forall ...` (name then optional colon)
+    /// - `property: NAME forall ...` (colon before name, corpus-style)
     fn parse_property_block(&mut self) -> Result<PropertyBlock, LoomError> {
         let start = self.current_span();
         self.expect(Token::Property)?;
+        // Accept `property:` (colon before name) OR `property NAME` (name first).
+        if self.at(&Token::Colon) { self.advance(); }
         let (name, _) = self.expect_any_name()?;
+        // Accept optional colon after name: `property NAME:`.
         if self.at(&Token::Colon) { self.advance(); }
         self.expect(Token::Forall)?;
         let (var_name, _) = self.expect_ident()?;
