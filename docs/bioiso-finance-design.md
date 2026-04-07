@@ -53,15 +53,37 @@ is a BIOISO entity. This file is the proof.
 
 ---
 
-## Key findings from source project analysis
+## Key findings from source project analysis (updated E74, Apr 2026)
 
-### Aegis backtested performance (Session 22, $100K, Jan 2022–Mar 2026)
+⚠️  Earlier findings were stale (Session 22). Aegis has run 52+ more experiment sessions.
+The old 4x leverage / HF=1.65 config would be catastrophic on 2022-2026 data.
+
+### Current optimal config (E74, $100K, Jan 2022–Mar 2026)
 ```
-HF 1.65, 4× HL leverage, covered calls 10% APY, 30-day emergency lockout:
-  Full period return:  +1,958%
-  Bull entry return:   +2,669% (with HF=1.5)
-  CAGR:               54% at HF=1.65
-  Capital scaling (non-linear): $10K→+26.8%, $100K→+143%, $500K→+600%+
+HF=1.7 dynamic, HL=1.20, covered_calls=15% APY, 30-day lockout:
+  Return: +184.9%  Sharpe: 0.91  Max DD: 48.3%  CAGR: ~30%
+
+Full-cycle champion (Sept 2019–Mar 2026):
+  HF=1.5, HL=1.20, CC=15%, MTS=0.50 → +2,669%
+```
+
+### Critical strategy evolution (Sessions 22 → E74)
+| Aspect | Old | Current |
+|---|---|---|
+| HF target | 1.65 fixed | 1.7 × regime_scale (1.44–2.21) |
+| HL leverage | 4x | 1.20 (two-peak: also 1.65) |
+| Drawdown CB | Essential | DISABLED (−32.5pp when on!) |
+| Regime detection | Optional | Essential (+245pp on, −60% if off) |
+| CC APY | 10% | 15% |
+| Fee routing | AAVE repay | Direct LP compounding (95% to LP) |
+
+### Refined config as Loom refinement types
+```loom
+type TargetHF        = Float where x >= 1.65 and x <= 1.75
+type HLLeverage      = Float where (x >= 1.15 and x <= 1.25) or (x >= 1.60 and x <= 1.70)
+type CoveredCallsAPY = Float where x >= 0.12 and x <= 0.18
+type OorRecenterWait = Float where x >= 36.0 and x <= 60.0  -- 48h U-curve optimal
+type MaxDrawdown     = Float where x > 0.0 and x <= 0.10    -- NEVER loosen
 ```
 
 ### Critical bugs (now known, will be expressed as Loom invariants)
