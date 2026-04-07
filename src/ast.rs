@@ -536,6 +536,90 @@ pub enum Item {
     Store(StoreDef),
     /// Type alias — M87. `type Name = TypeExpr` (no field list).
     TypeAlias(String, TypeExpr, Span),
+    /// Session type definition — M98. Honda (1993).
+    Session(SessionDef),
+    /// Algebraic effect definition — M99. Plotkin & Pretnar (2009).
+    Effect(EffectDef),
+}
+
+// ── M98: Session Types (Honda 1993) ──────────────────────────────────────────
+
+/// M98: Session type definition.
+///
+/// Describes the complete communication protocol between two roles.
+/// Milner (1980) Pi-calculus; Honda (1993) session types; Gay & Hole (2005) subtyping.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionDef {
+    pub name: String,
+    /// Role definitions (typically two: client/server, buyer/seller, etc.)
+    pub roles: Vec<SessionRole>,
+    /// Duality declaration: role_a <-> role_b
+    pub duality: Option<(String, String)>,
+    pub span: Span,
+}
+
+/// One named role in a session type (e.g. client, server).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionRole {
+    pub name: String,
+    pub steps: Vec<SessionStep>,
+    pub span: Span,
+}
+
+/// A single communication step within a session role.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SessionStep {
+    /// `send: Type` — this role sends a message of the given type.
+    Send(TypeExpr),
+    /// `recv: Type` — this role receives a message of the given type.
+    Recv(TypeExpr),
+}
+
+// ── M99: Algebraic Effect Handlers (Plotkin & Pretnar 2009) ──────────────────
+
+/// M99: Effect definition.
+///
+/// Declares a named effect with typed operations.
+/// Moggi (1991) monads; Plotkin & Pretnar (2009) algebraic effects; Leijen (2017) Koka.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EffectDef {
+    pub name: String,
+    /// Optional type parameters (e.g. `State<S>` → `["S"]`).
+    pub type_params: Vec<String>,
+    pub operations: Vec<EffectOperation>,
+    pub span: Span,
+}
+
+/// A single operation declared inside an effect definition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EffectOperation {
+    pub name: String,
+    pub input: TypeExpr,
+    pub output: TypeExpr,
+    pub span: Span,
+}
+
+/// `handle … with … end` block — intercept and dispatch effect operations.
+///
+/// Used inside function bodies to provide implementations for declared effects.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HandleBlock {
+    /// Name of the computation being handled (the expression argument).
+    pub computation: String,
+    pub handlers: Vec<EffectHandler>,
+    pub span: Span,
+}
+
+/// A single handler case inside a `handle … with` block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EffectHandler {
+    /// Qualified operation name, e.g. `"Log.emit"` or `"State.get"`.
+    pub effect_op: String,
+    /// Bound parameter names (including the continuation).
+    pub params: Vec<String>,
+    /// The continuation variable name (e.g. `"k"`).
+    pub continuation: String,
+    pub span: Span,
 }
 
 // ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
@@ -804,6 +888,50 @@ pub struct ProofAnnotation {
     pub span: Span,
 }
 
+// ── M88: Stochastic Process Types ────────────────────────────────────────────
+
+/// M88: Stochastic process kind.
+/// Wiener (1923), Itô (1944), Ornstein-Uhlenbeck (1930), Markov (1906).
+#[derive(Debug, Clone, PartialEq)]
+pub enum StochasticKind {
+    /// Standard Brownian motion. Continuous paths. Martingale property.
+    Wiener,
+    /// GBM — always positive, used for asset prices. Black-Scholes (1973).
+    GeometricBrownian,
+    /// Mean-reverting process. Ornstein-Uhlenbeck (1930).
+    OrnsteinUhlenbeck,
+    /// Count process. Integer-valued. Events at rate λ. Poisson (1837).
+    PoissonProcess,
+    /// Discrete state, memoryless. Markov (1906).
+    MarkovChain,
+    /// Unrecognized kind name — forward compatible.
+    Unknown(String),
+}
+
+/// M88: Stochastic process annotation block.
+///
+/// Declares the mathematical process type governing a function's probabilistic
+/// behaviour, with verifiable properties checked at compile time.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StochasticProcessBlock {
+    pub kind: StochasticKind,
+    /// GBM: paths are always > 0 (log-normal distribution).
+    pub always_positive: Option<bool>,
+    /// Whether the process satisfies the martingale property.
+    pub martingale: Option<bool>,
+    /// OU: process reverts toward a long-run mean.
+    pub mean_reverting: Option<bool>,
+    /// OU: the long-run equilibrium value.
+    pub long_run_mean: Option<String>,
+    /// Poisson: event arrival rate λ.
+    pub rate: Option<String>,
+    /// Poisson: process takes only integer values.
+    pub integer_valued: Option<bool>,
+    /// MarkovChain: explicit state names.
+    pub states: Vec<String>,
+    pub span: Span,
+}
+
 /// Function definition.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDef {
@@ -839,6 +967,10 @@ pub struct FnDef {
     pub proofs: Vec<ProofAnnotation>,
     /// M68: Degeneracy block (Edelman) — primary and fallback implementations.
     pub degenerate: Option<DegenerateBlock>,
+    /// M88: Stochastic process annotation block (`process:` clause).
+    pub stochastic_process: Option<StochasticProcessBlock>,
+    /// M99: Optional algebraic effect handler block (`handle … with … end`).
+    pub handle_block: Option<HandleBlock>,
     /// Body expressions; the last one is the return value.
     pub body: Vec<Expr>,
     pub span: Span,

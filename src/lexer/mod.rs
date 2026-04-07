@@ -174,6 +174,20 @@ pub enum Token {
     #[token("partitions")]  Partitions,
     #[token("replication")] Replication,
 
+    // ── Stochastic process types (M88) ──────────────────────────────────────────
+    #[token("process")]     Process,
+
+    // ── Session types (M98) ──────────────────────────────────────────────────────
+    #[token("session")]   Session,
+    #[token("send")]      Send,
+    #[token("recv")]      Recv,
+    #[token("duality")]   Duality,
+
+    // ── Algebraic effect handlers (M99) ─────────────────────────────────────────
+    // NOTE: `effect` (Token::Effect) and `with` (Token::With) already exist.
+    #[token("handle")]    Handle,
+    #[token("operation")] Operation,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

@@ -173,3 +173,32 @@ end
 "#;
     assert!(parse(src).is_ok());
 }
+
+#[test]
+fn test_m87_tensor_rank_shape_mismatch_rejected() {
+    // Tensor<2, [3, 3, 3], Float> — rank 2 but shape has 3 elements → checker error
+    let src = r#"
+module Physics
+  fn bad_matrix :: Int -> Tensor<2, [3, 3, 3], Float>
+  end
+end
+"#;
+    let tokens = Lexer::tokenize(src).expect("lex failed");
+    let module = Parser::new(&tokens).parse_module().expect("parse failed");
+    let result = loom::checker::TensorChecker::new().check(&module);
+    assert!(result.is_err(), "Tensor rank/shape mismatch should be rejected by TensorChecker");
+    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("rank") || msgs.contains("shape"),
+        "Expected rank/shape error, got: {}", msgs
+    );
+}
+
+#[test]
+fn test_m83_sense_stdlib_dimensions_are_accessible() {
+    let stdlib = loom::stdlib::SENSE_STDLIB;
+    assert!(stdlib.contains("Length"));
+    assert!(stdlib.contains("Mass"));
+    assert!(stdlib.contains("Temperature"));
+    assert!(stdlib.contains("GravitationalWaveStrain"));
+}

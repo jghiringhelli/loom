@@ -282,6 +282,12 @@ impl RustEmitter {
                     // Type aliases emit as a Rust type alias.
                     format!("pub type {} = {};\n", name, self.emit_type_expr(ty))
                 }
+                Item::Session(sd) => {
+                    format!("// session_type: {}\n", sd.name)
+                }
+                Item::Effect(ed) => {
+                    format!("// effect_def: {}\n", ed.name)
+                }
             };
             body.push('\n');
             for line in item_src.lines() {
@@ -2079,6 +2085,8 @@ mod tests {
                 termination: None,
                 proofs: vec![],
                 degenerate: None,
+                stochastic_process: None,
+                handle_block: None,
                 body: vec![],
                 span: Span::synthetic(),
             })],

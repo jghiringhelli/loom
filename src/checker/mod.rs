@@ -44,6 +44,10 @@ pub mod resonance;
 pub mod conservation;
 pub mod store;
 pub mod tensor;
+pub mod randomness;
+pub mod stochastic;
+pub mod session;
+pub mod effect_handler;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -83,3 +87,7 @@ pub use resonance::ResonanceChecker;
 pub use conservation::ConservationChecker;
 pub use store::StoreChecker;
 pub use tensor::TensorChecker;
+pub use randomness::RandomnessChecker;
+pub use stochastic::StochasticChecker;
+pub use session::SessionChecker;
+pub use effect_handler::EffectHandlerChecker;

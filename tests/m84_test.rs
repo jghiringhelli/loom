@@ -124,3 +124,47 @@ end
 "#;
     assert!(parse(src).is_ok(), "GeometricBrownian family should parse: {:?}", parse(src).err());
 }
+
+#[test]
+fn test_m84_cauchy_clt_claim_rejected_by_checker() {
+    // Cauchy + CLT convergence: checker must reject (Cauchy has no finite mean/variance)
+    let src = r#"
+module Finance
+  fn fat_tail @probabilistic :: Int -> Float
+    distribution:
+      family: Cauchy(location: 0.0, scale: 1.0)
+      convergence: central_limit_theorem
+    end
+  end
+end
+"#;
+    let result = loom::compile(src);
+    assert!(result.is_err(), "Cauchy + CLT convergence should be rejected by checker");
+    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("Cauchy") || msgs.contains("central_limit") || msgs.contains("mean") || msgs.contains("variance"),
+        "Expected Cauchy/CLT error, got: {}", msgs
+    );
+}
+
+#[test]
+fn test_m84_gaussian_negative_std_dev_rejected() {
+    // std_dev = 0.0 violates the must-be-positive constraint (negative literals
+    // don't parse in distribution params — use zero as the boundary-value test)
+    let src = r#"
+module Stats
+  fn bad_dist @probabilistic :: Int -> Float
+    distribution:
+      family: Gaussian(mean: 0.0, std_dev: 0.0)
+    end
+  end
+end
+"#;
+    let result = loom::compile(src);
+    assert!(result.is_err(), "std_dev=0.0 should be rejected (must be > 0)");
+    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("std_dev") || msgs.contains("Gaussian"),
+        "Expected std_dev/Gaussian error, got: {}", msgs
+    );
+}

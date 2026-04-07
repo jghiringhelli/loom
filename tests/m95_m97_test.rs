@@ -169,3 +169,37 @@ end
 "#;
     assert!(parse(src).is_ok(), "polyglot multi-store module should parse: {:?}", parse(src).err());
 }
+
+#[test]
+fn test_m95_vector_store_missing_embedding_rejected() {
+    // Vector store without an embedding: entry must be rejected by StoreChecker
+    let src = r#"
+module Search
+  store Index :: Vector
+  end
+end
+"#;
+    let module = parse(src).expect("parse failed");
+    let errors = loom::checker::StoreChecker::new().check(&module);
+    assert!(!errors.is_empty(), "Vector store without embedding should be rejected");
+    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("embedding") || msgs.contains("Vector"),
+        "Expected embedding/Vector error, got: {}", msgs
+    );
+}
+
+#[test]
+fn test_m97_distributed_log_parses() {
+    let src = r#"
+module Streaming
+  store EventLog :: DistributedLog
+    event AppEvent :: { id: String, ts: String }
+    partitions: 12
+    replication: 3
+    consumer Analytics :: offset: earliest
+  end
+end
+"#;
+    assert!(parse(src).is_ok(), "DistributedLog store should parse: {:?}", parse(src).err());
+}

@@ -95,6 +95,8 @@ fn checker_rejects_identical_primary_fallback() {
             equivalence_proof: None,
             span: Span::synthetic(),
         }),
+        stochastic_process: None,
+        handle_block: None,
         body: vec![],
         span: Span::synthetic(),
     };
@@ -154,6 +156,8 @@ fn checker_rejects_empty_primary() {
             equivalence_proof: None,
             span: Span::synthetic(),
         }),
+        stochastic_process: None,
+        handle_block: None,
         body: vec![],
         span: Span::synthetic(),
     };
@@ -211,6 +215,8 @@ fn checker_passes_valid_degenerate() {
             equivalence_proof: None,
             span: Span::synthetic(),
         }),
+        stochastic_process: None,
+        handle_block: None,
         body: vec![],
         span: Span::synthetic(),
     };

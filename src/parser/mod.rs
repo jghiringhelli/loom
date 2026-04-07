@@ -290,6 +290,14 @@ impl<'src> Parser<'src> {
             Some((Token::Partitions, _))  => Some("partitions".to_string()),
             Some((Token::Replication, _)) => Some("replication".to_string()),
             Some((Token::Bounds, _))      => Some("bounds".to_string()),
+            Some((Token::Process, _))     => Some("process".to_string()),
+            Some((Token::Session, _))     => Some("session".to_string()),
+            Some((Token::Send, _))        => Some("send".to_string()),
+            Some((Token::Recv, _))        => Some("recv".to_string()),
+            Some((Token::Duality, _))     => Some("duality".to_string()),
+            Some((Token::Handle, _))      => Some("handle".to_string()),
+            Some((Token::Operation, _))   => Some("operation".to_string()),
+            Some((Token::Implements, _))  => Some("implements".to_string()),
             _ => None,
         }
     }
@@ -352,6 +360,13 @@ impl<'src> Parser<'src> {
             Some((Token::Offset, _))      => Some("offset".to_string()),
             Some((Token::Partitions, _))  => Some("partitions".to_string()),
             Some((Token::Replication, _)) => Some("replication".to_string()),
+            Some((Token::Session, _))     => Some("session".to_string()),
+            Some((Token::Process, _))     => Some("process".to_string()),
+            Some((Token::Send, _))        => Some("send".to_string()),
+            Some((Token::Recv, _))        => Some("recv".to_string()),
+            Some((Token::Duality, _))     => Some("duality".to_string()),
+            Some((Token::Handle, _))      => Some("handle".to_string()),
+            Some((Token::Operation, _))   => Some("operation".to_string()),
             _ => None,
         }
     }
@@ -984,6 +999,98 @@ impl<'src> Parser<'src> {
             other => DistributionFamily::Unknown(other.to_string()),
         };
         Ok(family)
+    }
+
+    /// Parse `process:` block (M88: stochastic process type).
+    ///
+    /// ```text
+    /// process:
+    ///   kind: GeometricBrownian
+    ///   always_positive: true
+    ///   martingale: false
+    /// end
+    /// ```
+    fn parse_stochastic_process_block(&mut self) -> Result<StochasticProcessBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Process)?;
+        self.expect(Token::Colon)?;
+        let mut kind = StochasticKind::Unknown(String::new());
+        let mut always_positive: Option<bool> = None;
+        let mut martingale: Option<bool> = None;
+        let mut mean_reverting: Option<bool> = None;
+        let mut long_run_mean: Option<String> = None;
+        let mut rate: Option<String> = None;
+        let mut integer_valued: Option<bool> = None;
+        let mut states: Vec<String> = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if let Some((crate::lexer::Token::Colon, _)) = self.tokens.get(self.pos + 1) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    match key.as_str() {
+                        "kind" => {
+                            let val = self.parse_value_as_string()?;
+                            kind = match val.as_str() {
+                                "Wiener"              => StochasticKind::Wiener,
+                                "GeometricBrownian"   => StochasticKind::GeometricBrownian,
+                                "OrnsteinUhlenbeck"   => StochasticKind::OrnsteinUhlenbeck,
+                                "PoissonProcess"      => StochasticKind::PoissonProcess,
+                                "MarkovChain"         => StochasticKind::MarkovChain,
+                                other                 => StochasticKind::Unknown(other.to_string()),
+                            };
+                        }
+                        "always_positive" => {
+                            let val = self.parse_value_as_string()?;
+                            always_positive = Some(val == "true");
+                        }
+                        "martingale" => {
+                            let val = self.parse_value_as_string()?;
+                            martingale = Some(val == "true");
+                        }
+                        "mean_reverting" => {
+                            let val = self.parse_value_as_string()?;
+                            mean_reverting = Some(val == "true");
+                        }
+                        "long_run_mean" => {
+                            long_run_mean = Some(self.parse_value_as_string()?);
+                        }
+                        "rate" => {
+                            rate = Some(self.parse_value_as_string()?);
+                        }
+                        "integer_valued" => {
+                            let val = self.parse_value_as_string()?;
+                            integer_valued = Some(val == "true");
+                        }
+                        "states" => {
+                            let raw = self.parse_value_as_string()?;
+                            let trimmed = raw.trim_start_matches('[').trim_end_matches(']');
+                            states = trimmed.split(',')
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty())
+                                .collect();
+                        }
+                        _ => {
+                            let _ = self.parse_value_as_string()?;
+                        }
+                    }
+                    continue;
+                }
+            }
+            break;
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(StochasticProcessBlock {
+            kind,
+            always_positive,
+            martingale,
+            mean_reverting,
+            long_run_mean,
+            rate,
+            integer_valued,
+            states,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `timing_safety:` block.
@@ -2342,6 +2449,10 @@ impl<'src> Parser<'src> {
             }
             Some(Token::Sense) => Ok(Item::Sense(self.parse_sense_def()?)),
             Some(Token::Store) => Ok(Item::Store(self.parse_store_def()?)),
+            Some(Token::Session) => Ok(Item::Session(self.parse_session_def()?)),
+            // `effect Name ...` top-level definition (Token::Effect is also used in type exprs
+            // but type exprs never appear at item level, so this is unambiguous).
+            Some(Token::Effect) => Ok(Item::Effect(self.parse_effect_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2401,6 +2512,7 @@ impl<'src> Parser<'src> {
         let mut timing_safety: Option<TimingSafetyBlock> = None;
         let mut termination: Option<String> = None;
         let mut proofs: Vec<ProofAnnotation> = Vec::new();
+        let mut stochastic_process: Option<StochasticProcessBlock> = None;
         loop {
             if self.at(&Token::Require) {
                 requires.push(self.parse_contract()?);
@@ -2416,6 +2528,10 @@ impl<'src> Parser<'src> {
                 gradual = Some(self.parse_gradual_block()?);
             } else if self.at(&Token::Distribution) {
                 distribution = Some(self.parse_distribution_block()?);
+            } else if self.at(&Token::Process)
+                && matches!(self.tokens.get(self.pos + 1), Some((crate::lexer::Token::Colon, _)))
+            {
+                stochastic_process = Some(self.parse_stochastic_process_block()?);
             } else if self.at(&Token::TimingSafety) {
                 timing_safety = Some(self.parse_timing_safety_block()?);
             } else if self.at(&Token::Termination) {
@@ -2441,9 +2557,20 @@ impl<'src> Parser<'src> {
             None
         };
 
+        // M99: Optional handle block — `handle computation with ... end`.
+        let handle_block = if self.at(&Token::Handle) {
+            Some(self.parse_handle_block()?)
+        } else {
+            None
+        };
+
         // Body expressions until `end`.
         let mut body = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
+            // Allow `describe: "..."` anywhere in a fn body (idiomatic Loom style).
+            if self.parse_describe().is_some() {
+                continue;
+            }
             body.push(self.parse_expr()?);
         }
         let end_span = self.current_span();
@@ -2466,6 +2593,8 @@ impl<'src> Parser<'src> {
             termination,
             proofs,
             degenerate,
+            stochastic_process,
+            handle_block,
             body,
             span: Span::merge(&start, &end_span),
         })
@@ -3195,6 +3324,11 @@ impl<'src> Parser<'src> {
             Some((Token::Ident(_), _)) => {
                 let (name, _) = self.expect_ident()?;
                 Ok(Expr::Ident(name))
+            }
+            // Keywords that can appear as expression identifiers (function call targets, etc.)
+            Some((Token::Process, _)) => {
+                self.advance();
+                Ok(Expr::Ident("process".to_string()))
             }
             Some((Token::LParen, _)) => {
                 let start = self.current_span();
@@ -4057,6 +4191,304 @@ impl<'src> Parser<'src> {
         self.expect(Token::RBracket)?;
         Ok(shape)
     }
+
+    // ── M98: Session type parser ──────────────────────────────────────────────
+
+    /// Parse a `session Name ... end` top-level item.
+    ///
+    /// ```text
+    /// session Name
+    ///   roleName:
+    ///     send: Type
+    ///     recv: Type
+    ///     ...
+    ///   end
+    ///   ...
+    ///   duality: roleA <-> roleB
+    /// end
+    /// ```
+    fn parse_session_def(&mut self) -> Result<SessionDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Session)?;
+        let (name, _) = self.expect_ident()?;
+
+        let mut roles = Vec::new();
+        let mut duality: Option<(String, String)> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // `duality: roleA <-> roleB`
+            if self.token_as_ident().as_deref() == Some("duality") {
+                self.advance(); // consume "duality"
+                self.expect(Token::Colon)?;
+                let (role_a, _) = self.expect_ident()?;
+                // `<->` tokenizes as Lt + Arrow (->), not Lt + Minus + Gt.
+                self.expect(Token::Lt)?;
+                self.expect(Token::Arrow)?;
+                let (role_b, _) = self.expect_ident()?;
+                duality = Some((role_a, role_b));
+            } else if let Some(role_name) = self.token_as_ident() {
+                // Check that the next token is `:`
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    roles.push(self.parse_session_role()?);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SessionDef {
+            name,
+            roles,
+            duality,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a single role block inside a session definition.
+    ///
+    /// ```text
+    /// roleName:
+    ///   send: Type
+    ///   recv: Type
+    ///   ...
+    /// end
+    /// ```
+    fn parse_session_role(&mut self) -> Result<SessionRole, LoomError> {
+        let start = self.current_span();
+        let (name, _) = self.expect_any_name()?;
+        self.expect(Token::Colon)?;
+
+        let mut steps = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Send) || self.token_as_ident().as_deref() == Some("send") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let ty = self.parse_type_expr()?;
+                steps.push(SessionStep::Send(ty));
+            } else if self.at(&Token::Recv) || self.token_as_ident().as_deref() == Some("recv") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                let ty = self.parse_type_expr()?;
+                steps.push(SessionStep::Recv(ty));
+            } else {
+                break;
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SessionRole {
+            name,
+            steps,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    // ── M99: Effect definition parser ─────────────────────────────────────────
+
+    /// Parse an `effect Name[<TypeParams>] ... end` top-level item.
+    ///
+    /// ```text
+    /// effect Log
+    ///   operation emit :: String -> Unit
+    /// end
+    ///
+    /// effect State<S>
+    ///   operation get :: Unit -> S
+    ///   operation put :: S -> Unit
+    /// end
+    /// ```
+    fn parse_effect_def(&mut self) -> Result<EffectDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Effect)?;
+        let (name, _) = self.expect_ident()?;
+
+        // Optional type parameter list: `<S>`, `<A, B>`.
+        let type_params = if self.at(&Token::Lt) {
+            self.advance();
+            let mut params = Vec::new();
+            while !self.at(&Token::Gt) && self.peek().is_some() {
+                let (p, _) = self.expect_ident()?;
+                params.push(p);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::Gt)?;
+            params
+        } else {
+            Vec::new()
+        };
+
+        let mut operations = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Operation) || self.token_as_ident().as_deref() == Some("operation") {
+                operations.push(self.parse_effect_operation()?);
+            } else {
+                break;
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(EffectDef {
+            name,
+            type_params,
+            operations,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a single `operation name :: InputType -> OutputType` line.
+    fn parse_effect_operation(&mut self) -> Result<EffectOperation, LoomError> {
+        let start = self.current_span();
+        // Consume `operation` keyword (may be Token::Operation or an ident).
+        self.advance();
+        let (op_name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        let sig = self.parse_fn_type_signature()?;
+        let end_span = self.current_span();
+        // A unary fn signature: first param is input, return_type is output.
+        // If no params, treat input as Unit.
+        let (input, output) = if sig.params.is_empty() {
+            (TypeExpr::Base("Unit".to_string()), *sig.return_type)
+        } else {
+            (sig.params[0].clone(), *sig.return_type)
+        };
+        Ok(EffectOperation {
+            name: op_name,
+            input,
+            output,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Parse a `handle computation with ... end` block inside a fn body.
+    ///
+    /// ```text
+    /// handle computation with
+    ///   Log.emit(msg) -> k:
+    ///     print(msg)
+    ///     k(unit)
+    ///   end
+    /// end
+    /// ```
+    fn parse_handle_block(&mut self) -> Result<HandleBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Handle)?;
+        let (computation, _) = self.expect_any_name()?;
+        self.expect(Token::With)?;
+
+        let mut handlers = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // Each handler case looks like: `Effect.op(params) -> k: ... end`
+            // We need to detect a qualified name (Ident.Ident) followed by `(`.
+            if self.is_handler_case_start() {
+                handlers.push(self.parse_effect_handler()?);
+            } else {
+                break;
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(HandleBlock {
+            computation,
+            handlers,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    /// Returns true if the current position looks like the start of a handler case.
+    ///
+    /// A handler case starts with `Ident.Ident(` or `Ident(` — a qualified or
+    /// unqualified operation name followed by a parameter list.
+    fn is_handler_case_start(&self) -> bool {
+        match self.tokens.get(self.pos) {
+            Some((Token::Ident(_), _)) => {
+                match self.tokens.get(self.pos + 1) {
+                    Some((Token::Dot, _)) => true,
+                    Some((Token::LParen, _)) => true,
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// Parse one handler case: `Effect.op(params) -> k: ... end`.
+    fn parse_effect_handler(&mut self) -> Result<EffectHandler, LoomError> {
+        let start = self.current_span();
+        // Parse qualified operation name: `Effect.op` or just `op`.
+        let first_part = if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+            let n = n.clone();
+            self.pos += 1;
+            n
+        } else {
+            return Err(LoomError::parse("expected operation name", start.clone()));
+        };
+        let effect_op = if self.at(&Token::Dot) {
+            self.advance();
+            let (second, _) = self.expect_ident()?;
+            format!("{}.{}", first_part, second)
+        } else {
+            first_part
+        };
+
+        // Parse parameter list: `(msg)`, `()`, `(new_state)`, etc.
+        let mut params = Vec::new();
+        if self.at(&Token::LParen) {
+            self.advance();
+            while !self.at(&Token::RParen) && self.peek().is_some() {
+                if let Some(p) = self.token_as_ident() {
+                    params.push(p);
+                    self.advance();
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
+                } else {
+                    break;
+                }
+            }
+            self.expect(Token::RParen)?;
+        }
+
+        // `-> k:`
+        self.expect(Token::Arrow)?;
+        let continuation = if let Some(k) = self.token_as_ident() {
+            self.advance();
+            k
+        } else {
+            "k".to_string()
+        };
+        self.expect(Token::Colon)?;
+
+        // Consume body tokens until `end` (opaque body).
+        let mut depth = 0usize;
+        while self.peek().is_some() {
+            match self.peek() {
+                Some(Token::End) if depth == 0 => break,
+                Some(Token::End) => { depth -= 1; self.advance(); }
+                Some(Token::Fn) | Some(Token::Being) | Some(Token::Ecosystem) => {
+                    depth += 1;
+                    self.advance();
+                }
+                _ => { self.advance(); }
+            }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(EffectHandler {
+            effect_op,
+            params,
+            continuation,
+            span: Span::merge(&start, &end_span),
+        })
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -4169,6 +4601,7 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Dimension   => Some("dimension"),
         Token::Embedding   => Some("embedding"),
         Token::Adopt        => Some("adopt"),
+        Token::Process      => Some("process"),
         _                   => None,
     }
 }

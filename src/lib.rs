@@ -106,6 +106,25 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 9l: self-certifying compilation check ───────────────────────────
     checker::SelfCertChecker::new().check(&module)?;
 
+    // ── Stage 9o: store declaration check ────────────────────────────────────
+    // Hints and warnings (prefixed with [hint]/[warn]/[info]) are informational;
+    // only hard structural errors (missing key, missing embedding, duplicate PK)
+    // block compilation.
+    let store_errors: Vec<LoomError> = checker::StoreChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| {
+            let msg = format!("{}", e);
+            !msg.contains("[hint]") && !msg.contains("[warn]") && !msg.contains("[info]")
+        })
+        .collect();
+    if !store_errors.is_empty() {
+        return Err(store_errors);
+    }
+
+    // ── Stage 9p: tensor type check ──────────────────────────────────────────
+    checker::TensorChecker::new().check(&module)?;
+
     // ── Stage 9c: privacy check ───────────────────────────────────────────
     checker::PrivacyChecker::new().check(&module)?;
 
@@ -116,6 +135,32 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     let safety_errors = checker::SafetyChecker::check(&module);
     if !safety_errors.is_empty() {
         return Err(safety_errors);
+    }
+
+    // ── Stage 9m: session type duality check (M98) ────────────────────────
+    let session_errors = checker::SessionChecker::new().check(&module);
+    if !session_errors.is_empty() {
+        return Err(session_errors);
+    }
+
+    // ── Stage 9n: algebraic effect handler exhaustiveness (M99) ──────────
+    let effect_handler_errors = checker::EffectHandlerChecker::new().check(&module);
+    if !effect_handler_errors.is_empty() {
+        return Err(effect_handler_errors);
+    }
+
+    // ── Stage 9o: randomness quality check (M85) ─────────────────────────
+    let mut randomness_errors = Vec::new();
+    checker::RandomnessChecker::check(&module, &mut randomness_errors);
+    if !randomness_errors.is_empty() {
+        return Err(randomness_errors);
+    }
+
+    // ── Stage 9p: stochastic process check (M88) ─────────────────────────
+    let mut stochastic_errors = Vec::new();
+    checker::StochasticChecker::check(&module, &mut stochastic_errors);
+    if !stochastic_errors.is_empty() {
+        return Err(stochastic_errors);
     }
 
     // ── Stage 9: code generation ──────────────────────────────────────────

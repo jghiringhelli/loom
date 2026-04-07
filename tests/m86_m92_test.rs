@@ -174,3 +174,59 @@ end
     let result = parse(src);
     assert!(result.is_ok(), "multiple stores should parse: {:?}", result.err());
 }
+
+#[test]
+fn test_m86_conservation_context_matters() {
+    // @conserved(Mass) is valid — no rejection for correct use
+    let src = r#"
+module Physics
+  fn transfer @conserved(Mass) :: Float -> Float -> Float
+  end
+end
+"#;
+    assert!(loom::compile(src).is_ok(), "conserved annotation should compile: {:?}", loom::compile(src).err());
+}
+
+#[test]
+fn test_m92_kv_store_missing_key_rejected() {
+    // KeyValue store without a key: declaration must be rejected by StoreChecker
+    let src = r#"
+module Cache
+  store MyCache :: KeyValue
+    value: String
+  end
+end
+"#;
+    let module = parse(src).expect("parse failed");
+    let errors = loom::checker::StoreChecker::new().check(&module);
+    assert!(!errors.is_empty(), "KeyValue store without key: field should be rejected");
+    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("key") || msgs.contains("KeyValue"),
+        "Expected key/KeyValue error, got: {}", msgs
+    );
+}
+
+#[test]
+fn test_m92_relational_duplicate_primary_key_rejected() {
+    // Two @primary_key fields on the same table must be rejected
+    let src = r#"
+module Data
+  store Users :: Relational
+    table user
+      id: Int @primary_key
+      also_pk: String @primary_key
+      name: String
+    end
+  end
+end
+"#;
+    let module = parse(src).expect("parse failed");
+    let errors = loom::checker::StoreChecker::new().check(&module);
+    assert!(!errors.is_empty(), "Duplicate primary key should be rejected");
+    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        msgs.contains("primary_key") || msgs.contains("unique"),
+        "Expected primary_key error, got: {}", msgs
+    );
+}

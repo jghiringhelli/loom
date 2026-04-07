@@ -171,3 +171,20 @@ end
         "Int literal should not match Bool return type"
     );
 }
+
+// ── Parse-level contract tests ────────────────────────────────────────────────
+
+#[test]
+fn test_inference_annotated_fn_parses() {
+    // A function with a valid signature and describe annotation
+    // The inferred body type matches the declared return type
+    let src = r#"
+module App
+  fn always_true :: Int -> Bool
+    describe: "Returns true regardless of input"
+  end
+end
+"#;
+    // describe: is metadata (not a body expression) — inference skips empty body
+    assert!(loom::parse(src).is_ok(), "annotated fn should parse: {:?}", loom::parse(src).err());
+}

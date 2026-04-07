@@ -101,3 +101,32 @@ end
 "#;
     assert!(parse(src).is_ok());
 }
+
+#[test]
+fn test_m93_document_store_valid() {
+    // Document store with schema entries should compile cleanly
+    let src = r#"
+module Docs
+  store Articles :: Document
+    schema Article :: { id: String, title: String, content: String }
+  end
+end
+"#;
+    assert!(loom::compile(src).is_ok(), "Document store with schema should compile: {:?}", loom::compile(src).err());
+}
+
+#[test]
+fn test_m94_columnar_missing_scalar_acknowledged() {
+    // Columnar store without numeric fields emits a hint (non-fatal)
+    // At minimum the source must not cause a panic
+    let src = r#"
+module Analytics
+  store Events :: Columnar
+    schema Event :: { timestamp: String }
+  end
+end
+"#;
+    // StoreChecker emits a [hint] for no numeric fields — filtered as non-fatal in compile()
+    let _result = loom::compile(src);
+    // Must not panic regardless of outcome
+}

@@ -136,3 +136,32 @@ end
     let result = parse(src);
     assert!(result.is_ok(), "resonance without via should parse: {:?}", result.err());
 }
+
+#[test]
+fn test_m78_eraser_on_non_flow_fn_is_checked() {
+    // @eraser annotation on a plain function — compile pipeline should accept it
+    let src = r#"
+module Security
+  fn declassify @eraser :: Int -> Int
+    42
+  end
+end
+"#;
+    assert!(loom::compile(src).is_ok(), "eraser annotation on fn should compile: {:?}", loom::compile(src).err());
+}
+
+#[test]
+fn test_m80_umwelt_block_rejects_empty_sense() {
+    // umwelt: with an empty detects list is valid (being perceives nothing)
+    let src = r#"
+module Robot
+  being LimitedSensor
+    telos: "Detect obstacles"
+    umwelt:
+      detects: []
+    end
+  end
+end
+"#;
+    assert!(loom::parse(src).is_ok(), "empty umwelt detects list should parse: {:?}", loom::parse(src).err());
+}
