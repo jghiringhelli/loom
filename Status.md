@@ -2,15 +2,16 @@
 
 ## Last Updated: 2026-04-13
 ## Session Summary
-M102 (ProvenanceChecker) and M103 (BoundaryChecker) wired into compile pipeline.
-Fixed ALX-1-feature-matrix.loom (property colon syntax, @mortal/@corrigible telomere/modifiable_by,
-leading annotations in type fields). 748 tests passing, all 6 ALX gates pass.
+M102-M103 wired, ALX-1 fixed. M106 adversarial hardening (chain consistency + cycle detection, 12 tests).
+ALX-5 evolvable stress experiment passing. M111 EvolutionVectorChecker wired (semantic migration
+deduplication/clustering, 6 tests). ADR-0007 ganglionic monitoring architecture documented.
+754 tests, 0 failures, all ALX gates pass.
 
 ## Test Count
-- **Total tests:** 748 passing ✅, 0 failed
-- **ALX gate:** ✅ ALX-1 through ALX-4 all pass (S_realized ≥ 0.85)
-- **M102 Provenance:** 6 tests — @provenance parses, @pii+@provenance error, chain warning, being with provenance
-- **M103 Boundary:** 6 tests — boundary: parses, ghost export error, private-type leak, seal parses
+- **Total tests:** 754 passing ✅, 0 failed
+- **ALX gate:** ✅ ALX-1 through ALX-5 all pass (S_realized ≥ 0.85)
+- **M106 Migration:** 12 tests — chain consistency, cycle detection, adapter ident, version-number
+- **M111 Evolution Vector:** 6 tests — duplicate warning, no-false-positive, cluster, isolation, empty, numeric family
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -66,20 +67,21 @@ leading annotations in type fields). 748 tests passing, all 6 ALX gates pass.
 | M108: Diagram Emit | ✅ Done | compile_mermaid_c4/sequence/state/flow — GS diagram-emitting property |
 | M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker (QuickCheck 2000 → fast-check) |
 | M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker (Jacobson 1992 triple-derivation) |
-| ALX-1 through ALX-4 | ✅ Done | All 6 ALX gates pass, S_realized ≥ 0.85 |
+| M111: Evolution Vectors | ✅ Done | EvolutionVectorChecker, 12-dim type lattice, cosine similarity duplicate/cluster detection |
+| ALX-1 through ALX-5 | ✅ Done | All ALX gates pass, S_realized ≥ 0.85 |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
-- **748 tests passing**, 0 failures
-- All M1-M110 milestones implemented and tested
-- All ALX gates pass
-- M78-M91 scientific primitives: all passing (see m78_m82_test, m83_m87_test, m84_test, m85_test, m86_m92_test, m88_test, m89_test)
+- **754 tests passing**, 0 failures
+- All M1-M111 milestones implemented and tested
+- All ALX gates pass (ALX-1 through ALX-5)
+- ADR-0007: four-layer ganglionic monitoring architecture
 
 ## Next Steps
-1. **publish-merge**: Merge `docs/lineage-collapsed-loop` → `main`, then `cargo publish loom-lang v0.1.0`
-2. arXiv submission: BIOISO convergence paper (`docs/bioiso-loom-convergence.md`)
-3. Fix GitHub Actions (they were cluttering inbox — review `.github/workflows/`)
-4. BIOISO finance/crypto demo program (see `docs/bioiso-finance-design.md` + aegis/automaton inspiration)
+1. **Reinforce all milestones**: ensure every M1-M111 has complete adversarial test coverage
+2. **ALX comprehensive pass**: full ALX run to surface any integration gaps
+3. **BIOISO finance/crypto demo**: biological automaton for crypto markets (see aegis/automaton)
+4. **Merge to main** + `cargo publish loom-lang v0.1.0`
 
 ## Architecture Decision Log
 | Date | Decision | Rationale | Status |
