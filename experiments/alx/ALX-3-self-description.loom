@@ -120,6 +120,7 @@ being LoomCompilerProcess
     source_files_processed: Int
     checkers_active:        Int
     targets_supported:      Int
+    temperature: Float
   end
 
   regulate temperature

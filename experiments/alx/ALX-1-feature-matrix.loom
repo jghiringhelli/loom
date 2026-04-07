@@ -69,8 +69,8 @@ being PaymentProcessor
 
   matter:
     balance: Float
+    temperature: Float
   end
-
   regulate temperature
     target: optimal_level
     bounds: (minimum_val, maximum_val)

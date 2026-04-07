@@ -5003,6 +5003,57 @@ impl<'src> Parser<'src> {
             span: Span::merge(&start, &end_span),
         })
     }
+
+    // -- M109: Property-based test block (QuickCheck 2000 -> fast-check -> Hypothesis) --
+
+    /// Parse a `property NAME: forall VAR: TYPE invariant: EXPR [shrink: BOOL] [samples: INT] end`.
+    fn parse_property_block(&mut self) -> Result<PropertyBlock, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Property)?;
+        let (name, _) = self.expect_any_name()?;
+        if self.at(&Token::Colon) { self.advance(); }
+        self.expect(Token::Forall)?;
+        let (var_name, _) = self.expect_ident()?;
+        self.expect(Token::Colon)?;
+        let (var_type, _) = self.expect_ident()?;
+        self.expect(Token::Invariant)?;
+        self.expect(Token::Colon)?;
+        let invariant = self.collect_property_expr();
+        let mut shrink = true;
+        let mut samples: u64 = 100;
+        loop {
+            if self.at(&Token::Shrink) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                match self.tokens.get(self.pos) {
+                    Some((Token::BoolLit(b), _)) => { shrink = *b; self.pos += 1; }
+                    _ => return Err(LoomError::parse("expected bool after shrink:", self.current_span())),
+                }
+            } else if self.at(&Token::Samples) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                match self.tokens.get(self.pos) {
+                    Some((Token::IntLit(n), _)) => { samples = *n as u64; self.pos += 1; }
+                    _ => return Err(LoomError::parse("expected int after samples:", self.current_span())),
+                }
+            } else { break; }
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(PropertyBlock { name, var_name, var_type, invariant, shrink, samples, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Collect invariant expression tokens as a string until a keyword boundary.
+    fn collect_property_expr(&mut self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+        loop {
+            match self.tokens.get(self.pos) {
+                Some((Token::Shrink, _)) | Some((Token::Samples, _)) | Some((Token::End, _)) | None => break,
+                Some((tok, _)) => { parts.push(token_to_source(tok)); self.pos += 1; }
+            }
+        }
+        parts.join(" ").trim().to_string()
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────

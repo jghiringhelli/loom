@@ -92,6 +92,10 @@ fn checker_rejects_inverted_bounds() {
         }),
         umwelt: None,
         resonance: None,
+            manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     };
     let module = Module {
@@ -151,6 +155,10 @@ fn checker_passes_valid_criticality() {
         }),
         umwelt: None,
         resonance: None,
+            manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     };
     let module = Module {

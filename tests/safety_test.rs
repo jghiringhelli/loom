@@ -62,6 +62,10 @@ fn base_being() -> BeingDef {
         criticality: None,
         umwelt: None,
         resonance: None,
+        manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     }
 }

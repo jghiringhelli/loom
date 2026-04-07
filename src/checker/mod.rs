@@ -55,6 +55,7 @@ pub mod migration;
 pub mod minimal;
 pub mod journal;
 pub mod scenario;
+pub mod property_checker;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -105,3 +106,4 @@ pub use migration::MigrationChecker;
 pub use minimal::MinimalChecker;
 pub use journal::JournalChecker;
 pub use scenario::ScenarioChecker;
+pub use property_checker::PropertyChecker;

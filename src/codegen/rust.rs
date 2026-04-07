@@ -288,7 +288,23 @@ impl RustEmitter {
                 Item::Effect(ed) => {
                     format!("// effect_def: {}\n", ed.name)
                 }
-                Item::UseCase(uc) => self.emit_usecase(uc),
+                Item::UseCase(uc) => {
+                    // M110: use-case triple derivation — contract + test stubs + documentation.
+                    self.emit_usecase(uc)
+                }
+                Item::Property(pb) => {
+                    // M109: emit property-based test stub.
+                    // QuickCheck (Claessen & Hughes 2000) lineage: forall x: T, invariant holds.
+                    format!(
+                        "#[test]\n#[doc = \"Property: {} — forall {}: {}\"]\nfn property_{}() {{\n    // Property-based test: forall {}: {}\n    // invariant: {}\n    // samples: {}, shrink: {}\n    todo!(\"property: {} — implement with proptest or similar\")\n}}\n",
+                        pb.name, pb.var_name, pb.var_type,
+                        to_snake_case(&pb.name),
+                        pb.var_name, pb.var_type,
+                        pb.invariant,
+                        pb.samples, pb.shrink,
+                        pb.name
+                    )
+                }
             };
             body.push('\n');
             for line in item_src.lines() {

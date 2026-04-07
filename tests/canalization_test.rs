@@ -92,6 +92,10 @@ fn checker_rejects_empty_toward() {
         criticality: None,
         umwelt: None,
         resonance: None,
+            manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     };
     let module = Module {
@@ -149,6 +153,10 @@ fn checker_rejects_empty_despite() {
         criticality: None,
         umwelt: None,
         resonance: None,
+            manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     };
     let module = Module {

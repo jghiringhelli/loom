@@ -223,7 +223,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         .into_iter()
         .filter(|e| {
             let msg = format!("{}", e);
-            !msg.contains("[warn]") && !msg.contains("[info]")
+            !msg.contains("[info]")
         })
         .collect();
     if !minimal_errors.is_empty() {
@@ -248,6 +248,27 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         .collect();
     if !scenario_errors.is_empty() {
         return Err(scenario_errors);
+    }
+
+    // ── Stage 9w: property-based test block check (M109) ──────────────────
+    let property_errors: Vec<LoomError> = checker::PropertyChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !property_errors.is_empty() {
+        return Err(property_errors);
+    }
+
+    // ── Stage 9w: property-based test validation (M109) ───────────────────
+    // samples: 0 is a hard error; var-not-referenced is a warning.
+    let property_errors: Vec<LoomError> = checker::PropertyChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !property_errors.is_empty() {
+        return Err(property_errors);
     }
 
     // ── Stage 9: code generation ──────────────────────────────────────────
@@ -367,4 +388,59 @@ pub fn parse(source: &str) -> Result<ast::Module, Vec<LoomError>> {
     parser::Parser::new(&tokens)
         .parse_module()
         .map_err(|e| vec![e])
+}
+
+// ── M108: Mermaid diagram emission ───────────────────────────────────────────
+
+/// Emit a Mermaid C4 container diagram from being/fn structure.
+///
+/// Runs lex + parse only; no semantic checks required for diagram emission.
+/// Diagrams cannot drift from code because they ARE derived from the code.
+/// C4 model (Simon Brown 2018) + Mermaid (Sveidqvist 2019).
+pub fn compile_mermaid_c4(source: &str) -> Result<String, String> {
+    let tokens = lexer::Lexer::tokenize(source)
+        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| format!("{}", e))?;
+    Ok(codegen::MermaidEmitter::new().emit_c4(&module))
+}
+
+/// Emit a Mermaid sequence diagram from session type declarations.
+///
+/// Runs lex + parse only. Each session role → participant; Send steps with
+/// duality declarations → `->>` arrows. Honda (1993) session types.
+pub fn compile_mermaid_sequence(source: &str) -> Result<String, String> {
+    let tokens = lexer::Lexer::tokenize(source)
+        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| format!("{}", e))?;
+    Ok(codegen::MermaidEmitter::new().emit_sequence(&module))
+}
+
+/// Emit a Mermaid state diagram from lifecycle declarations.
+///
+/// Runs lex + parse only. Each `lifecycle T :: S1 -> S2 -> S3` becomes
+/// adjacent `S1 --> S2 --> S3` transitions in `stateDiagram-v2` syntax.
+pub fn compile_mermaid_state(source: &str) -> Result<String, String> {
+    let tokens = lexer::Lexer::tokenize(source)
+        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| format!("{}", e))?;
+    Ok(codegen::MermaidEmitter::new().emit_state(&module))
+}
+
+/// Emit a Mermaid flow diagram from fn declarations.
+///
+/// Runs lex + parse only. Top-level `fn` items → `flowchart TD` nodes
+/// with sequential edges from Start through each function to End.
+pub fn compile_mermaid_flow(source: &str) -> Result<String, String> {
+    let tokens = lexer::Lexer::tokenize(source)
+        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| format!("{}", e))?;
+    Ok(codegen::MermaidEmitter::new().emit_flow(&module))
 }

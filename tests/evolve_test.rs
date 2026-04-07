@@ -58,6 +58,10 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         criticality: None,
         umwelt: None,
         resonance: None,
+            manifest: None,
+        migrations: vec![],
+        journal: None,
+        scenarios: vec![],
         span: Span::synthetic(),
     }
 }
