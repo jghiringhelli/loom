@@ -2,17 +2,17 @@
 
 ## Last Updated: 2026-04-11
 ## Session Summary
-M100/M101: SMT contract verification bridge + manifest: documentation liveness. Also completed M106, M107, M108, M109, M110. 724 tests passing (up from 678).
+M104: journal: (episodic memory primitive, Tulving 1972) and M105: scenario: (executable
+acceptance criteria, Beck 2002 BDD) fully implemented. 740 tests passing (up from 678).
+Also fixed parse_property_block (property: NAME corpus form), parse_migration_block
+(optional colon), and restored mod tests in parser. Scenario codegen emits #[test] stubs.
 
 ## Test Count
-- **Total tests:** 724 passing ✅
-- **M100 SMT Bridge:** 8 new tests — checker exists, skipped without Z3, precondition/postcondition/arithmetic translation, contradiction detection, fn without contracts, lineage comment
-- **M101 Manifest:** 6 new tests — manifest parses, missing file error, reflects unknown symbol warning, empty manifest valid, multiple artifacts, being without manifest valid
-- **M106 Migration:** 6 new tests — migration block parses, non-breaking without adapter error, duplicate name error, autopoietic info hint, breaking with adapter, no-migration no-hint
-- **M107 Minimal:** 6 new tests — unused sense warning, regulate on nonexistent field error, no being no check, no matter no Rule 2, empty sense no warning, no autopoietic-hint
-- **M108 Journal+Scenario:** journal checker (keep 0 error, missing evolve/telos warnings, autopoietic warning) + scenario checker (empty given/when/then, within 0, autopoietic warning)
-- **M109 Property:** 6 new tests — parses, zero samples error, shrink default, samples default, multiple properties, emits test stub
-- **M110 UseCase:** 6 new tests — full parse, acceptance criteria, empty acceptance warning, duplicate criterion error, postcondition=precondition warning, tautological precondition warning
+- **Total tests:** 740 passing ✅ (2 pre-existing alx_runner_test failures from parallel commit)
+- **M104 Journal:** 6 new tests — parses, zero-keep error, evolve-step-without-evolve warning,
+  emit-path parses, all 4 record types, being-without-journal valid
+- **M105 Scenario:** 6 new tests — parses, within: N parses, empty-then error, zero-within error,
+  multiple scenarios, emits #[test] stub (fn scenario_NAME format)
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -60,12 +60,12 @@ M100/M101: SMT contract verification bridge + manifest: documentation liveness. 
 | M100: SMT Bridge | ✅ Done | SmtBridgeChecker, SMT-LIB2 translation, Z3-feature-gated (Hoare 1969 → Dijkstra 1975 → Z3) |
 | M101: Manifest Liveness | ✅ Done | ManifestChecker, artifact existence + symbol reflects checking |
 | M104: Journal | ✅ Done | JournalBlock, JournalChecker (episodic memory — Tulving 1972) |
-| M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker (BDD Given/When/Then — Beck 2002) |
+| M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker, scenario: → #[test] stubs (BDD — Beck 2002) |
 | M106: Migration | ✅ Done | MigrationBlock, MigrationChecker (interface evolution contract) |
 | M107: Minimal | ✅ Done | MinimalChecker (dead declaration detection — unused sense + regulate field) |
 | M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker (QuickCheck 2000 → fast-check) |
 | M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker (Jacobson 1992 triple-derivation) |
-| ALX-1 through ALX-4 | ✅ Done | Self-fix loop experiments all green |
+| ALX-1 through ALX-4 | ⚠️ Partial | ALX-2/3/4 green; ALX-1 has 2 pre-existing failures (advice fn checker vs corpus) |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
