@@ -1090,6 +1090,26 @@ impl RustEmitter {
             out.push_str("    }\n");
             out.push_str("}\n");
         }
+
+        // M105: Emit scenario: test stubs — each scenario becomes a #[test] fn.
+        // Beck (2002) TDD → Cucumber BDD (2008) Given/When/Then → GS Executable property.
+        for scenario in &being.scenarios {
+            let fn_name = format!("scenario_{}", to_snake_case(&scenario.name));
+            out.push_str(&format!("\n#[test]\n"));
+            out.push_str(&format!("#[doc = \"Scenario: {}\"]\n", scenario.name));
+            out.push_str(&format!("fn {}() {{\n", fn_name));
+            out.push_str(&format!("    // given: {}\n", scenario.given));
+            out.push_str(&format!("    // when: {}\n", scenario.when));
+            out.push_str(&format!("    // then: {}\n", scenario.then));
+            if let Some((count, unit)) = &scenario.within {
+                out.push_str(&format!("    // within: {} {}\n", count, unit));
+            }
+            out.push_str(&format!(
+                "    todo!({:?})\n}}\n",
+                format!("scenario: {} — implement test body", scenario.name)
+            ));
+        }
+
         out
     }
 
