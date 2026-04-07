@@ -1,18 +1,16 @@
 # Status.md
 
-## Last Updated: 2026-04-11
+## Last Updated: 2026-04-13
 ## Session Summary
-M104: journal: (episodic memory primitive, Tulving 1972) and M105: scenario: (executable
-acceptance criteria, Beck 2002 BDD) fully implemented. 740 tests passing (up from 678).
-Also fixed parse_property_block (property: NAME corpus form), parse_migration_block
-(optional colon), and restored mod tests in parser. Scenario codegen emits #[test] stubs.
+M102 (ProvenanceChecker) and M103 (BoundaryChecker) wired into compile pipeline.
+Fixed ALX-1-feature-matrix.loom (property colon syntax, @mortal/@corrigible telomere/modifiable_by,
+leading annotations in type fields). 748 tests passing, all 6 ALX gates pass.
 
 ## Test Count
-- **Total tests:** 740 passing ✅ (2 pre-existing alx_runner_test failures from parallel commit)
-- **M104 Journal:** 6 new tests — parses, zero-keep error, evolve-step-without-evolve warning,
-  emit-path parses, all 4 record types, being-without-journal valid
-- **M105 Scenario:** 6 new tests — parses, within: N parses, empty-then error, zero-within error,
-  multiple scenarios, emits #[test] stub (fn scenario_NAME format)
+- **Total tests:** 748 passing ✅, 0 failed
+- **ALX gate:** ✅ ALX-1 through ALX-4 all pass (S_realized ≥ 0.85)
+- **M102 Provenance:** 6 tests — @provenance parses, @pii+@provenance error, chain warning, being with provenance
+- **M103 Boundary:** 6 tests — boundary: parses, ghost export error, private-type leak, seal parses
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -59,26 +57,29 @@ Also fixed parse_property_block (property: NAME corpus form), parse_migration_bl
 | M99: Effect Handlers | ✅ Done | effect/operation/handle/with, EffectHandlerChecker (Plotkin & Pretnar 2009) |
 | M100: SMT Bridge | ✅ Done | SmtBridgeChecker, SMT-LIB2 translation, Z3-feature-gated (Hoare 1969 → Dijkstra 1975 → Z3) |
 | M101: Manifest Liveness | ✅ Done | ManifestChecker, artifact existence + symbol reflects checking |
+| M102: Provenance | ✅ Done | ProvenanceChecker, @provenance annotations, W3C PROV-DM rules (Moreau 2013) |
+| M103: Boundary | ✅ Done | BoundaryBlock, BoundaryChecker, information hiding (Parnas 1972) |
 | M104: Journal | ✅ Done | JournalBlock, JournalChecker (episodic memory — Tulving 1972) |
 | M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker, scenario: → #[test] stubs (BDD — Beck 2002) |
 | M106: Migration | ✅ Done | MigrationBlock, MigrationChecker (interface evolution contract) |
 | M107: Minimal | ✅ Done | MinimalChecker (dead declaration detection — unused sense + regulate field) |
+| M108: Diagram Emit | ✅ Done | compile_mermaid_c4/sequence/state/flow — GS diagram-emitting property |
 | M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker (QuickCheck 2000 → fast-check) |
 | M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker (Jacobson 1992 triple-derivation) |
-| ALX-1 through ALX-4 | ⚠️ Partial | ALX-2/3/4 green; ALX-1 has 2 pre-existing failures (advice fn checker vs corpus) |
+| ALX-1 through ALX-4 | ✅ Done | All 6 ALX gates pass, S_realized ≥ 0.85 |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
-- **678 tests passing** (634 baseline + 12 M98/M99 + additional from M85/M88/M84)
-- Session types: `session` keyword, role blocks, duality checking (send/recv correspondence)
-- Effect handlers: `effect` keyword, `operation` declarations, `handle...with` blocks, exhaustiveness checking
-- Parser: `describe:` now valid anywhere in fn body (not just before `::`)
-- Token: `implements` added to `token_as_ident()` enabling `@implements(...)` annotations
+- **748 tests passing**, 0 failures
+- All M1-M110 milestones implemented and tested
+- All ALX gates pass
+- M78-M91 scientific primitives: all passing (see m78_m82_test, m83_m87_test, m84_test, m85_test, m86_m92_test, m88_test, m89_test)
 
 ## Next Steps
 1. **publish-merge**: Merge `docs/lineage-collapsed-loop` → `main`, then `cargo publish loom-lang v0.1.0`
 2. arXiv submission: BIOISO convergence paper (`docs/bioiso-loom-convergence.md`)
 3. Fix GitHub Actions (they were cluttering inbox — review `.github/workflows/`)
+4. BIOISO finance/crypto demo program (see `docs/bioiso-finance-design.md` + aegis/automaton inspiration)
 
 ## Architecture Decision Log
 | Date | Decision | Rationale | Status |
