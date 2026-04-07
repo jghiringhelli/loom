@@ -225,3 +225,14 @@ pub fn compile_wasm(source: &str) -> Result<String, Vec<LoomError>> {
     // ── Stage 6: WASM code generation ────────────────────────────────────
     codegen::WasmEmitter::new().emit(&module)
 }
+
+/// Parse a Loom source string and return the AST module.
+///
+/// Runs only lex + parse — no type checking or code generation.
+/// Useful for testing parser behaviour in isolation.
+pub fn parse(source: &str) -> Result<ast::Module, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])
+}

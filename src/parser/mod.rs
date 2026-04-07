@@ -289,6 +289,7 @@ impl<'src> Parser<'src> {
             Some((Token::Offset, _))      => Some("offset".to_string()),
             Some((Token::Partitions, _))  => Some("partitions".to_string()),
             Some((Token::Replication, _)) => Some("replication".to_string()),
+            Some((Token::Bounds, _))      => Some("bounds".to_string()),
             _ => None,
         }
     }
@@ -810,21 +811,26 @@ impl<'src> Parser<'src> {
         let mut bounds: Option<String> = None;
         let mut convergence: Option<String> = None;
         let mut stability: Option<String> = None;
+        let mut explicit_family: Option<DistributionFamily> = None;
         while !self.at(&Token::End) && self.peek().is_some() {
             if let Some(key) = self.token_as_ident() {
                 if let Some((tok, _)) = self.tokens.get(self.pos + 1) {
                     if matches!(tok, crate::lexer::Token::Colon) {
                         self.advance(); // key
                         self.advance(); // colon
-                        let val = self.parse_value_as_string()?;
-                        match key.as_str() {
-                            "model"       => model = val,
-                            "mean"        => mean = Some(val),
-                            "variance"    => variance = Some(val),
-                            "bounds"      => bounds = Some(val),
-                            "convergence" => convergence = Some(val),
-                            "stability"   => stability = Some(val),
-                            _ => {}
+                        if key == "family" {
+                            explicit_family = Some(self.parse_distribution_family()?);
+                        } else {
+                            let val = self.parse_value_as_string()?;
+                            match key.as_str() {
+                                "model"       => model = val,
+                                "mean"        => mean = Some(val),
+                                "variance"    => variance = Some(val),
+                                "bounds"      => bounds = Some(val),
+                                "convergence" => convergence = Some(val),
+                                "stability"   => stability = Some(val),
+                                _ => {}
+                            }
                         }
                         continue;
                     }
@@ -834,7 +840,150 @@ impl<'src> Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(DistributionBlock { model, mean, variance, bounds, convergence, stability, span: Span::merge(&start, &end_span) })
+        let family = explicit_family.unwrap_or_else(|| {
+            Self::family_from_model_string(&model, mean.as_deref(), variance.as_deref())
+        });
+        Ok(DistributionBlock { family, model, mean, variance, bounds, convergence, stability, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Derive a `DistributionFamily` from the legacy `model:` string.
+    fn family_from_model_string(model: &str, mean: Option<&str>, variance: Option<&str>) -> DistributionFamily {
+        match model.to_lowercase().as_str() {
+            "gaussian" | "normal" => DistributionFamily::Gaussian {
+                mean: mean.unwrap_or("0").to_string(),
+                std_dev: variance.unwrap_or("1").to_string(),
+            },
+            "poisson" => DistributionFamily::Poisson { lambda: "1".to_string() },
+            "beta" => DistributionFamily::Beta {
+                alpha: "1".to_string(),
+                beta: "1".to_string(),
+            },
+            "gamma" => DistributionFamily::Gamma {
+                shape: "1".to_string(),
+                scale: "1".to_string(),
+            },
+            "exponential" => DistributionFamily::Exponential { lambda: "1".to_string() },
+            "binomial" => DistributionFamily::Binomial {
+                n: "1".to_string(),
+                p: "0.5".to_string(),
+            },
+            "pareto" => DistributionFamily::Pareto {
+                alpha: "1".to_string(),
+                x_min: "1".to_string(),
+            },
+            "cauchy" => DistributionFamily::Cauchy {
+                location: "0".to_string(),
+                scale: "1".to_string(),
+            },
+            "levy" => DistributionFamily::Levy {
+                location: "0".to_string(),
+                scale: "1".to_string(),
+            },
+            "lognormal" | "log_normal" => DistributionFamily::LogNormal {
+                mean: mean.unwrap_or("0").to_string(),
+                std_dev: variance.unwrap_or("1").to_string(),
+            },
+            "uniform" => DistributionFamily::Uniform {
+                low: "0".to_string(),
+                high: "1".to_string(),
+            },
+            "geometricbrownian" | "geometric_brownian" => DistributionFamily::GeometricBrownian {
+                drift: "0".to_string(),
+                volatility: "1".to_string(),
+            },
+            _ => DistributionFamily::Unknown(model.to_string()),
+        }
+    }
+
+    /// Parse a distribution family expression: `FamilyName(key: value, ...)`.
+    fn parse_distribution_family(&mut self) -> Result<DistributionFamily, LoomError> {
+        let name = if let Some(n) = self.token_as_ident() {
+            self.advance();
+            n
+        } else {
+            return Err(LoomError::parse(
+                "expected distribution family name".to_string(),
+                self.current_span(),
+            ));
+        };
+        let mut params: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        if self.at(&Token::LParen) {
+            self.advance(); // (
+            while !self.at(&Token::RParen) && self.peek().is_some() {
+                let key = if let Some(k) = self.token_as_ident() {
+                    self.advance();
+                    k
+                } else {
+                    break;
+                };
+                self.expect(Token::Colon)?;
+                let val = self.parse_value_as_string()?;
+                params.insert(key, val);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::RParen)?;
+        }
+        let family = match name.as_str() {
+            "Gaussian" | "Normal" => DistributionFamily::Gaussian {
+                mean: params.remove("mean").unwrap_or_else(|| "0".to_string()),
+                std_dev: params.remove("std_dev").unwrap_or_else(|| "1".to_string()),
+            },
+            "Poisson" => DistributionFamily::Poisson {
+                lambda: params.remove("lambda").unwrap_or_else(|| "1".to_string()),
+            },
+            "Beta" => DistributionFamily::Beta {
+                alpha: params.remove("alpha").unwrap_or_else(|| "1".to_string()),
+                beta: params.remove("beta").unwrap_or_else(|| "1".to_string()),
+            },
+            "Dirichlet" => {
+                let alpha_str = params.remove("alpha").unwrap_or_default();
+                let alpha = if alpha_str.is_empty() {
+                    vec![]
+                } else {
+                    alpha_str.split(',').map(|s| s.trim().to_string()).collect()
+                };
+                DistributionFamily::Dirichlet { alpha }
+            }
+            "Gamma" => DistributionFamily::Gamma {
+                shape: params.remove("shape").unwrap_or_else(|| "1".to_string()),
+                scale: params.remove("scale").unwrap_or_else(|| "1".to_string()),
+            },
+            "Exponential" => DistributionFamily::Exponential {
+                lambda: params.remove("lambda").unwrap_or_else(|| "1".to_string()),
+            },
+            "Binomial" => DistributionFamily::Binomial {
+                n: params.remove("n").unwrap_or_else(|| "1".to_string()),
+                p: params.remove("p").unwrap_or_else(|| "0.5".to_string()),
+            },
+            "Pareto" => DistributionFamily::Pareto {
+                alpha: params.remove("alpha").unwrap_or_else(|| "1".to_string()),
+                x_min: params.remove("x_min").unwrap_or_else(|| "1".to_string()),
+            },
+            "Cauchy" => DistributionFamily::Cauchy {
+                location: params.remove("location").unwrap_or_else(|| "0".to_string()),
+                scale: params.remove("scale").unwrap_or_else(|| "1".to_string()),
+            },
+            "Levy" => DistributionFamily::Levy {
+                location: params.remove("location").unwrap_or_else(|| "0".to_string()),
+                scale: params.remove("scale").unwrap_or_else(|| "1".to_string()),
+            },
+            "LogNormal" => DistributionFamily::LogNormal {
+                mean: params.remove("mean").unwrap_or_else(|| "0".to_string()),
+                std_dev: params.remove("std_dev").unwrap_or_else(|| "1".to_string()),
+            },
+            "Uniform" => DistributionFamily::Uniform {
+                low: params.remove("low").unwrap_or_else(|| "0".to_string()),
+                high: params.remove("high").unwrap_or_else(|| "1".to_string()),
+            },
+            "GeometricBrownian" => DistributionFamily::GeometricBrownian {
+                drift: params.remove("drift").unwrap_or_else(|| "0".to_string()),
+                volatility: params.remove("volatility").unwrap_or_else(|| "1".to_string()),
+            },
+            other => DistributionFamily::Unknown(other.to_string()),
+        };
+        Ok(family)
     }
 
     /// Parse `timing_safety:` block.
@@ -1003,6 +1152,22 @@ impl<'src> Parser<'src> {
             Some((Token::Question, _)) => {
                 self.pos += 1;
                 Ok("?".to_string())
+            }
+            Some((Token::LBracket, _)) => {
+                // Parse a bracket list like [0.0, 1.0] into a single string.
+                self.pos += 1; // consume [
+                let mut parts = Vec::new();
+                while !self.at(&Token::RBracket) && self.peek().is_some() {
+                    let part = self.parse_value_as_string()?;
+                    parts.push(part);
+                    if self.at(&Token::Comma) {
+                        self.pos += 1;
+                    }
+                }
+                if self.at(&Token::RBracket) {
+                    self.pos += 1; // consume ]
+                }
+                Ok(format!("[{}]", parts.join(", ")))
             }
             _ => {
                 if let Some(name) = self.token_as_ident() {

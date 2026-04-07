@@ -736,9 +736,49 @@ pub struct GradualBlock {
     pub span: Span,
 }
 
-/// Probabilistic types distribution block. M60.
+/// A parametric distribution family with typed parameters.
+/// M84 — replaces the free-string model field.
+///
+/// Academic grounding:
+/// - Gaussian: central limit theorem (Laplace 1812, Gauss 1809)
+/// - Poisson: rare events in fixed intervals (Poisson 1837)
+/// - Beta: probabilities, proportions — bounded [0,1] (Euler 1763)
+/// - Dirichlet: probability vectors — sum to 1 (Dirichlet 1831)
+/// - Gamma: waiting times, positive reals (Euler 1729)
+/// - Exponential: memoryless waiting times (special case of Gamma)
+/// - Binomial: count of successes in n trials (Bernoulli 1713)
+/// - Pareto: power-law tails, 80/20 rule (Pareto 1896)
+/// - Cauchy: heavy tails, NO defined mean or variance (Cauchy 1853)
+///   — CLT and LLN do not apply; convergence claims are invalid
+/// - Levy: stable distribution, anomalous diffusion (Lévy 1937)
+/// - LogNormal: multiplicative processes, finance (Galton 1879)
+/// - Uniform: equal probability over range (Laplace 1812)
+/// - GeometricBrownian: GBM — multiplicative diffusion (Black-Scholes 1973)
+/// - Unknown(String): backward compatibility — free string model name
+#[derive(Debug, Clone, PartialEq)]
+pub enum DistributionFamily {
+    Gaussian { mean: String, std_dev: String },
+    Poisson { lambda: String },
+    Beta { alpha: String, beta: String },
+    Dirichlet { alpha: Vec<String> },
+    Gamma { shape: String, scale: String },
+    Exponential { lambda: String },
+    Binomial { n: String, p: String },
+    Pareto { alpha: String, x_min: String },
+    Cauchy { location: String, scale: String },
+    Levy { location: String, scale: String },
+    LogNormal { mean: String, std_dev: String },
+    Uniform { low: String, high: String },
+    GeometricBrownian { drift: String, volatility: String },
+    Unknown(String),
+}
+
+/// Probabilistic types distribution block. M84 (replaces M60 thin version).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DistributionBlock {
+    /// The parametric distribution family.
+    pub family: DistributionFamily,
+    /// Deprecated free-string model field — kept for compatibility, prefer family.
     pub model: String,
     pub mean: Option<String>,
     pub variance: Option<String>,
