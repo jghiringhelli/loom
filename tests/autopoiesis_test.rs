@@ -71,6 +71,7 @@ fn base_being() -> BeingDef {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     }
 }

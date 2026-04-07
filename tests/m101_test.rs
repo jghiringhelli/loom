@@ -77,6 +77,7 @@ fn test_m101_missing_file_is_error() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
 
@@ -149,6 +150,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
 

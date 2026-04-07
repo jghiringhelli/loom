@@ -97,6 +97,7 @@ fn checker_rejects_inverted_bounds() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -161,6 +162,7 @@ fn checker_passes_valid_criticality() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {

@@ -59,6 +59,7 @@ pub mod property_checker;
 pub mod provenance;
 pub mod boundary;
 pub mod evolution_vector;
+pub mod cognitive_memory;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -113,3 +114,4 @@ pub use property_checker::PropertyChecker;
 pub use provenance::ProvenanceChecker;
 pub use boundary::BoundaryChecker;
 pub use evolution_vector::EvolutionVectorChecker;
+pub use cognitive_memory::CognitiveMemoryChecker;

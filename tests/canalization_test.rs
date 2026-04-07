@@ -97,6 +97,7 @@ fn checker_rejects_empty_toward() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -159,6 +160,7 @@ fn checker_rejects_empty_despite() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {

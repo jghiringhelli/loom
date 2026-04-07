@@ -1,4 +1,4 @@
-//! Abstract Syntax Tree (AST) node types for the Loom language.
+﻿//! Abstract Syntax Tree (AST) node types for the Loom language.
 //!
 //! All nodes carry a [`Span`] for accurate error reporting and source-map
 //! generation.  The AST is a close, lossless representation of the source —
@@ -349,6 +349,8 @@ pub struct BeingDef {
     pub scenarios: Vec<ScenarioBlock>,
     /// M103: Boundary block — public API surface declaration.
     pub boundary: Option<BoundaryBlock>,
+    /// M112: Cognitive memory block — lightweight hippocampal layer.
+    pub cognitive_memory: Option<CognitiveMemoryBlock>,
     pub span: Span,
 }
 
@@ -1643,5 +1645,56 @@ pub struct ManifestArtifact {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ManifestBlock {
     pub artifacts: Vec<ManifestArtifact>,
+    pub span: Span,
+}
+
+// ── M112: Cognitive Memory — Lightweight Hippocampal Layer ───────────────────
+
+/// The five cognitive
+
+// -- M112: Cognitive Memory -- Lightweight Hippocampal Layer
+
+/// The five cognitive memory types.
+///
+/// Mirrors Chronicle's memory model but self-contained in Loom.
+/// Each type has a different decay rate and default storage tier.
+///
+/// - Episodic: What happened. Fed by journal: entries. Decays fast.
+/// - Semantic: Currently true facts. Fed by regulate: violations. Decays slowly.
+/// - Procedural: How to evolve. Fed by migration: steps. Never decays.
+/// - Architectural: Why built this way. Fed by manifest:. Never decays.
+/// - Insight: Cross-being patterns. Fed by M111 clusters. Never decays.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CognitiveMemoryType {
+    Episodic,
+    Semantic,
+    Procedural,
+    Architectural,
+    Insight,
+}
+
+/// Storage tier for cognitive memories.
+///
+/// Memories promote: Buffer -> Working -> Core based on access frequency.
+/// Core memories never decay.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MemoryTier {
+    Buffer,
+    Working,
+    Core,
+}
+
+/// M112: Cognitive memory block inside a being.
+///
+/// The CognitiveMemoryChecker validates that declared types match the being's blocks:
+/// episodic requires journal:, procedural requires migration:, architectural requires manifest:.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CognitiveMemoryBlock {
+    /// Which memory types this being participates in.
+    pub memory_types: Vec<CognitiveMemoryType>,
+    /// Decay rate override for episodic/semantic memories (0.0 = permanent).
+    pub decay_rate: Option<f64>,
+    /// Storage tier override.
+    pub tier: Option<MemoryTier>,
     pub span: Span,
 }

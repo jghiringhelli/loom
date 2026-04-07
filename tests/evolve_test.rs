@@ -63,6 +63,7 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     }
 }

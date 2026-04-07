@@ -97,6 +97,7 @@ fn checker_rejects_empty_onset() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -159,6 +160,7 @@ fn checker_passes_valid_senescence() {
         journal: None,
         scenarios: vec![],
         boundary: None,
+            cognitive_memory: None,
         span: Span::synthetic(),
     };
     let module = Module {

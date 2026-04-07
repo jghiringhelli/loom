@@ -1649,6 +1649,7 @@ impl<'src> Parser<'src> {
         let mut scenarios: Vec<ScenarioBlock> = Vec::new();
         let mut migrations: Vec<MigrationBlock> = Vec::new();
         let mut boundary: Option<BoundaryBlock> = None;
+        let mut cognitive_memory: Option<CognitiveMemoryBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -2303,6 +2304,9 @@ impl<'src> Parser<'src> {
                 scenarios.push(self.parse_scenario_block()?);
             } else if self.at(&Token::Boundary) {
                 boundary = Some(self.parse_boundary_block()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "memory")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                cognitive_memory = Some(self.parse_cognitive_memory_block()?);
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -2338,6 +2342,7 @@ impl<'src> Parser<'src> {
             journal,
             scenarios,
             boundary,
+            cognitive_memory,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -5100,6 +5105,87 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(BoundaryBlock { exports, private, sealed, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse a `memory: type: episodic procedural ... decay_rate: 0.1 tier: working end` block.
+    ///
+    /// Grammar:
+    /// ```text
+    /// memory:
+    ///   type: episodic procedural architectural semantic insight
+    ///   decay_rate: 0.05          -- optional override
+    ///   tier: buffer | working | core  -- optional override
+    /// end
+    /// ```
+    fn parse_cognitive_memory_block(&mut self) -> Result<CognitiveMemoryBlock, LoomError> {
+        use crate::ast::{CognitiveMemoryBlock, CognitiveMemoryType, MemoryTier};
+        let start = self.current_span();
+        self.advance(); // consume "memory"
+        self.expect(Token::Colon)?;
+
+        let mut memory_types: Vec<CognitiveMemoryType> = Vec::new();
+        let mut decay_rate: Option<f64> = None;
+        let mut tier: Option<MemoryTier> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if matches!(self.tokens.get(self.pos), Some((Token::Type, _)))
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // "type"
+                self.advance(); // ":"
+                while let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    let kind = match n.as_str() {
+                        "episodic"      => Some(CognitiveMemoryType::Episodic),
+                        "semantic"      => Some(CognitiveMemoryType::Semantic),
+                        "procedural"    => Some(CognitiveMemoryType::Procedural),
+                        "architectural" => Some(CognitiveMemoryType::Architectural),
+                        "insight"       => Some(CognitiveMemoryType::Insight),
+                        _ => None,
+                    };
+                    if let Some(k) = kind {
+                        memory_types.push(k);
+                        self.pos += 1;
+                    } else {
+                        break;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "decay_rate")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // "decay_rate"
+                self.advance(); // ":"
+                if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                    decay_rate = Some(*f);
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "tier")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // "tier"
+                self.advance(); // ":"
+                if let Some((Token::Ident(t), _)) = self.tokens.get(self.pos) {
+                    tier = match t.as_str() {
+                        "buffer"  => Some(MemoryTier::Buffer),
+                        "working" => Some(MemoryTier::Working),
+                        "core"    => Some(MemoryTier::Core),
+                        _ => None,
+                    };
+                    if tier.is_some() { self.pos += 1; }
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(CognitiveMemoryBlock {
+            memory_types,
+            decay_rate,
+            tier,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
 

@@ -16,6 +16,7 @@
 #![allow(missing_docs)] // Phase 1: docs are on public items; fields documented in Phase 2
 
 pub mod ast;
+pub mod alx;
 pub mod checker;
 pub mod codegen;
 pub mod error;
@@ -289,6 +290,19 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     let _evolution_warnings: Vec<LoomError> = checker::EvolutionVectorChecker::new()
         .check(&module);
     // Warnings are informational — they do not block codegen.
+
+    // ── Stage 9aa: cognitive memory structural consistency (M112) ─────────
+    // Validates memory: type declarations against journal:/migration:/manifest: blocks.
+    // Hard errors (missing source blocks) block compilation.
+    // Soft warnings ([warn] prefix) are informational only.
+    let cognitive_errors: Vec<LoomError> = checker::CognitiveMemoryChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !cognitive_errors.is_empty() {
+        return Err(cognitive_errors);
+    }
 
     // ── Stage 9: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
