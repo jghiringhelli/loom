@@ -48,12 +48,16 @@ M83-M87: sense stdlib and tensor types. M93/M94: operational and analytical stor
 | M92: Store Declarations | ✅ Done | 11 store kinds, polyglot persistence |
 | M93: Operational Stores | ✅ Done | Relational/KeyValue/Document checkers + Rust codegen stubs |
 | M94: Analytical Stores | ✅ Done | Columnar/Snowflake/Hypercube checkers (Gray 1996 citation) |
+| M95: Specialized Stores | ✅ Done | Graph (provenance/weight annotations, edge referential integrity), TimeSeries (retention/resolution validation), Vector (HNSW/IVFFlat/LSH/BruteForce index validation) |
+| M96: Local Stores | ✅ Done | InMemory (LRU/LFU/ARC eviction per Megiddo 2003, capacity validation), FlatFile (Parquet/Arrow/HDF5/CSV/JsonLines/MsgPack + compression) |
+| M97: Distributed Stores | ✅ Done | Distributed MapReduce (Dean & Ghemawat 2004): map/reduce/combine pipeline; DistributedLog (Kreps 2011): partitioned append-only log with consumer offset declarations |
 | ALX-1 through ALX-4 | ✅ Done | Self-fix loop experiments all green |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
-- All 621 tests passing (594 baseline + 6 M93/M94 + 21 M83-M87/M95-M97)
-- Annotation parser extended: `@annotation(Ident.field)` syntax now supported
+- All 621 tests passing (594 baseline + 9 M95-M97 + 18 M83-M87/M93-M94)
+- Parser fix: parse_inline_fields accepts keyword tokens as contextual field names (e.g. `type`, `action`)
+- Pre-field annotations in inline fields: `{ @provenance field: Type, ... }`
 
 ## Next Steps
 1. **publish-merge**: Merge `docs/lineage-collapsed-loop` → `main`, then `cargo publish loom-lang v0.1.0`
