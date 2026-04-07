@@ -288,6 +288,7 @@ impl RustEmitter {
                 Item::Effect(ed) => {
                     format!("// effect_def: {}\n", ed.name)
                 }
+                Item::UseCase(uc) => self.emit_usecase(uc),
             };
             body.push('\n');
             for line in item_src.lines() {
@@ -541,6 +542,63 @@ impl RustEmitter {
     }
 
     /// Emit `#[cfg(test)] mod tests { #[test] fn name() { body } }`.
+    // ── M110: Use-case triple-derivation emitter ─────────────────────────────
+
+    /// Emit the three derived artifacts for a `usecase:` block:
+    /// 1. A doc comment with actor + trigger (documentation).
+    /// 2. Hoare-style `require:`/`ensure:` comment block (implementation contract).
+    /// 3. One `#[test]` stub per acceptance criterion (test stubs).
+    fn emit_usecase(&self, uc: &UseCaseBlock) -> String {
+        let mut out = String::new();
+
+        // Artifact 3: documentation
+        out.push_str(&format!("// usecase: {} — Actor: {}\n", uc.name, uc.actor));
+        if !uc.trigger.is_empty() {
+            out.push_str(&format!("// trigger: {}\n", uc.trigger));
+        }
+
+        // Artifact 1: Hoare contracts (implementation contract)
+        out.push_str(&format!("// Derived contracts from usecase {}:\n", uc.name));
+        if !uc.precondition.is_empty() {
+            out.push_str(&format!("// require: {}\n", uc.precondition));
+        }
+        if !uc.postcondition.is_empty() {
+            out.push_str(&format!("// ensure: {}\n", uc.postcondition));
+        }
+
+        // Artifact 2: test stubs (one per acceptance criterion)
+        if !uc.acceptance.is_empty() {
+            let mod_name = format!("uc_{}_tests", to_snake_case(&uc.name));
+            out.push_str("#[cfg(test)]\n");
+            out.push_str(&format!("mod {} {{\n", mod_name));
+            for criterion in &uc.acceptance {
+                let fn_name = format!(
+                    "uc_{}_{}",
+                    to_snake_case(&uc.name),
+                    criterion.name.replace('-', "_")
+                );
+                out.push_str("    #[test]\n");
+                out.push_str(&format!(
+                    "    #[doc = \"UC: {} - {}\"]\n",
+                    uc.name, criterion.name
+                ));
+                out.push_str(&format!(
+                    "    #[doc = \"{}\"]\n",
+                    criterion.description
+                ));
+                out.push_str(&format!("    fn {}() {{\n", fn_name));
+                out.push_str(&format!(
+                    "        todo!(\"UC: {} - {}\")\n",
+                    uc.name, criterion.name
+                ));
+                out.push_str("    }\n");
+            }
+            out.push_str("}\n");
+        }
+
+        out
+    }
+
     fn emit_test_mod(&self, test_defs: &[TestDef]) -> String {
         let mut out = String::new();
         out.push_str("#[cfg(test)]\n");

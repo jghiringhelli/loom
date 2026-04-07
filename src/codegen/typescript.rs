@@ -147,6 +147,7 @@ impl TypeScriptEmitter {
                 Item::Enum(ed) => self.emit_enum_def(ed),
                 Item::Fn(fd) => self.emit_fn_def(fd),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
+                Item::UseCase(uc) => self.emit_usecase_ts(uc),
                 _ => String::new(),
             };
             for line in item_src.lines() {
@@ -896,6 +897,40 @@ impl TypeScriptEmitter {
         }
 
         out.push_str("}\n");
+        out
+    }
+
+    // ── M110: Use-case JSDoc comment emitter ─────────────────────────────────
+
+    /// Emit a JSDoc comment block for a `usecase:` block (documentation artifact).
+    fn emit_usecase_ts(&self, uc: &UseCaseBlock) -> String {
+        let mut out = String::new();
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @usecase {} — Actor: {}\n", uc.name, uc.actor));
+        if !uc.trigger.is_empty() {
+            out.push_str(&format!(" * @trigger {}\n", uc.trigger));
+        }
+        if !uc.precondition.is_empty() {
+            out.push_str(&format!(" * @precondition {}\n", uc.precondition));
+        }
+        if !uc.postcondition.is_empty() {
+            out.push_str(&format!(" * @postcondition {}\n", uc.postcondition));
+        }
+        if !uc.acceptance.is_empty() {
+            out.push_str(" * @acceptance\n");
+            for criterion in &uc.acceptance {
+                out.push_str(&format!(
+                    " *   - {}: {}\n",
+                    criterion.name, criterion.description
+                ));
+            }
+        }
+        out.push_str(" */\n");
+        out.push_str(&format!(
+            "// usecase: {} — {} acceptance criteria\n",
+            uc.name,
+            uc.acceptance.len()
+        ));
         out
     }
 }

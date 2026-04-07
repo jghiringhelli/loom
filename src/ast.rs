@@ -284,6 +284,27 @@ pub struct TelomereBlock {
     pub span: Span,
 }
 
+// ── M106: Migration — Interface Evolution Contract ───────────────────────────
+
+/// A migration block — declares how a being's public interface changes between versions.
+///
+/// Liskov Substitution Principle (1987) → semantic versioning (Preston-Werner 2011)
+/// → API evolution contracts → Loom `migration:` (M106).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MigrationBlock {
+    /// Version transition name (e.g. "v1_to_v2").
+    pub name: String,
+    /// Field name + old type (stored as debug-format token string).
+    pub from_field: String,
+    /// Field name + new type (stored as debug-format token string).
+    pub to_field: String,
+    /// Adapter function string (e.g. "fn v1 -> Duration::from_seconds(v1)").
+    pub adapter: Option<String>,
+    /// Whether this is a breaking change (default: true).
+    pub breaking: bool,
+    pub span: Span,
+}
+
 /// A biological being — a self-maintaining, goal-directed entity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BeingDef {
@@ -318,6 +339,14 @@ pub struct BeingDef {
     pub umwelt: Option<UmweltBlock>,
     /// M82: Resonance block — cross-channel correlation discovery.
     pub resonance: Option<ResonanceBlock>,
+    /// M101: Documentation liveness manifest block.
+    pub manifest: Option<ManifestBlock>,
+    /// M106: Migration blocks — interface evolution contracts.
+    pub migrations: Vec<MigrationBlock>,
+    /// M104: Journal block — episodic memory primitive (Tulving 1972).
+    pub journal: Option<JournalBlock>,
+    /// M105: Scenario blocks — executable acceptance criteria (Beck 2002 / BDD).
+    pub scenarios: Vec<ScenarioBlock>,
     pub span: Span,
 }
 
@@ -503,6 +532,93 @@ pub struct NicheConstructionDef {
     pub span: Span,
 }
 
+// ── M104: Journal — Episodic Memory Primitive (Tulving 1972) ─────────────────
+
+/// What a being records in its episodic journal.
+/// Tulving (1972) episodic vs semantic memory → Squire (1987) declarative/procedural
+/// distinction → GS Five Memory Types → Loom `journal:` (M104).
+#[derive(Debug, Clone, PartialEq)]
+pub enum JournalRecord {
+    /// `record: every evolve_step` — log each adaptation.
+    EvolveStep,
+    /// `record: every telos_progress` — log progress toward telos.
+    TelosProgress,
+    /// `record: every state_transition` — log lifecycle state changes.
+    StateTransition,
+    /// `record: every regulation_trigger` — log when regulate: bounds fire.
+    RegulationTrigger,
+    /// `record: every <custom>` — user-defined record event.
+    Custom(String),
+}
+
+/// Episodic memory block — records what the being experienced and why.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JournalBlock {
+    /// Events to record.
+    pub records: Vec<JournalRecord>,
+    /// Ring-buffer size (`keep: last N`).
+    pub keep_last: Option<u64>,
+    /// Output path template (`emit: "path/file.log"`).
+    pub emit_path: Option<String>,
+    pub span: Span,
+}
+
+// ── M105: Scenario — Executable Acceptance Criteria (Beck 2002 / BDD) ────────
+
+/// Given/When/Then executable acceptance criterion for a being.
+/// Beck (2002) TDD → Cucumber BDD (2008) Given/When/Then → GS Executable property
+/// → Loom `scenario:` (M105).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScenarioBlock {
+    /// Scenario name (e.g. `trade_executes_on_signal`).
+    pub name: String,
+    /// Precondition string (e.g. `"market_signal == BullishCrossover"`).
+    pub given: String,
+    /// Trigger string (e.g. `"being.sense() detects market_signal"`).
+    pub when: String,
+    /// Assertion string, mirrors `ensure:` syntax (e.g. `"position_size > 0"`).
+    pub then: String,
+    /// Optional deadline: (count, unit) e.g. `(3, "lifecycle_ticks")`.
+    pub within: Option<(u64, String)>,
+    pub span: Span,
+}
+
+// ── M110: Use Case Triple Derivation (Jacobson 1992 → Beck 2003 → GS) ─────────
+
+/// A single verifiable acceptance criterion within a `usecase:` block.
+///
+/// Each criterion derives a `#[test]` stub at code-generation time.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AcceptanceCriterion {
+    /// Snake-case test identifier (e.g. `"can_register_valid_user"`).
+    pub name: String,
+    /// Human-readable description of the criterion.
+    pub description: String,
+}
+
+/// A use-case block — Jacobson (1992) use cases expressed as a GS triple-derivation source.
+///
+/// One block simultaneously generates:
+/// 1. **Implementation contract** — `require:`/`ensure:` Hoare-style comments.
+/// 2. **Test stubs** — `#[test] fn uc_…()` stubs for each acceptance criterion.
+/// 3. **Documentation** — OpenAPI description + user-facing doc comment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UseCaseBlock {
+    /// Use-case name in PascalCase (e.g. `"RegisterUser"`).
+    pub name: String,
+    /// The actor initiating this use case (e.g. `"ExternalUser"`).
+    pub actor: String,
+    /// Precondition expression as a free-form string (e.g. `"not user_exists(email)"`).
+    pub precondition: String,
+    /// Trigger description (e.g. `"POST /users with CreateUserRequest"`).
+    pub trigger: String,
+    /// Postcondition expression (e.g. `"user_count == prior(user_count) + 1"`).
+    pub postcondition: String,
+    /// Verifiable acceptance criteria — each becomes a test stub.
+    pub acceptance: Vec<AcceptanceCriterion>,
+    pub span: Span,
+}
+
 /// Top-level item in a module body.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
@@ -540,6 +656,34 @@ pub enum Item {
     Session(SessionDef),
     /// Algebraic effect definition — M99. Plotkin & Pretnar (2009).
     Effect(EffectDef),
+    /// Use-case triple-derivation block — M110. Jacobson (1992).
+    UseCase(UseCaseBlock),
+    /// Property-based test declaration — M109.
+    /// QuickCheck (Claessen & Hughes 2000) → fast-check → Hypothesis → Loom `property:`.
+    Property(PropertyBlock),
+}
+
+// ── M109: Property-Based Testing (QuickCheck 2000 → fast-check → Hypothesis) ──
+
+/// A property-based test declaration.
+///
+/// Declares a universally quantified invariant: for all x in T, invariant holds.
+/// QuickCheck (Claessen & Hughes 2000) → fast-check (JS) → Hypothesis (Python)
+/// → Loom `property:` (M109).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropertyBlock {
+    pub name: String,
+    /// The universally quantified variable name (e.g. "x").
+    pub var_name: String,
+    /// The type of the quantified variable (e.g. "String").
+    pub var_type: String,
+    /// The invariant expression as a raw string (e.g. "decode(encode(x)) = x").
+    pub invariant: String,
+    /// Whether to enable counterexample shrinking (default: true).
+    pub shrink: bool,
+    /// Number of random samples to generate (default: 100).
+    pub samples: u64,
+    pub span: Span,
 }
 
 // ── M98: Session Types (Honda 1993) ──────────────────────────────────────────
@@ -1401,4 +1545,63 @@ pub struct Provides {
 pub struct Requires {
     /// List of `(capability_name, type)` pairs.
     pub deps: Vec<(String, TypeExpr)>,
+}
+
+// ── M100: SMT Contract Verification Bridge (Hoare 1969 → Dijkstra WP → Z3) ────
+
+/// SMT verification status for a function's contracts.
+///
+/// Lineage: Hoare (1969) axiomatic semantics → Dijkstra (1975) weakest
+/// precondition calculus → Dafny (2009) → Loom `require:`/`ensure:` → M100 discharge.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SmtStatus {
+    /// The contract was proved unsatisfiable (postcondition holds for all preconditions).
+    Proved,
+    /// The solver found a counterexample — spec is contradictory or wrong.
+    Counterexample(String),
+    /// The solver could not determine satisfiability within its budget.
+    Unknown,
+    /// Z3 is not available; verification was skipped.
+    Skipped,
+}
+
+/// SMT verification result for a single function's contracts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SmtVerification {
+    /// The function whose contracts are being verified.
+    pub function: String,
+    /// SMT-LIB2 translation of the precondition expression.
+    pub precondition: String,
+    /// SMT-LIB2 translation of the postcondition expression.
+    pub postcondition: String,
+    /// Result of the SMT check.
+    pub status: SmtStatus,
+}
+
+// ── M101: manifest: — Documentation Liveness Primitive ───────────────────────
+
+/// A single documentation artifact declared inside a `manifest:` block.
+///
+/// Declares a file path, the symbols it documents, optional freshness
+/// requirement, and an optional `required_when` condition.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ManifestArtifact {
+    /// Relative or absolute path to the documentation file.
+    pub path: String,
+    /// Symbol names in the module that this artifact documents.
+    pub reflects: Vec<String>,
+    /// Freshness requirement as a string, e.g. `"within 1"`.
+    pub freshness: Option<String>,
+    /// Condition under which this artifact is required, e.g. `"PublicApi"`.
+    pub required_when: Option<String>,
+}
+
+/// A `manifest:` block inside a `being:` declaration.
+///
+/// Declares the documentation artifacts that must exist and be current for
+/// the being to satisfy the Self-describing GS property.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ManifestBlock {
+    pub artifacts: Vec<ManifestArtifact>,
+    pub span: Span,
 }

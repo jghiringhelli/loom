@@ -149,6 +149,16 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         return Err(effect_handler_errors);
     }
 
+    // ── Stage 9q: use-case triple-derivation check (M110) ────────────────
+    let uc_errors: Vec<LoomError> = checker::UseCaseChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !uc_errors.is_empty() {
+        return Err(uc_errors);
+    }
+
     // ── Stage 9o: randomness quality check (M85) ─────────────────────────
     let mut randomness_errors = Vec::new();
     checker::RandomnessChecker::check(&module, &mut randomness_errors);
@@ -161,6 +171,83 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     checker::StochasticChecker::check(&module, &mut stochastic_errors);
     if !stochastic_errors.is_empty() {
         return Err(stochastic_errors);
+    }
+
+    // ── Stage 9q: SMT contract verification bridge (M100) ────────────────
+    // Counterexamples are hard errors; Skipped/Unknown are informational.
+    let smt_results = checker::SmtBridgeChecker::check(&module.items);
+    let smt_errors: Vec<LoomError> = smt_results
+        .into_iter()
+        .filter_map(|v| match &v.status {
+            ast::SmtStatus::Counterexample(msg) => Some(LoomError::parse(
+                format!(
+                    "fn '{}': SMT counterexample found — spec is contradictory: {}",
+                    v.function, msg
+                ),
+                ast::Span::synthetic(),
+            )),
+            _ => None,
+        })
+        .collect();
+    if !smt_errors.is_empty() {
+        return Err(smt_errors);
+    }
+
+    // ── Stage 9r: manifest documentation liveness check (M101) ──────────
+    // Missing files are hard errors; unknown-symbol warnings are filtered out.
+    let manifest_errors: Vec<LoomError> = checker::ManifestChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !manifest_errors.is_empty() {
+        return Err(manifest_errors);
+    }
+
+    // ── Stage 9s: migration evolution contract check (M106) ───────────────
+    let migration_errors: Vec<LoomError> = checker::MigrationChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| {
+            let msg = format!("{}", e);
+            !msg.contains("[warn]") && !msg.contains("[info]")
+        })
+        .collect();
+    if !migration_errors.is_empty() {
+        return Err(migration_errors);
+    }
+
+    // ── Stage 9t: minimal dead-declaration check (M107) ───────────────────
+    let minimal_errors: Vec<LoomError> = checker::MinimalChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| {
+            let msg = format!("{}", e);
+            !msg.contains("[warn]") && !msg.contains("[info]")
+        })
+        .collect();
+    if !minimal_errors.is_empty() {
+        return Err(minimal_errors);
+    }
+
+    // ── Stage 9u: journal episodic memory check (M104) ────────────────────
+    let journal_errors: Vec<LoomError> = checker::JournalChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !journal_errors.is_empty() {
+        return Err(journal_errors);
+    }
+
+    // ── Stage 9v: scenario executable acceptance criteria check (M105) ────
+    let scenario_errors: Vec<LoomError> = checker::ScenarioChecker::new()
+        .check(&module)
+        .into_iter()
+        .filter(|e| !format!("{}", e).contains("[warn]"))
+        .collect();
+    if !scenario_errors.is_empty() {
+        return Err(scenario_errors);
     }
 
     // ── Stage 9: code generation ──────────────────────────────────────────

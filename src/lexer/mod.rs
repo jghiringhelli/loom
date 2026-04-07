@@ -188,6 +188,33 @@ pub enum Token {
     #[token("handle")]    Handle,
     #[token("operation")] Operation,
 
+    // ── Documentation liveness manifest (M101) ──────────────────────────────────
+    #[token("manifest")]  Manifest,
+    #[token("artifact")]  Artifact,
+    #[token("reflects")]  Reflects,
+
+    // ── Use-case triple-derivation (M103) ────────────────────────────────────────
+    #[token("usecase")]   UseCase,
+    #[token("within")]    Within,
+    #[token("actor")]     Actor,
+    #[token("acceptance")] Acceptance,
+
+    // ── Episodic memory journal (M104) ────────────────────────────────────────────
+    #[token("journal")]   Journal,
+
+    // ── Scenario blocks — BDD acceptance criteria (M105) ─────────────────────────
+    #[token("scenario")]  Scenario,
+
+    // ── Migration evolution contract (M106) ──────────────────────────────────────
+    #[token("migration")] Migration,
+
+    // ── Property-based testing (M109) ────────────────────────────────────────────
+    // QuickCheck (Claessen & Hughes 2000) → fast-check (JS) → Hypothesis (Python) → Loom.
+    #[token("property")]  Property,
+    #[token("forall")]    Forall,
+    #[token("shrink")]    Shrink,
+    #[token("samples")]   Samples,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
