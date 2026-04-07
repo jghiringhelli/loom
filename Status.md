@@ -2,13 +2,17 @@
 
 ## Last Updated: 2026-04-11
 ## Session Summary
-M98/M99: session types and algebraic effect handlers. 678 tests passing (up from 634 baseline).
+M100/M101: SMT contract verification bridge + manifest: documentation liveness. Also completed M106, M107, M108, M109, M110. 724 tests passing (up from 678).
 
 ## Test Count
-- **Total tests:** 678 passing ✅
-- **M98 Session Types:** 6 new tests — two-role session parse, multi-step, duality declaration, duality violation checker, Channel fn sig, @implements annotation
-- **M99 Algebraic Effect Handlers:** 6 new tests — single/multi operation, type params, handle block, multiple handlers, Effect<[Log]> type expr
-- Also: `describe:` now accepted anywhere in fn body (not just before `::`), `implements` added to token_as_ident()
+- **Total tests:** 724 passing ✅
+- **M100 SMT Bridge:** 8 new tests — checker exists, skipped without Z3, precondition/postcondition/arithmetic translation, contradiction detection, fn without contracts, lineage comment
+- **M101 Manifest:** 6 new tests — manifest parses, missing file error, reflects unknown symbol warning, empty manifest valid, multiple artifacts, being without manifest valid
+- **M106 Migration:** 6 new tests — migration block parses, non-breaking without adapter error, duplicate name error, autopoietic info hint, breaking with adapter, no-migration no-hint
+- **M107 Minimal:** 6 new tests — unused sense warning, regulate on nonexistent field error, no being no check, no matter no Rule 2, empty sense no warning, no autopoietic-hint
+- **M108 Journal+Scenario:** journal checker (keep 0 error, missing evolve/telos warnings, autopoietic warning) + scenario checker (empty given/when/then, within 0, autopoietic warning)
+- **M109 Property:** 6 new tests — parses, zero samples error, shrink default, samples default, multiple properties, emits test stub
+- **M110 UseCase:** 6 new tests — full parse, acceptance criteria, empty acceptance warning, duplicate criterion error, postcondition=precondition warning, tautological precondition warning
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -53,6 +57,14 @@ M98/M99: session types and algebraic effect handlers. 678 tests passing (up from
 | M97: Distributed Stores | ✅ Done | Distributed MapReduce (Dean & Ghemawat 2004): map/reduce/combine pipeline; DistributedLog (Kreps 2011): partitioned append-only log with consumer offset declarations |
 | M98: Session Types | ✅ Done | session/role/send/recv/duality, SessionChecker (Honda 1993) |
 | M99: Effect Handlers | ✅ Done | effect/operation/handle/with, EffectHandlerChecker (Plotkin & Pretnar 2009) |
+| M100: SMT Bridge | ✅ Done | SmtBridgeChecker, SMT-LIB2 translation, Z3-feature-gated (Hoare 1969 → Dijkstra 1975 → Z3) |
+| M101: Manifest Liveness | ✅ Done | ManifestChecker, artifact existence + symbol reflects checking |
+| M104: Journal | ✅ Done | JournalBlock, JournalChecker (episodic memory — Tulving 1972) |
+| M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker (BDD Given/When/Then — Beck 2002) |
+| M106: Migration | ✅ Done | MigrationBlock, MigrationChecker (interface evolution contract) |
+| M107: Minimal | ✅ Done | MinimalChecker (dead declaration detection — unused sense + regulate field) |
+| M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker (QuickCheck 2000 → fast-check) |
+| M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker (Jacobson 1992 triple-derivation) |
 | ALX-1 through ALX-4 | ✅ Done | Self-fix loop experiments all green |
 
 ## Current Context
