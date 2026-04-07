@@ -205,8 +205,148 @@ correctness_report:
     - effect_safety:     effect_checker_passed
     - separation:        separation_logic_proved
     - temporal_ordering: temporal_checker_passed
+    - conservation:      conservation_checker_passed
+    - duality:           session_checker_passed
   unverified:
     - smt_completeness: requires_z3_feature
+end
+
+-- ── M68-M77: Biological Gap Milestones ───────────────────────────────────────
+
+being BiologicalBeing
+  @mortal
+  @corrigible
+
+  telos: "demonstrate biological features"
+  end
+
+  matter:
+    energy: Float
+    temperature: Float
+  end
+
+  regulate temperature
+    target: optimal_level
+    bounds: (lo, hi)
+  end
+
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "energy_decreasing_toward_equilibrium"
+  end
+end
+
+-- ── M84: Distribution families ───────────────────────────────────────────────
+
+fn model_returns @probabilistic :: Unit -> Float
+  distribution:
+    family: GeometricBrownian(drift: 0.05, volatility: 0.2)
+  end
+end
+
+-- ── M85: Randomness quality ───────────────────────────────────────────────────
+
+fn generate_nonce @crypto_random @requires_auth :: Unit -> String
+  "nonce"
+end
+
+-- ── M86: Conservation annotation ─────────────────────────────────────────────
+
+fn transfer_value @conserved(Value) @idempotent :: Float -> Float -> Float
+  require: amount > 0.0
+  ensure: result = amount
+  amount
+end
+
+-- ── M87: Tensor type ─────────────────────────────────────────────────────────
+
+fn correlation_matrix :: Unit -> Tensor<2, [10, 10], Float>
+  describe: "10x10 correlation matrix"
+end
+
+-- ── M88: Stochastic process ───────────────────────────────────────────────────
+
+fn model_rate @probabilistic :: Unit -> Float
+  distribution:
+    family: OrnsteinUhlenbeck(mean: 0.05, theta: 0.5, sigma: 0.02)
+  end
+  process:
+    kind: OrnsteinUhlenbeck
+    mean_reverting: true
+  end
+end
+
+-- ── M98: Session type ─────────────────────────────────────────────────────────
+
+session TradeProtocol
+  client:
+    send: TradeRequest
+    recv: TradeAck
+  end
+  server:
+    recv: TradeRequest
+    send: TradeAck
+  end
+  duality: client <-> server
+end
+
+-- ── M99: Algebraic effect ─────────────────────────────────────────────────────
+
+effect Logging
+  operation log_entry :: String -> Unit
+  operation flush :: Unit -> Unit
+end
+
+-- ── M100: SMT bridge (contract → SMT-LIB2) ──────────────────────────────────
+
+fn bounded_computation :: Int -> Int
+  require: n >= 0
+  ensure: result >= 0
+  n
+end
+
+-- ── M106: Migration contract ─────────────────────────────────────────────────
+
+being EvolvingService
+  @mortal
+
+  telos: "demonstrate migration contracts"
+  end
+
+  matter:
+    version: Int
+    data: String
+  end
+
+  migration AddDataField
+    from: 1
+    to: 2
+    breaking: false
+    adapter: migrate_add_data
+  end
+end
+
+-- ── M107: Minimal checker + M109: Property-based test ────────────────────────
+
+property: RoundTrip
+  forall x: String
+  invariant: decode(encode(x)) = x
+  shrink: true
+  samples: 200
+end
+
+-- ── M110: Use-case triple derivation ─────────────────────────────────────────
+
+usecase PlaceTradeOrder
+  actor: Trader
+  precondition: trader_authenticated
+  trigger: submit_order
+  postcondition: order_confirmed
+  acceptance:
+    | "order is recorded in ledger"
+    | "balance updated by trade amount"
+  end
 end
 
 -- ── Helper fns referenced by aspects ─────────────────────────────────────────
@@ -237,6 +377,10 @@ end
 
 fn charge :: String -> Bool
   true
+end
+
+fn migrate_add_data :: String -> String
+  x
 end
 
 end
