@@ -1,0 +1,233 @@
+-- Loom Sense Standard Library — M83
+-- The complete measurable universe as first-class typed signal channels.
+--
+-- Grounded in: SI (2019 redefinition), Shannon (1948) information theory,
+-- Peirce semiosis (1866), Uexküll Umwelt (1909), quantum mechanics.
+--
+-- The 7 SI base dimensions + extended set cover every physically measurable
+-- quantity. Beings with no umwelt: block can receive signals of any declared
+-- sense type — the mantis shrimp model (16-channel photoreceptors vs human 3).
+
+module SenseStdlib
+
+-- ── 7 SI Base Dimensions ──────────────────────────────────────────────────────
+
+sense Length
+  channels: [Nanometer, Micrometer, Millimeter, Centimeter, Meter, Kilometer,
+             LightYear, Parsec, AstronomicalUnit, Fermi]
+  unit: "m"
+  dimension: L
+end
+
+sense Mass
+  channels: [Nanogram, Microgram, Milligram, Gram, Kilogram, Tonne,
+             AtomicMass, ElectronMass, SolarMass]
+  unit: "kg"
+  dimension: M
+end
+
+sense Time
+  channels: [Femtosecond, Picosecond, Nanosecond, Microsecond, Millisecond,
+             Second, Minute, Hour, Day, Year, Gigayear]
+  unit: "s"
+  dimension: T
+end
+
+sense ElectricCurrent
+  channels: [Nanoampere, Microampere, Milliampere, Ampere, Kiloampere]
+  unit: "A"
+  dimension: I
+end
+
+sense Temperature
+  channels: [Millikelvin, Kelvin, Celsius, Fahrenheit, Rankine]
+  unit: "K"
+  dimension: Theta
+end
+
+sense AmountOfSubstance
+  channels: [Nanomole, Micromole, Millimole, Mole, Kilomole]
+  unit: "mol"
+  dimension: N
+end
+
+sense LuminousIntensity
+  channels: [Millicandela, Candela, Kilocandela]
+  unit: "cd"
+  dimension: J
+end
+
+-- ── Extended dimensions (beyond SI) ───────────────────────────────────────────
+
+sense PlaneAngle
+  channels: [Milliradian, Radian, Degree, Arcminute, Arcsecond, Gradian]
+  unit: "rad"
+  dimension: phi
+end
+
+sense SolidAngle
+  channels: [Millisteradian, Steradian]
+  unit: "sr"
+  dimension: Omega
+end
+
+sense Information
+  channels: [Bit, Byte, Kilobyte, Megabyte, Gigabyte, Nat, Ban, Shannon]
+  unit: "bit"
+  dimension: b
+end
+
+sense QuantumSpin
+  channels: [SpinUp, SpinDown, Superposition, Mixed]
+  unit: "hbar_over_2"
+  dimension: S
+end
+
+-- ── 22 Named SI Derived units ──────────────────────────────────────────────────
+
+sense Frequency
+  channels: [Millihertz, Hertz, Kilohertz, Megahertz, Gigahertz, Terahertz]
+  unit: "Hz"
+  derived: T_neg1
+end
+
+sense Force
+  channels: [Micronewton, Millinewton, Newton, Kilonewton, Meganewton]
+  unit: "N"
+  derived: M_L_T_neg2
+end
+
+sense Pressure
+  channels: [Pascal, Kilopascal, Megapascal, Bar, Millibar, Atmosphere, Torr, PSI]
+  unit: "Pa"
+  derived: M_L_neg1_T_neg2
+end
+
+sense Energy
+  channels: [Millijoule, Joule, Kilojoule, Megajoule, Calorie, Kilocalorie,
+             ElectronVolt, KilowattHour, BTU, Erg]
+  unit: "J"
+  derived: M_L2_T_neg2
+end
+
+sense Power
+  channels: [Milliwatt, Watt, Kilowatt, Megawatt, Gigawatt, Horsepower]
+  unit: "W"
+  derived: M_L2_T_neg3
+end
+
+sense ElectricCharge
+  channels: [Picocoulomb, Nanocoulomb, Microcoulomb, Millicoulomb, Coulomb, Faraday]
+  unit: "C"
+  derived: T_I
+end
+
+sense ElectricPotential
+  channels: [Microvolt, Millivolt, Volt, Kilovolt, Megavolt]
+  unit: "V"
+  derived: M_L2_T_neg3_I_neg1
+end
+
+sense Capacitance
+  channels: [Picofarad, Nanofarad, Microfarad, Millifarad, Farad]
+  unit: "F"
+  derived: M_neg1_L_neg2_T4_I2
+end
+
+sense ElectricResistance
+  channels: [Milliohm, Ohm, Kilohm, Megaohm, Gigaohm]
+  unit: "Ohm"
+  derived: M_L2_T_neg3_I_neg2
+end
+
+sense MagneticFlux
+  channels: [Microweber, Milliweber, Weber]
+  unit: "Wb"
+  derived: M_L2_T_neg2_I_neg1
+end
+
+sense MagneticFluxDensity
+  channels: [Nanotesla, Microtesla, Millitesla, Tesla, Gauss]
+  unit: "T"
+  derived: M_T_neg2_I_neg1
+end
+
+sense Inductance
+  channels: [Microhenry, Millihenry, Henry, Kilohenry]
+  unit: "H"
+  derived: M_L2_T_neg2_I_neg2
+end
+
+sense LuminousFlux
+  channels: [Millilumen, Lumen, Kilolumen]
+  unit: "lm"
+  derived: J_Omega
+end
+
+sense Illuminance
+  channels: [Lux, Footcandle, Phot]
+  unit: "lx"
+  derived: J_Omega_L_neg2
+end
+
+sense RadioactiveActivity
+  channels: [Millibecquerel, Becquerel, Kilobecquerel, Megabecquerel, Curie]
+  unit: "Bq"
+  derived: T_neg1
+end
+
+sense AbsorbedDose
+  channels: [Milligray, Gray, Centigray]
+  unit: "Gy"
+  derived: L2_T_neg2
+end
+
+sense EquivalentDose
+  channels: [Microsievert, Millisievert, Sievert]
+  unit: "Sv"
+  derived: L2_T_neg2
+end
+
+sense CatalyticActivity
+  channels: [Nanokatal, Microkatal, Millimous, Katal]
+  unit: "kat"
+  derived: N_T_neg1
+end
+
+-- ── Beyond human perception ────────────────────────────────────────────────────
+
+sense GravitationalWaveStrain
+  channels: [PicoStrain, FemtoStrain, AttoStrain]
+  unit: "dimensionless"
+end
+
+sense ChemicalPotential
+  channels: [JoulePerMole, KilojoulePerMole, ElectronVoltPerMolecule, KcalPerMol]
+  unit: "J/mol"
+  derived: M_L2_T_neg2_N_neg1
+end
+
+sense EntanglementCorrelation
+  channels: [ClassicalCorrelated, QuantumEntangled, BellViolation]
+  unit: "dimensionless"
+end
+
+sense MagneticFieldStrength
+  channels: [AmpereTurnPerMeter, Oersted, Millioersted]
+  unit: "A/m"
+  derived: I_L_neg1
+end
+
+sense VelocitySignal
+  channels: [MetersPerSecond, KilometersPerHour, MilesPerHour, Knots, MachNumber, C_fraction]
+  unit: "m/s"
+  derived: L_T_neg1
+end
+
+sense Acceleration
+  channels: [MetersPerSecondSquared, StandardGravity, Gal]
+  unit: "m/s2"
+  derived: L_T_neg2
+end
+
+end

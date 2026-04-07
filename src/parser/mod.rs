@@ -168,22 +168,49 @@ impl<'src> Parser<'src> {
                         break;
                     }
                 }
-                // Optional `("value")` or `(Ident)` payload
+                // Optional `("value")`, `(Ident)`, or `(Ident.field)` payload.
+                // Collect all tokens between `(` and `)` as a raw string so that
+                // annotation values like `@foreign_key(Users.id)` are preserved intact.
                 let value = if self.at(&Token::LParen) {
-                    self.advance();
-                    if let Some((Token::StrLit(v), _)) = self.tokens.get(self.pos) {
-                        let v = v.clone();
-                        self.advance();
-                        let _ = self.expect(Token::RParen); // consume `)`, ignore error
-                        v
-                    } else if let Some(v) = self.token_as_ident() {
-                        self.advance();
-                        let _ = self.expect(Token::RParen);
-                        v
-                    } else {
-                        let _ = self.expect(Token::RParen);
-                        String::new()
+                    self.advance(); // consume `(`
+                    let mut parts = Vec::new();
+                    let mut depth = 1usize;
+                    while depth > 0 {
+                        match self.tokens.get(self.pos) {
+                            Some((Token::LParen, _)) => {
+                                depth += 1;
+                                parts.push("(".to_string());
+                                self.advance();
+                            }
+                            Some((Token::RParen, _)) => {
+                                depth -= 1;
+                                if depth > 0 {
+                                    parts.push(")".to_string());
+                                }
+                                self.advance();
+                            }
+                            Some((Token::Dot, _)) => {
+                                parts.push(".".to_string());
+                                self.advance();
+                            }
+                            Some((Token::StrLit(v), _)) => {
+                                parts.push(v.clone());
+                                self.advance();
+                            }
+                            None => break,
+                            _ => {
+                                if let Some(s) = self.token_as_ident() {
+                                    parts.push(s);
+                                } else {
+                                    parts.push(token_to_source(
+                                        &self.tokens[self.pos].0
+                                    ));
+                                }
+                                self.advance();
+                            }
+                        }
                     }
+                    parts.join("")
                 } else {
                     String::new()
                 };
@@ -257,6 +284,11 @@ impl<'src> Parser<'src> {
             Some((Token::Fact, _))        => Some("fact".to_string()),
             Some((Token::Dimension, _))   => Some("dimension".to_string()),
             Some((Token::Embedding, _))   => Some("embedding".to_string()),
+            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _))    => Some("consumer".to_string()),
+            Some((Token::Offset, _))      => Some("offset".to_string()),
+            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Replication, _)) => Some("replication".to_string()),
             _ => None,
         }
     }
@@ -314,6 +346,11 @@ impl<'src> Parser<'src> {
             Some((Token::Fact, _))        => Some("fact".to_string()),
             Some((Token::Dimension, _))   => Some("dimension".to_string()),
             Some((Token::Embedding, _))   => Some("embedding".to_string()),
+            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _))    => Some("consumer".to_string()),
+            Some((Token::Offset, _))      => Some("offset".to_string()),
+            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Replication, _)) => Some("replication".to_string()),
             _ => None,
         }
     }
@@ -2280,10 +2317,16 @@ impl<'src> Parser<'src> {
         self.expect(Token::Eq)?;
 
         // Peek ahead: if next is an ident followed by `where`, it's refined.
-        // If next is `end` it's an empty product type.
-        // Otherwise parse fields.
+        // If next is `end` or (ident followed by `:`) it's a product type (field list).
+        // Otherwise it's a type alias: `type X = SomeType<...>`.
         let is_refined = match (self.peek(), self.peek2()) {
             (Some(Token::Ident(_)), Some(Token::Where)) => true,
+            _ => false,
+        };
+
+        let is_field_list = match (self.peek(), self.peek2()) {
+            (Some(Token::Ident(_)), Some(Token::Colon)) => true,
+            (Some(Token::End), _) => true,   // empty product type
             _ => false,
         };
 
@@ -2333,8 +2376,13 @@ impl<'src> Parser<'src> {
                 repair_fn,
                 span: Span::merge(&start, &end_span),
             }))
-        } else {
+        } else if is_field_list {
             Ok(Item::Type(self.parse_type_fields(name, start)?))
+        } else {
+            // Type alias: `type X = TypeExpr` — no trailing `end`.
+            let ty = self.parse_type_expr()?;
+            let end_span = self.current_span();
+            Ok(Item::TypeAlias(name, ty, Span::merge(&start, &end_span)))
         }
     }
 
@@ -2493,7 +2541,7 @@ impl<'src> Parser<'src> {
     /// Parse the tail of `Name<...>` after the `<` has been consumed.
     ///
     /// Handles the special forms `Effect<[E...], T>`, `Option<T>`,
-    /// `Result<T, E>`, and arbitrary generics `Name<T...>`.
+    /// `Result<T, E>`, `Tensor<rank, [shape], unit>`, and arbitrary generics `Name<T...>`.
     fn parse_generic_tail(&mut self, name: String) -> Result<TypeExpr, LoomError> {
         match name.as_str() {
             "Effect" => {
@@ -2544,6 +2592,18 @@ impl<'src> Parser<'src> {
                 let err = self.parse_type_expr()?;
                 self.expect(Token::Gt)?;
                 Ok(TypeExpr::Result(Box::new(ok), Box::new(err)))
+            }
+            "Tensor" => {
+                // `Tensor<rank, [shape...], unit>`
+                // rank is an integer literal; shape is bracket-enclosed idents/ints; unit is a type expr.
+                let span = self.current_span();
+                let rank = self.parse_tensor_rank()?;
+                self.expect(Token::Comma)?;
+                let shape = self.parse_tensor_shape()?;
+                self.expect(Token::Comma)?;
+                let unit = self.parse_type_expr()?;
+                self.expect(Token::Gt)?;
+                Ok(TypeExpr::Tensor { rank, shape, unit: Box::new(unit), span })
             }
             _ => {
                 // Arbitrary generic: `Name<T1, T2, ...>`
@@ -3372,6 +3432,8 @@ impl<'src> Parser<'src> {
         let mut channels: Vec<String> = Vec::new();
         let mut range: Option<String> = None;
         let mut unit: Option<String> = None;
+        let mut dimension: Option<String> = None;
+        let mut derived: Option<String> = None;
         while !self.at(&Token::End) && self.peek().is_some() {
             if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "channels")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
@@ -3405,13 +3467,32 @@ impl<'src> Parser<'src> {
                     unit = Some(s.clone());
                     self.pos += 1;
                 }
+            } else if (matches!(self.tokens.get(self.pos), Some((Token::Dimension, _)))
+                || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "dimension"))
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                // M83: `dimension: Symbol` — SI base dimension symbol
+                self.advance(); // consume `dimension` (keyword or ident)
+                self.advance(); // consume `:`
+                if let Ok((sym, _)) = self.expect_ident() {
+                    dimension = Some(sym);
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "derived")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                // M83: `derived: Formula` — dimensional formula for derived units
+                self.advance(); // consume `derived`
+                self.advance(); // consume `:`
+                if let Ok((formula, _)) = self.expect_ident() {
+                    derived = Some(formula);
+                }
             } else {
                 self.advance();
             }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(SenseDef { name, channels, range, unit, span: Span::merge(&start, &end_span) })
+        Ok(SenseDef { name, channels, range, unit, dimension, derived, span: Span::merge(&start, &end_span) })
     }
 
     // ── M92: Store declarations ───────────────────────────────────────────────
@@ -3440,9 +3521,14 @@ impl<'src> Parser<'src> {
                 schema.push(self.parse_store_dimension_entry()?);
             } else if self.at(&Token::Embedding) {
                 schema.push(self.parse_store_embedding_entry()?);
+            } else if self.at(&Token::MapReduce) {
+                schema.push(self.parse_store_mapreduce_entry()?);
+            } else if self.at(&Token::Consumer) {
+                schema.push(self.parse_store_consumer_entry()?);
             } else if self.at(&Token::Ttl) || self.at(&Token::Retention) || self.at(&Token::Resolution)
                 || self.at(&Token::Format) || self.at(&Token::Compression) || self.at(&Token::Capacity)
                 || self.at(&Token::Eviction) || self.at(&Token::Index)
+                || self.at(&Token::Partitions) || self.at(&Token::Replication)
             {
                 let entry_span = self.current_span();
                 let key = self.token_as_ident().unwrap_or_default();
@@ -3507,16 +3593,18 @@ impl<'src> Parser<'src> {
             n
         };
         let kind = match kind_name.as_str() {
-            "Relational" => StoreKind::Relational,
-            "KeyValue"   => StoreKind::KeyValue,
-            "Graph"      => StoreKind::Graph,
-            "Document"   => StoreKind::Document,
-            "Columnar"   => StoreKind::Columnar,
-            "Snowflake"  => StoreKind::Snowflake,
-            "Hypercube"  => StoreKind::Hypercube,
-            "TimeSeries" => StoreKind::TimeSeries,
-            "Vector"     => StoreKind::Vector,
-            "FlatFile"   => StoreKind::FlatFile,
+            "Relational"     => StoreKind::Relational,
+            "KeyValue"       => StoreKind::KeyValue,
+            "Graph"          => StoreKind::Graph,
+            "Document"       => StoreKind::Document,
+            "Columnar"       => StoreKind::Columnar,
+            "Snowflake"      => StoreKind::Snowflake,
+            "Hypercube"      => StoreKind::Hypercube,
+            "TimeSeries"     => StoreKind::TimeSeries,
+            "Vector"         => StoreKind::Vector,
+            "FlatFile"       => StoreKind::FlatFile,
+            "Distributed"    => StoreKind::Distributed,
+            "DistributedLog" => StoreKind::DistributedLog,
             "InMemory"   => {
                 if self.at(&Token::LParen) {
                     self.advance();
@@ -3613,20 +3701,124 @@ impl<'src> Parser<'src> {
         Ok(StoreSchemaEntry::EmbeddingEntry { fields, span: Span::merge(&start, &self.current_span()) })
     }
 
+    /// Parse a `mapreduce Name ... end` block inside a Distributed store.
+    fn parse_store_mapreduce_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume `mapreduce`
+        let (name, _) = self.expect_ident()?;
+
+        let mut map_sig = String::new();
+        let mut reduce_sig = String::new();
+        let mut combine_sig: Option<String> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(kw) = self.token_as_ident() {
+                let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                if next_is_colon {
+                    self.advance(); // consume key
+                    self.advance(); // consume ':'
+                    let sig = self.parse_mapreduce_sig_as_string();
+                    match kw.as_str() {
+                        "map"     => map_sig = sig,
+                        "reduce"  => reduce_sig = sig,
+                        "combine" => combine_sig = Some(sig),
+                        _         => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(StoreSchemaEntry::MapReduceJob(MapReduceDef {
+            name,
+            map_sig,
+            reduce_sig,
+            combine_sig,
+            span: Span::merge(&start, &end_span),
+        }))
+    }
+
+    /// Parse a `consumer Name :: offset: value` entry inside a DistributedLog store.
+    fn parse_store_consumer_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume `consumer`
+        let (name, _) = self.expect_ident()?;
+        self.expect(Token::ColonColon)?;
+        // Expect `offset: value`
+        let _ = self.token_as_ident(); // should be "offset"
+        self.advance(); // consume `offset`
+        self.expect(Token::Colon)?;
+        let offset = self.parse_value_as_string().unwrap_or_default();
+        Ok(StoreSchemaEntry::LogConsumer(LogConsumerDef {
+            name,
+            offset,
+            span: start,
+        }))
+    }
+
+    /// Collect tokens as a display string until the next `map:`/`reduce:`/`combine:` or `end`.
+    fn parse_mapreduce_sig_as_string(&mut self) -> String {
+        let mut parts = Vec::new();
+        loop {
+            if self.at(&Token::End) { break; }
+            // Stop when we see map:/reduce:/combine: starting the next entry
+            if let Some(kw) = self.token_as_ident() {
+                if matches!(kw.as_str(), "map" | "reduce" | "combine") {
+                    if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                        break;
+                    }
+                }
+            }
+            let s = self.token_as_display_string();
+            parts.push(s);
+            self.advance();
+        }
+        parts.join("")
+    }
+
+    /// Return the current token as a display string for signature capture.
+    fn token_as_display_string(&self) -> String {
+        match self.tokens.get(self.pos) {
+            Some((Token::Arrow, _))      => "->".to_string(),
+            Some((Token::LBracket, _))   => "[".to_string(),
+            Some((Token::RBracket, _))   => "]".to_string(),
+            Some((Token::LParen, _))     => "(".to_string(),
+            Some((Token::RParen, _))     => ")".to_string(),
+            Some((Token::Comma, _))      => ",".to_string(),
+            Some((Token::Star, _))       => "*".to_string(),
+            Some((Token::ColonColon, _)) => "::".to_string(),
+            Some((Token::Colon, _))      => ":".to_string(),
+            Some((Token::IntLit(n), _))  => n.to_string(),
+            Some((Token::FloatLit(f), _)) => f.to_string(),
+            _ => self.token_as_ident().unwrap_or_else(|| "_".to_string()),
+        }
+    }
+
     /// Parse inline `{ field: Type [@ann], ... }` field list.
+    /// Supports pre-field annotations: `{ @provenance field: Type, ... }`.
+    /// Field names may be keywords used as contextual identifiers (e.g. `type`, `action`).
     fn parse_inline_fields(&mut self) -> Result<Vec<FieldDef>, LoomError> {
         self.expect(Token::LBrace)?;
         let mut fields = Vec::new();
         while !self.at(&Token::RBrace) && self.peek().is_some() {
             let field_start = self.current_span();
-            let field_name = match self.tokens.get(self.pos) {
-                Some((Token::Ident(n), _)) => { let n = n.clone(); self.pos += 1; n }
-                _ => break,
+            // Collect any pre-field annotations (e.g. @provenance, @weight, @distance)
+            let pre_annotations = self.parse_annotations();
+            // Field name may be a keyword used contextually (e.g. `type`, `action`).
+            let field_name = if let Some(name) = self.token_as_ident() {
+                self.advance();
+                name
+            } else {
+                break;
             };
             if !self.at(&Token::Colon) { break; }
             self.advance();
             let ty = self.parse_type_expr()?;
-            let annotations = self.parse_annotations();
+            let mut annotations = pre_annotations;
+            annotations.extend(self.parse_annotations());
             let field_end = self.current_span();
             fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
             if self.at(&Token::Comma) { self.advance(); }
@@ -3651,6 +3843,54 @@ impl<'src> Parser<'src> {
             }
             _ => self.parse_value_as_string(),
         }
+    }
+
+    /// Parse the rank (integer literal) in `Tensor<rank, ...>`. M87.
+    ///
+    /// Expects `Token::IntLit(n)` and returns `n as usize`.
+    fn parse_tensor_rank(&mut self) -> Result<usize, LoomError> {
+        match self.tokens.get(self.pos) {
+            Some((Token::IntLit(n), _)) => {
+                let rank = *n as usize;
+                self.pos += 1;
+                Ok(rank)
+            }
+            Some((_, span)) => Err(LoomError::parse(
+                "expected integer literal for tensor rank",
+                span.clone(),
+            )),
+            None => Err(LoomError::parse(
+                "expected integer literal for tensor rank, found end of input",
+                Span::synthetic(),
+            )),
+        }
+    }
+
+    /// Parse the shape list `[D1, D2, ...]` in `Tensor<rank, [shape], unit>`. M87.
+    ///
+    /// Accepts comma-separated identifiers or integer literals inside brackets.
+    /// An empty bracket pair `[]` is valid (scalar tensor, rank 0).
+    fn parse_tensor_shape(&mut self) -> Result<Vec<String>, LoomError> {
+        self.expect(Token::LBracket)?;
+        let mut shape = Vec::new();
+        while !self.at(&Token::RBracket) && self.peek().is_some() {
+            match self.tokens.get(self.pos) {
+                Some((Token::Ident(n), _)) => {
+                    shape.push(n.clone());
+                    self.pos += 1;
+                }
+                Some((Token::IntLit(n), _)) => {
+                    shape.push(n.to_string());
+                    self.pos += 1;
+                }
+                _ => break,
+            }
+            if self.at(&Token::Comma) {
+                self.advance();
+            }
+        }
+        self.expect(Token::RBracket)?;
+        Ok(shape)
     }
 }
 

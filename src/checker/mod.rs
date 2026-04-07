@@ -43,6 +43,7 @@ pub mod umwelt;
 pub mod resonance;
 pub mod conservation;
 pub mod store;
+pub mod tensor;
 
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
@@ -81,3 +82,4 @@ pub use umwelt::UmweltChecker;
 pub use resonance::ResonanceChecker;
 pub use conservation::ConservationChecker;
 pub use store::StoreChecker;
+pub use tensor::TensorChecker;

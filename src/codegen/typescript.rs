@@ -426,6 +426,11 @@ impl TypeScriptEmitter {
             }
             TypeExpr::Dynamic => "any".to_string(),
             TypeExpr::TypeVar(id) => format!("/* infer:?{} */", id),
+            // Tensor<rank, shape, unit> — emit as nested Array type.
+            TypeExpr::Tensor { rank, unit, .. } => {
+                let inner = self.emit_type_expr(unit);
+                (0..*rank).fold(inner, |acc, _| format!("{}[]", acc))
+            }
         }
     }
 

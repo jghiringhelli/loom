@@ -65,6 +65,13 @@ impl Substitution {
                 TypeExpr::Tuple(elems.iter().map(|e| self.apply(e)).collect())
             }
             TypeExpr::Dynamic => ty.clone(),
+            // Tensor — apply substitution to the unit type.
+            TypeExpr::Tensor { rank, shape, unit, span } => TypeExpr::Tensor {
+                rank: *rank,
+                shape: shape.clone(),
+                unit: Box::new(self.apply(unit)),
+                span: span.clone(),
+            },
         }
     }
 
@@ -185,6 +192,8 @@ pub fn occurs(v: u32, ty: &TypeExpr) -> bool {
         TypeExpr::Result(ok, err) => occurs(v, ok) || occurs(v, err),
         TypeExpr::Tuple(elems) => elems.iter().any(|e| occurs(v, e)),
         TypeExpr::Dynamic => false,
+        // Tensor — check within the unit type.
+        TypeExpr::Tensor { unit, .. } => occurs(v, unit),
     }
 }
 

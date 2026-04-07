@@ -167,6 +167,13 @@ pub enum Token {
     #[token("dimension")]   Dimension,
     #[token("embedding")]   Embedding,
 
+    // ── Distributed store keywords (M97) ────────────────────────────────────────
+    #[token("mapreduce")]   MapReduce,
+    #[token("consumer")]    Consumer,
+    #[token("offset")]      Offset,
+    #[token("partitions")]  Partitions,
+    #[token("replication")] Replication,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

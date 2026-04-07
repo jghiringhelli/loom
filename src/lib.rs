@@ -23,6 +23,7 @@ pub mod lexer;
 pub mod lsp;
 pub mod parser;
 pub mod project;
+pub mod stdlib;
 
 pub use error::LoomError;
 

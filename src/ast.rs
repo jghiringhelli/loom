@@ -534,6 +534,8 @@ pub enum Item {
     Sense(SenseDef),
     /// Store declaration — first-class persistence schema. M92.
     Store(StoreDef),
+    /// Type alias — M87. `type Name = TypeExpr` (no field list).
+    TypeAlias(String, TypeExpr, Span),
 }
 
 // ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
@@ -576,6 +578,9 @@ pub struct CorrelationPair {
 /// Mantis shrimp model: any measurable physical quantity can be a first-class signal.
 /// Examples: electromagnetic spectrum bands, acoustic ranges, chemical gradients,
 /// quantum states, gravitational waves, magnetic field intensity.
+///
+/// M83 extends this with SI dimension symbols and derived unit formulas,
+/// grounding every sense in the SI system of units.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SenseDef {
     pub name: String,
@@ -585,6 +590,10 @@ pub struct SenseDef {
     pub range: Option<String>,
     /// Optional unit declaration (e.g. "Hz", "nm", "mol/L").
     pub unit: Option<String>,
+    /// M83: SI base dimension symbol (e.g. L, M, T, I, Theta, N, J).
+    pub dimension: Option<String>,
+    /// M83: Dimensional formula for derived units (e.g. M_L_T_neg2 for force).
+    pub derived: Option<String>,
     pub span: Span,
 }
 
@@ -933,6 +942,10 @@ pub enum StoreKind {
     Vector,
     InMemory(Box<StoreKind>),
     FlatFile,
+    /// Distributed MapReduce store (Dean & Ghemawat 2004).
+    Distributed,
+    /// Kafka-style partitioned append-only distributed log (Kreps 2011).
+    DistributedLog,
 }
 
 /// A store declaration — first-class persistence with typed schema.
@@ -974,6 +987,35 @@ pub enum StoreSchemaEntry {
     DimensionEntry { name: String, fields: Vec<FieldDef>, span: Span },
     /// `schema Name :: { ... }` — document collection schema
     Collection { name: String, fields: Vec<FieldDef>, span: Span },
+    /// `mapreduce Name ... end` — MapReduce job (M97)
+    MapReduceJob(MapReduceDef),
+    /// `consumer Name :: offset: value` — DistributedLog consumer (M97)
+    LogConsumer(LogConsumerDef),
+}
+
+/// MapReduce job declaration inside a Distributed store.
+///
+/// Dean & Ghemawat (2004): map emits (key,value) pairs; shuffle groups by key;
+/// reduce aggregates per key. Signatures stored as raw strings for flexibility.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MapReduceDef {
+    pub name: String,
+    /// `map :: InputType -> [(KeyType, ValueType)]`
+    pub map_sig: String,
+    /// `reduce :: KeyType -> [ValueType] -> (KeyType, OutputType)`
+    pub reduce_sig: String,
+    /// `combine :: KeyType -> [ValueType] -> ValueType`  (optional local combiner)
+    pub combine_sig: Option<String>,
+    pub span: Span,
+}
+
+/// Consumer declaration for a DistributedLog store (M97).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LogConsumerDef {
+    pub name: String,
+    /// Offset position: `"earliest"`, `"latest"`, or a timestamp string.
+    pub offset: String,
+    pub span: Span,
 }
 
 /// Key-value configuration entry in a store.
@@ -1006,6 +1048,21 @@ pub enum TypeExpr {
     /// Inference variable introduced by the HM engine. Never produced by the
     /// parser; fully resolved before code generation.
     TypeVar(u32),
+    /// M87: Tensor type — multi-dimensional typed array.
+    ///
+    /// `Tensor<rank, shape, unit>` where:
+    /// - `rank`: 0=scalar, 1=vector, 2=matrix, 3+=higher-order
+    /// - `shape`: dimension sizes, can be symbolic (e.g. "N", "D") or numeric ("3")
+    /// - `unit`: Kennedy unit type (e.g. `Float<Pa>`, `Float`)
+    ///
+    /// Grounded in differential geometry, quantum mechanics (state vectors),
+    /// ML (weight matrices), physics (stress/strain/metric tensors).
+    Tensor {
+        rank: usize,
+        shape: Vec<String>,
+        unit: Box<TypeExpr>,
+        span: Span,
+    },
 }
 
 /// Full function type signature, possibly curried.

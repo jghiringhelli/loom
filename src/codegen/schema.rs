@@ -201,6 +201,11 @@ impl JsonSchemaEmitter {
             TypeExpr::Effect(_, inner) => self.type_expr_to_schema(inner),
             TypeExpr::Dynamic => "{\"type\":\"object\"}".to_string(),
             TypeExpr::TypeVar(_) => "{\"type\":\"object\"}".to_string(),
+            // Tensor<rank, shape, unit> — emit as nested JSON Schema array.
+            TypeExpr::Tensor { unit, .. } => {
+                let items = self.type_expr_to_schema(unit);
+                format!("{{\"type\":\"array\",\"items\":{}}}", items)
+            }
         }
     }
 
