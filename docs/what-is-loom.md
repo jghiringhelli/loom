@@ -1,20 +1,40 @@
 # What Is Loom?
 
-Loom is a programming language. It compiles to Rust, TypeScript, and WebAssembly.
+Loom is a programming language where **the primary executor is an AI agent, not a human**.
 
-What makes it different is **what the compiler checks**.
+It compiles to Rust, TypeScript, and WebAssembly. A human can read it. But it was
+designed for an AI to write, verify, and compose — token-efficiently, with correctness
+properties embedded in the syntax rather than described in comments or inferred from
+documentation.
 
 ---
 
-## The short version
+## The premise
 
-Most languages check that your types line up.
+Human programming languages were designed so humans can understand them. The cost is
+verbosity: you need to read an entire function to understand what it does and what
+guarantees it makes. Comments and documentation exist to close this gap, but they
+drift from the code and cannot be verified.
 
-Loom also checks that your *correctness properties* line up: physical laws, security
-contracts, communication protocols, information flow, temporal ordering. If your code
-violates any of these, it doesn't compile.
+When an AI agent generates or reasons about code, the bottleneck is different:
+- **Token efficiency**: every token consumed is inference cost
+- **Semantic density**: the type signature + annotations should carry the full contract
+- **Machine-checkable correctness**: properties that need verification should be
+  verifiable without executing the code
 
-That's it. That's the idea.
+Loom is designed around these constraints. The annotation `@conserved(Mass) @requires_auth @pii`
+in a function signature tells an AI agent — without reading the body — that this
+function preserves a physical invariant, requires an authenticated context, and handles
+personal data. The compiler verifies all three. The AI can trust the contract and
+compose the function correctly.
+
+---
+
+## What the compiler checks
+
+Most languages check that your types line up. Loom also checks *correctness properties*:
+physical laws, security contracts, communication protocols, information flow, temporal
+ordering. If your code violates any of these, it doesn't compile.
 
 ---
 
@@ -136,16 +156,41 @@ a library or adding an annotation layer on top.
 
 ---
 
+## Why AI agents benefit from this
+
+When an AI agent writes a Loom function, the contract is in the signature:
+
+```loom
+fn charge_card @requires_auth @conserved(Value) @idempotent
+    :: PaymentDetails -> Effect<[DB<Relational>, Network]> -> Receipt
+```
+
+From this signature alone — without reading the body — an AI agent knows:
+- Authentication is required before this function can be called
+- The total value in the system is preserved
+- The operation is safe to retry
+- It touches a relational database and a network
+- It produces a receipt
+
+This is more semantic information per token than documentation. The compiler has
+already verified all of it. An AI composing a payment workflow does not need to
+read the implementation — the signature is the proof.
+
+This is what Loom was designed for: **semantic density sufficient for AI-level
+reasoning about correctness, without human-level verbosity**.
+
+---
+
 ## Who it's for
 
+**AI coding agents** that generate or reason about code and need machine-verifiable
+contracts in the syntax, not in comments that might be wrong.
+
 **Researchers** who want a language that expresses scientific correctness in the type
-system rather than in comments or external proofs.
+system rather than in external proofs.
 
-**Systems programmers** who want the Rust backend with correctness guarantees that
-live at the source level, not the target level.
-
-**Anyone building infrastructure** where security, information flow, and protocol
-correctness matter enough to want them enforced, not tested.
+**Systems builders** who want the Rust backend with correctness guarantees that live
+at the source level — so both human reviewers and AI agents can verify them.
 
 ---
 
