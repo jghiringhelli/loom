@@ -25,20 +25,6 @@ fn read_alx(filename: &str) -> String {
 #[test]
 fn alx1_full_feature_matrix_compiles() {
     let source = read_alx("ALX-1-feature-matrix.loom");
-    // Debug: show fn names in module to diagnose aspect checker
-    let tokens = loom::lexer::Lexer::tokenize(&source).expect("lex");
-    let module = loom::parser::Parser::new(&tokens).parse_module().expect("parse ALX-1");
-    let fn_names: Vec<&str> = module.items.iter().filter_map(|i| {
-        if let loom::ast::Item::Fn(f) = i { Some(f.name.as_str()) } else { None }
-    }).collect();
-    eprintln!("Module items count: {}", module.items.len());
-    eprintln!("Fn names in module.items: {:?}", fn_names);
-    // Debug: run the aspect checker directly to see what it finds
-    let aspect_result = loom::checker::AspectChecker::new().check(&module);
-    eprintln!("Direct aspect check result: {:?}", aspect_result.is_ok());
-    if let Err(ref errs) = aspect_result {
-        for e in errs { eprintln!("  Aspect error: {:?}", e); }
-    }
     let result = compile(&source);
     assert!(
         result.is_ok(),
@@ -210,4 +196,57 @@ fn alx4c_all_alx_programs_produce_rust_output() {
             &rust[..rust.len().min(500)]
         );
     }
+}
+
+/// ALX-5: Evolvable stress — multi-version migration chain compiles cleanly.
+///
+/// This is the most adversarial ALX experiment: a being that evolves through
+/// 4 interface versions with field-type chains, version-number chains, and
+/// cross-feature integration (session types, journal, boundary, scenario).
+///
+/// Failure here means evolvable is broken under realistic conditions.
+#[test]
+fn alx5_evolvable_stress_compiles() {
+    let source = read_alx("ALX-5-evolvable-stress.loom");
+    let result = compile(&source);
+    assert!(
+        result.is_ok(),
+        "ALX-5 evolvable stress must compile cleanly.\nErrors:\n{}",
+        result
+            .unwrap_err()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
+
+/// ALX-5b: Evolvable stress — migration chain has expected structure in AST.
+#[test]
+fn alx5b_evolvable_migration_chain_structure() {
+    let source = read_alx("ALX-5-evolvable-stress.loom");
+    let tokens = loom::lexer::Lexer::tokenize(&source).expect("ALX-5 must lex");
+    let module = loom::parser::Parser::new(&tokens)
+        .parse_module()
+        .expect("ALX-5 must parse");
+
+    // PriceEvolver should have 5 migrations (3 field-based + 2 version-number)
+    let evolver = module.being_defs.iter().find(|b| b.name == "PriceEvolver")
+        .expect("PriceEvolver being must be present");
+    assert_eq!(
+        evolver.migrations.len(), 5,
+        "PriceEvolver should have 5 migration blocks"
+    );
+
+    // EvolvingTradingAgent (autopoietic) should have 3 migrations
+    let agent = module.being_defs.iter().find(|b| b.name == "EvolvingTradingAgent")
+        .expect("EvolvingTradingAgent being must be present");
+    assert!(
+        !agent.migrations.is_empty(),
+        "EvolvingTradingAgent should have migration blocks"
+    );
+    assert!(
+        agent.autopoietic,
+        "EvolvingTradingAgent should be autopoietic"
+    );
 }

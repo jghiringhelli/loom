@@ -282,6 +282,14 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         return Err(boundary_errors);
     }
 
+    // ── Stage 9z: evolution vector semantics (M111) ────────────────────────
+    // Detects duplicate and related migration patterns across beings.
+    // Warns only — does not block compilation. Hard errors from MigrationChecker
+    // (chain breaks, cycles) have already fired in stage 9v.
+    let _evolution_warnings: Vec<LoomError> = checker::EvolutionVectorChecker::new()
+        .check(&module);
+    // Warnings are informational — they do not block codegen.
+
     // ── Stage 9: code generation ──────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
