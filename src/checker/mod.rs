@@ -60,7 +60,12 @@ pub mod provenance;
 pub mod boundary;
 pub mod evolution_vector;
 pub mod cognitive_memory;
+pub mod loom_checker;
 
+pub use loom_checker::{
+    CheckerStage, LoomChecker, RandomnessCheckerAdapter, SafetyCheckerAdapter,
+    StochasticCheckerAdapter, TeleosCheckerAdapter,
+};
 pub use algebraic::AlgebraicChecker;
 pub use effects::EffectChecker;
 pub use exhaustiveness::ExhaustivenessChecker;

@@ -45,6 +45,23 @@ pub use error::LoomError;
 /// Returns `Ok(rust_source)` on success.  On failure, returns all accumulated
 /// [`LoomError`]s so the caller can display the complete diagnostic list.
 pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
+    use checker::{
+        CheckerStage, RandomnessCheckerAdapter, SafetyCheckerAdapter,
+        StochasticCheckerAdapter, TeleosCheckerAdapter,
+        AlgebraicChecker, AspectChecker, BoundaryChecker, CognitiveMemoryChecker,
+        CriticalityChecker, CategoryChecker, CanalizationChecker, CheckpointChecker,
+        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker,
+        EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
+        ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
+        ManifestChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
+        PathwayChecker, PrivacyChecker, ProbabilisticChecker, PropertyChecker,
+        ProvenanceChecker, RefinementChecker, ResonanceChecker, ScenarioChecker,
+        SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
+        SessionChecker, SideChannelChecker, StoreChecker, SymbiosisChecker,
+        TensorChecker, TemporalChecker, TypeChecker, TypestateChecker, UmweltChecker,
+        UnitsChecker, UseCaseChecker,
+    };
+
     // ── Stage 1: lex ──────────────────────────────────────────────────────
     let tokens = lexer::Lexer::tokenize(source)?;
 
@@ -53,131 +70,83 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         .parse_module()
         .map_err(|e| vec![e])?;
 
-    // ── Stage 3: type inference ───────────────────────────────────────────
-    checker::InferenceEngine::new().check(&module)?;
+    // ── Stages 3–9aa: declarative checker pipeline ────────────────────────
+    //
+    // Each `CheckerStage` wraps a checker + a list of diagnostic prefixes to
+    // suppress (empty = hard errors only). The stage returns `Err` if any
+    // non-suppressed error exists after running the checker.
+    //
+    // Ordering matches the original pipeline; new checkers append at the end.
+    let pipeline: &[CheckerStage] = &[
+        // Core type system
+        CheckerStage::hard(InferenceEngine::new()),
+        CheckerStage::hard(AspectChecker::new()),
+        CheckerStage::hard(TypeChecker::new()),
+        CheckerStage::hard(RefinementChecker::new()),
+        CheckerStage::hard(ExhaustivenessChecker::new()),
+        CheckerStage::hard(EffectChecker::new()),
+        CheckerStage::hard(AlgebraicChecker::new()),
+        CheckerStage::hard(UnitsChecker::new()),
+        // Extended type disciplines
+        CheckerStage::hard(TypestateChecker::new()),
+        CheckerStage::hard(TemporalChecker::new()),
+        CheckerStage::hard(SeparationChecker::new()),
+        CheckerStage::hard(GradualChecker::new()),
+        CheckerStage::hard(ProbabilisticChecker::new()),
+        CheckerStage::hard(DependentChecker::new()),
+        CheckerStage::hard(SideChannelChecker::new()),
+        CheckerStage::hard(CategoryChecker::new()),
+        CheckerStage::hard(CurryHowardChecker::new()),
+        CheckerStage::hard(SelfCertChecker::new()),
+        CheckerStage::hard(TensorChecker::new()),
+        CheckerStage::hard(PrivacyChecker::new()),
+        // Biological / domain checkers
+        CheckerStage::hard(TeleosCheckerAdapter),
+        CheckerStage::hard(SafetyCheckerAdapter),
+        CheckerStage::hard(SessionChecker::new()),
+        CheckerStage::hard(EffectHandlerChecker::new()),
+        CheckerStage::hard(RandomnessCheckerAdapter),
+        CheckerStage::hard(StochasticCheckerAdapter),
+        CheckerStage::hard(CanalizationChecker::new()),
+        CheckerStage::hard(SenescenceChecker::new()),
+        CheckerStage::hard(CriticalityChecker::new()),
+        CheckerStage::hard(HgtChecker::new()),
+        CheckerStage::hard(NicheConstructionChecker::new()),
+        CheckerStage::hard(UmweltChecker::new()),
+        CheckerStage::hard(ResonanceChecker::new()),
+        CheckerStage::hard(PathwayChecker::new()),
+        CheckerStage::hard(SymbiosisChecker::new()),
+        CheckerStage::hard(ErrorCorrectionChecker::new()),
+        CheckerStage::hard(DegeneracyChecker::new()),
+        CheckerStage::hard(CheckpointChecker::new()),
+        CheckerStage::hard(SemiosisChecker::new()),
+        // Store / persistence
+        CheckerStage::suppressing(
+            StoreChecker::new(),
+            &["[hint]", "[warn]", "[info]"],
+        ),
+        // Documentation / contract liveness
+        CheckerStage::warn_only(UseCaseChecker::new()),
+        CheckerStage::warn_only(ManifestChecker::new()),
+        CheckerStage::suppressing(MigrationChecker::new(), &["[warn]", "[info]"]),
+        CheckerStage::suppressing(MinimalChecker::new(), &["[info]"]),
+        CheckerStage::warn_only(JournalChecker::new()),
+        CheckerStage::warn_only(ScenarioChecker::new()),
+        CheckerStage::warn_only(PropertyChecker::new()),
+        CheckerStage::warn_only(ProvenanceChecker::new()),
+        CheckerStage::warn_only(BoundaryChecker::new()),
+        // Evolution / memory (M111-M112) — evolution is warn-only
+        CheckerStage::suppressing(EvolutionVectorChecker::new(), &["[warn]", ""]),
+        CheckerStage::warn_only(CognitiveMemoryChecker::new()),
+    ];
 
-    // ── Stage 2b: aspect-oriented specification check ─────────────────────
-    checker::AspectChecker::new().check(&module)?;
-
-    // ── Stage 4: type check ───────────────────────────────────────────────
-    checker::TypeChecker::new().check(&module)?;
-
-    // ── Stage 4b: refinement type check ──────────────────────────────────
-    checker::RefinementChecker::new().check(&module)?;
-
-    // ── Stage 5: exhaustiveness check ────────────────────────────────────
-    checker::ExhaustivenessChecker::new().check(&module)?;
-
-    // ── Stage 6: effect check ─────────────────────────────────────────────
-    checker::EffectChecker::new().check(&module)?;
-
-    // ── Stage 7: algebraic property check ────────────────────────────────
-    checker::AlgebraicChecker::new().check(&module)?;
-
-    // ── Stage 8: units of measure check ──────────────────────────────────
-    checker::UnitsChecker::new().check(&module)?;
-
-    // ── Stage 9b: typestate check ─────────────────────────────────────────
-    checker::TypestateChecker::new().check(&module)?;
-
-    // ── Stage 9b2: temporal logic check ───────────────────────────────────
-    checker::TemporalChecker::new().check(&module)?;
-
-    // ── Stage 9b3: separation logic check ─────────────────────────────────
-    checker::SeparationChecker::new().check(&module)?;
-
-    // ── Stage 9f: gradual typing check ───────────────────────────────────────
-    checker::GradualChecker::new().check(&module)?;
-
-    // ── Stage 9g: probabilistic types check ──────────────────────────────────
-    checker::ProbabilisticChecker::new().check(&module)?;
-
-    // ── Stage 9h: dependent types check ──────────────────────────────────────
-    checker::DependentChecker::new().check(&module)?;
-
-    // ── Stage 9i: side-channel timing check ──────────────────────────────────
-    checker::SideChannelChecker::new().check(&module)?;
-
-    // ── Stage 9j: category theory check ──────────────────────────────────────
-    checker::CategoryChecker::new().check(&module)?;
-
-    // ── Stage 9k: Curry-Howard correspondence check ───────────────────────────
-    checker::CurryHowardChecker::new().check(&module)?;
-
-    // ── Stage 9l: self-certifying compilation check ───────────────────────────
-    checker::SelfCertChecker::new().check(&module)?;
-
-    // ── Stage 9o: store declaration check ────────────────────────────────────
-    // Hints and warnings (prefixed with [hint]/[warn]/[info]) are informational;
-    // only hard structural errors (missing key, missing embedding, duplicate PK)
-    // block compilation.
-    let store_errors: Vec<LoomError> = checker::StoreChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| {
-            let msg = format!("{}", e);
-            !msg.contains("[hint]") && !msg.contains("[warn]") && !msg.contains("[info]")
-        })
-        .collect();
-    if !store_errors.is_empty() {
-        return Err(store_errors);
+    for stage in pipeline {
+        stage.run(&module)?;
     }
 
-    // ── Stage 9p: tensor type check ──────────────────────────────────────────
-    checker::TensorChecker::new().check(&module)?;
-
-    // ── Stage 9c: privacy check ───────────────────────────────────────────
-    checker::PrivacyChecker::new().check(&module)?;
-
-    // ── Stage 9d: teleological check ─────────────────────────────────────
-    checker::check_teleos(&module).map_err(|es| es)?;
-
-    // ── Stage 9e: safety check ────────────────────────────────────────────
-    let safety_errors = checker::SafetyChecker::check(&module);
-    if !safety_errors.is_empty() {
-        return Err(safety_errors);
-    }
-
-    // ── Stage 9m: session type duality check (M98) ────────────────────────
-    let session_errors = checker::SessionChecker::new().check(&module);
-    if !session_errors.is_empty() {
-        return Err(session_errors);
-    }
-
-    // ── Stage 9n: algebraic effect handler exhaustiveness (M99) ──────────
-    let effect_handler_errors = checker::EffectHandlerChecker::new().check(&module);
-    if !effect_handler_errors.is_empty() {
-        return Err(effect_handler_errors);
-    }
-
-    // ── Stage 9q: use-case triple-derivation check (M110) ────────────────
-    let uc_errors: Vec<LoomError> = checker::UseCaseChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !uc_errors.is_empty() {
-        return Err(uc_errors);
-    }
-
-    // ── Stage 9o: randomness quality check (M85) ─────────────────────────
-    let mut randomness_errors = Vec::new();
-    checker::RandomnessChecker::check(&module, &mut randomness_errors);
-    if !randomness_errors.is_empty() {
-        return Err(randomness_errors);
-    }
-
-    // ── Stage 9p: stochastic process check (M88) ─────────────────────────
-    let mut stochastic_errors = Vec::new();
-    checker::StochasticChecker::check(&module, &mut stochastic_errors);
-    if !stochastic_errors.is_empty() {
-        return Err(stochastic_errors);
-    }
-
-    // ── Stage 9q: SMT contract verification bridge (M100) ────────────────
-    // Counterexamples are hard errors; Skipped/Unknown are informational.
-    let smt_results = checker::SmtBridgeChecker::check(&module.items);
-    let smt_errors: Vec<LoomError> = smt_results
+    // ── SMT contract verification bridge (M100) ───────────────────────────
+    // Kept inline: result type is `Vec<SmtVerification>`, not `Vec<LoomError>`.
+    let smt_errors: Vec<LoomError> = checker::SmtBridgeChecker::check(&module.items)
         .into_iter()
         .filter_map(|v| match &v.status {
             ast::SmtStatus::Counterexample(msg) => Some(LoomError::parse(
@@ -194,117 +163,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         return Err(smt_errors);
     }
 
-    // ── Stage 9r: manifest documentation liveness check (M101) ──────────
-    // Missing files are hard errors; unknown-symbol warnings are filtered out.
-    let manifest_errors: Vec<LoomError> = checker::ManifestChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !manifest_errors.is_empty() {
-        return Err(manifest_errors);
-    }
-
-    // ── Stage 9s: migration evolution contract check (M106) ───────────────
-    let migration_errors: Vec<LoomError> = checker::MigrationChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| {
-            let msg = format!("{}", e);
-            !msg.contains("[warn]") && !msg.contains("[info]")
-        })
-        .collect();
-    if !migration_errors.is_empty() {
-        return Err(migration_errors);
-    }
-
-    // ── Stage 9t: minimal dead-declaration check (M107) ───────────────────
-    let minimal_errors: Vec<LoomError> = checker::MinimalChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| {
-            let msg = format!("{}", e);
-            !msg.contains("[info]")
-        })
-        .collect();
-    if !minimal_errors.is_empty() {
-        return Err(minimal_errors);
-    }
-
-    // ── Stage 9u: journal episodic memory check (M104) ────────────────────
-    let journal_errors: Vec<LoomError> = checker::JournalChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !journal_errors.is_empty() {
-        return Err(journal_errors);
-    }
-
-    // ── Stage 9v: scenario executable acceptance criteria check (M105) ────
-    let scenario_errors: Vec<LoomError> = checker::ScenarioChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !scenario_errors.is_empty() {
-        return Err(scenario_errors);
-    }
-
-    // ── Stage 9w: property-based test block check (M109) ──────────────────
-    let property_errors: Vec<LoomError> = checker::PropertyChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !property_errors.is_empty() {
-        return Err(property_errors);
-    }
-
-    // ── Stage 9w: property-based test validation (M109) ───────────────────
-
-    // ── Stage 9x: provenance lineage check (M102) ─────────────────────────
-    let provenance_errors: Vec<LoomError> = checker::ProvenanceChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !provenance_errors.is_empty() {
-        return Err(provenance_errors);
-    }
-
-    // ── Stage 9y: boundary information hiding check (M103) ────────────────
-    let boundary_errors: Vec<LoomError> = checker::BoundaryChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !boundary_errors.is_empty() {
-        return Err(boundary_errors);
-    }
-
-    // ── Stage 9z: evolution vector semantics (M111) ────────────────────────
-    // Detects duplicate and related migration patterns across beings.
-    // Warns only — does not block compilation. Hard errors from MigrationChecker
-    // (chain breaks, cycles) have already fired in stage 9v.
-    let _evolution_warnings: Vec<LoomError> = checker::EvolutionVectorChecker::new()
-        .check(&module);
-    // Warnings are informational — they do not block codegen.
-
-    // ── Stage 9aa: cognitive memory structural consistency (M112) ─────────
-    // Validates memory: type declarations against journal:/migration:/manifest: blocks.
-    // Hard errors (missing source blocks) block compilation.
-    // Soft warnings ([warn] prefix) are informational only.
-    let cognitive_errors: Vec<LoomError> = checker::CognitiveMemoryChecker::new()
-        .check(&module)
-        .into_iter()
-        .filter(|e| !format!("{}", e).contains("[warn]"))
-        .collect();
-    if !cognitive_errors.is_empty() {
-        return Err(cognitive_errors);
-    }
-
-    // ── Stage 9: code generation ──────────────────────────────────────────
+    // ── Code generation ───────────────────────────────────────────────────
     Ok(codegen::RustEmitter::new().emit(&module))
 }
 
