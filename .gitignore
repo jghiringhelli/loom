@@ -19,3 +19,10 @@ corpus/*.rs
 website/node_modules/
 website/dist/
 website/.astro/
+
+mutants.out/
+mutants.out.old/
+
+experiments/alx/*.rs
+experiments/alx/*.exe
+experiments/alx/*.pdb

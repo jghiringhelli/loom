@@ -33,10 +33,19 @@
 //! | Graph (directed)   | DAG + topological sort — Kahn 1962              |
 //! | Graph (undirected) | Labelled Transition System — Keller 1976        |
 
-use crate::ast::*;
-use super::{RustEmitter, to_pascal_case};
 use super::template::ts;
+use super::{to_pascal_case, RustEmitter};
+use crate::ast::*;
 
+/// Ensure a numeric string literal is a valid Rust f64 literal (has a decimal point).
+/// `"0"` → `"0.0"`, `"1"` → `"1.0"`, `"0.5"` → `"0.5"` (unchanged).
+fn ensure_float_lit(s: &str) -> String {
+    if s.contains('.') || s.contains('e') || s.contains('E') {
+        s.to_string()
+    } else {
+        format!("{s}.0")
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STOCHASTIC PROCESSES
@@ -45,15 +54,20 @@ use super::template::ts;
 impl RustEmitter {
     /// Dispatch to the correct stochastic process emitter from a `process:` annotation.
     pub(super) fn emit_stochastic_process(
-        &self, fn_name: &str, sp: &StochasticProcessBlock, out: &mut String,
+        &self,
+        fn_name: &str,
+        sp: &StochasticProcessBlock,
+        out: &mut String,
     ) {
         match &sp.kind {
-            StochasticKind::Wiener            => self.emit_wiener_process(fn_name, out),
+            StochasticKind::Wiener => self.emit_wiener_process(fn_name, out),
             StochasticKind::GeometricBrownian => self.emit_gbm(fn_name, sp, out),
             StochasticKind::OrnsteinUhlenbeck => self.emit_ou_process(fn_name, sp, out),
-            StochasticKind::PoissonProcess    => self.emit_poisson_process(fn_name, sp, out),
-            StochasticKind::MarkovChain       => self.emit_markov_transition_matrix(fn_name, &sp.states, out),
-            StochasticKind::Unknown(k)        => {
+            StochasticKind::PoissonProcess => self.emit_poisson_process(fn_name, sp, out),
+            StochasticKind::MarkovChain => {
+                self.emit_markov_transition_matrix(fn_name, &sp.states, out)
+            }
+            StochasticKind::Unknown(k) => {
                 out.push_str(&format!(
                     "// LOOM[structure:stochastic:Unknown]: process kind '{k}' not yet generated\n\n"
                 ));
@@ -106,7 +120,7 @@ pub fn assert_positive(&self) {{ debug_assert!(self.price > 0.0, \"GBM price mus
     /// dX = theta*(mu - X)*dt + sigma*dW. Stationary Gaussian.
     fn emit_ou_process(&self, fn_name: &str, sp: &StochasticProcessBlock, out: &mut String) {
         let n = to_pascal_case(fn_name);
-        let mu = sp.long_run_mean.as_deref().unwrap_or("0.0");
+        let mu = ensure_float_lit(sp.long_run_mean.as_deref().unwrap_or("0.0"));
         out.push_str(&format!(
             "// LOOM[structure:OU]: {fn_name} — Ornstein-Uhlenbeck (1930)\n\
              // dX = theta*(mu-X)*dt + sigma*dW. Mean-reverting to {mu}. Stationary Gaussian.\n\n"
@@ -144,12 +158,17 @@ pub fn step(&mut self, dt: f64, arrivals: u64) {{ self.t += dt; self.count += ar
     /// Markov chain TransitionMatrix<S> (Markov 1906).
     /// Memoryless discrete-state chain. P(X_{n+1}|X_n).
     pub(super) fn emit_markov_transition_matrix(
-        &self, fn_name: &str, states: &[String], out: &mut String,
+        &self,
+        fn_name: &str,
+        states: &[String],
+        out: &mut String,
     ) {
         let n = to_pascal_case(fn_name);
-        let states_enum = states.iter()
+        let states_enum = states
+            .iter()
             .map(|s| format!("    {},", to_pascal_case(s)))
-            .collect::<Vec<_>>().join("\n");
+            .collect::<Vec<_>>()
+            .join("\n");
         out.push_str(&ts(
             r#"
 // LOOM[structure:Markov]: {fn_name} — TransitionMatrix (Markov 1906)
@@ -187,7 +206,6 @@ impl {N}TransitionMatrix {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // PROBABILITY DISTRIBUTIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -195,7 +213,10 @@ impl {N}TransitionMatrix {
 impl RustEmitter {
     /// Dispatch to the correct distribution sampler from a `distribution:` annotation.
     pub(super) fn emit_distribution_sampler(
-        &self, fn_name: &str, db: &DistributionBlock, out: &mut String,
+        &self,
+        fn_name: &str,
+        db: &DistributionBlock,
+        out: &mut String,
     ) {
         let n = to_pascal_case(fn_name);
         match &db.family {
@@ -209,11 +230,13 @@ impl RustEmitter {
                 ));
                 out.push_str(&format!(
                     "impl {n}GaussianSampler {{\n    \
-pub fn new() -> Self {{ Self {{ mean: {mean}, std_dev: {std_dev} }} }}\n    \
+pub fn new() -> Self {{ Self {{ mean: {}, std_dev: {} }} }}\n    \
 /// Box-Muller transform. z1, z2 ~ U(0,1). Returns one N(0,1) sample.\n    \
 pub fn sample_box_muller(&self, z1: f64, z2: f64) -> f64 {{\n        \
 let n01 = (-2.0*z1.ln()).sqrt() * (2.0*std::f64::consts::PI*z2).cos();\n        \
-self.mean + self.std_dev * n01\n    }}\n}}\n\n"
+self.mean + self.std_dev * n01\n    }}\n}}\n\n",
+                    ensure_float_lit(mean),
+                    ensure_float_lit(std_dev)
                 ));
             }
             DistributionFamily::Poisson { lambda } => {
@@ -367,10 +390,12 @@ pub fn variance(&self) -> f64 {{ self.shape * self.scale * self.scale }}\n}}\n\n
                 ));
                 out.push_str(&format!(
                     "impl {n}CauchySampler {{\n    \
-pub fn new() -> Self {{ Self {{ location: {location}, scale: {scale} }} }}\n    \
+pub fn new() -> Self {{ Self {{ location: {}, scale: {} }} }}\n    \
 // Inverse CDF: X = location + scale*tan(pi*(u - 0.5))\n    \
 pub fn sample(&self, u: f64) -> f64 {{\n        \
-self.location + self.scale * (std::f64::consts::PI * (u - 0.5)).tan()\n    }}\n}}\n\n"
+self.location + self.scale * (std::f64::consts::PI * (u - 0.5)).tan()\n    }}\n}}\n\n",
+                    ensure_float_lit(location),
+                    ensure_float_lit(scale)
                 ));
             }
             DistributionFamily::Levy { location, scale } => {
@@ -382,7 +407,8 @@ self.location + self.scale * (std::f64::consts::PI * (u - 0.5)).tan()\n    }}\n}
                     "#[derive(Debug, Clone)]\npub struct {n}LevySampler {{ pub location: f64, pub scale: f64 }}\n"
                 ));
                 out.push_str(&format!(
-                    "impl {n}LevySampler {{ pub fn new() -> Self {{ Self {{ location: {location}, scale: {scale} }} }} }}\n\n"
+                    "impl {n}LevySampler {{ pub fn new() -> Self {{ Self {{ location: {}, scale: {} }} }} }}\n\n",
+                        ensure_float_lit(location), ensure_float_lit(scale)
                 ));
             }
             DistributionFamily::Dirichlet { alpha } => {
@@ -408,7 +434,6 @@ pub fn concentration_sum(&self) -> f64 {{ self.alpha.iter().sum() }}\n}}\n\n"
         }
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GRAPH STRUCTURES

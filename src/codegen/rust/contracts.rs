@@ -19,9 +19,8 @@
 //! delegates to `structures` for fn-level stochastic / distribution annotations
 //! because those are attached to functions even though they model structures.
 
+use super::{to_pascal_case, RustEmitter};
 use crate::ast::*;
-use super::{RustEmitter, to_pascal_case};
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // KANI HARNESS HELPERS (module-level free functions)
@@ -62,15 +61,14 @@ fn kani_rust_type(ty: &TypeExpr) -> &'static str {
     match ty {
         TypeExpr::Base(name) => match name.as_str() {
             "Int" | "Integer" | "Nat" | "Index" | "Count" => "i64",
-            "Float" | "Double" | "Real"                    => "f64",
-            "Bool" | "Boolean"                             => "bool",
-            "Byte" | "Char"                                => "u8",
+            "Float" | "Double" | "Real" => "f64",
+            "Bool" | "Boolean" => "bool",
+            "Byte" | "Char" => "u8",
             _ => "i64", // String/other: not kani::Arbitrary — use i64 surrogate
         },
         _ => "i64",
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SEPARATION LOGIC
@@ -87,7 +85,12 @@ impl RustEmitter {
     /// The `owns:` fields map to Prusti `old(x)` ownership predicates.
     /// The `disjoint: A * B` pairs map to `!std::ptr::eq(a as *const _, b as *const _)`.
     /// The `frame:` fields are documented as non-modified resources (frame rule).
-    pub(super) fn emit_separation_audit(&self, fn_name: &str, sb: &SeparationBlock, out: &mut String) {
+    pub(super) fn emit_separation_audit(
+        &self,
+        fn_name: &str,
+        sb: &SeparationBlock,
+        out: &mut String,
+    ) {
         // ── Prusti scaffold (active when `cargo prusti` runs) ────────────────
         out.push_str("#[cfg(prusti)]\nuse prusti_contracts::*;\n");
 
@@ -120,7 +123,9 @@ impl RustEmitter {
 
         // ── Audit comment (always visible) ──────────────────────────────────
         let owns_str = sb.owns.join(", ");
-        let disjoint_str: Vec<String> = sb.disjoint.iter()
+        let disjoint_str: Vec<String> = sb
+            .disjoint
+            .iter()
             .map(|(a, b)| format!("{a} ⊥ {b}"))
             .collect();
         let proof_note = sb.proof.as_deref().unwrap_or("none");
@@ -137,7 +142,6 @@ impl RustEmitter {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TIMING SAFETY
 // ═══════════════════════════════════════════════════════════════════════════
@@ -150,9 +154,16 @@ impl RustEmitter {
     ///    that provides the constant-time comparison the function should use.
     /// 2. Audit comment — always visible, documents the claim and dynamic verifiers.
     pub(super) fn emit_timing_safety_audit(
-        &self, fn_name: &str, ts: &TimingSafetyBlock, out: &mut String,
+        &self,
+        fn_name: &str,
+        ts: &TimingSafetyBlock,
+        out: &mut String,
     ) {
-        let mode = if ts.constant_time { "constant_time" } else { "declared_only" };
+        let mode = if ts.constant_time {
+            "constant_time"
+        } else {
+            "declared_only"
+        };
         let leaks = ts.leaks_bits.as_deref().unwrap_or("none");
 
         if ts.constant_time {
@@ -187,7 +198,6 @@ pub fn {fn_name_lower}_ct_select(choice: u8, a: u64, b: u64) -> u64 {{\n\
         ));
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TERMINATION
@@ -225,7 +235,7 @@ impl {name_pascal}TerminationGuard {{\n\
         self.count += 1;\n\
         assert!(\n\
             self.count <= {upper_name}_TERMINATION_BOUND,\n\
-            \"LOOM termination violation in `{fn_name}`: \\\
+            \"LOOM termination violation in `{fn_name}`: \
 metric `{metric}` did not reach 0 within {{}} iterations (bound = {{}})\",\n\
             self.count, {upper_name}_TERMINATION_BOUND\n\
         );\n\
@@ -246,7 +256,6 @@ metric `{metric}` did not reach 0 within {{}} iterations (bound = {{}})\",\n\
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // GRADUAL TYPING BOUNDARY
 // ═══════════════════════════════════════════════════════════════════════════
@@ -257,7 +266,7 @@ impl RustEmitter {
     /// the static side is checked at compile time, the dynamic side at runtime.
     pub(super) fn emit_gradual_boundary(&self, fn_name: &str, gb: &GradualBlock, out: &mut String) {
         let n = to_pascal_case(fn_name);
-        let input  = gb.input_type.as_deref().unwrap_or("T");
+        let input = gb.input_type.as_deref().unwrap_or("T");
         let output = gb.output_type.as_deref().unwrap_or("U");
         out.push_str(&format!(
             "// LOOM[contract:Gradual]: {fn_name} — Gradual Typing Boundary (Siek & Taha 2006)\n\
@@ -277,7 +286,6 @@ match self {{ Self::Static(v) => v, Self::Dynamic(d) => panic!(\"gradual boundar
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // DEGENERATE FALLBACK
 // ═══════════════════════════════════════════════════════════════════════════
@@ -287,7 +295,12 @@ impl RustEmitter {
     /// When the computation degenerates (e.g. empty matrix, zero vector), use the
     /// declared fallback instead of silently returning garbage.  The wrapper makes
     /// degeneracy visible and `require_non_degenerate` fails fast on unintended use.
-    pub(super) fn emit_degenerate_fallback(&self, fn_name: &str, db: &DegenerateBlock, out: &mut String) {
+    pub(super) fn emit_degenerate_fallback(
+        &self,
+        fn_name: &str,
+        db: &DegenerateBlock,
+        out: &mut String,
+    ) {
         let n = to_pascal_case(fn_name);
         out.push_str(&format!(
             "// LOOM[contract:Degenerate]: {fn_name} — Degenerate case fallback (Edelman)\n\
@@ -306,7 +319,6 @@ debug_assert!(!self.is_degenerate, \"degenerate fallback activated\"); self.valu
         ));
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // KANI FORMAL PROOF HARNESSES (V2)
@@ -344,18 +356,19 @@ impl RustEmitter {
             }
         }
         let param_names: Vec<String> = (0..n_params)
-            .map(|i| inferred.get(i).cloned().unwrap_or_else(|| format!("arg{i}")))
+            .map(|i| {
+                inferred
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| format!("arg{i}"))
+            })
             .collect();
 
         out.push_str(&format!(
             "// LOOM[V2:Kani]: {fn_name} — SAT-bounded formal proof (Kani 2021)\n"
         ));
-        out.push_str(
-            "// Proves require:/ensure: hold for ALL inputs within solver bounds.\n",
-        );
-        out.push_str(
-            "// Install: cargo install --locked kani-verifier   Run: cargo kani\n",
-        );
+        out.push_str("// Proves require:/ensure: hold for ALL inputs within solver bounds.\n");
+        out.push_str("// Install: cargo install --locked kani-verifier   Run: cargo kani\n");
         out.push_str(&format!(
             "#[cfg(kani)]\n#[kani::proof]\nfn kani_verify_{fn_name}() {{\n"
         ));
@@ -385,16 +398,13 @@ impl RustEmitter {
             out.push_str("    // Postconditions — Kani proves these for all valid inputs\n");
             for ens in &fd.ensures {
                 let cond = self.emit_predicate(&ens.expr);
-                out.push_str(&format!(
-                    "    kani::assert!({cond}, \"{cond}\");\n"
-                ));
+                out.push_str(&format!("    kani::assert!({cond}, \"{cond}\");\n"));
             }
         }
 
         out.push_str("}\n\n");
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DAFNY PROOF SCAFFOLDS (V9 — Curry-Howard / Dependent Types)
@@ -424,7 +434,12 @@ impl RustEmitter {
         // Build one Dafny method scaffold per proof strategy.
         let mut dafny_body = String::new();
         for proof in &fd.proofs {
-            dafny_body.push_str(&dafny_method_for_strategy(fn_name, &pascal, &proof.strategy, fd));
+            dafny_body.push_str(&dafny_method_for_strategy(
+                fn_name,
+                &pascal,
+                &proof.strategy,
+                fd,
+            ));
         }
 
         out.push_str(&format!(
@@ -432,7 +447,12 @@ impl RustEmitter {
 // strategies: {strategies}\n\
 // Extract {upper}_DAFNY_PROOF to <fn>.dfy and run: dafny verify <fn>.dfy\n\
 // Install: dotnet tool install --global dafny\n\n",
-            strategies = fd.proofs.iter().map(|p| p.strategy.as_str()).collect::<Vec<_>>().join(", ")
+            strategies = fd
+                .proofs
+                .iter()
+                .map(|p| p.strategy.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
         out.push_str(&format!(
             "pub const {upper}_DAFNY_PROOF: &str = r##\"{dafny_body}\"##;\n\n"
@@ -448,11 +468,15 @@ impl RustEmitter {
 /// the mechanically checkable part that Dafny verifies.
 fn dafny_method_for_strategy(fn_name: &str, pascal: &str, strategy: &str, fd: &FnDef) -> String {
     // Build requires/ensures from Loom contracts if present.
-    let requires = fd.requires.iter()
+    let requires = fd
+        .requires
+        .iter()
         .map(|_c| "  requires true // insert precondition")
         .collect::<Vec<_>>()
         .join("\n");
-    let ensures = fd.ensures.iter()
+    let ensures = fd
+        .ensures
+        .iter()
         .map(|_c| "  ensures true // insert postcondition")
         .collect::<Vec<_>>()
         .join("\n");
@@ -507,7 +531,6 @@ method {fn_name}_proof() returns (verified: bool)\n\
         ),
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FN ANNOTATION DISPATCHER

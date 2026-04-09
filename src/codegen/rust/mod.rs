@@ -154,7 +154,10 @@ impl RustEmitter {
             body.push('\n');
             if let Some(iface) = module.interface_defs.iter().find(|i| &i.name == iface_name) {
                 body.push_str(&self.emit_implements_block(
-                    &module.name, iface_name, iface, &module.items,
+                    &module.name,
+                    iface_name,
+                    iface,
+                    &module.items,
                 ));
             } else {
                 body.push_str(&format!(
@@ -184,14 +187,31 @@ impl RustEmitter {
                 TemporalProperty::Always { .. } => {
                     body.push_str("//   always: [invariant verified at compile time]\n");
                 }
-                TemporalProperty::Eventually { type_name, target_state, .. } => {
-                    body.push_str(&format!("//   eventually: {} reaches {}\n", type_name, target_state));
+                TemporalProperty::Eventually {
+                    type_name,
+                    target_state,
+                    ..
+                } => {
+                    body.push_str(&format!(
+                        "//   eventually: {} reaches {}\n",
+                        type_name, target_state
+                    ));
                 }
-                TemporalProperty::Never { from_state, to_state, .. } => {
-                    body.push_str(&format!("//   never: {} transitions to {} [enforced]\n", from_state, to_state));
+                TemporalProperty::Never {
+                    from_state,
+                    to_state,
+                    ..
+                } => {
+                    body.push_str(&format!(
+                        "//   never: {} transitions to {} [enforced]\n",
+                        from_state, to_state
+                    ));
                 }
                 TemporalProperty::Precedes { first, second, .. } => {
-                    body.push_str(&format!("//   precedes: {} before {} [enforced]\n", first, second));
+                    body.push_str(&format!(
+                        "//   precedes: {} before {} [enforced]\n",
+                        first, second
+                    ));
                 }
             }
         }
@@ -205,13 +225,26 @@ impl RustEmitter {
             aspect.order.map_or("unset".to_string(), |o| o.to_string())
         ));
         if let Some(pointcut) = &aspect.pointcut {
-            body.push_str(&format!("//   pointcut: {}\n", Self::fmt_pointcut(pointcut)));
+            body.push_str(&format!(
+                "//   pointcut: {}\n",
+                Self::fmt_pointcut(pointcut)
+            ));
         }
-        for b in &aspect.before { body.push_str(&format!("//   before: {}\n", b)); }
-        for a in &aspect.after { body.push_str(&format!("//   after: {}\n", a)); }
-        for a in &aspect.after_throwing { body.push_str(&format!("//   after_throwing: {}\n", a)); }
-        for a in &aspect.around { body.push_str(&format!("//   around: {}\n", a)); }
-        if let Some(f) = &aspect.on_failure { body.push_str(&format!("//   on_failure: {}\n", f)); }
+        for b in &aspect.before {
+            body.push_str(&format!("//   before: {}\n", b));
+        }
+        for a in &aspect.after {
+            body.push_str(&format!("//   after: {}\n", a));
+        }
+        for a in &aspect.after_throwing {
+            body.push_str(&format!("//   after_throwing: {}\n", a));
+        }
+        for a in &aspect.around {
+            body.push_str(&format!("//   around: {}\n", a));
+        }
+        if let Some(f) = &aspect.on_failure {
+            body.push_str(&format!("//   on_failure: {}\n", f));
+        }
     }
 
     /// Emit all items, invariants, beings, and ecosystems into `body`.
@@ -224,7 +257,9 @@ impl RustEmitter {
 
         if !module.invariants.is_empty() {
             body.push('\n');
-            body.push_str(&indent_block(&self.emit_check_invariants(&module.invariants)));
+            body.push_str(&indent_block(
+                &self.emit_check_invariants(&module.invariants),
+            ));
         }
 
         for being in &module.being_defs {
@@ -256,8 +291,8 @@ impl RustEmitter {
                 format!("// symbiotic: kind: {}, module: {}\n", kind, module)
             }
             Item::Adopt(decl) => format!(
-                "// adopt: {} from {}\nuse {}::{};\n",
-                decl.interface, decl.from_module, decl.from_module, decl.interface
+                "// adopt: {} from {}\n// LOOM[adopt:M75]: implement {} for this module via trait bounds\n",
+                decl.interface, decl.from_module, decl.interface
             ),
             Item::NicheConstruction(nc) => emit_niche_construction(nc),
             Item::Sense(sd) => emit_sense(sd),
@@ -459,12 +494,16 @@ pub(crate) fn indent_block(src: &str) -> String {
 
 /// Emit an annotation declaration as a comment.
 fn emit_annotation_decl(decl: &AnnotationDecl) -> String {
-    let params: Vec<String> = decl.params.iter()
+    let params: Vec<String> = decl
+        .params
+        .iter()
         .map(|(n, t)| format!("{}: {}", n, t))
         .collect();
     let mut src = format!("// annotation {}({})", decl.name, params.join(", "));
     if !decl.meta_annotations.is_empty() {
-        let meta: Vec<String> = decl.meta_annotations.iter()
+        let meta: Vec<String> = decl
+            .meta_annotations
+            .iter()
             .map(|a| format!("@{}", a.key))
             .collect();
         src.push_str(&format!(" [meta: {}]", meta.join(", ")));
@@ -494,7 +533,10 @@ fn emit_correctness_report(report: &CorrectnessReport) -> String {
 fn emit_pathway(pw: &PathwayDef) -> String {
     let mut src = format!("// pathway {}:\n", pw.name);
     for step in &pw.steps {
-        src.push_str(&format!("//   {} -[{}]-> {}\n", step.from, step.via, step.to));
+        src.push_str(&format!(
+            "//   {} -[{}]-> {}\n",
+            step.from, step.via, step.to
+        ));
     }
     if let Some(c) = &pw.compensate {
         src.push_str(&format!("//   compensate: {}\n", c));
@@ -520,8 +562,12 @@ fn emit_sense(sd: &SenseDef) -> String {
     if !sd.channels.is_empty() {
         src.push_str(&format!("//   channels: [{}]\n", sd.channels.join(", ")));
     }
-    if let Some(r) = &sd.range { src.push_str(&format!("//   range: {}\n", r)); }
-    if let Some(u) = &sd.unit  { src.push_str(&format!("//   unit: {}\n",  u)); }
+    if let Some(r) = &sd.range {
+        src.push_str(&format!("//   range: {}\n", r));
+    }
+    if let Some(u) = &sd.unit {
+        src.push_str(&format!("//   unit: {}\n", u));
+    }
     src
 }
 

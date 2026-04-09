@@ -1,5 +1,14 @@
 {
   "version": "1",
   "_comment": "Hook false-positive exceptions. Add entries here to prevent rediscovering the same false positive each session. Each entry: {id, hook, pattern, reason, addedAt, addedBy, adr?}",
-  "exceptions": []
+  "exceptions": [
+    {
+      "id": "codegen-todo-strings",
+      "hook": "rust/todo",
+      "pattern": "src/codegen/rust/functions.rs",
+      "reason": "functions.rs emits todo!() as string literals into generated Rust stubs. These are intentional codegen artifacts — the todo! calls live in the OUTPUT, not in this source file. The grep pattern matches inside string literals, not real todo! invocations.",
+      "addedAt": "2026-04-09",
+      "addedBy": "Copilot"
+    }
+  ]
 }

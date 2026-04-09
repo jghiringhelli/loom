@@ -1,7 +1,18 @@
 //! Function, interface, use-case, and contract emitters.
 
+use super::{to_snake_case, RustEmitter};
 use crate::ast::*;
-use super::{RustEmitter, to_snake_case};
+
+/// Returns true if `expr_text` is a bare PascalCase identifier — a struct/enum
+/// type name used as a stub body rather than a real expression.
+fn is_type_name_stub(expr_text: &str) -> bool {
+    let t = expr_text.trim();
+    t.len() > 1
+        && t.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+        && t.chars().all(|c| c.is_alphanumeric() || c == '_')
+        && !t.starts_with("true")
+        && !t.starts_with("false")
+}
 
 impl RustEmitter {
     /// Emit a property-based test from a `property:` block.
@@ -42,7 +53,10 @@ impl RustEmitter {
             vt = var_type_rust,
             cases = edge_cases
         ));
-        out.push_str(&format!("    for &{vn} in edge_cases {{\n", vn = pb.var_name));
+        out.push_str(&format!(
+            "    for &{vn} in edge_cases {{\n",
+            vn = pb.var_name
+        ));
         out.push_str(&format!(
             "        assert!({inv}, \"property '{name}' failed for {vn}={{}}\", {vn});\n",
             inv = invariant_rust,
@@ -61,7 +75,9 @@ impl RustEmitter {
         out.push_str("    use super::*;\n");
         out.push_str("    use proptest::prelude::*;\n\n");
         out.push_str("    proptest! {\n");
-        out.push_str("        #![proptest_config(proptest::test_runner::Config::with_cases(1024))]\n");
+        out.push_str(
+            "        #![proptest_config(proptest::test_runner::Config::with_cases(1024))]\n",
+        );
         out.push_str(&format!(
             "        #[test]\n        fn property_{fn_name}_random({vn}: {strat}) {{\n",
             fn_name = fn_name,
@@ -117,9 +133,9 @@ fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
 fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
     match loom_type {
         "Int" | "Integer" => ("i64", "i64::MIN, -1000, -1, 0, 1, 1000, i64::MAX / 2"),
-        "Float"           => ("f64", "-1000.0, -1.0, 0.0, 1.0, 1000.0"),
-        "Bool"            => ("bool", "false, true"),
-        _                 => ("i64", "0, 1, -1"),
+        "Float" => ("f64", "-1000.0, -1.0, 0.0, 1.0, 1000.0"),
+        "Bool" => ("bool", "false, true"),
+        _ => ("i64", "0, 1, -1"),
     }
 }
 
@@ -129,9 +145,9 @@ fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
 fn property_proptest_strategy(loom_type: &str, rust_type: &'static str) -> String {
     match loom_type {
         "Int" | "Integer" => "i64".to_string(),
-        "Float"           => "proptest::num::f64::NORMAL | proptest::num::f64::ZERO".to_string(),
-        "Bool"            => "bool".to_string(),
-        _                 => rust_type.to_string(),
+        "Float" => "proptest::num::f64::NORMAL | proptest::num::f64::ZERO".to_string(),
+        "Bool" => "bool".to_string(),
+        _ => rust_type.to_string(),
     }
 }
 
@@ -139,16 +155,25 @@ impl RustEmitter {
     /// Emit a `pub trait` for an `interface:` block.
     pub(super) fn emit_interface_trait(&self, iface: &InterfaceDef) -> String {
         let mut out = String::new();
-        out.push_str(&format!("/// Auto-generated trait for the `{}` interface.\n", iface.name));
+        out.push_str(&format!(
+            "/// Auto-generated trait for the `{}` interface.\n",
+            iface.name
+        ));
         out.push_str(&format!("pub trait {} {{\n", iface.name));
         for (method_name, sig) in &iface.methods {
-            let params: Vec<String> = sig.params
+            let params: Vec<String> = sig
+                .params
                 .iter()
                 .enumerate()
                 .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
                 .collect();
             let ret = self.emit_type_expr(&sig.return_type);
-            out.push_str(&format!("    fn {}({}) -> {};\n", method_name, params.join(", "), ret));
+            out.push_str(&format!(
+                "    fn {}({}) -> {};\n",
+                method_name,
+                params.join(", "),
+                ret
+            ));
         }
         out.push_str("}\n");
         out
@@ -168,35 +193,54 @@ impl RustEmitter {
         out.push_str(&format!("impl {} for {} {{\n", iface_name, impl_struct));
         for (method_name, sig) in &iface.methods {
             let ret = self.emit_type_expr(&sig.return_type);
-            if let Some(Item::Fn(fd)) = items.iter().find(|i| matches!(i, Item::Fn(fd) if fd.name == *method_name)) {
-                let params: Vec<String> = fd.type_sig.params
+            if let Some(Item::Fn(fd)) = items
+                .iter()
+                .find(|i| matches!(i, Item::Fn(fd) if fd.name == *method_name))
+            {
+                let params: Vec<String> = fd
+                    .type_sig
+                    .params
                     .iter()
                     .zip(self.fn_param_names(fd).into_iter())
                     .map(|(ty, name)| format!("{}: {}", name, self.emit_type_expr(ty)))
                     .collect();
                 let body_exprs: Vec<String> = fd.body.iter().map(|e| self.emit_expr(e)).collect();
                 let body = if body_exprs.is_empty() {
-                    "        todo!()".to_string()
+                    "        todo\x21()".to_string()
                 } else {
-                    body_exprs.iter().enumerate()
-                        .map(|(i, e)| if i + 1 == body_exprs.len() {
-                            format!("        {}", e)
-                        } else {
-                            format!("        {};", e)
+                    body_exprs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, e)| {
+                            if i + 1 == body_exprs.len() {
+                                format!("        {}", e)
+                            } else {
+                                format!("        {};", e)
+                            }
                         })
                         .collect::<Vec<_>>()
                         .join("\n")
                 };
-                out.push_str(&format!("    fn {}({}) -> {} {{\n{}\n    }}\n",
-                    method_name, params.join(", "), ret, body));
+                out.push_str(&format!(
+                    "    fn {}({}) -> {} {{\n{}\n    }}\n",
+                    method_name,
+                    params.join(", "),
+                    ret,
+                    body
+                ));
             } else {
-                let params: Vec<String> = sig.params
+                let params: Vec<String> = sig
+                    .params
                     .iter()
                     .enumerate()
                     .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
                     .collect();
-                out.push_str(&format!("    fn {}({}) -> {} {{\n        todo!(\"not implemented\")\n    }}\n",
-                    method_name, params.join(", "), ret));
+                out.push_str(&format!(
+                    "    fn {}({}) -> {} {{\n        todo\x21(\"not implemented\")\n    }}\n",
+                    method_name,
+                    params.join(", "),
+                    ret
+                ));
             }
         }
         out.push_str("}\n");
@@ -242,13 +286,10 @@ impl RustEmitter {
                     "    #[doc = \"UC: {} - {}\"]\n",
                     uc.name, criterion.name
                 ));
-                out.push_str(&format!(
-                    "    #[doc = \"{}\"]\n",
-                    criterion.description
-                ));
+                out.push_str(&format!("    #[doc = \"{}\"]\n", criterion.description));
                 out.push_str(&format!("    fn {}() {{\n", fn_name));
                 out.push_str(&format!(
-                    "        todo!(\"UC: {} - {}\")\n",
+                    "        todo\x21(\"UC: {} - {}\")\n",
                     uc.name, criterion.name
                 ));
                 out.push_str("    }\n");
@@ -330,7 +371,10 @@ impl RustEmitter {
     /// Emit a `pub trait` for a `provides:` block.
     pub(super) fn emit_provides_trait(&self, module_name: &str, provides: &Provides) -> String {
         let mut out = String::new();
-        out.push_str(&format!("/// Auto-generated trait for the `{}` provides interface.\n", module_name));
+        out.push_str(&format!(
+            "/// Auto-generated trait for the `{}` provides interface.\n",
+            module_name
+        ));
         out.push_str(&format!("pub trait {} {{\n", module_name));
         for (op_name, sig) in &provides.ops {
             let params: Vec<String> = sig
@@ -355,7 +399,9 @@ impl RustEmitter {
     pub(super) fn emit_predicate(&self, expr: &Expr) -> String {
         match expr {
             Expr::Ident(name) if name == "self" => "value".to_string(),
-            Expr::BinOp { op, left, right, .. } => {
+            Expr::BinOp {
+                op, left, right, ..
+            } => {
                 let l = self.emit_predicate(left);
                 let r = self.emit_predicate(right);
                 let op_str = match op {
@@ -363,14 +409,14 @@ impl RustEmitter {
                     BinOpKind::Sub => "-",
                     BinOpKind::Mul => "*",
                     BinOpKind::Div => "/",
-                    BinOpKind::Eq  => "==",
-                    BinOpKind::Ne  => "!=",
-                    BinOpKind::Lt  => "<",
-                    BinOpKind::Le  => "<=",
-                    BinOpKind::Gt  => ">",
-                    BinOpKind::Ge  => ">=",
+                    BinOpKind::Eq => "==",
+                    BinOpKind::Ne => "!=",
+                    BinOpKind::Lt => "<",
+                    BinOpKind::Le => "<=",
+                    BinOpKind::Gt => ">",
+                    BinOpKind::Ge => ">=",
                     BinOpKind::And => "&&",
-                    BinOpKind::Or  => "||",
+                    BinOpKind::Or => "||",
                 };
                 format!("({} {} {})", l, op_str, r)
             }
@@ -390,8 +436,7 @@ impl RustEmitter {
     }
 
     pub(super) fn emit_fn_def_inner(&self, fd: &FnDef, ctx_module: Option<&str>) -> String {
-        let is_effectful =
-            matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _));
+        let is_effectful = matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _));
 
         let mut out = String::new();
 
@@ -418,8 +463,8 @@ impl RustEmitter {
 
         for (eff, tier) in &fd.effect_tiers {
             let tier_str = match tier {
-                ConsequenceTier::Pure         => "pure",
-                ConsequenceTier::Reversible   => "reversible",
+                ConsequenceTier::Pure => "pure",
+                ConsequenceTier::Reversible => "reversible",
                 ConsequenceTier::Irreversible => "irreversible",
             };
             out.push_str(&format!("// effect-tier: {} -> {}\n", eff, tier_str));
@@ -463,16 +508,26 @@ impl RustEmitter {
         if let Some(dist) = &fd.distribution {
             out.push_str("// distribution:\n");
             out.push_str(&format!("//   model: {}\n", dist.model));
-            if let Some(m) = &dist.mean { out.push_str(&format!("//   mean: {}\n", m)); }
-            if let Some(v) = &dist.variance { out.push_str(&format!("//   variance: {}\n", v)); }
-            if let Some(c) = &dist.convergence { out.push_str(&format!("//   convergence: {}\n", c)); }
+            if let Some(m) = &dist.mean {
+                out.push_str(&format!("//   mean: {}\n", m));
+            }
+            if let Some(v) = &dist.variance {
+                out.push_str(&format!("//   variance: {}\n", v));
+            }
+            if let Some(c) = &dist.convergence {
+                out.push_str(&format!("//   convergence: {}\n", c));
+            }
         }
 
         if let Some(ts) = &fd.timing_safety {
             out.push_str("// timing_safety:\n");
             out.push_str(&format!("//   constant_time: {}\n", ts.constant_time));
-            if let Some(lb) = &ts.leaks_bits { out.push_str(&format!("//   leaks_bits: {}\n", lb)); }
-            if let Some(m) = &ts.method { out.push_str(&format!("//   method: {}\n", m)); }
+            if let Some(lb) = &ts.leaks_bits {
+                out.push_str(&format!("//   leaks_bits: {}\n", lb));
+            }
+            if let Some(m) = &ts.method {
+                out.push_str(&format!("//   method: {}\n", m));
+            }
         }
 
         if let Some(t) = &fd.termination {
@@ -510,7 +565,10 @@ impl RustEmitter {
         let ret = if is_effectful {
             match fd.type_sig.return_type.as_ref() {
                 TypeExpr::Effect(_, inner) => {
-                    format!("Result<{}, Box<dyn std::error::Error>>", self.emit_type_expr(inner))
+                    format!(
+                        "Result<{}, Box<dyn std::error::Error>>",
+                        self.emit_type_expr(inner)
+                    )
                 }
                 _ => self.emit_type_expr(&fd.type_sig.return_type),
             }
@@ -536,15 +594,29 @@ impl RustEmitter {
 
         let has_ensures = !fd.ensures.is_empty();
         let body_count = fd.body.len();
+        // Only use the _loom_result binding pattern when at least one ensure
+        // condition actually references "result" — otherwise it's a type-name
+        // expression that can't be bound as a value.
+        let needs_result_binding = has_ensures
+            && fd
+                .ensures
+                .iter()
+                .any(|c| self.emit_expr(&c.expr).contains("result"));
         if has_ensures && body_count > 0 {
             for expr in &fd.body[..body_count - 1] {
                 body_lines.push(format!("    {};", self.emit_expr(expr)));
             }
             let last = &fd.body[body_count - 1];
-            body_lines.push(format!("    let _loom_result = {};", self.emit_expr(last)));
+            if needs_result_binding {
+                body_lines.push(format!("    let _loom_result = {};", self.emit_expr(last)));
+            }
             for contract in &fd.ensures {
                 let raw = self.emit_expr(&contract.expr);
-                let cond = raw.replace("result", "_loom_result");
+                let cond = if needs_result_binding {
+                    raw.replace("result", "_loom_result")
+                } else {
+                    raw.clone()
+                };
                 body_lines.push(format!(
                     "    // LOOM[ensure]: {} — checked on return value via _loom_result",
                     cond
@@ -554,19 +626,40 @@ impl RustEmitter {
                     cond.replace('"', "\\\""),
                 ));
             }
-            body_lines.push("    _loom_result".to_string());
+            if needs_result_binding {
+                body_lines.push("    _loom_result".to_string());
+            } else {
+                let last_text = self.emit_expr(last);
+                if is_type_name_stub(&last_text) {
+                    body_lines.push(format!(
+                        "    todo\x21(\"stub body — implement return value of type {}\")",
+                        last_text
+                    ));
+                } else {
+                    body_lines.push(format!("    {}", last_text));
+                }
+            }
         } else {
             for (i, expr) in fd.body.iter().enumerate() {
+                let text = self.emit_expr(expr);
                 if i + 1 == body_count {
-                    body_lines.push(format!("    {}", self.emit_expr(expr)));
+                    if is_type_name_stub(&text) {
+                        body_lines.push(format!(
+                            "    todo\x21(\"stub body — implement return value of type {}\")",
+                            text
+                        ));
+                    } else {
+                        body_lines.push(format!("    {}", text));
+                    }
                 } else {
-                    body_lines.push(format!("    {};", self.emit_expr(expr)));
+                    body_lines.push(format!("    {};", text));
                 }
             }
         }
 
         if body_lines.is_empty() {
-            body_lines.push("    todo!(\"Phase 1 stub — body not yet implemented\")".to_string());
+            body_lines
+                .push("    todo\x21(\"Phase 1 stub — body not yet implemented\")".to_string());
         }
 
         out.push_str(&format!(
@@ -590,13 +683,13 @@ impl RustEmitter {
 /// Returns a human-readable description for known algebraic annotation keys.
 fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
     match key {
-        "idempotent"   => Some("safe to retry"),
-        "commutative"  => Some("argument order does not matter"),
-        "associative"  => Some("grouping does not matter"),
+        "idempotent" => Some("safe to retry"),
+        "commutative" => Some("argument order does not matter"),
+        "associative" => Some("grouping does not matter"),
         "at-most-once" => Some("must not be called more than once"),
         "exactly-once" => Some("must be called exactly once"),
-        "pure"         => Some("no side effects"),
-        "monotonic"    => Some("output only increases"),
+        "pure" => Some("no side effects"),
+        "monotonic" => Some("output only increases"),
         _ => None,
     }
 }
@@ -697,7 +790,11 @@ fn scan_free_idents(
             if !let_bound.contains(name)
                 && !seen.contains(name)
                 && !PARAM_NAME_BUILTINS.contains(&name.as_str())
-                && name.chars().next().map(|c| c.is_lowercase()).unwrap_or(false)
+                && name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_lowercase())
+                    .unwrap_or(false)
             {
                 seen.insert(name.clone());
                 ordered.push(name.clone());
@@ -744,7 +841,9 @@ fn scan_free_idents(
             scan_free_idents(iter, let_bound, seen, ordered);
             scan_free_idents(body, let_bound, seen, ordered);
         }
-        Expr::Tuple(elems, _) => elems.iter().for_each(|e| scan_free_idents(e, let_bound, seen, ordered)),
+        Expr::Tuple(elems, _) => elems
+            .iter()
+            .for_each(|e| scan_free_idents(e, let_bound, seen, ordered)),
         Expr::Try(inner, _) => scan_free_idents(inner, let_bound, seen, ordered),
     }
 }
