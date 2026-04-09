@@ -89,6 +89,7 @@ impl WasmEmitter {
                     feature: format!("refined type `{}`", rt.name),
                     span: rt.span.clone(),
                 }),
+                _ => {}
             }
         }
 

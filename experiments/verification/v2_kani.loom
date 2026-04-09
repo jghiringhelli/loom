@@ -1,0 +1,98 @@
+# V2 Verification Claim: require:/ensure: contracts emit Kani formal proof harnesses
+#
+# Claim: A Loom function with `require:` and `ensure:` annotations emits a
+#        `#[cfg(kani)] #[kani::proof]` harness that uses SAT-bounded symbolic
+#        execution (Kani, Amazon/AWS 2021) to PROVE the contracts hold for ALL
+#        inputs within the solver's bounds.
+#
+# Community precedent:
+#   - CBMC bounded model checking (Clarke & Kroening, 2003): exhaustive within bounds
+#   - Kani (Amazon 2021): CBMC over Rust MIR — first industrial-grade Rust verifier
+#   - Community examples: kani/tests/kani/Overflow, kani/tests/kani/FunctionCall
+#
+# Loom V2 approach: emit `#[cfg(kani)]` blocks alongside normal Rust code.
+#   - `kani::any::<T>()` — symbolic input (unconstrained; ranges over ALL values)
+#   - `kani::assume(cond)` — restrict domain to require: region
+#   - `kani::assert!(cond, "msg")` — prove ensure: holds everywhere in domain
+#   Normal `cargo build` / `cargo test` ignores #[cfg(kani)] blocks completely.
+#   `cargo kani` activates the harnesses and runs CBMC.
+#
+# To run:
+#   cargo install --locked kani-verifier
+#   cargo kani                              # proves all harnesses
+#
+# Result: STRUCTURAL VERIFIED (harnesses emitted and parseable; CBMC proof requires
+#         cargo kani installed separately — not in CI by default)
+#
+# What this proves:
+#   1. require:/ensure: → typed kani::any() + kani::assume() + kani::assert!()
+#   2. The harness names match the function under test (kani_verify_{fn_name})
+#   3. Parameter names are correctly inferred from contract expressions
+#   4. Type mapping: Int→i64, Float→f64, Bool→bool (Kani::Arbitrary)
+#   5. The harness is invisible to normal builds (#[cfg(kani)] gate)
+
+# ── Claim 1: add_positive — standard Hoare triple ────────────────────────────
+
+module AddPositiveContracts
+
+  # Classic Hoare triple: {a > 0 ∧ b > 0} add_positive {result > a ∧ result > b}
+  # Kani proves: for ALL i64 a, b where a > 0 ∧ b > 0, (a + b) > a ∧ (a + b) > b
+  # (Note: Kani will detect overflow — i64 overflow IS a CBMC violation)
+  fn add_positive :: Int -> Int -> Int
+    require: a > 0
+    require: b > 0
+    ensure:  result > a
+    ensure:  result > b
+  body
+    a + b
+  end
+
+end
+
+# Expected emitted kani harness (alongside normal Rust code):
+#
+#   // LOOM[V2:Kani]: add_positive — SAT-bounded formal proof (Kani 2021)
+#   // Proves require:/ensure: hold for ALL inputs within solver bounds.
+#   // Install: cargo install --locked kani-verifier   Run: cargo kani
+#   #[cfg(kani)]
+#   #[kani::proof]
+#   fn kani_verify_add_positive() {
+#       let a: i64 = kani::any();
+#       let b: i64 = kani::any();
+#       // Preconditions — restrict symbolic input domain
+#       kani::assume((a > 0));
+#       kani::assume((b > 0));
+#       let result = add_positive(a, b);
+#       // Postconditions — Kani proves these for all valid inputs
+#       kani::assert!((result > a), "(result > a)");
+#       kani::assert!((result > b), "(result > b)");
+#   }
+
+# ── Claim 2: Safe division — non-zero divisor ────────────────────────────────
+
+module SafeDivision
+
+  # {divisor != 0} safe_divide {result * divisor = dividend}
+  # Kani: no division-by-zero for all inputs where divisor != 0
+  fn safe_divide :: Int -> Int -> Int
+    require: divisor != 0
+    ensure:  result >= 0
+  body
+    dividend / divisor
+  end
+
+end
+
+# ── Claim 3: Boolean identity — tautological contract ────────────────────────
+
+module BoolIdentity
+
+  # Simple tautology: Kani should prove this trivially (no CBMC counterexample)
+  fn bool_id :: Bool -> Bool
+    require: flag = true
+    ensure:  result = true
+  body
+    flag
+  end
+
+end

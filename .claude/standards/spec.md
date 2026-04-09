@@ -57,14 +57,17 @@ incomplete grammar.
 > do. If a diagram file exists but still contains `<!-- UNFILLED -->`, it is a known gap.
 > Known gaps must be on the cascade backlog; they are not acceptable as a final state.
 
-### The Six Properties (self-test)
-A generative specification satisfies all six. Use as an inspection checklist:
+### The Seven Properties (self-test)
+A generative specification satisfies all seven. Use as an inspection checklist:
 - **Self-describing**: Does the system explain its own architecture, decisions, and conventions from its own artifacts?
 - **Bounded**: Does every unit have explicit scope and seams? Is the context window to modify any unit predictably bounded?
 - **Verifiable**: Can the correctness of any output be checked without human judgment? Is verification automatic, fast, and blocking?
 - **Defended**: Are destructive operations structurally prevented (hooks, gates) rather than merely discouraged?
 - **Auditable**: Is the current state and full history recoverable from artifacts alone? Would the AI treat an intentional decision as a defect to correct?
 - **Composable**: Can units be combined without unexpected coupling? Can the AI work on any unit in isolation because isolation is structural?
+- **Executable**: Has a test suite run against a live environment and passed? Does the specification produce verified outcomes, not just compilable code?
+
+Source: GS White Paper §86 — each property names a specific failure mode observed across six production projects.
 
 > **GS Protocol on demand:** call `get_reference(resource: guidance)` for the full
 > session-loop procedure, context-loading strategy, incremental cascade, bound roadmap

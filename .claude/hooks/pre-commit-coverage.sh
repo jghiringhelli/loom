@@ -8,7 +8,7 @@
 # docs-only, config-only, or test-only commits.
 #
 # Current thresholds (vitest.config.ts):
-#   Lines / Statements / Functions: {{coverage_minimum | default: 80}}%
+#   Lines / Statements / Functions: 80%
 #   Branches: 70%
 #
 # Trigger: git pre-commit (via scripts/setup-hooks.sh)
@@ -42,9 +42,9 @@ if [ ! -f "package.json" ] && [ ! -f "pyproject.toml" ] && [ ! -f "setup.py" ]; 
   if [ -f "Cargo.toml" ]; then
     # Rust: run tests; use cargo-tarpaulin for coverage if available
     if command -v cargo-tarpaulin &> /dev/null; then
-      cargo tarpaulin --out Stdout --fail-under {{coverage_minimum | default: 80}} 2>&1
+      cargo tarpaulin --out Stdout --fail-under 80 2>&1
       if [ $? -ne 0 ]; then
-        echo "❌ Coverage gate failed — below {{coverage_minimum | default: 80}}%."
+        echo "❌ Coverage gate failed — below 80%."
         echo "   Run: cargo tarpaulin --out Html"
         exit 1
       fi
@@ -80,7 +80,7 @@ if grep -q '"vitest"' package.json 2>/dev/null; then
 fi
 
 if grep -q '"jest"' package.json 2>/dev/null; then
-  COVERAGE_MIN={{coverage_minimum | default: 80}}
+  COVERAGE_MIN=80
   npx jest --passWithNoTests --coverage \
     --coverageThreshold="{\"global\":{\"lines\":$COVERAGE_MIN,\"statements\":$COVERAGE_MIN,\"functions\":$COVERAGE_MIN,\"branches\":70}}" \
     --silent 2>&1
@@ -94,9 +94,9 @@ fi
 
 if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
   if command -v pytest &> /dev/null; then
-    pytest --tb=no --quiet --cov=src --cov-fail-under={{coverage_minimum | default: 80}} 2>&1
+    pytest --tb=no --quiet --cov=src --cov-fail-under=80 2>&1
     if [ $? -ne 0 ]; then
-      echo "❌ Coverage gate failed — below {{coverage_minimum | default: 80}}%."
+      echo "❌ Coverage gate failed — below 80%."
       exit 1
     fi
     echo "  ✅ Coverage gate passed"

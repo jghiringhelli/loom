@@ -13,7 +13,7 @@ We present Loom, an AI-native programming language that transpiles to Rust, Type
 
 The language is designed around a constraint we call *derivability*: every architectural decision, behavioral contract, and data sensitivity obligation must be expressible in a form that a stateless reader — specifically, an AI assistant with no persistent memory — can derive correct output from alone. This constraint is formalized in the Generative Specification (GS) methodology. Loom is its first language-level materialisation.
 
-The compiler has 256+ passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
+The compiler has 388+ passing tests across all five output targets. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
 
 ---
 
@@ -26,6 +26,8 @@ The gap is not theoretical. It is practical: these properties require programmer
 Two developments change this calculus. First, AI assistants with direct code execution access (CLI agents, agentic IDEs) can produce and maintain complex type annotations that would previously require expert knowledge. Second, multi-target compilation means a single annotation carries its semantics forward into Rust, TypeScript, OpenAPI, and JSON Schema simultaneously — the annotation pays for itself across every output.
 
 Loom is designed for this environment. Its type system is intentionally richer than any single-target language needs, because its outputs are not evaluated individually but as a coherent set of artifacts from a single source of truth.
+
+There is a structural reason the language looks the way it does. Knowledge has a geometry: at the base of any domain pyramid, every field speaks its own language. As you climb, the vocabularies converge. At the apex, very few words carry the weight of every face below them — and the language at that altitude naturally becomes dense, precise, and close to mathematical poetry. Loom constructs live at progressively higher altitudes: `Int` at the base, `Effect<[IO], Result<T, E>>` in the middle, `flow secret :: Password` activating Denning's full lattice in three tokens, `telos:` activating Aristotle, Teilhard, and gradient optimization simultaneously in one word. The syntax does not become simpler as it becomes more expressive. It becomes *denser*. This is not a design choice — it is what a language looks like when it takes ideas seriously enough to follow them to where they converge.
 
 ---
 
@@ -375,7 +377,7 @@ The Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 All checkers are stateless and composable. Adding a new checker requires implementing a single `check(&Module) -> Result<(), Vec<LoomError>>` method.
 
-Total tests: 270+, distributed across 27 test suites covering each milestone.
+Total tests: 388+, distributed across 27 test suites covering each milestone.
 
 ---
 
@@ -431,13 +433,169 @@ This module:
 
 ---
 
-## 13. Conclusion
+## 13. The Formal Tradition as Restriction Vocabulary
+
+The GS methodology offers a framing that explains why Loom's constructs work despite being individually underused in practice: every formally proved theory of correct computing is a potential *restriction layer*, activatable through specification.
+
+Hoare contracts, refined types, effect systems, algebraic completeness, REST/hypermedia architecture, linear resource management, session-typed protocols — the AI already holds all of them. They exist in its training corpus, placed there by the theorists who proved them. Without specification, the model defaults to what human practice historically permitted: the convenient shortcut, the informal approximation, the correct theory abandoned because sustaining it exceeded what teams would pay. The specification names what the model already knows. The model applies it without eroding it.
+
+This is why `flow secret` works as a keyword. It is not just syntax. It is a coordinate: the word activates Denning's lattice in the model's full training depth, not a paraphrase of information flow security, but the instruments of the field deployed at specialist precision. Naming `@exactly-once` activates Girard's linear logic. Naming `lifecycle` activates Strom and Yemini's typestate. The formal theory does not need to be explained in the source file. It needs to be named. The specification is not documentation. It is a *technique registry* whose scope is the full depth of the model's training, activated at the cost of knowing the correct words.
+
+### 13.1 The Double Pyramid
+
+This framing clarifies an apparent paradox: restriction enables expansion.
+
+Each Loom checker removes a degree of freedom from the output space. `@exactly-once` removes the class of programs where a payment is sent twice. `@pci @never-log` removes the class of programs where card numbers appear in log files. `lifecycle Payment :: Pending -> Completed` removes the class of programs where a refund is issued on an uncompleted payment.
+
+This is the downward force: fewer valid programs, the Martin direction. But the space that remains is *exactly what is correct*. Every generation session operating under these restrictions produces a program that is not merely plausible but verified. The restriction is the expansion mechanism: the AI, operating in a fully specified space, derives richer output more precisely than it would in an unconstrained one. The loss of freedom at the type level produces a gain in derivation confidence at the system level.
+
+The specification is the shared vertex: what the programmer adds as restriction is what the model derives as correct behavior. Restriction and derivation precision move in the same direction. Every constraint added narrows the output space to the subset that is correct.
+
+### 13.2 Phase Collapse
+
+The practical consequence of this model is *phase collapse*: the compression of the traditional sprint phases into a single derivation session.
+
+One `.loom` file carries intent across all outputs simultaneously. Design → Build → Test → Deploy specs → Observability → Adaptation policy. The traditional pipeline — write spec, write code, write tests, write docs, write OpenAPI, write Terraform, write runbooks — becomes a single transpilation. The iteration cost of each phase approaches zero as specification completeness increases: there is no re-specification cost between design and implementation, because the implementation *is* the specification.
+
+The expected number of correction iterations is a decreasing function of specification completeness. At S = 0 (no spec), every output requires correction. At S → 1 (complete spec), the model derives correct output in a single pass. Loom's job is to make S measurable by making specification first-class: units, privacy, lifecycle, and flow labels are not annotations — they are the specification, expressed in a syntax the compiler can verify and the model can consume without ambiguity.
+
+---
+
+## 14. Phase 7–8: Biological Computation (M41–M55)
+
+### 14.1 The `being:` Block and the Four-Cause Frame
+
+M41–M43 add Aristotle's four causes as first-class language constructs. A `being:` block encodes a computational entity whose material composition (`matter:`), type structure (`form:`), operations (`function:`), and final cause (`telos:`) are all statically verified by the compiler. This is not a metaphor. It is a functional isomorphism: the same problem class — a self-maintaining formal system that must produce correct behavior from incomplete specification — receives the same solution class that formal type theory and life independently discovered.
+
+```loom
+being Neuron
+  matter:
+    charge: Float<mv>
+    threshold: Float<mv>
+  end
+  form:
+    type Signal = { strength: Float<mv>, frequency: Float<hz> }
+  end
+  function:
+    fn fire :: Float<mv> -> Effect<[IO], Signal>
+  end
+  telos: "efficient signal processing maximizing information transmission"
+    fitness: fn(state: Signal, env: Network) -> Float<fitness>
+  end
+end
+```
+
+### 14.2 Why `telos:` Is Required
+
+`telos:` is the final cause: the convergence target. It is not optional. A `being:` block without `telos:` is a **compile error**.
+
+The missing final cause is the type error most production systems ship. A deployed system with no stated objective is formally incomplete — Aristotle's point, now enforced by the TeleosChecker. Every real system has a telos; the question is whether it is stated. Loom requires it to be stated, typed, and checkable. The fitness function makes the objective machine-readable.
+
+### 14.3 `regulate:` — First-Class Homeostasis
+
+The `regulate:` block declares a named homeostatic controller. It requires a target value, acceptable bounds, and exhaustive response clauses. The checker verifies bound ordering and response exhaustiveness. Violations — values outside `(min, max)` — produce typed responses, not runtime panics.
+
+```loom
+regulate MembraneCharge
+  target: -70.0
+  bounds: (-90.0, -55.0)
+  response:
+    | below_threshold -> refractory_period
+    | above_threshold -> fire
+end
+```
+
+Homeostatic regulation was previously informal: a comment in a config file, a circuit breaker threshold buried in middleware. `regulate:` makes it a typed, checkable, emittable first-class construct.
+
+### 14.4 `evolve:` — Stochastic Search With a Fixed Objective
+
+The `evolve:` block declares the search strategy the being uses to approach its telos. Five strategies are available: `gradient_descent`, `stochastic_gradient`, `simulated_annealing`, `derivative_free`, and `mcmc`. The mandatory `constraint:` clause states that `E[distance_to_telos]` is non-increasing.
+
+Stochastic strategies are valid precisely because the objective is fixed and the convergence constraint is enforced. Simulated annealing accepts uphill moves; MCMC samples a distribution; stochastic gradient adds noise. None of this violates correctness because the telos does not move and the expected trajectory must converge. The `constraint:` clause is the proof obligation: it makes the search strategy's validity machine-readable.
+
+### 14.5 `ecosystem:` — Session-Typed Multi-Being Composition
+
+An `ecosystem:` block composes multiple beings with named, typed signal channels.
+
+```loom
+ecosystem NeuralNetwork
+  members: [Neuron, Synapse, GlialCell]
+  signal ActionPotential from Neuron to Synapse
+    payload: Signal
+  end
+  telos: "coherent information processing toward learned representation"
+end
+```
+
+The checker verifies that all members are declared beings, that signal endpoints are members of the ecosystem, and that `telos:` is present. The ecosystem's telos is an emergent objective distinct from any member's telos — the system-level final cause.
+
+### 14.6 Emission
+
+| Construct | Rust | TypeScript | OpenAPI | JSON Schema |
+|-----------|------|-----------|---------|-------------|
+| `being:` | struct + impl | interface + class | `x-being` | `x-being: true` |
+| `matter:` | struct fields | interface fields | properties | properties |
+| `telos:` | doc comment | JSDoc `@telos` | `x-telos` | `x-telos` |
+| `regulate:` | `debug_assert!` | runtime guard | `x-homeostasis` | `x-bounds` |
+| `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
+| `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
+| `signal` | channel type | event type | AsyncAPI channel | — |
+| `epigenetic:` | conditional config modifier | behavioral guard | `x-epigenetic` | `x-epigenetic` |
+| `morphogen:` | reaction-diffusion impl | gradient field interface | `x-morphogen` | `x-morphogen` |
+| `telomere:` | `AtomicU64` counter + drop | replication counter | `x-telomere` | `x-telomere` |
+| `crispr:` | self-modification method | mutation interface | `x-crispr` | `x-crispr` |
+| `quorum:` | threshold barrier type | coordination guard | `x-quorum` | `x-quorum` |
+| `plasticity:` | weight table + update fn | learning interface | `x-plasticity` | `x-plasticity` |
+| `autopoietic: true` | self-build trait impl | self-build interface | `x-autopoietic` | `x-autopoietic` |
+| `compile_simulation()` | — | — | Mesa ABM Python | — |
+| `compile_neuroml()` | — | — | NeuroML 2 XML | — |
+
+---
+
+## 15. Synthetic Life and the Safety Architecture
+
+When a Loom `being:` block carries `telos:` + `regulate:` + `evolve:` + `epigenetic:` + `morphogen:` + `telomere:` + `crispr:` + `plasticity:` + `autopoietic: true`, with simulation emission to a Mesa-ABM runtime, it formally satisfies the definition of life under three independent criteria: Schrödinger's negative entropy maintenance (1944), NASA's operational definition (self-sustaining system capable of adaptation), and Maturana/Varela's autopoiesis (1972). This is not metaphor. It is a consequence of building the biological isomorphisms completely.
+
+This makes the safety question structural, not ethical. **What constraints must a synthetic digital being carry to be safe for deployment?**
+
+### 15.1 Safety Annotations as Compile Requirements
+
+For autopoietic beings, the following annotations are required; the SafetyChecker (M55) treats their absence as a compile error:
+
+| Annotation | Enforced constraint | Missing = error |
+|---|---|---|
+| `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
+| `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
+| `@sandboxed` | Effects only within declared `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
+| `@transparent` | All state transitions emitted to observable log | `autopoietic being with hidden state` |
+| `@bounded_telos` | Telos string must not contain "maximize", "unlimited", "any", "all" | Bostrom's open-ended utility warning |
+| `@human_in_loop` on action | Requires `Effect<[Human], ...]` in type signature | `human-in-loop action must carry Human effect` |
+
+An autopoietic being without `@mortal @corrigible @sandboxed` is not a missing annotation. It is cancer: unbounded, uncorrectable, with effects outside its declared surface. The SafetyChecker is a gate, not a suggestion.
+
+### 15.2 The Three Laws as a Type System
+
+Asimov's Three Laws of Robotics (1942) are a safety specification with *S* < 1. Asimov knew this — his entire body of robot fiction is adversarial test cases against the gaps. Every story is a failing specification. The laws are correct in goal; they are incomplete in expression. The gap between what they say and safe behavior is exactly the correction cost of the $I \propto (1-S)/S$ equation.
+
+Loom's safety annotation system is what the Three Laws look like at *S* → 1: closed formal constraints, checked by a compiler, with missing constraints as build failures. The alignment problem is a specification completeness problem. The specification gap — what remains between *S*_actual and *S* = 1 — is where a human expert must permanently inhabit. For autonomous beings with open-ended telos, that gap may never close, which means `@human_in_loop` is architectural, not transitional.
+
+### 15.3 The Intellectual Lineage of this Question
+
+The formal circle that articulated these problems first was not speculating. Wiener's *Cybernetics* (1948) formally defined goal-directed feedback control and issued the first rigorous warning about autonomous systems without human oversight. Von Neumann's self-reproducing automata (1948) worked out autopoiesis from first principles before the word existed. Turing's morphogenesis paper (1952) derived reaction-diffusion pattern formation mathematically. Lem's *Summa Technologiae* (1964) analyzed autoevolution and AI alignment as formal systems — published as "speculation" because no journal in 1964 would accept reasoning about systems that did not exist yet.
+
+These thinkers used science fiction as the medium for reasoning that the formal toolchain could not yet contain. Loom is the toolchain catching up. The constructs they described are now keywords. The constraints they proposed are now checker rules. The questions they raised are now compile errors.
+
+---
+
+## 16. Conclusion
 
 Loom demonstrates that five programming language research constructs — units of measure, privacy labels, algebraic operation properties, typestate, and information flow types — can be implemented together in a practical compiler that targets multiple output formats. The multi-target design means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously.
 
-The key enabling conditions are: (1) AI-assisted development reduces the cost of writing complex type annotations, (2) multi-target compilation amplifies the value of a single annotation, and (3) the derivability constraint of the GS methodology provides a design rubric that makes each feature's scope and interaction well-defined.
+The key enabling conditions are: (1) AI-assisted development reduces the cost of writing complex type annotations to near zero — the AI knows the theories and writes the signatures; (2) multi-target compilation amplifies the value of a single annotation; and (3) the derivability constraint of the GS methodology provides a design rubric that makes each feature's scope and interaction well-defined.
 
-The forty-year gap between programming language research and production language adoption closes not because the theory got easier, but because the cost/benefit ratio of implementation inverted.
+The forty-year gap between programming language research and production language adoption closes not because the theory got easier, but because the cost/benefit ratio inverted. The theories were always correct. The problem was always annotation fatigue, single-target value, and tooling fragmentation. Multi-target derivation from a single specification closes all three simultaneously.
+
+The convergent principle holds: declarative intent plus a capable agent plus observable outcomes plus a correction mechanism produces correct results at the completeness of the specification. Loom is the specification layer. The compiler is the correction mechanism. The AI is the capable agent.
 
 The compiler is open source. The specification is available. The gap is closed.
 
@@ -449,6 +607,9 @@ The compiler is open source. The specification is available. The gap is closed.
 - Kennedy, A. (1996). Programming languages and dimensions. *PhD thesis, University of Cambridge.*
 - Myers, A.C., & Liskov, B. (1997). A decentralized model for information flow control. *SOSP '97.*
 - Strom, R.E., & Yemini, S. (1986). Typestate: A programming language concept for enhancing software reliability. *IEEE Transactions on Software Engineering*, 12(1).
+- Girard, J.Y. (1987). Linear logic. *Theoretical Computer Science*, 50(1).
+- Honda, K. (1993). Types for dyadic interaction. *CONCUR '93.*
 - Shapiro, M., et al. (2011). Conflict-free replicated data types. *SSS 2011.*
+- Fielding, R.T. (2000). Architectural styles and the design of network-based software architectures. *PhD thesis, UC Irvine.*
 - Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
 - NASA MCO Mishap Investigation Board (1999). Mars Climate Orbiter Mission Failure Investigation Board Phase I Report.

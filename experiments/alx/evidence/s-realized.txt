@@ -1,0 +1,5 @@
+0.000 (baseline, no corrections)
+0.339 (Phase 3: G1-G10 corrections — public API surface, LoomError enum, Parser::new)
+0.6415 (Phase 4: AST fields, emit_rust pub mod wrapper, Assign token)
+0.7805 (Phase 5a: algebraic, biological, DI, effect improvements)
+0.9000 (Phase 5b: effect/exhaustiveness/type/infoflow/ecosystem/evolve/neuroml/units/privacy/typestate)

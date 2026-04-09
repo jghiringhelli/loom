@@ -1,0 +1,407 @@
+-- ALX-1: Full Feature Matrix
+-- ===========================
+-- A single Loom module that exercises every M1-M66b construct at least once.
+-- This file must compile cleanly. If it doesn't, a feature's parser or checker
+-- is broken.
+--
+-- Intentionally does NOT use every feature in combination — that's ALX-2.
+-- Here each construct appears in its simplest valid form.
+
+module ALX1FeatureMatrix
+describe: "ALX-1 — full M1-M67 feature matrix test"
+
+-- ── M1-M8: Core Language ─────────────────────────────────────────────────────
+
+type Payment =
+  amount: Float
+  currency: String
+end
+
+enum PaymentStatus =
+  | Pending
+  | Completed
+  | Failed of String
+end
+
+type PositiveAmount = Float where self > 0.0
+
+fn add @pure :: Float -> Float -> Float
+  a + b
+end
+
+fn process @idempotent @trace("pay.process") :: String -> String
+  "processed"
+end
+
+-- ── M16: Contracts (Hoare) ────────────────────────────────────────────────────
+
+fn safe_divide :: Float -> Float -> Float
+  require: b != 0.0
+  ensure: result * b = a
+  a / b
+end
+
+-- ── M17: Typestate ────────────────────────────────────────────────────────────
+
+lifecycle PaymentFlow :: Pending -> Processing -> Completed
+
+-- ── M18: Privacy (info-flow) ─────────────────────────────────────────────────
+
+flow secret :: String
+
+-- ── M19-M23: Being, Teleos, Safety, Units ────────────────────────────────────
+
+being PaymentProcessor
+  @mortal
+  @corrigible
+  @sandboxed
+
+  describe: "Processes payments with homeostatic bounds"
+
+  telos: "maximize_objectives"
+  modifiable_by: operator
+  end
+
+  telomere:
+    limit: 1000000
+    on_exhaustion: apoptosis
+  end
+
+  matter:
+    balance: Float
+    temperature: Float
+  end
+  regulate temperature
+    target: optimal_level
+    bounds: (minimum_val, maximum_val)
+    response: | above -> cool | below -> heat
+  end
+
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  autopoietic: true
+end
+
+-- ── M41-M52: Ecosystem ────────────────────────────────────────────────────────
+
+ecosystem PaymentNetwork
+  telos: "coordinate payment flows"
+
+  signal AuthSignal from PaymentProcessor to PaymentProcessor
+    payload: String
+  end
+end
+
+-- ── M56: Refinement Types ────────────────────────────────────────────────────
+
+type BoundedRate = Float where self >= 0.0 and self <= 100.0
+
+-- ── M57: Separation Logic ────────────────────────────────────────────────────
+
+fn transfer @thread_safe :: String -> Bool
+  separation:
+    owns: source_account
+    owns: dest_account
+    owns: other_accounts
+    disjoint: source_account * dest_account
+    frame: other_accounts
+    proof: frame_rule_verified
+  end
+  true
+end
+
+-- ── M58: Temporal Logic ──────────────────────────────────────────────────────
+
+temporal PaymentOrdering
+  precedes: authorize before charge
+  always: balance_nonnegative
+  never: Completed transitions to Pending
+end
+
+-- ── M59: Gradual Typing ──────────────────────────────────────────────────────
+
+fn process_external :: String -> String
+  gradual:
+    boundary: external_api
+    trust: low
+    blame: caller
+  end
+  "ok"
+end
+
+-- ── M60: Probabilistic Types ─────────────────────────────────────────────────
+
+fn predict_fraud :: String -> Bool
+  distribution:
+    prior: low_fraud_rate
+    confidence: high_confidence
+  end
+  false
+end
+
+-- ── M61: Dependent Types ─────────────────────────────────────────────────────
+
+proposition PaymentSafety = Int where 1 > 0
+
+-- ── M62: Side-Channel Safety ─────────────────────────────────────────────────
+
+fn verify_pin @timing_safe :: String -> Bool
+timing_safety:
+  constant_time: true
+  leaks_bits: "0.0 bits"
+  method: data_oblivious
+end
+true
+end
+
+-- ── M63: Category Theory ─────────────────────────────────────────────────────
+
+functor PaymentFunctor
+  law: identity_law
+  law: composition_law
+end
+
+-- ── M64: Curry-Howard ────────────────────────────────────────────────────────
+
+fn safe_op :: Int -> Int -> Int
+  proof: terminates_in_finite_steps
+  x + y
+end
+
+-- ── M65: Self-Certifying ─────────────────────────────────────────────────────
+
+certificate:
+  type_safety = proven
+  memory_safety = verified
+end
+
+-- ── M66: AOP Aspects ─────────────────────────────────────────────────────────
+
+fn audit_call :: Unit -> Unit
+  require: true
+  ensure: true
+end
+
+fn log_call :: Unit -> Unit
+  require: true
+  ensure: true
+end
+
+aspect SecurityAspect
+  pointcut: fn where @trace
+  before: audit_call
+  order: 1
+end
+
+aspect ObservabilityAspect
+  pointcut: fn where @idempotent
+  after: log_call
+  order: 2
+end
+
+-- ── M66b: Annotation Algebra ─────────────────────────────────────────────────
+
+annotation payment_op(op_name: String)
+
+-- ── M67: Correctness Report ──────────────────────────────────────────────────
+
+correctness_report:
+  proved:
+    - type_safety:       type_checker_passed
+    - effect_safety:     effect_checker_passed
+    - separation:        separation_logic_proved
+    - temporal_ordering: temporal_checker_passed
+    - conservation:      conservation_checker_passed
+    - duality:           session_checker_passed
+  unverified:
+    - smt_completeness: requires_z3_feature
+end
+
+-- ── M68-M77: Biological Gap Milestones ───────────────────────────────────────
+
+being BiologicalBeing
+  @mortal
+  @corrigible
+
+  telos: "demonstrate biological features"
+  modifiable_by: operator
+  end
+
+  telomere:
+    limit: 100000
+    on_exhaustion: apoptosis
+  end
+
+  matter:
+    energy: Float
+    temperature: Float
+  end
+
+  regulate temperature
+    target: optimal_level
+    bounds: (lo, hi)
+  end
+
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "energy_decreasing_toward_equilibrium"
+  end
+end
+
+-- ── M84: Distribution families ───────────────────────────────────────────────
+
+fn model_returns @probabilistic :: Unit -> Float
+  distribution:
+    family: GeometricBrownian(drift: 0.05, volatility: 0.2)
+  end
+end
+
+-- ── M85: Randomness quality ───────────────────────────────────────────────────
+
+fn generate_nonce @crypto_random @requires_auth :: Unit -> String
+  "nonce"
+end
+
+-- ── M86: Conservation annotation ─────────────────────────────────────────────
+
+fn transfer_value @conserved(Value) @idempotent :: Float -> Float -> Float
+  require: amount > 0.0
+  ensure: result = amount
+  amount
+end
+
+-- ── M87: Tensor type ─────────────────────────────────────────────────────────
+
+fn correlation_matrix :: Unit -> Tensor<2, [10, 10], Float>
+  describe: "10x10 correlation matrix"
+end
+
+-- ── M88: Stochastic process ───────────────────────────────────────────────────
+
+fn model_rate @probabilistic :: Unit -> Float
+  distribution:
+    family: OrnsteinUhlenbeck(mean: 0.05, theta: 0.5, sigma: 0.02)
+  end
+  process:
+    kind: OrnsteinUhlenbeck
+    mean_reverting: true
+  end
+end
+
+-- ── M98: Session type ─────────────────────────────────────────────────────────
+
+session TradeProtocol
+  client:
+    send: TradeRequest
+    recv: TradeAck
+  end
+  server:
+    recv: TradeRequest
+    send: TradeAck
+  end
+  duality: client <-> server
+end
+
+-- ── M99: Algebraic effect ─────────────────────────────────────────────────────
+
+effect Logging
+  operation log_entry :: String -> Unit
+  operation flush :: Unit -> Unit
+end
+
+-- ── M100: SMT bridge (contract → SMT-LIB2) ──────────────────────────────────
+
+fn bounded_computation :: Int -> Int
+  require: n >= 0
+  ensure: result >= 0
+  n
+end
+
+-- ── M106: Migration contract ─────────────────────────────────────────────────
+
+being EvolvingService
+  @mortal
+
+  telos: "demonstrate migration contracts"
+  end
+
+  matter:
+    version: Int
+    data: String
+  end
+
+  telomere:
+    limit: 200000
+    on_exhaustion: apoptosis
+  end
+
+  migration AddDataField:
+    from: 1
+    to: 2
+    breaking: false
+    adapter: migrate_add_data
+  end
+end
+
+-- ── M107: Minimal checker + M109: Property-based test ────────────────────────
+
+property: RoundTrip
+  forall x: String
+  invariant: decode(encode(x)) = x
+  shrink: true
+  samples: 200
+end
+
+-- ── M110: Use-case triple derivation ─────────────────────────────────────────
+
+usecase PlaceTradeOrder
+  actor: Trader
+  precondition: trader_authenticated
+  trigger: submit_order
+  postcondition: order_confirmed
+  acceptance:
+    | "order is recorded in ledger"
+    | "balance updated by trade amount"
+  end
+end
+
+-- ── Helper fns referenced by aspects ─────────────────────────────────────────
+
+fn audit_call :: String -> Bool
+  true
+end
+
+fn log_call :: String -> Bool
+  true
+end
+
+fn retire_gracefully :: String -> Bool
+  true
+end
+
+fn throttle :: String -> Bool
+  true
+end
+
+fn transform_payment :: String -> String
+  x
+end
+
+fn authorize :: String -> Bool
+  true
+end
+
+fn charge :: String -> Bool
+  true
+end
+
+fn migrate_add_data :: String -> String
+  x
+end
+
+end

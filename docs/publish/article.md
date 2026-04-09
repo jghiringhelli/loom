@@ -277,6 +277,38 @@ An AI assistant given the language spec and a task can produce correct Loom. The
 
 ---
 
+## The Double Pyramid: Restriction as the Expansion Mechanism
+
+There is a framing that explains why Loom's type annotations produce *more* useful output rather than less.
+
+Every semantic constraint in Loom removes a degree of freedom from the program space. `@exactly-once` removes programs where a charge is sent twice. `@pci @never-log` removes programs where card numbers reach log files. `lifecycle Connection :: Closed -> Open` removes programs where a read is issued on a closed connection. These look like restrictions on what you can write. They are. But the space that remains after each restriction is exactly the space of correct programs.
+
+An AI assistant building with Loom does not generate in an unconstrained space and then check. It generates *into* a constrained space and derives correctly on the first pass. The restriction is the expansion mechanism: fewer valid programs, but those are all the right ones. Each checker you add narrows the output space to the subset that is correct — and removes the entire surface of errors that would otherwise require iteration to find.
+
+The compiler is not just finding bugs. It is closing the degrees of freedom that would have required debugging sessions, post-incident reviews, GDPR audit findings, and production outages. Every constraint removed from the programmer's freedom is a failure mode removed from the system's future.
+
+---
+
+## Who Is This For: The Renaissance Practitioner
+
+The standard answer to "who benefits from a richer type system" has historically been: teams building safety-critical software where failure costs lives. The Therac-25 class of failures. Nuclear control systems. Medical devices.
+
+That answer was correct when the cost of maintaining these annotations fell entirely on human practitioners. It is no longer correct.
+
+The engineer who builds and ships alone — a full-stack developer, a data engineer building pipelines, a researcher writing a numerical simulation — has always known that their code has currency bugs, unaudited data paths, and implicit assumptions about resource state. They knew because they wrote the code. The cost of fixing it was never not understanding the problem; it was the annotation burden of making the understanding machine-checkable.
+
+That cost is zero when the AI holds the theory and writes the annotations. The practitioner who works across domains — who understands that their payment pipeline has distributed systems properties, that their API has privacy obligations, that their connection pool has lifecycle constraints — now names those domains in Loom and receives the full formal apparatus of each field applied to their code.
+
+Three properties make this practitioner effective in this environment:
+
+- **Synthetic**: the cross-domain perspective produces insight that neither domain holds alone. The practitioner who sees that a payment API has CRDT properties *and* privacy obligations *and* lifecycle constraints extracts the intersection that specialists in each field would miss.
+- **Synaptic**: the connection between domains is where the signal travels. `@exactly-once @idempotent @pci` is not three annotations. It is a complete safety specification for a financial operation, derived from distributed systems, regulatory compliance, and protocol theory simultaneously.
+- **Synoptic**: holding multiple domains simultaneously without reducing to any one of them. The .loom file is the synoptic view: units, flows, lifecycle, algebraic properties, all expressed in one coherent specification.
+
+The practitioner who could historically produce synoptic specifications only in prose — in ADRs, in architecture diagrams, in "here's what this code is supposed to do" comments — can now produce them in a form the compiler verifies and the AI derives from, across every output target, from a single source.
+
+---
+
 ## The Forty-Year Gap, Closed
 
 The ideas in this article are not new. Units of measure (Kennedy, 1996). Information flow types (Denning, 1976). Typestate (Strom & Yemini, 1986). Algebraic operation properties (distributed systems literature, 1980s). Privacy labels (GDPR, 2018; HIPAA, 1996; PCI-DSS, 2004). These ideas have been waiting for a language that could make them cheap to use.
@@ -286,6 +318,8 @@ The cost of a property was always: learn the theory, fight the type system, trai
 Loom's claim is simple: in an AI-native development environment, the cost of a semantic property approaches zero. The AI writes the type signatures. The compiler enforces them. Every output target receives the semantics. The programmer expresses intent. The toolchain handles the rest.
 
 The forty-year gap closes not because the theory got easier. Because the programmer finally has a sufficiently capable reader.
+
+And the reader is capable because it was built by imitating the same brain that produced the theory in the first place.
 
 ---
 

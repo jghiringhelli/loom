@@ -61,6 +61,7 @@ pub fn collect_unit_labels(module: &Module) -> Vec<String> {
             Item::RefinedType(rt) => {
                 collect_units_from_type(&rt.base_type, &mut seen, &mut labels);
             }
+            _ => {}
         }
     }
 

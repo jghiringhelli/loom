@@ -21,6 +21,11 @@ pub struct Parser<'src> {
     pub pending_annotations: Vec<Annotation>,
 }
 
+mod being;
+mod types_parser;
+mod expressions;
+mod items;
+
 impl<'src> Parser<'src> {
     /// Create a new parser for the given token slice.
     pub fn new(tokens: &'src [(Token, Span)]) -> Self {
@@ -105,6 +110,28 @@ impl<'src> Parser<'src> {
         }
     }
 
+    /// Like `expect_ident` but also accepts keyword tokens as contextual identifiers.
+    /// Used where field names, variable names, or other names may shadow keywords.
+    fn expect_any_name(&mut self) -> Result<(String, Span), LoomError> {
+        let name = match self.tokens.get(self.pos) {
+            Some((Token::Ident(n), _)) => n.clone(),
+            Some((tok, _)) => {
+                if let Some(s) = token_keyword_str(tok) {
+                    s.to_string()
+                } else {
+                    return self.expect_ident();
+                }
+            }
+            None => return Err(LoomError::parse(
+                "expected identifier, found end of input",
+                Span::synthetic(),
+            )),
+        };
+        let span = self.tokens[self.pos].1.clone();
+        self.pos += 1;
+        Ok((name, span))
+    }
+
     // ── Top-level ─────────────────────────────────────────────────────────
 
     /// Parse `describe: "..."` if present, returning the description string.
@@ -130,35 +157,65 @@ impl<'src> Parser<'src> {
         let mut annotations = Vec::new();
         while self.at(&Token::At) {
             self.advance(); // consume `@`
-            // The key starts with an identifier and may continue with `-ident` segments.
-            if let Some((Token::Ident(first), _)) = self.tokens.get(self.pos) {
-                let mut key = first.clone();
+            // The key starts with an identifier (or keyword used as identifier)
+            // and may continue with `-ident` segments.
+            if let Some(first) = self.token_as_ident() {
+                let mut key = first;
                 self.advance();
                 // Consume `-ident` segments to support hyphenated keys.
                 while self.at(&Token::Minus) {
-                    if let Some((Token::Ident(_), _)) = self.tokens.get(self.pos + 1) {
+                    if let Some(seg) = self.peek_next_as_ident() {
                         self.advance(); // consume `-`
-                        if let Some((Token::Ident(seg), _)) = self.tokens.get(self.pos) {
-                            key.push('-');
-                            key.push_str(seg);
-                            self.advance();
-                        }
+                        key.push('-');
+                        key.push_str(&seg);
+                        self.advance();
                     } else {
                         break;
                     }
                 }
-                // Optional `("value")` payload
+                // Optional `("value")`, `(Ident)`, or `(Ident.field)` payload.
+                // Collect all tokens between `(` and `)` as a raw string so that
+                // annotation values like `@foreign_key(Users.id)` are preserved intact.
                 let value = if self.at(&Token::LParen) {
-                    self.advance();
-                    if let Some((Token::StrLit(v), _)) = self.tokens.get(self.pos) {
-                        let v = v.clone();
-                        self.advance();
-                        let _ = self.expect(Token::RParen); // consume `)`, ignore error
-                        v
-                    } else {
-                        let _ = self.expect(Token::RParen);
-                        String::new()
+                    self.advance(); // consume `(`
+                    let mut parts = Vec::new();
+                    let mut depth = 1usize;
+                    while depth > 0 {
+                        match self.tokens.get(self.pos) {
+                            Some((Token::LParen, _)) => {
+                                depth += 1;
+                                parts.push("(".to_string());
+                                self.advance();
+                            }
+                            Some((Token::RParen, _)) => {
+                                depth -= 1;
+                                if depth > 0 {
+                                    parts.push(")".to_string());
+                                }
+                                self.advance();
+                            }
+                            Some((Token::Dot, _)) => {
+                                parts.push(".".to_string());
+                                self.advance();
+                            }
+                            Some((Token::StrLit(v), _)) => {
+                                parts.push(v.clone());
+                                self.advance();
+                            }
+                            None => break,
+                            _ => {
+                                if let Some(s) = self.token_as_ident() {
+                                    parts.push(s);
+                                } else {
+                                    parts.push(token_to_source(
+                                        &self.tokens[self.pos].0
+                                    ));
+                                }
+                                self.advance();
+                            }
+                        }
                     }
+                    parts.join("")
                 } else {
                     String::new()
                 };
@@ -166,6 +223,167 @@ impl<'src> Parser<'src> {
             }
         }
         annotations
+    }
+
+    /// Try to interpret the current token as an identifier string.
+    /// Handles keyword tokens that may appear as annotation keys.
+    fn token_as_ident(&self) -> Option<String> {
+        match self.tokens.get(self.pos) {
+            Some((Token::Ident(s), _)) => Some(s.clone()),
+            Some((Token::Never, _)) => Some("never".to_string()),
+            Some((Token::Always, _)) => Some("always".to_string()),
+            Some((Token::Before, _)) => Some("before".to_string()),
+            Some((Token::Temporal, _)) => Some("temporal".to_string()),
+            Some((Token::Eventually, _)) => Some("eventually".to_string()),
+            Some((Token::Precedes, _)) => Some("precedes".to_string()),
+            Some((Token::Reaches, _)) => Some("reaches".to_string()),
+            Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            Some((Token::Separation, _)) => Some("separation".to_string()),
+            Some((Token::Owns, _)) => Some("owns".to_string()),
+            Some((Token::Disjoint, _)) => Some("disjoint".to_string()),
+            Some((Token::Frame, _)) => Some("frame".to_string()),
+            Some((Token::Proof, _)) => Some("proof".to_string()),
+            Some((Token::Aspect, _)) => Some("aspect".to_string()),
+            Some((Token::Pointcut, _)) => Some("pointcut".to_string()),
+            Some((Token::Around, _)) => Some("around".to_string()),
+            Some((Token::After, _)) => Some("after".to_string()),
+            Some((Token::Annotation, _)) => Some("annotation".to_string()),
+            Some((Token::Gradual, _)) => Some("gradual".to_string()),
+            Some((Token::Boundary, _)) => Some("boundary".to_string()),
+            Some((Token::Blame, _)) => Some("blame".to_string()),
+            Some((Token::Distribution, _)) => Some("distribution".to_string()),
+            Some((Token::Proposition, _)) => Some("proposition".to_string()),
+            Some((Token::Termination, _)) => Some("termination".to_string()),
+            Some((Token::TimingSafety, _)) => Some("timing_safety".to_string()),
+            Some((Token::Functor, _)) => Some("functor".to_string()),
+            Some((Token::Monad, _)) => Some("monad".to_string()),
+            Some((Token::Law, _)) => Some("law".to_string()),
+            Some((Token::Certificate, _)) => Some("certificate".to_string()),
+            Some((Token::Degenerate, _)) => Some("degenerate".to_string()),
+            Some((Token::Fallback, _)) => Some("fallback".to_string()),
+            Some((Token::Checkpoint, _)) => Some("checkpoint".to_string()),
+            Some((Token::Canalize, _)) => Some("canalize".to_string()),
+            Some((Token::Pathway, _)) => Some("pathway".to_string()),
+            Some((Token::Senescence, _)) => Some("senescence".to_string()),
+            Some((Token::Adopt, _)) => Some("adopt".to_string()),
+            Some((Token::Toward, _)) => Some("toward".to_string()),
+            Some((Token::Modifies, _)) => Some("modifies".to_string()),
+            Some((Token::From, _)) => Some("from".to_string()),
+            Some((Token::Requires, _)) => Some("requires".to_string()),
+            Some((Token::Module, _)) => Some("module".to_string()),
+            Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
+            Some((Token::Sense, _)) => Some("sense".to_string()),
+            Some((Token::Resonance, _)) => Some("resonance".to_string()),
+            Some((Token::Store, _))       => Some("store".to_string()),
+            Some((Token::Table, _))       => Some("table".to_string()),
+            Some((Token::GraphNode, _))   => Some("node".to_string()),
+            Some((Token::Edge, _))        => Some("edge".to_string()),
+            Some((Token::Ttl, _))         => Some("ttl".to_string()),
+            Some((Token::Index, _))       => Some("index".to_string()),
+            Some((Token::Retention, _))   => Some("retention".to_string()),
+            Some((Token::Resolution, _))  => Some("resolution".to_string()),
+            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Compression, _)) => Some("compression".to_string()),
+            Some((Token::Capacity, _))    => Some("capacity".to_string()),
+            Some((Token::Eviction, _))    => Some("eviction".to_string()),
+            Some((Token::Fact, _))        => Some("fact".to_string()),
+            Some((Token::Dimension, _))   => Some("dimension".to_string()),
+            Some((Token::Embedding, _))   => Some("embedding".to_string()),
+            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _))    => Some("consumer".to_string()),
+            Some((Token::Offset, _))      => Some("offset".to_string()),
+            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Replication, _)) => Some("replication".to_string()),
+            Some((Token::Bounds, _))      => Some("bounds".to_string()),
+            Some((Token::Process, _))     => Some("process".to_string()),
+            Some((Token::Session, _))     => Some("session".to_string()),
+            Some((Token::Send, _))        => Some("send".to_string()),
+            Some((Token::Recv, _))        => Some("recv".to_string()),
+            Some((Token::Duality, _))     => Some("duality".to_string()),
+            Some((Token::Handle, _))      => Some("handle".to_string()),
+            Some((Token::Operation, _))   => Some("operation".to_string()),
+            Some((Token::Implements, _))  => Some("implements".to_string()),
+            Some((Token::Export, _))      => Some("export".to_string()),
+            Some((Token::Seal, _))        => Some("seal".to_string()),
+            Some((Token::Provenance, _))   => Some("provenance".to_string()),
+            Some((Token::Convergence, _))  => Some("convergence".to_string()),
+            Some((Token::Divergence, _))   => Some("divergence".to_string()),
+            _ => None,
+        }
+    }
+
+    /// Try to interpret the next token (pos+1) as an identifier string.
+    fn peek_next_as_ident(&self) -> Option<String> {
+        match self.tokens.get(self.pos + 1) {
+            Some((Token::Ident(s), _)) => Some(s.clone()),
+            Some((Token::Never, _)) => Some("never".to_string()),
+            Some((Token::Always, _)) => Some("always".to_string()),
+            Some((Token::Before, _)) => Some("before".to_string()),
+            Some((Token::Temporal, _)) => Some("temporal".to_string()),
+            Some((Token::Eventually, _)) => Some("eventually".to_string()),
+            Some((Token::Precedes, _)) => Some("precedes".to_string()),
+            Some((Token::Reaches, _)) => Some("reaches".to_string()),
+            Some((Token::Transitions, _)) => Some("transitions".to_string()),
+            Some((Token::Gradual, _)) => Some("gradual".to_string()),
+            Some((Token::Boundary, _)) => Some("boundary".to_string()),
+            Some((Token::Blame, _)) => Some("blame".to_string()),
+            Some((Token::Distribution, _)) => Some("distribution".to_string()),
+            Some((Token::Proposition, _)) => Some("proposition".to_string()),
+            Some((Token::Termination, _)) => Some("termination".to_string()),
+            Some((Token::TimingSafety, _)) => Some("timing_safety".to_string()),
+            Some((Token::Functor, _)) => Some("functor".to_string()),
+            Some((Token::Monad, _)) => Some("monad".to_string()),
+            Some((Token::Law, _)) => Some("law".to_string()),
+            Some((Token::Certificate, _)) => Some("certificate".to_string()),
+            Some((Token::Degenerate, _)) => Some("degenerate".to_string()),
+            Some((Token::Fallback, _)) => Some("fallback".to_string()),
+            Some((Token::Checkpoint, _)) => Some("checkpoint".to_string()),
+            Some((Token::Canalize, _)) => Some("canalize".to_string()),
+            Some((Token::Pathway, _)) => Some("pathway".to_string()),
+            Some((Token::Senescence, _)) => Some("senescence".to_string()),
+            Some((Token::Adopt, _)) => Some("adopt".to_string()),
+            Some((Token::Toward, _)) => Some("toward".to_string()),
+            Some((Token::Modifies, _)) => Some("modifies".to_string()),
+            Some((Token::From, _)) => Some("from".to_string()),
+            Some((Token::Requires, _)) => Some("requires".to_string()),
+            Some((Token::Module, _)) => Some("module".to_string()),
+            Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
+            Some((Token::Sense, _)) => Some("sense".to_string()),
+            Some((Token::Resonance, _)) => Some("resonance".to_string()),
+            Some((Token::Store, _))       => Some("store".to_string()),
+            Some((Token::Table, _))       => Some("table".to_string()),
+            Some((Token::GraphNode, _))   => Some("node".to_string()),
+            Some((Token::Edge, _))        => Some("edge".to_string()),
+            Some((Token::Ttl, _))         => Some("ttl".to_string()),
+            Some((Token::Index, _))       => Some("index".to_string()),
+            Some((Token::Retention, _))   => Some("retention".to_string()),
+            Some((Token::Resolution, _))  => Some("resolution".to_string()),
+            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Compression, _)) => Some("compression".to_string()),
+            Some((Token::Capacity, _))    => Some("capacity".to_string()),
+            Some((Token::Eviction, _))    => Some("eviction".to_string()),
+            Some((Token::Fact, _))        => Some("fact".to_string()),
+            Some((Token::Dimension, _))   => Some("dimension".to_string()),
+            Some((Token::Embedding, _))   => Some("embedding".to_string()),
+            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _))    => Some("consumer".to_string()),
+            Some((Token::Offset, _))      => Some("offset".to_string()),
+            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Replication, _)) => Some("replication".to_string()),
+            Some((Token::Session, _))     => Some("session".to_string()),
+            Some((Token::Process, _))     => Some("process".to_string()),
+            Some((Token::Send, _))        => Some("send".to_string()),
+            Some((Token::Recv, _))        => Some("recv".to_string()),
+            Some((Token::Duality, _))     => Some("duality".to_string()),
+            Some((Token::Handle, _))      => Some("handle".to_string()),
+            Some((Token::Operation, _))   => Some("operation".to_string()),
+            Some((Token::Export, _))      => Some("export".to_string()),
+            Some((Token::Seal, _))        => Some("seal".to_string()),
+            Some((Token::Provenance, _))   => Some("provenance".to_string()),
+            Some((Token::Convergence, _))  => Some("convergence".to_string()),
+            Some((Token::Divergence, _))   => Some("divergence".to_string()),
+            _ => None,
+        }
     }
 
     /// Parse a complete `module … end` block.
@@ -225,7 +443,11 @@ impl<'src> Parser<'src> {
         let mut test_defs = Vec::new();
         let mut interface_defs = Vec::new();
         let mut lifecycle_defs = Vec::new();
+        let mut temporal_defs = Vec::new();
+        let mut being_defs = Vec::new();
+        let mut ecosystem_defs = Vec::new();
         let mut flow_labels = Vec::new();
+        let mut aspect_defs = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Invariant) {
                 invariants.push(self.parse_invariant()?);
@@ -235,8 +457,16 @@ impl<'src> Parser<'src> {
                 interface_defs.push(self.parse_interface_def()?);
             } else if self.at(&Token::Lifecycle) {
                 lifecycle_defs.push(self.parse_lifecycle_def()?);
+            } else if self.at(&Token::Temporal) {
+                temporal_defs.push(self.parse_temporal_def()?);
+            } else if self.at(&Token::Being) {
+                being_defs.push(self.parse_being_def()?);
+            } else if self.at(&Token::Ecosystem) {
+                ecosystem_defs.push(self.parse_ecosystem_def()?);
             } else if self.at(&Token::Flow) {
                 flow_labels.push(self.parse_flow_label()?);
+            } else if self.at(&Token::Aspect) {
+                aspect_defs.push(self.parse_aspect_def()?);
             } else if self.at(&Token::Implements) {
                 // `implements Name` can also appear inline in the module body
                 self.advance();
@@ -247,6 +477,18 @@ impl<'src> Parser<'src> {
                 self.advance();
                 let (imp, _) = self.expect_ident()?;
                 imports.push(imp);
+            } else if self.at(&Token::Adopt) {
+                items.push(Item::Adopt(self.parse_adopt_decl()?));
+            } else if self.at(&Token::Pathway) {
+                items.push(Item::Pathway(self.parse_pathway_def()?));
+            } else if self.at(&Token::UseCase) {
+                items.push(Item::UseCase(self.parse_usecase_block()?));
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "symbiotic") {
+                items.push(self.parse_symbiotic_import()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "niche_construction") {
+                items.push(Item::NicheConstruction(self.parse_niche_construction()?));
+            } else if self.at(&Token::MessagingPrimitive) {
+                items.push(Item::MessagingPrimitive(self.parse_messaging_primitive()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -271,88 +513,90 @@ impl<'src> Parser<'src> {
             invariants,
             test_defs,
             lifecycle_defs,
+            temporal_defs,
+            being_defs,
+            ecosystem_defs,
             flow_labels,
+            aspect_defs,
             items,
             span: Span::merge(&start, &end_span),
         })
     }
 
-    /// Parse `invariant NAME :: bool_expr`.
-    fn parse_invariant(&mut self) -> Result<Invariant, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Invariant)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::ColonColon)?;
-        let condition = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(Invariant {
-            name,
-            condition,
-            span: Span::merge(&start, &end_span),
-        })
+    /// Helper: parse optional `<A, B, ...>` type parameter list.
+    fn parse_optional_type_params(&mut self) -> Result<Vec<String>, LoomError> {
+        if self.at(&Token::Lt) {
+            self.advance();
+            let mut params = Vec::new();
+            while !self.at(&Token::Gt) && self.peek().is_some() {
+                let (param, _) = self.expect_ident()?;
+                params.push(param);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::Gt)?;
+            Ok(params)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
-    /// Parse `test NAME :: expr`.
-    fn parse_test_def(&mut self) -> Result<TestDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Test)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::ColonColon)?;
-        let body = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(TestDef {
-            name,
-            body,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse `interface NAME fn method :: sig ... end`.
-    fn parse_interface_def(&mut self) -> Result<InterfaceDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Interface)?;
-        let (name, _) = self.expect_ident()?;
-        let mut methods = Vec::new();
-        while !self.at(&Token::End) && self.peek().is_some() {
-            if self.at(&Token::Fn) {
-                self.advance();
-                let (method_name, _) = self.expect_ident()?;
-                self.expect(Token::ColonColon)?;
-                let sig = self.parse_fn_type_signature()?;
-                methods.push((method_name, sig));
-            } else {
-                break;
+    /// Parse a value as a string — handles idents, string literals, numbers, booleans, `?`.
+    fn parse_value_as_string(&mut self) -> Result<String, LoomError> {
+        match self.tokens.get(self.pos) {
+            Some((Token::StrLit(s), _)) => {
+                let s = s.clone();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::IntLit(n), _)) => {
+                let s = n.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::FloatLit(f), _)) => {
+                let s = f.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::BoolLit(b), _)) => {
+                let s = b.to_string();
+                self.pos += 1;
+                Ok(s)
+            }
+            Some((Token::Question, _)) => {
+                self.pos += 1;
+                Ok("?".to_string())
+            }
+            Some((Token::LBracket, _)) => {
+                // Parse a bracket list like [0.0, 1.0] into a single string.
+                self.pos += 1; // consume [
+                let mut parts = Vec::new();
+                while !self.at(&Token::RBracket) && self.peek().is_some() {
+                    let part = self.parse_value_as_string()?;
+                    parts.push(part);
+                    if self.at(&Token::Comma) {
+                        self.pos += 1;
+                    }
+                }
+                if self.at(&Token::RBracket) {
+                    self.pos += 1; // consume ]
+                }
+                Ok(format!("[{}]", parts.join(", ")))
+            }
+            _ => {
+                if let Some(name) = self.token_as_ident() {
+                    self.pos += 1;
+                    Ok(name)
+                } else {
+                    Err(LoomError::parse(
+                        format!("expected value, got {:?}", self.tokens.get(self.pos).map(|(t,_)| t)),
+                        self.current_span(),
+                    ))
+                }
             }
         }
-        let end_span = self.current_span();
-        self.expect(Token::End)?;
-        Ok(InterfaceDef {
-            name,
-            methods,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse `lifecycle TypeName :: State1 -> State2 -> ...`.
-    fn parse_lifecycle_def(&mut self) -> Result<LifecycleDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Lifecycle)?;
-        let (type_name, _) = self.expect_ident()?;
-        self.expect(Token::ColonColon)?;
-        let mut states = Vec::new();
-        let (first, _) = self.expect_ident()?;
-        states.push(first);
-        while self.at(&Token::Arrow) {
-            self.advance();
-            let (state, _) = self.expect_ident()?;
-            states.push(state);
-        }
-        let end_span = self.current_span();
-        Ok(LifecycleDef {
-            type_name,
-            states,
-            span: Span::merge(&start, &end_span),
-        })
     }
 
     /// Parse `flow label :: TypeA, TypeB, ...`.
@@ -377,39 +621,30 @@ impl<'src> Parser<'src> {
         })
     }
 
-    /// Parse the `{ name :: type_sig, … }` block following `provides`.
-    fn parse_provides_block(&mut self) -> Result<Provides, LoomError> {
-        self.expect(Token::LBrace)?;
-        let mut ops = Vec::new();
-        while !self.at(&Token::RBrace) && self.peek().is_some() {
-            let (op_name, _) = self.expect_ident()?;
-            self.expect(Token::ColonColon)?;
-            let sig = self.parse_fn_type_signature()?;
-            ops.push((op_name, sig));
-            // Optional comma separator
-            if self.at(&Token::Comma) {
-                self.advance();
+    /// Consume tokens until the start of the next scenario clause and return
+    /// the consumed tokens as a joined debug string.  Stops at `end`,
+    /// `given`, `when`, `then`, `within` (next clause starters) or EOF.
+    fn collect_rest_of_line(&mut self) -> String {
+        let mut parts = Vec::new();
+        loop {
+            match self.tokens.get(self.pos) {
+                None => break,
+                Some((Token::End, _)) => break,
+                // Stop at the start of the next scenario clause.
+                Some((Token::Then, _)) | Some((Token::Within, _)) => break,
+                Some((Token::Ident(n), _))
+                    if matches!(n.as_str(), "given" | "when")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) =>
+                {
+                    break;
+                }
+                Some((tok, _)) => {
+                    parts.push(format!("{:?}", tok));
+                    self.pos += 1;
+                }
             }
         }
-        self.expect(Token::RBrace)?;
-        Ok(Provides { ops })
-    }
-
-    /// Parse the `{ name : type, … }` block following `requires`.
-    fn parse_requires_block(&mut self) -> Result<Requires, LoomError> {
-        self.expect(Token::LBrace)?;
-        let mut deps = Vec::new();
-        while !self.at(&Token::RBrace) && self.peek().is_some() {
-            let (dep_name, _) = self.expect_ident()?;
-            self.expect(Token::Colon)?;
-            let ty = self.parse_type_expr()?;
-            deps.push((dep_name, ty));
-            if self.at(&Token::Comma) {
-                self.advance();
-            }
-        }
-        self.expect(Token::RBrace)?;
-        Ok(Requires { deps })
+        parts.join(" ")
     }
 
     // ── Items ────────────────────────────────────────────────────────────
@@ -419,11 +654,33 @@ impl<'src> Parser<'src> {
         match self.peek() {
             Some(Token::Fn) => Ok(Item::Fn(self.parse_fn_def()?)),
             Some(Token::Type) => {
-                // Distinguish `type Name = base where pred` (refined) from
-                // `type Name = field: T, … end` (product type).
                 Ok(self.parse_type_or_refined()?)
             }
             Some(Token::Enum) => Ok(Item::Enum(self.parse_enum_def()?)),
+            Some(Token::Proposition) => Ok(Item::Proposition(self.parse_proposition_def()?)),
+            Some(Token::Functor) => Ok(Item::Functor(self.parse_functor_def()?)),
+            Some(Token::Monad) => Ok(Item::Monad(self.parse_monad_def()?)),
+            Some(Token::Certificate) => Ok(Item::Certificate(self.parse_certificate_def()?)),
+            Some(Token::Annotation) => Ok(Item::AnnotationDecl(self.parse_annotation_decl()?)),
+            Some(Token::Ident(s)) if s == "correctness_report" => {
+                Ok(Item::CorrectnessReport(self.parse_correctness_report()?))
+            }
+            Some(Token::Adopt) => Ok(Item::Adopt(self.parse_adopt_decl()?)),
+            Some(Token::Pathway) => Ok(Item::Pathway(self.parse_pathway_def()?)),
+            Some(Token::Ident(s)) if s == "symbiotic" => Ok(self.parse_symbiotic_import()?),
+            Some(Token::Ident(s)) if s == "niche_construction" => {
+                Ok(Item::NicheConstruction(self.parse_niche_construction()?))
+            }
+            Some(Token::Sense) => Ok(Item::Sense(self.parse_sense_def()?)),
+            Some(Token::Store) => Ok(Item::Store(self.parse_store_def()?)),
+            Some(Token::Session) => Ok(Item::Session(self.parse_session_def()?)),
+            // `effect Name ...` top-level definition (Token::Effect is also used in type exprs
+            // but type exprs never appear at item level, so this is unambiguous).
+            Some(Token::Effect) => Ok(Item::Effect(self.parse_effect_def()?)),
+            Some(Token::UseCase) => Ok(Item::UseCase(self.parse_usecase_block()?)),
+            Some(Token::Property) => Ok(Item::Property(self.parse_property_block()?)),
+            Some(Token::Boundary) => Ok(Item::BoundaryBlock(self.parse_boundary_block()?)),
+            Some(Token::MessagingPrimitive) => Ok(Item::MessagingPrimitive(self.parse_messaging_primitive()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -435,821 +692,99 @@ impl<'src> Parser<'src> {
         }
     }
 
-    // ── Function definition ───────────────────────────────────────────────
-
-    /// Parse `fn NAME[<A, B>] [describe: "..."] [@ann]* :: type_sig [require: expr]* [ensure: expr]* body* end`.
-    pub fn parse_fn_def(&mut self) -> Result<FnDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Fn)?;
-        let (name, _) = self.expect_ident()?;
-
-        // Optional describe: and @annotations before the type signature.
-        // Merge any annotations accumulated at item level (before the `fn` keyword).
-        let describe = self.parse_describe();
-        let mut annotations = std::mem::take(&mut self.pending_annotations);
-        annotations.extend(self.parse_annotations());
-
-        // Optional type parameter list: `<A, B, C>`.
-        let type_params = if self.at(&Token::Lt) {
-            self.advance();
-            let mut params = Vec::new();
-            while !self.at(&Token::Gt) && self.peek().is_some() {
-                let (param, _) = self.expect_ident()?;
-                params.push(param);
-                if self.at(&Token::Comma) {
-                    self.advance();
-                }
-            }
-            self.expect(Token::Gt)?;
-            params
-        } else {
-            Vec::new()
-        };
-
-        self.expect(Token::ColonColon)?;
-        let type_sig = self.parse_fn_type_signature()?;
-
-        // Collect any consequence tiers parsed inside Effect<[X@tier, ...]>.
-        let effect_tiers = std::mem::take(&mut self.pending_effect_tiers);
-
-        let mut requires = Vec::new();
-        let mut ensures = Vec::new();
-        let mut with_deps = Vec::new();
-
-        // Collect `require:` / `ensure:` / `with` clauses.
-        loop {
-            if self.at(&Token::Require) {
-                requires.push(self.parse_contract()?);
-            } else if self.at(&Token::Ensure) {
-                ensures.push(self.parse_contract()?);
-            } else if self.at(&Token::With) {
-                self.advance();
-                let (dep, _) = self.expect_ident()?;
-                with_deps.push(dep);
-            } else {
-                break;
-            }
-        }
-
-        // Body expressions until `end`.
-        let mut body = Vec::new();
-        while !self.at(&Token::End) && self.peek().is_some() {
-            body.push(self.parse_expr()?);
-        }
-        let end_span = self.current_span();
-        self.expect(Token::End)?;
-
-        Ok(FnDef {
-            name,
-            describe,
-            annotations,
-            type_params,
-            type_sig,
-            effect_tiers,
-            requires,
-            ensures,
-            with_deps,
-            body,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    // ── Type / refined type ───────────────────────────────────────────────
-
-    /// Decide between a refined type (`type E = String where pred`) and a
-    /// product type (`type Point = x: Float, y: Float end`).
-    fn parse_type_or_refined(&mut self) -> Result<Item, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Type)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::Eq)?;
-
-        // Peek ahead: if next is an ident followed by `where`, it's refined.
-        // If next is `end` it's an empty product type.
-        // Otherwise parse fields.
-        let is_refined = match (self.peek(), self.peek2()) {
-            (Some(Token::Ident(_)), Some(Token::Where)) => true,
-            _ => false,
-        };
-
-        if is_refined {
-            let base_type = self.parse_type_expr()?;
-            self.expect(Token::Where)?;
-            let predicate = self.parse_expr()?;
-            let end_span = self.current_span();
-            Ok(Item::RefinedType(RefinedType {
-                name,
-                base_type,
-                predicate,
-                span: Span::merge(&start, &end_span),
-            }))
-        } else {
-            Ok(Item::Type(self.parse_type_fields(name, start)?))
-        }
-    }
-
-    /// Parse the field list body of a product type (already past `type N =`).
-    fn parse_type_fields(&mut self, name: String, start: Span) -> Result<TypeDef, LoomError> {
-        let mut fields = Vec::new();
-        while !self.at(&Token::End) && self.peek().is_some() {
-            let field_start = self.current_span();
-            let (field_name, _) = self.expect_ident()?;
-            self.expect(Token::Colon)?;
-            let ty = self.parse_type_expr()?;
-            // Parse optional field-level privacy annotations (@pii, @gdpr, etc.)
-            let annotations = self.parse_annotations();
-            let field_end = self.current_span();
-            fields.push(FieldDef {
-                name: field_name,
-                ty,
-                annotations,
-                span: Span::merge(&field_start, &field_end),
-            });
-            // Optional comma between fields.
-            if self.at(&Token::Comma) {
-                self.advance();
-            }
-        }
-        let end_span = self.current_span();
-        self.expect(Token::End)?;
-        Ok(TypeDef {
-            name,
-            fields,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a full product-type definition (`type NAME = … end`).
-    pub fn parse_type_def(&mut self) -> Result<TypeDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Type)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::Eq)?;
-        self.parse_type_fields(name, start)
-    }
-
-    /// Parse an enum definition (`enum NAME = | V … end`).
-    pub fn parse_enum_def(&mut self) -> Result<EnumDef, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Enum)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::Eq)?;
-
-        let mut variants = Vec::new();
-        while self.at(&Token::Bar) {
-            variants.push(self.parse_enum_variant()?);
-        }
-        let end_span = self.current_span();
-        self.expect(Token::End)?;
-
-        Ok(EnumDef {
-            name,
-            variants,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a single enum variant (`| NAME [of TypeExpr]`).
-    fn parse_enum_variant(&mut self) -> Result<EnumVariant, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Bar)?;
-        let (variant_name, _) = self.expect_ident()?;
-        let payload = if self.at(&Token::Of) {
-            self.advance();
-            Some(self.parse_type_expr()?)
-        } else {
-            None
-        };
-        Ok(EnumVariant {
-            name: variant_name,
-            payload,
-            span: start,
-        })
-    }
-
-    /// Parse a refined type definition (`type NAME = base_type where pred`).
-    pub fn parse_refined_type(&mut self) -> Result<RefinedType, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Type)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::Eq)?;
-        let base_type = self.parse_type_expr()?;
-        self.expect(Token::Where)?;
-        let predicate = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(RefinedType {
-            name,
-            base_type,
-            predicate,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    // ── Type expressions ──────────────────────────────────────────────────
-
-    /// Parse a type expression.
-    ///
-    /// Handles: `Effect<[E1,E2,...], T>`, `Option<T>`, `Result<T, E>`,
-    /// `Generic<params>`, `Base`, `(A, B, C)`.
-    pub fn parse_type_expr(&mut self) -> Result<TypeExpr, LoomError> {
-        match self.peek() {
-            Some(Token::LParen) => {
-                self.advance();
-                if self.at(&Token::RParen) {
-                    self.advance();
-                    return Ok(TypeExpr::Base("Unit".to_string()));
-                }
-                let first = self.parse_type_expr()?;
-                if self.at(&Token::Comma) {
-                    // Tuple
-                    let mut elems = vec![first];
-                    while self.at(&Token::Comma) {
-                        self.advance();
-                        elems.push(self.parse_type_expr()?);
-                    }
-                    self.expect(Token::RParen)?;
-                    return Ok(TypeExpr::Tuple(elems));
-                }
-                self.expect(Token::RParen)?;
-                Ok(first)
-            }
-            Some(Token::Ident(_)) => {
-                let (name, _) = self.expect_ident()?;
-                // Check for `<` opening a parameter list.
-                if self.at(&Token::Lt) {
-                    self.advance(); // consume `<`
-                    self.parse_generic_tail(name)
-                } else {
-                    Ok(TypeExpr::Base(name))
-                }
-            }
-            Some(tok) => Err(LoomError::parse(
-                format!("expected type expression, found {:?}", tok),
-                self.current_span(),
-            )),
-            None => Err(LoomError::parse(
-                "expected type expression, found end of input",
-                Span::synthetic(),
-            )),
-        }
-    }
-
-    /// Parse the tail of `Name<...>` after the `<` has been consumed.
-    ///
-    /// Handles the special forms `Effect<[E...], T>`, `Option<T>`,
-    /// `Result<T, E>`, and arbitrary generics `Name<T...>`.
-    fn parse_generic_tail(&mut self, name: String) -> Result<TypeExpr, LoomError> {
-        match name.as_str() {
-            "Effect" => {
-                // `Effect<[E1@tier, E2, ...], ReturnType>`
-                self.expect(Token::LBracket)?;
-                let mut effects = Vec::new();
-                let mut effect_tiers_local: Vec<(String, ConsequenceTier)> = Vec::new();
-                while !self.at(&Token::RBracket) && self.peek().is_some() {
-                    let (eff, _) = self.expect_ident()?;
-                    // Optional @tier suffix
-                    if self.at(&Token::At) {
-                        self.advance();
-                        if let Some((Token::Ident(tier_name), _)) = self.tokens.get(self.pos) {
-                            let tier = match tier_name.as_str() {
-                                "pure"         => ConsequenceTier::Pure,
-                                "reversible"   => ConsequenceTier::Reversible,
-                                "irreversible" => ConsequenceTier::Irreversible,
-                                _              => ConsequenceTier::Irreversible,
-                            };
-                            self.advance();
-                            effect_tiers_local.push((eff.clone(), tier));
-                        }
-                    }
-                    effects.push(eff);
-                    if self.at(&Token::Comma) {
-                        self.advance();
-                    }
-                }
-                self.expect(Token::RBracket)?;
-                self.expect(Token::Comma)?;
-                let inner = self.parse_type_expr()?;
-                self.expect(Token::Gt)?;
-                // Store tiers in a thread-local so parse_fn_def can pick them up.
-                // NOTE: We store them in the return value directly via a shared cell
-                // set by parse_fn_def. Since parse_generic_tail can't return extra data,
-                // we store them in a temporary field on the parser.
-                self.pending_effect_tiers.extend(effect_tiers_local);
-                Ok(TypeExpr::Effect(effects, Box::new(inner)))
-            }
-            "Option" => {
-                let inner = self.parse_type_expr()?;
-                self.expect(Token::Gt)?;
-                Ok(TypeExpr::Option(Box::new(inner)))
-            }
-            "Result" => {
-                let ok = self.parse_type_expr()?;
-                self.expect(Token::Comma)?;
-                let err = self.parse_type_expr()?;
-                self.expect(Token::Gt)?;
-                Ok(TypeExpr::Result(Box::new(ok), Box::new(err)))
-            }
-            _ => {
-                // Arbitrary generic: `Name<T1, T2, ...>`
-                let mut params = Vec::new();
-                while !self.at(&Token::Gt) && self.peek().is_some() {
-                    params.push(self.parse_type_expr()?);
-                    if self.at(&Token::Comma) {
-                        self.advance();
-                    }
-                }
-                self.expect(Token::Gt)?;
-                Ok(TypeExpr::Generic(name, params))
-            }
-        }
-    }
-
-    /// Parse a curried function type signature: `T1 -> T2 -> ... -> Tn`.
-    pub fn parse_fn_type_signature(&mut self) -> Result<FnTypeSignature, LoomError> {
-        let mut types = vec![self.parse_type_expr()?];
-        while self.at(&Token::Arrow) {
-            self.advance();
-            types.push(self.parse_type_expr()?);
-        }
-        // All but the last element are parameters; the last is the return type.
-        let return_type = Box::new(types.pop().expect("at least one type in signature"));
-        Ok(FnTypeSignature {
-            params: types,
-            return_type,
-        })
-    }
-
-    // ── Contracts ─────────────────────────────────────────────────────────
-
-    /// Parse a `require: expr` or `ensure: expr` contract clause.
-    pub fn parse_contract(&mut self) -> Result<Contract, LoomError> {
-        let start = self.current_span();
-        // Consume `require` or `ensure` keyword.
-        self.advance();
-        self.expect(Token::Colon)?;
-        let expr = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(Contract {
-            expr,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    // ── Expressions ───────────────────────────────────────────────────────
-
-    /// Parse an expression — dispatches to `let`, `match`, `for`, or operator-level.
-    pub fn parse_expr(&mut self) -> Result<Expr, LoomError> {
-        match self.peek() {
-            Some(Token::Let) => self.parse_let(),
-            Some(Token::Match) => self.parse_match(),
-            Some(Token::For) => self.parse_for_in(),
-            _ => self.parse_pipe(),
-        }
-    }
-
-    /// Parse a `for VAR in ITER { BODY }` loop expression.
-    fn parse_for_in(&mut self) -> Result<Expr, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::For)?;
-        let (var, _) = self.expect_ident()?;
-        self.expect(Token::In)?;
-        let iter = self.parse_pipe()?;
+    /// Parse inline `{ field: Type [@ann], ... }` field list.
+    /// Supports pre-field annotations: `{ @provenance field: Type, ... }`.
+    /// Field names may be keywords used as contextual identifiers (e.g. `type`, `action`).
+    fn parse_inline_fields(&mut self) -> Result<Vec<FieldDef>, LoomError> {
         self.expect(Token::LBrace)?;
-        let body = self.parse_expr()?;
-        let end_span = self.current_span();
-        self.expect(Token::RBrace)?;
-        Ok(Expr::ForIn {
-            var,
-            iter: Box::new(iter),
-            body: Box::new(body),
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a `let NAME = expr` binding.
-    fn parse_let(&mut self) -> Result<Expr, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Let)?;
-        let (name, _) = self.expect_ident()?;
-        self.expect(Token::Eq)?;
-        let value = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(Expr::Let {
-            name,
-            value: Box::new(value),
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a `match expr arm* end` expression.
-    pub fn parse_match(&mut self) -> Result<Expr, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Match)?;
-        let subject = self.parse_pipe()?; // subject is not another match/let
-        let mut arms = Vec::new();
-        while self.at(&Token::Bar) {
-            arms.push(self.parse_match_arm()?);
-        }
-        let end_span = self.current_span();
-        self.expect(Token::End)?;
-        Ok(Expr::Match {
-            subject: Box::new(subject),
-            arms,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a single match arm: `| pattern [if guard] -> body`.
-    pub fn parse_match_arm(&mut self) -> Result<MatchArm, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Bar)?;
-        let pattern = self.parse_pattern()?;
-        let guard = if self.at(&Token::If) {
-            self.advance();
-            Some(self.parse_pipe()?)
-        } else {
-            None
-        };
-        self.expect(Token::Arrow)?;
-        let body = self.parse_expr()?;
-        let end_span = self.current_span();
-        Ok(MatchArm {
-            pattern,
-            guard,
-            body,
-            span: Span::merge(&start, &end_span),
-        })
-    }
-
-    /// Parse a pattern for use in match arms.
-    fn parse_pattern(&mut self) -> Result<Pattern, LoomError> {
-        match self.peek() {
-            Some(Token::Ident(_)) => {
-                let (name, _) = self.expect_ident()?;
-                if name == "_" {
-                    return Ok(Pattern::Wildcard);
-                }
-                // If followed by `(`, it's a variant with payload(s).
-                if self.at(&Token::LParen) {
-                    self.advance();
-                    let mut sub = Vec::new();
-                    while !self.at(&Token::RParen) && self.peek().is_some() {
-                        sub.push(self.parse_pattern()?);
-                        if self.at(&Token::Comma) {
-                            self.advance();
-                        }
-                    }
-                    self.expect(Token::RParen)?;
-                    Ok(Pattern::Variant(name, sub))
-                } else if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                    // Capital letter → treat as a (nullary) variant.
-                    Ok(Pattern::Variant(name, Vec::new()))
-                } else {
-                    Ok(Pattern::Ident(name))
-                }
-            }
-            Some(Token::IntLit(_)) => {
-                if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
-                    let n = *n;
-                    self.advance();
-                    Ok(Pattern::Literal(Literal::Int(n)))
-                } else {
-                    unreachable!()
-                }
-            }
-            Some(Token::BoolLit(_)) => {
-                if let Some((Token::BoolLit(b), _)) = self.tokens.get(self.pos) {
-                    let b = *b;
-                    self.advance();
-                    Ok(Pattern::Literal(Literal::Bool(b)))
-                } else {
-                    unreachable!()
-                }
-            }
-            Some(Token::StrLit(_)) => {
-                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
-                    let s = s.clone();
-                    self.advance();
-                    Ok(Pattern::Literal(Literal::Str(s)))
-                } else {
-                    unreachable!()
-                }
-            }
-            Some(tok) => Err(LoomError::parse(
-                format!("expected pattern, found {:?}", tok),
-                self.current_span(),
-            )),
-            None => Err(LoomError::parse(
-                "expected pattern, found end of input",
-                Span::synthetic(),
-            )),
-        }
-    }
-
-    // ── Operator-precedence expressions ───────────────────────────────────
-
-    /// Pipe: `expr |> expr` (left-associative, lowest precedence above let/match).
-    fn parse_pipe(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_or()?;
-        while self.at(&Token::Pipe) {
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_or()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::Pipe {
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_or(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_and()?;
-        while self.at(&Token::Or) {
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_and()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::BinOp {
-                op: BinOpKind::Or,
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_and(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_comparison()?;
-        while self.at(&Token::And) {
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_comparison()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::BinOp {
-                op: BinOpKind::And,
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_comparison(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_additive()?;
-        loop {
-            let op = match self.peek() {
-                Some(Token::Eq) => BinOpKind::Eq,
-                Some(Token::Ne) => BinOpKind::Ne,
-                Some(Token::Lt) => BinOpKind::Lt,
-                Some(Token::Le) => BinOpKind::Le,
-                Some(Token::Gt) => BinOpKind::Gt,
-                Some(Token::Ge) => BinOpKind::Ge,
-                _ => break,
-            };
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_additive()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::BinOp {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_additive(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_multiplicative()?;
-        loop {
-            let op = match self.peek() {
-                Some(Token::Plus) => BinOpKind::Add,
-                Some(Token::Minus) => BinOpKind::Sub,
-                _ => break,
-            };
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_multiplicative()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::BinOp {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_multiplicative(&mut self) -> Result<Expr, LoomError> {
-        let mut left = self.parse_unary()?;
-        loop {
-            let op = match self.peek() {
-                Some(Token::Star) => BinOpKind::Mul,
-                Some(Token::Slash) => BinOpKind::Div,
-                _ => break,
-            };
-            let span_start = self.current_span();
-            self.advance();
-            let right = self.parse_unary()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            left = Expr::BinOp {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-                span,
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_unary(&mut self) -> Result<Expr, LoomError> {
-        if self.at(&Token::Not) {
-            let span_start = self.current_span();
-            self.advance();
-            // NOTE: `not` binds tighter than comparison operators.
-            // `not x = ""` parses as `(not x) = ""`, NOT `not (x = "")`.
-            // To negate a comparison write: `not (x = "")` using parentheses
-            // (not yet supported — TODO Phase 4 parenthesised expressions).
-            // This means `require: not name = ""` should be written
-            // as a plain Boolean expression or an explicit `false` comparison.
-            let operand = self.parse_unary()?;
-            let span = Span::merge(&span_start, &self.current_span());
-            // Represent `not e` as `e == false`.
-            return Ok(Expr::BinOp {
-                op: BinOpKind::Eq,
-                left: Box::new(operand),
-                right: Box::new(Expr::Literal(Literal::Bool(false))),
-                span,
-            });
-        }
-        self.parse_postfix()
-    }
-
-    /// Parse postfix operations: field access (`e.field`) and function call
-    /// (`f(args)`).
-    fn parse_postfix(&mut self) -> Result<Expr, LoomError> {
-        let mut expr = self.parse_primary()?;
-        loop {
-            if self.at(&Token::Dot) {
-                let span_start = self.current_span();
+        let mut fields = Vec::new();
+        while !self.at(&Token::RBrace) && self.peek().is_some() {
+            let field_start = self.current_span();
+            // Collect any pre-field annotations (e.g. @provenance, @weight, @distance)
+            let pre_annotations = self.parse_annotations();
+            // Field name may be a keyword used contextually (e.g. `type`, `action`).
+            let field_name = if let Some(name) = self.token_as_ident() {
                 self.advance();
-                let (field, _) = self.expect_ident()?;
-                let span = Span::merge(&span_start, &self.current_span());
-                expr = Expr::FieldAccess {
-                    object: Box::new(expr),
-                    field,
-                    span,
-                };
-            } else if self.at(&Token::LParen) {
-                let span_start = self.current_span();
-                self.advance();
-                let mut args = Vec::new();
-                while !self.at(&Token::RParen) && self.peek().is_some() {
-                    args.push(self.parse_expr()?);
-                    if self.at(&Token::Comma) {
-                        self.advance();
-                    }
-                }
-                let end_span = self.current_span();
-                self.expect(Token::RParen)?;
-                expr = Expr::Call {
-                    func: Box::new(expr),
-                    args,
-                    span: Span::merge(&span_start, &end_span),
-                };
-            } else if self.at(&Token::As) {
-                let span_start = self.current_span();
-                self.advance(); // consume `as`
-                let ty = self.parse_type_expr()?;
-                let span = Span::merge(&span_start, &self.current_span());
-                expr = Expr::As(Box::new(expr), ty);
-            } else if self.at(&Token::Question) {
-                let span_start = self.current_span();
-                self.advance(); // consume `?`
-                let span = Span::merge(&span_start, &self.current_span());
-                expr = Expr::Try(Box::new(expr), span);
+                name
             } else {
                 break;
-            }
-        }
-        Ok(expr)
-    }
-
-    /// Parse a primary expression: literal, identifier, or parenthesised expr.
-    fn parse_primary(&mut self) -> Result<Expr, LoomError> {
-        match self.tokens.get(self.pos) {
-            Some((Token::IntLit(n), _)) => {
-                let n = *n;
-                self.advance();
-                Ok(Expr::Literal(Literal::Int(n)))
-            }
-            Some((Token::FloatLit(f), _)) => {
-                let f = *f;
-                self.advance();
-                Ok(Expr::Literal(Literal::Float(f)))
-            }
-            Some((Token::StrLit(s), _)) => {
-                let s = s.clone();
-                self.advance();
-                Ok(Expr::Literal(Literal::Str(s)))
-            }
-            Some((Token::BoolLit(b), _)) => {
-                let b = *b;
-                self.advance();
-                Ok(Expr::Literal(Literal::Bool(b)))
-            }
-            Some((Token::Ident(_), _)) => {
-                let (name, _) = self.expect_ident()?;
-                Ok(Expr::Ident(name))
-            }
-            Some((Token::LParen, _)) => {
-                let start = self.current_span();
-                self.advance();
-                if self.at(&Token::RParen) {
-                    self.advance();
-                    return Ok(Expr::Literal(Literal::Unit));
-                }
-                let first = self.parse_expr()?;
-                if self.at(&Token::Comma) {
-                    // Tuple: (expr, expr, ...)
-                    let mut elems = vec![first];
-                    while self.at(&Token::Comma) {
-                        self.advance();
-                        if self.at(&Token::RParen) {
-                            break; // trailing comma
-                        }
-                        elems.push(self.parse_expr()?);
-                    }
-                    let end = self.current_span();
-                    self.expect(Token::RParen)?;
-                    Ok(Expr::Tuple(elems, Span::merge(&start, &end)))
-                } else {
-                    // Parenthesized expression
-                    self.expect(Token::RParen)?;
-                    Ok(first)
-                }
-            }
-            Some((Token::InlineBlock(_), _)) => {
-                if let Some((Token::InlineBlock(content), _)) = self.tokens.get(self.pos) {
-                    let content = content.clone();
-                    self.advance();
-                    Ok(Expr::InlineRust(content))
-                } else {
-                    unreachable!()
-                }
-            }
-            Some((Token::Bar, _)) => self.parse_lambda(),
-            Some((tok, span)) => Err(LoomError::parse(
-                format!("unexpected token in expression: {:?}", tok),
-                span.clone(),
-            )),
-            None => Err(LoomError::parse(
-                "unexpected end of input in expression",
-                Span::synthetic(),
-            )),
-        }
-    }
-
-    /// Parse a lambda expression: `|param: Type, param| body`.
-    ///
-    /// The opening `|` is consumed here. Params are `name` or `name: Type`.
-    /// The closing `|` delimits the param list; the body is a single expression.
-    fn parse_lambda(&mut self) -> Result<Expr, LoomError> {
-        let start = self.current_span();
-        self.expect(Token::Bar)?; // consume opening `|`
-
-        let mut params: Vec<(String, Option<TypeExpr>)> = Vec::new();
-
-        while !self.at(&Token::Bar) && self.peek().is_some() {
-            let (name, _) = self.expect_ident()?;
-            let ty = if self.at(&Token::Colon) {
-                self.advance();
-                Some(self.parse_type_expr()?)
-            } else {
-                None
             };
-            params.push((name, ty));
-            if self.at(&Token::Comma) {
+            if !self.at(&Token::Colon) { break; }
+            self.advance();
+            let ty = self.parse_type_expr()?;
+            let mut annotations = pre_annotations;
+            annotations.extend(self.parse_annotations());
+            let field_end = self.current_span();
+            fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
+            if self.at(&Token::Comma) { self.advance(); }
+        }
+        self.expect(Token::RBrace)?;
+        Ok(fields)
+    }
+
+    /// Parse a `messaging_primitive Name ... end` declaration.
+    ///
+    /// Grammar:
+    /// ```text
+    /// messaging_primitive SyncRequest
+    ///   pattern: request_response
+    ///   guarantees: @exactly-once
+    ///   timeout: mandatory
+    /// end
+    /// ```
+    fn parse_messaging_primitive(&mut self) -> Result<MessagingPrimitiveDef, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume `messaging_primitive`
+        let (name, _) = self.expect_ident()?;
+        let mut pattern = None;
+        let mut guarantees = Vec::new();
+        let mut timeout_mandatory = false;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "pattern") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(p), _)) = self.tokens.get(self.pos) {
+                    pattern = Some(match p.as_str() {
+                        "request_response"  => MessagingPattern::RequestResponse,
+                        "publish_subscribe" => MessagingPattern::PublishSubscribe,
+                        "point_to_point"    => MessagingPattern::PointToPoint,
+                        "producer_consumer" => MessagingPattern::ProducerConsumer,
+                        "bidirectional"     => MessagingPattern::Bidirectional,
+                        _                   => MessagingPattern::RequestResponse,
+                    });
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _))) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                // Collect guarantee tokens until next known field keyword
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let at_field = matches!(self.tokens.get(self.pos),
+                        Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
+                        || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _)));
+                    if at_field { break; }
+                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                        let s = format!("{:?}", tok);
+                        if !s.is_empty() { guarantees.push(s); }
+                        self.pos += 1;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(v), _)) = self.tokens.get(self.pos) {
+                    timeout_mandatory = v == "mandatory";
+                    self.pos += 1;
+                }
+            } else {
                 self.advance();
             }
         }
 
-        self.expect(Token::Bar)?; // consume closing `|`
-        let body = self.parse_expr()?;
         let end_span = self.current_span();
-
-        Ok(Expr::Lambda {
-            params,
-            body: Box::new(body),
-            span: Span::merge(&start, &end_span),
-        })
+        self.expect(Token::End)?;
+        Ok(MessagingPrimitiveDef { name, pattern, guarantees, timeout_mandatory, span: Span::merge(&start, &end_span) })
     }
 }
 
@@ -1293,5 +828,88 @@ mod tests {
         } else {
             panic!("expected EnumDef");
         }
+    }
+}
+
+/// Convert a token back to its source-level string representation.
+/// Used when collecting type expression tokens as strings (e.g., signal payload).
+fn token_to_source(tok: &Token) -> String {
+    match tok {
+        Token::Ident(s) => s.clone(),
+        Token::StrLit(s) => format!("{:?}", s),
+        Token::IntLit(n) => n.to_string(),
+        Token::FloatLit(f) => f.to_string(),
+        Token::BoolLit(b) => b.to_string(),
+        Token::Lt    => "<".to_string(),
+        Token::Gt    => ">".to_string(),
+        Token::Eq    => "=".to_string(),
+        Token::Ge    => ">=".to_string(),
+        Token::Le    => "<=".to_string(),
+        Token::Ne    => "!=".to_string(),
+        Token::And   => "and".to_string(),
+        Token::Or    => "or".to_string(),
+        Token::Not   => "not".to_string(),
+        Token::Plus  => "+".to_string(),
+        Token::Minus => "-".to_string(),
+        Token::Slash => "/".to_string(),
+        Token::Comma    => ", ".to_string(),
+        Token::LParen   => "(".to_string(),
+        Token::RParen   => ")".to_string(),
+        Token::LBracket => "[".to_string(),
+        Token::RBracket => "]".to_string(),
+        Token::Star     => "*".to_string(),
+        Token::Question => "?".to_string(),
+        Token::Dot      => ".".to_string(),
+        _ => format!("{:?}", tok),
+    }
+}
+
+/// If `tok` is a keyword that could serve as an identifier (e.g. a field name),
+/// return its source spelling; otherwise return `None`.
+fn token_keyword_str(tok: &Token) -> Option<&'static str> {
+    match tok {
+        Token::Threshold    => Some("threshold"),
+        Token::Limit        => Some("limit"),
+        Token::Produces     => Some("produces"),
+        Token::Modifies     => Some("modifies"),
+        Token::RevertsWhen  => Some("reverts_when"),
+        Token::OnExhaustion => Some("on_exhaustion"),
+        Token::Signal       => Some("signal"),
+        Token::Payload      => Some("payload"),
+        Token::From         => Some("from"),
+        Token::To           => Some("to"),
+        Token::Toward       => Some("toward"),
+        Token::Bounds       => Some("bounds"),
+        Token::Members      => Some("members"),
+        Token::Fitness      => Some("fitness"),
+        Token::Telos        => Some("telos"),
+        Token::Form         => Some("form"),
+        Token::Matter       => Some("matter"),
+        Token::Regulate     => Some("regulate"),
+        Token::Evolve       => Some("evolve"),
+        Token::Degenerate   => Some("degenerate"),
+        Token::Fallback     => Some("fallback"),
+        Token::Checkpoint   => Some("checkpoint"),
+        Token::Canalize     => Some("canalize"),
+        Token::Pathway      => Some("pathway"),
+        Token::Senescence   => Some("senescence"),
+        Token::Store       => Some("store"),
+        Token::Table       => Some("table"),
+        Token::GraphNode   => Some("node"),
+        Token::Edge        => Some("edge"),
+        Token::Ttl         => Some("ttl"),
+        Token::Index       => Some("index"),
+        Token::Retention   => Some("retention"),
+        Token::Resolution  => Some("resolution"),
+        Token::Format      => Some("format"),
+        Token::Compression => Some("compression"),
+        Token::Capacity    => Some("capacity"),
+        Token::Eviction    => Some("eviction"),
+        Token::Fact        => Some("fact"),
+        Token::Dimension   => Some("dimension"),
+        Token::Embedding   => Some("embedding"),
+        Token::Adopt        => Some("adopt"),
+        Token::Process      => Some("process"),
+        _                   => None,
     }
 }

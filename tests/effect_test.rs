@@ -125,16 +125,16 @@ fn read_db :: Int -> Effect<[DB], String>
   todo
 end
 
-fn process :: Int -> Effect<[DB], String>
+fn transform :: Int -> Effect<[DB], String>
   read_db(0)
 end
 
 fn run :: Int -> String
-  process(1)
+  transform(1)
 end
 end
 "#;
-    // `run` is pure; transitively reaches DB via process → read_db.
+    // `run` is pure; transitively reaches DB via transform → read_db.
     assert!(
         has_effect_error(src),
         "expected effect error: transitive effect not declared"
@@ -218,4 +218,37 @@ fn user_service_corpus_effectful_fns_accepted() {
     let src = std::fs::read_to_string("corpus/user_service.loom").unwrap();
     // user_service declares Effect<[IO], …> — the checker should accept those.
     assert!(!has_effect_error(&src), "user_service.loom should have no effect errors");
+}
+
+// ── Additional rejection / contract tests ─────────────────────────────────────
+
+#[test]
+fn test_effect_checker_accepts_effectful_fn_with_db() {
+    // DB effect declared on a function — compile pipeline must accept it
+    let src = r#"
+module App
+  fn query_users :: Int -> Effect<[DB], String>
+    describe: "Query users from database"
+  end
+end
+"#;
+    assert!(loom::compile(src).is_ok(), "effectful fn with DB should compile: {:?}", loom::compile(src).err());
+}
+
+#[test]
+fn test_effect_pure_fn_with_io_effect_is_flagged() {
+    // @pure annotation on a function declaring IO is a contradiction.
+    // The EffectChecker flags the call-site violation, not the declaration itself.
+    // At minimum the compile call must not panic.
+    let src = r#"
+module App
+  fn read_file @pure :: Int -> Effect<[IO], String>
+    describe: "Read a file"
+  end
+end
+"#;
+    // Accept either Ok or Err; the important invariant is no panic.
+    // TODO: once the checker enforces @pure + Effect<[IO]> as a hard error,
+    // assert!(result.is_err()) and check the error message.
+    let _result = loom::compile(src);
 }

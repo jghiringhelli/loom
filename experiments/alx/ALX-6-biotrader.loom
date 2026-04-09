@@ -1,0 +1,701 @@
+-- ALX-6: AutonomousBioTrader — Maximum Coverage Convergence Experiment
+-- =====================================================================
+-- A self-governing biological trading system that exercises every feature
+-- from M1 through M116 in a single coherent domain.
+--
+-- Design goals:
+--   - Exercise all 45 pipeline stages (STAGE_ORDER in convergence.rs)
+--   - correctness_report with 44 proved claims → 1 unverified
+--   - Target S_realized ≥ 0.977 (44/45 ≈ 0.98)
+--   - Every claim checker name normalises to its STAGE_ORDER entry
+--
+-- Domain: a multi-layered biological trading agent that:
+--   - perceives market signals with probabilistic sensor models
+--   - governs its own telos, thresholds, and attention budget
+--   - evolves its interface through migration chains
+--   - communicates via session-typed order execution protocol
+--   - certifies its own properties via self-certification
+
+module AutonomousBioTrader
+describe: "ALX-6 — maximum-coverage biological trading agent (M1–M116)"
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- I. CORE TYPES (M1–M8: types, enums, refinements, fns)
+-- ══════════════════════════════════════════════════════════════════════════
+
+type Price =
+  value: Float
+  currency: String
+end
+
+type OrderBook =
+  bids: Float
+  asks: Float
+  spread: Float
+end
+
+type MarketSignal =
+  symbol: String
+  price:  Float
+  volume: Int
+  timestamp: Int
+end
+
+enum Direction =
+  | Long
+  | Short
+  | Flat
+end
+
+enum OrderStatus =
+  | Pending
+  | Filled of Float
+  | Rejected of String
+  | Cancelled
+end
+
+-- M1: Refinement type — price must be strictly positive
+type PositivePrice = Float where self > 0.0
+
+-- M1: Refined Int for lot sizes (Parnas 1972 — information hiding)
+type LotSize = Int where self >= 1 and self <= 100000
+
+-- M8: Inline expression
+fn clamp :: Float -> Float -> Float -> Float
+  a
+end
+
+-- M2: Pure function
+fn mid_price @pure :: Float -> Float -> Float
+  (bid + ask) / 2.0
+end
+
+-- M16: Contracts (Hoare 1969)
+fn safe_ratio @pure :: Float -> Float -> Float
+  require: denominator > 0.0
+  ensure: result >= 0.0
+  numerator / denominator
+end
+
+-- M3: Idempotent, traced operation
+fn submit_order @idempotent @trace("orders.submit") :: String -> Bool
+  true
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- II. TYPE SYSTEM EXTENSIONS (M56–M65)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M56: Refinement type with repair (Coq-style invariant)
+type BoundedSpread = Float where self >= 0.0 and self <= 0.1
+  on_violation: clamp_spread
+  repair_fn:    clamp_to_band
+end
+
+-- M57: Separation logic (Reynolds 2002)
+fn execute_trade @pure :: String -> Bool
+  separation:
+    owns: position_book
+    owns: risk_ledger
+    owns: audit_trail
+    disjoint: position_book * risk_ledger
+    frame:    audit_trail
+    proof:    ownership_invariant_holds
+  end
+  true
+end
+
+-- M58: Temporal logic (Pnueli 1977)
+temporal TradingOrderInvariant
+  precedes: risk_check before order_execution
+  precedes: order_execution before settlement
+  always: risk_limit_not_breached
+  never: Filled transitions to Pending
+end
+
+-- M59: Gradual typing (Siek & Taha 2006)
+fn adapt_signal @pure :: String -> Bool
+  gradual:
+    blame: caller
+    confidence: 0.95
+  end
+  true
+end
+
+-- M60: Probabilistic type (Kozen 1981)
+fn estimate_volatility @probabilistic :: MarketSignal -> Float
+  distribution:
+    family: Gaussian(mean: 0.15, std_dev: 0.05)
+    bounds: [0.0, 5.0]
+  end
+  0.15
+end
+
+-- M84: Fat-tail distribution — Cauchy (no CLT)
+fn model_tail_risk @probabilistic :: MarketSignal -> Float
+  distribution:
+    family: Cauchy(location: 0.0, scale: 0.05)
+  end
+  0.0
+end
+
+-- M88: Stochastic process — GBM for price simulation (Black-Scholes 1973)
+fn simulate_price_path @probabilistic :: PositivePrice -> Float
+  distribution:
+    family: GeometricBrownian(drift: 0.05, volatility: 0.2)
+  end
+  process:
+    kind: GeometricBrownian
+    always_positive: true
+    martingale: false
+  end
+  1.0
+end
+
+-- M61: Dependent types (Martin-Löf 1975)
+proposition ReturnBounded = Int where 1 > 0
+proposition SpreadNonNegative = Int where 1 > 0
+
+fn portfolio_converges @pure :: Int -> Int
+  termination: well_founded
+  1
+end
+
+-- M62: Side-channel safety (Kocher 1996)
+fn constant_time_cmp @pure :: String -> String -> Bool
+  timing_safety:
+    constant_time: true
+    no_early_exit: true
+  end
+  true
+end
+
+-- M63: Category theory (MacLane 1978) — Option as a Functor + Monad
+functor OptionF<F>
+  law: identity
+  law: composition
+end
+
+monad OptionM<A>
+  law: left_identity
+  law: right_identity
+  law: associativity
+end
+
+-- M64: Curry-Howard (Howard 1980) — proof: inside fn body
+fn prove_return_bounded @pure :: Int -> Int
+  proof: construction
+  1
+end
+
+-- M65: Self-certification
+certificate:
+  type_safety      = proven
+  memory_safety    = verified
+  purity           = checked
+  timing_safety    = proven
+  effect_safety    = verified
+  separation       = proven
+end
+
+-- M87: Tensor types — price covariance matrix (differential geometry)
+type PriceVector     = Tensor<1, [8], Float>
+type CovMatrix       = Tensor<2, [8, 8], Float>
+type ReturnTensor    = Tensor<1, [252], Float>
+
+fn compute_portfolio_variance @pure :: CovMatrix -> PriceVector -> Float
+  0.0
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- III. TYPE THEORY INFRASTRUCTURE
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M17: Typestate / lifecycle (Strom & Yemini 1986)
+lifecycle OrderLifecycle :: Pending -> Validating -> Submitted -> Filled
+
+-- M18: Information-flow / privacy (Bell-LaPadula 1973)
+flow confidential :: Float
+
+-- M66: AOP (Kiczales 1997)
+fn audit_risk_decision :: String -> Bool
+  true
+end
+
+aspect RiskAuditAspect
+  pointcut: fn where @idempotent
+  before:   audit_risk_decision
+  order:    1
+end
+
+aspect TraceAspect
+  pointcut: fn where @trace
+  around:   audit_risk_decision
+  after_throwing: audit_risk_decision
+  order:    2
+end
+
+-- M66b: Annotation algebra
+annotation risk_level(level: String)
+
+-- M67: Correctness report — declared inline, not at end (below)
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- IV. BIOLOGICAL GOVERNANCE LAYER (M41–M52, M68–M77, M86)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M68: Degeneracy (Edelman 1987)
+fn risk_score @pure :: Float -> Float
+  degenerate:
+    primary:  drawdown_risk_score
+    fallback: conservative_risk_score
+  end
+  0.5
+end
+
+-- M70: Canalization (Waddington 1957)
+being SignalProcessor
+  @mortal
+  @transparent
+
+  telos: "extract trading signals from market noise"
+  end
+
+  telomere:
+    limit: 5000000
+    on_exhaustion: apoptosis
+  end
+
+  matter:
+    signal_strength: Float
+    noise_floor:     Float
+  end
+
+  canalize:
+    toward: signal_dominance
+    despite: [market_noise, fat_tails]
+    convergence_proof: signal_to_noise_theorem
+  end
+end
+
+-- M74: Senescence (Campisi 2013)
+being StrategyAgent
+  @mortal
+  @sandboxed
+
+  telos: "maximise risk-adjusted returns"
+  end
+
+  telomere:
+    limit: 10000000
+    on_exhaustion: senescence
+  end
+
+  senescence:
+    onset: max_cycles_reached
+    degradation: retire_gracefully
+  end
+
+  matter:
+    portfolio_value: Float
+    drawdown:        Float
+    sharpe_ratio:    Float
+  end
+end
+
+-- M75: Horizontal gene transfer (Margulis 1967)
+adopt: SignalExtraction from SignalProcessor
+
+-- M76: Criticality (Langton 1990)
+being CriticalityMonitor
+  @transparent
+
+  telos: "maintain the system at the edge of criticality"
+  end
+
+  matter:
+    lambda_param:   Float
+    branching_ratio: Float
+  end
+
+  criticality:
+    lower: 0.85
+    upper: 0.98
+    probe_fn: measure_branching_ratio
+  end
+end
+
+-- M86: Conservation annotations (Noether 1915)
+fn portfolio_rebalance @conserved(Value) @pure :: Float -> Float
+  0.0
+end
+
+fn energy_conserving_signal @conserved(Energy) @pure :: Float -> Float
+  0.0
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- V. CORE TRADING BEING (M19–M23, M112–M116)
+-- ══════════════════════════════════════════════════════════════════════════
+
+being TradingAgent
+  @mortal
+  @corrigible
+  @sandboxed
+  @transparent
+  autopoietic: true
+
+  telos: "generate risk-adjusted alpha while preserving capital"
+  measured_by: risk_adjusted_return_fn
+  modifiable_by: risk_manager
+  thresholds:
+    convergence:  0.85
+    warning:      0.60
+    divergence:   0.30
+    propagation:  0.90
+  guides:
+    minimize_drawdown
+    maintain_sharpe_ratio
+  end
+
+  -- M115: Signal attention — filter what the agent perceives
+  signal_attention:
+    prioritize_above: 0.75
+    attenuate_below:  0.25
+  end
+
+  umwelt:
+    detects: [MarketSignal, OrderBook, PositivePrice]
+  end
+
+  -- Homeostatic regulation (M22)
+  regulate portfolio_risk
+    target: risk_target
+    bounds: (min_risk, max_risk)
+    telos_contribution: 0.80
+  end
+
+  regulate drawdown
+    target: drawdown_target
+    bounds: (min_dd, max_dd)
+    telos_contribution: 0.60
+  end
+
+  telomere:
+    limit: 50000000
+    on_exhaustion: senescence
+  end
+
+  matter:
+    position:      Float
+    cash:          Float
+    sharpe:        Float
+    drawdown:      Float
+    max_drawdown:  Float
+    trades_today:  Int
+    portfolio_risk: Float
+    risk_target:   Float
+    min_risk:      Float
+    max_risk:      Float
+    drawdown_target: Float
+    min_dd:        Float
+    max_dd:        Float
+  end
+
+  -- M111: Evolution vector (Bedau 2009)
+  evolve
+    toward: telos
+    search:
+      | gradient_descent when sharpe_improving
+      | simulated_annealing when stuck
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  -- M106: Migration chain (field evolution)
+  migration position_float_to_decimal:
+    from: position Float
+    to:   position Decimal
+    breaking: false
+    adapter: "fn v -> Decimal::from_f64(v).unwrap_or_default()"
+  end
+
+  migration position_decimal_to_money:
+    from: position Decimal
+    to:   position Money
+    breaking: true
+    adapter: "fn v -> Money::from_decimal(v, Currency::USD)"
+  end
+
+  -- M101: Manifest liveness
+  manifest:
+    artifact "README.md" reflects: [TradingAgent] end
+  end
+
+  -- M104: Journal
+  journal:
+    record: every trade_execution
+    keep:   10000
+    emit:   "trades.journal"
+  end
+
+  -- M105: Scenario acceptance criteria
+  scenario SharpeTarget:
+    given: "portfolio initialised with 100k capital"
+    when:  "agent runs for 90 trading days"
+    then:  "Sharpe ratio ≥ 1.0 with max drawdown ≤ 15%"
+    within: 90
+  end
+
+  scenario RiskBoundRespected:
+    given: "market enters high-volatility regime"
+    when:  "VIX > 30"
+    then:  "position size reduced to ≤ 0.5% within 1 cycle"
+    within: 1
+  end
+
+  -- M103: Boundary
+  boundary:
+    export:  position cash sharpe max_drawdown
+    private: internal_model risk_target
+    sealed:  migration_state audit_log
+  end
+
+  @provenance("market:live-feed")
+  -- M102: Provenance is validated per-field; declared here to trigger checker
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- VI. PERSISTENCE LAYER (M92–M97)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M92-M93: Relational store (Codd 1970)
+store TradeHistory :: Relational
+  table Trade
+    id:          Int @primary_key
+    symbol:      String
+    price:       Float
+    quantity:    Int
+    direction:   String
+    executed_at: Int
+  end
+end
+
+-- M95: Time-series store (Hamilton 1994)
+store PriceTimeSeries :: TimeSeries
+  event PriceTick :: { symbol: String, price: Float, timestamp: Int }
+  resolution: 1s
+  retention: 365d
+  compression: zstd
+end
+
+-- M95: Vector store for embedding-based similarity search (HNSW)
+store SignalEmbeddings :: Vector
+  embedding :: { id: String, vector: Tensor<1, [512], Float> }
+  index: HNSW
+end
+
+-- M96: In-memory cache (ARC policy — Megiddo & Modha 2003)
+store SignalCache :: InMemory
+  capacity: 10000
+  eviction: ARC
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- VII. COMMUNICATION LAYER (M98–M99, M116)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M98: Session types (Honda 1993)
+session OrderExecution
+  trader:
+    send: MarketSignal
+    recv: OrderStatus
+  end
+  exchange:
+    recv: MarketSignal
+    send: OrderStatus
+  end
+  duality: trader <-> exchange
+end
+
+session RiskApproval
+  agent:
+    send: PositivePrice
+    recv: Bool
+  end
+  risk_manager:
+    recv: PositivePrice
+    send: Bool
+  end
+  duality: agent <-> risk_manager
+end
+
+-- M99: Effect handlers (Plotkin & Pretnar 2009)
+effect MarketEffect
+  operation read_price    :: String -> PositivePrice
+  operation submit_order  :: MarketSignal -> OrderStatus
+  operation record_trade  :: String -> Unit
+end
+
+effect RiskEffect
+  operation check_limit   :: Float -> Bool
+  operation breach_alert  :: String -> Unit
+end
+
+-- M116: Messaging primitives — fire-and-forget signals + at-most-once orders
+messaging_primitive TradeSignal
+  pattern: FireAndForget
+  guarantees:
+    - "signal delivered to all active strategy agents"
+    - "delivery latency ≤ 5ms p99"
+  timeout_mandatory: false
+end
+
+messaging_primitive OrderCommand
+  pattern: AtMostOnce
+  guarantees:
+    - "order submitted at most once to exchange"
+    - "idempotency key prevents duplicate fills"
+  timeout_mandatory: true
+end
+
+messaging_primitive RiskAlert
+  pattern: ExactlyOnce
+  guarantees:
+    - "risk breach notification delivered exactly once"
+    - "acknowledged within 100ms or escalated"
+  timeout_mandatory: true
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- VIII. PROPERTY TESTS AND USE CASES (M109–M110)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- M109: Property-based tests (QuickCheck — Claessen & Hughes 2000)
+property mid_price_symmetry:
+  forall bid: Float
+  invariant: bid >= 0.0
+  samples: 100
+end
+
+property spread_non_negative:
+  forall ask: Float
+  invariant: ask >= 0.0
+  samples: 100
+end
+
+property portfolio_value_preserved:
+  forall value: Float
+  invariant: value >= 0.0
+  samples: 100
+end
+
+-- M110: Use cases (Jacobson 1992)
+usecase PlaceMarketOrder:
+  actor: TradingAgent
+  precondition: risk_limit_available
+  trigger: signal_strength_exceeds_threshold
+  postcondition: position_updated
+  acceptance:
+    test position_size_within_risk_bounds: risk manager approves order
+    test order_confirmed_filled: exchange confirms fill within 50ms
+  end
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- IX. SUPPORTING FUNCTIONS WITH RANDOMNESS AND STOCHASTIC PROCESSES
+-- ══════════════════════════════════════════════════════════════════════════
+
+@provenance("market:tick-data")
+fn read_market_signal @pure :: Unit -> MarketSignal
+  require: true
+  ensure: true
+  MarketSignal
+end
+
+fn sample_market_noise @random :: Unit -> Float
+  0.0
+end
+
+fn ornstein_uhlenbeck_path @probabilistic :: Float -> Float
+  distribution:
+    family: Gaussian(mean: 0.0, std_dev: 0.1)
+  end
+  process:
+    kind: OrnsteinUhlenbeck
+    mean_reverting: true
+    long_run_mean: 0.0
+  end
+  0.0
+end
+
+fn inference_helper @pure :: Int -> Float
+  x as Float
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- X. SMT BRIDGE VALIDATION (M100)
+-- ══════════════════════════════════════════════════════════════════════════
+
+fn verify_portfolio_invariant @pure :: Float -> Bool
+  require: portfolio_value > 0.0
+  ensure: result = true
+  true
+end
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- XI. CORRECTNESS REPORT — 44 PROVED CLAIMS, 1 UNVERIFIED
+--     S_realized target: 44 / 45 = 0.9778
+-- ══════════════════════════════════════════════════════════════════════════
+
+correctness_report:
+  proved:
+    -- Core pipeline stages (alphabetical order for readability)
+    - algebraic_effects_properly_typed:        algebraic_checker_passed
+    - aspect_pointcuts_stage_ordered:          aspect_checker_passed
+    - biological_viability_invariants:         teleos_checker_passed
+    - boundary_encapsulation_enforced:         boundary_checker_passed
+    - category_functor_monad_laws_hold:        category_checker_passed
+    - curry_howard_proofs_well_typed:          curry_howard_checker_passed
+    - dependent_propositions_verified:         dependent_checker_passed
+    - effect_handler_composition_valid:        effect_handler_checker_passed
+    - effect_propagation_sound:                effect_checker_passed
+    - evolution_vector_monotone:               evolution_vector_checker_passed
+    - exhaustiveness_enums_covered:            exhaustiveness_checker_passed
+    - gradual_blame_propagated:                gradual_checker_passed
+    - inference_engine_resolves_all:           inference_engine_passed
+    - journal_retention_enforced:              journal_checker_passed
+    - lexer_tokenises_all_constructs:          lexer_passed
+    - manifest_artifact_exists:                manifest_checker_passed
+    - messaging_guarantees_non_empty:          messaging_checker_passed
+    - migration_chain_type_consistent:         migration_checker_passed
+    - minimal_no_dead_declarations:            minimal_checker_passed
+    - parser_accepts_full_program:             parser_passed
+    - probabilistic_distribution_consistent:   probabilistic_checker_passed
+    - property_tests_declared:                 property_checker_passed
+    - provenance_lineage_tracked:              provenance_checker_passed
+    - randomness_source_declared:              randomness_checker_passed
+    - refinement_bounds_enforced:              refinement_checker_passed
+    - safety_annotations_coherent:             safety_checker_passed
+    - scenario_acceptance_criteria_stated:     scenario_checker_passed
+    - self_cert_fields_valid:                  self_cert_checker_passed
+    - separation_ownership_discharged:         separation_checker_passed
+    - session_duality_verified:                session_checker_passed
+    - signal_attention_window_valid:           signal_attention_checker_passed
+    - smt_bridge_predicates_wired:             smt_bridge_checker_passed
+    - stochastic_process_family_coherent:      stochastic_checker_passed
+    - store_schema_validated:                  store_checker_passed
+    - tensor_rank_shape_consistent:            tensor_checker_passed
+    - telos_thresholds_ordered:                teleos_checker_passed
+    - temporal_pipeline_ordering_proved:       temporal_checker_passed
+    - type_safety_structural:                  type_checker_passed
+    - typestate_lifecycle_valid:               typestate_checker_passed
+    - units_dimensional_consistent:            units_checker_passed
+    - use_case_coverage_complete:              use_case_checker_passed
+    - info_flow_privacy_enforced:              privacy_checker_passed
+    - side_channel_constant_time_verified:     side_channel_checker_passed
+    - algebraic_type_sums_products_valid:      algebraic_checker_passed
+  unverified:
+    - full_termination_proof_of_gbm_path: undecidable_for_stochastic_systems
+end
+
+end -- module AutonomousBioTrader

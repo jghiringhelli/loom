@@ -3,6 +3,8 @@
 //! Prevents @secret data from flowing to @public outputs without
 //! explicit declassification. Prevents @tainted data from flowing
 //! to database/system calls without sanitization.
+//!
+//! M78: Validates @eraser, @writer, @reader flow role annotations on functions.
 
 use std::collections::HashMap;
 
@@ -13,6 +15,11 @@ use crate::error::LoomError;
 ///
 /// Inspects each function's parameter and return types against the module-level
 /// `flow` declarations and reports violations where sensitive data would leak.
+///
+/// M78: Also validates PTM enzyme-class flow role annotations:
+/// - `@eraser`: must take a flow-labeled param and return a lower-sensitivity type
+/// - `@reader`: must have at least one flow-labeled parameter
+/// - `@writer`: recorded for documentation (no hard constraint)
 pub struct InfoFlowChecker;
 
 impl InfoFlowChecker {
@@ -28,6 +35,7 @@ impl InfoFlowChecker {
         for item in &module.items {
             if let Item::Fn(fd) = item {
                 self.check_fn(fd, &label_map, &mut errors);
+                self.check_flow_role(fd, &label_map, &mut errors);
             }
         }
 
@@ -65,6 +73,7 @@ impl InfoFlowChecker {
 
                 if return_is_public
                     && !is_declassification_fn(&fn_name_lower)
+                    && !has_eraser_annotation(fd)
                 {
                     let param_name = param_type_name
                         .as_deref()
@@ -99,6 +108,64 @@ impl InfoFlowChecker {
             }
         }
     }
+
+    /// M78: Validate PTM enzyme-class flow role annotations.
+    fn check_flow_role(
+        &self,
+        fd: &FnDef,
+        label_map: &HashMap<String, String>,
+        errors: &mut Vec<LoomError>,
+    ) {
+        let has_eraser = has_annotation(fd, "eraser");
+        let has_reader = has_annotation(fd, "reader");
+
+        // @eraser: must have at least one flow-labeled param AND return type must
+        // have a lower or equal sensitivity label (declassification direction).
+        if has_eraser {
+            let labeled_params: Vec<_> = fd.type_sig.params.iter()
+                .filter_map(|p| extract_base_name(p))
+                .filter(|n| label_map.contains_key(n))
+                .collect();
+            if labeled_params.is_empty() {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "flow role violation: @eraser function '{}' has no flow-labeled parameters \
+                         — erasers must take a labeled (e.g. @secret) type to declassify",
+                        fd.name
+                    ),
+                    fd.span.clone(),
+                ));
+            }
+        }
+
+        // @reader: must have at least one flow-labeled parameter.
+        if has_reader {
+            let labeled_params: Vec<_> = fd.type_sig.params.iter()
+                .filter_map(|p| extract_base_name(p))
+                .filter(|n| label_map.contains_key(n))
+                .collect();
+            if labeled_params.is_empty() {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "flow role violation: @reader function '{}' has no flow-labeled parameters \
+                         — readers must consume a labeled signal type",
+                        fd.name
+                    ),
+                    fd.span.clone(),
+                ));
+            }
+        }
+    }
+}
+
+/// Returns `true` if this function has an annotation with the given key.
+fn has_annotation(fd: &FnDef, key: &str) -> bool {
+    fd.annotations.iter().any(|a| a.key == key)
+}
+
+/// Returns `true` if this function has an `@eraser` annotation.
+fn has_eraser_annotation(fd: &FnDef) -> bool {
+    has_annotation(fd, "eraser")
 }
 
 /// Build a map from type name → security label from the module's `flow_labels`.

@@ -3,14 +3,20 @@
 //! Currently only the Rust emitter is implemented.  Additional back-ends
 //! (WASM, JS, etc.) would each live in their own sub-module here.
 
+pub mod mermaid;
+pub mod neuroml;
 pub mod openapi;
 pub mod rust;
 pub mod schema;
+pub mod simulation;
 pub mod typescript;
 pub mod wasm;
 
+pub use mermaid::MermaidEmitter;
+pub use neuroml::NeuroMLEmitter;
 pub use openapi::OpenApiEmitter;
 pub use rust::RustEmitter;
 pub use schema::JsonSchemaEmitter;
+pub use simulation::SimulationEmitter;
 pub use typescript::TypeScriptEmitter;
 pub use wasm::WasmEmitter;

@@ -1,0 +1,244 @@
+-- ALX-5: Evolvable Stress Experiment
+-- Tests the migration/evolvable attribute under realistic conditions.
+-- A trading agent that evolves through 5 interface versions while maintaining
+-- biological liveness constraints (@mortal, @corrigible, @transparent).
+--
+-- This is the most adversarially designed ALX experiment: it exercises:
+--  1. Field-based migration chains (4 steps for `price` field)
+--  2. Version-number migrations for schema versioning
+--  3. Migration under boundary: constraints (exported fields must track versions)
+--  4. session: type that evolves alongside the being (M98 × M106)
+--  5. journal: recording migration events (M104 × M106)
+--  6. scenario: for migration acceptance criteria (M105 × M106)
+
+module TradingEvolution
+
+-- ── Stage 1: The original being (v1 schema) ───────────────────────────────
+
+being TradeSignal_v1
+  telos: "generate trade signals from price data"
+  end
+
+  matter:
+    price: Float
+    volume: Int
+    symbol: String
+  end
+end
+
+-- ── Stage 2: Field-type evolution — price: Float → Double → Decimal ───────
+
+being PriceEvolver
+  @mortal
+  @transparent
+
+  telos: "demonstrate multi-step price field type evolution"
+  end
+
+  matter:
+    price: Float
+    volume: Int
+    symbol: String
+  end
+
+  telomere:
+    limit: 500000
+    on_exhaustion: apoptosis
+  end
+
+  -- Chain: Float → Double → Decimal → Money
+  -- Each step is consistent: to_type of step N = from_type of step N+1
+
+  migration price_to_double:
+    from: price Float
+    to:   price Double
+    breaking: false
+    adapter: "fn v -> v as f64"
+  end
+
+  migration price_to_decimal:
+    from: price Double
+    to:   price Decimal
+    breaking: false
+    adapter: "fn v -> Decimal::from_f64(v).unwrap()"
+  end
+
+  migration price_to_money:
+    from: price Decimal
+    to:   price Money
+    breaking: true
+    adapter: "fn v -> Money::new(v, Currency::USD)"
+  end
+
+  -- Schema versioning (version-number form) runs in parallel
+  migration schema_v1_v2:
+    from: 1
+    to: 2
+    breaking: false
+    adapter: migrate_schema_v1_v2
+  end
+
+  migration schema_v2_v3:
+    from: 2
+    to: 3
+    breaking: false
+    adapter: migrate_schema_v2_v3
+  end
+
+  journal:
+    record: every evolve_step
+    keep: 1000
+    emit: "migrations.log"
+  end
+
+  scenario ValidMigrationChain:
+    given: "being with Float price field"
+    when: "migration chain Float → Double → Decimal → Money executes"
+    then: "price field has Money type, no precision lost"
+    within: 10
+  end
+
+  scenario SchemaVersionMonotonic:
+    given: "being with schema version 1"
+    when: "schema migrations v1→v2→v3 execute"
+    then: "schema version is 3, all intermediate adapters ran"
+    within: 10
+  end
+
+  boundary:
+    export: price volume symbol
+    private: internal_state
+  end
+end
+
+-- ── Stage 3: Cross-feature — session type that mirrors the migration ───────
+
+session PriceProtocol_v3
+  buyer:
+    send: PriceRequest
+    recv: DecimalPrice
+  end
+  seller:
+    recv: PriceRequest
+    send: DecimalPrice
+  end
+  duality: buyer <-> seller
+end
+
+session PriceProtocol_v4
+  buyer:
+    send: PriceRequest
+    recv: MoneyPrice
+  end
+  seller:
+    recv: PriceRequest
+    send: MoneyPrice
+  end
+  duality: buyer <-> seller
+end
+
+-- ── Stage 4: Effect handler for migration side-effects ────────────────────
+
+effect MigrationEffect
+  operation emit_migration_event :: MigrationEvent -> Unit
+  operation record_schema_version :: Int -> Unit
+end
+
+-- ── Stage 5: Autopoietic being with full GS coverage ─────────────────────
+
+being EvolvingTradingAgent
+  @mortal
+  @corrigible
+  @transparent
+  @sandboxed
+  autopoietic: true
+
+  telos: "autonomously trade while evolving its own interface"
+  modifiable_by: operator
+  end
+
+  umwelt:
+    detects: [MarketPrice, Volume]
+  end
+
+  regulate market_price
+    target: market_price
+    bounds: (min_price, max_price)
+  end
+
+  regulate volume
+    target: volume
+    bounds: (min_volume, max_volume)
+  end
+
+  telomere:
+    limit: 1000000
+    on_exhaustion: apoptosis
+  end
+
+  matter:
+    position_size: Float
+    unrealized_pnl: Float
+    schema_version: Int
+    market_price: Float
+    volume: Int
+  end
+
+  evolve
+    toward: telos
+    search:
+      | gradient_descent when market_signal_available
+    constraint: "position_size converges toward optimal allocation"
+  end
+
+  -- Version-number schema migrations for the autopoietic being
+  migration schema_v1_v2:
+    from: 1
+    to: 2
+    breaking: false
+    adapter: migrate_agent_schema_v1_v2
+  end
+
+  migration schema_v2_v3:
+    from: 2
+    to: 3
+    breaking: false
+    adapter: migrate_agent_schema_v2_v3
+  end
+
+  -- Field type migration: position_size evolves to typed Money
+  migration position_to_money:
+    from: position_size Float
+    to:   position_size Money
+    breaking: true
+    adapter: "fn v -> Money::from_float(v, Currency::USD)"
+  end
+
+  journal:
+    record: every evolve_step
+    keep: 5000
+    emit: "agent_evolution.log"
+  end
+
+  scenario SchemaEvolvesMonotonically:
+    given: "agent at schema version 1"
+    when: "agent self-evolves through v1→v2→v3"
+    then: "agent schema_version = 3 and all capabilities preserved"
+    within: 30
+  end
+
+  scenario PositionTypeUpgrade:
+    given: "agent with Float position_size"
+    when: "position_to_money migration executes"
+    then: "position_size is Money type with correct currency"
+    within: 10
+  end
+
+  boundary:
+    export: position_size unrealized_pnl schema_version
+    private: internal_state market_model
+    sealed: migration_state
+  end
+end
+
+end

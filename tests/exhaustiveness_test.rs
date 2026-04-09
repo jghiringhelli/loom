@@ -200,3 +200,40 @@ end
     );
     assert_eq!(missing_from_error(&errors[0]), vec!["Blue"]);
 }
+
+// ── Parse-level contract tests ────────────────────────────────────────────────
+
+#[test]
+fn test_exhaustiveness_complete_match_parses() {
+    // A fully-covered Option<Int> match — both arms present
+    let src = r#"
+module App
+  fn describe_option :: Int -> String
+    match value
+    | Some(n) -> "has value"
+    | None    -> "empty"
+    end
+  end
+end
+"#;
+    assert!(loom::parse(src).is_ok(), "complete Option match should parse: {:?}", loom::parse(src).err());
+}
+
+#[test]
+fn test_exhaustiveness_non_exhaustive_enum_is_caught() {
+    // Missing Blue variant — exhaustiveness checker must report an error
+    let src = r#"
+module App
+  enum Color = | Red | Green | Blue end
+  fn to_code :: Int -> Int
+    match x
+    | Red   -> 1
+    | Green -> 2
+    end
+  end
+end
+"#;
+    let errors = exhaustiveness_errors(src);
+    assert_eq!(errors.len(), 1, "missing Blue should produce exactly one error");
+    assert_eq!(missing_from_error(&errors[0]), vec!["Blue"]);
+}

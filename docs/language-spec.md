@@ -471,6 +471,22 @@ flow public  :: UserId, Email, Bool
 **TypeScript output:** branded types `type Password = string & { readonly _sensitivity: "secret" }`  
 **OpenAPI output:** `x-security-labels` extension.
 
+#### Biological Grounding: PTM Enzyme Classes
+
+The three operations of the information flow checker — **read**, **write**, **declassify** — have a precise molecular-level instantiation in Post-Translational Modification (PTM) biology:
+
+| Loom operation | PTM enzyme class | Biological function |
+|---|---|---|
+| `write` | **Writers** (kinases, acetyltransferases, methyltransferases) | Add a modification to a protein; encode information into structure |
+| `declassify` | **Erasers** (phosphatases, deacetylases, demethylases) | Remove a modification; release a constraint; permit information flow |
+| `read` | **Readers** (SH2 domains, bromodomains, chromodomains) | Recognize a modification; interpret the signal; act on it |
+
+The cell's PTM regulatory layer is a distributed, dynamically reconfigurable information flow system. A phosphorylation mark (write) activates a downstream reader (read); a phosphatase (declassify) removes it, resetting the permission. The capacity of this signaling layer can be measured in Shannon bits — how many distinguishable states the combinatorial PTM landscape can represent.
+
+This is convergent evidence from molecular biology that read/write/declassify are the right primitives, not just a type-theory choice. Denning (1976) derived the information flow lattice from first principles of secure information systems. PTM biology independently arrived at the same three-operation structure as the cell's native information security model. The isomorphism holds at the level of function, not just metaphor: both systems solve the same problem — controlling what information reaches what interpreter under what conditions.
+
+Note: this is the **Shannon layer** of Loom's biological information model (capacity, directional constraints, labels). The `telos:` construct is the **biosemiotic layer** (sign-mediated interpretation toward a final state). See the lineage document for the full Peirce/Uexküll/Barbieri/Shannon distinction.
+
 ---
 
 ## 10. Annotations Reference
@@ -649,6 +665,310 @@ type_expr   = "Int" | "Float" | "Float<" Name ">" | "String" | "Bool" | "Unit"
 
 effect      = Name ("@" Name)?
 ```
+
+---
+
+## 14. Phase 7–8: Biological Computation (M41–M55)
+
+### 14.1 Overview
+
+M41–M43 add first-class biological computation constructs grounded in Aristotle's four causes. A `being:` block encodes a computational entity whose matter, form, function, and final cause (telos) are all statically verified. These are not metaphors — they are functional isomorphisms with the same solution class that life independently found for self-maintaining formal systems.
+
+### 14.2 `being:` Block
+
+A `being:` block defines a biological computational entity. It is a top-level item inside a module.
+
+**EBNF:**
+
+```ebnf
+being_def   = "being" Name
+                describe?
+                matter_block
+                form_block
+                function_block
+                regulate_block*
+                evolve_block?
+                telos_block
+              "end"
+
+matter_block   = "matter:" field+ "end"
+form_block     = "form:" type_def* "end"
+function_block = "function:" fn_sig+ "end"
+telos_block    = "telos:" string fitness_clause? "end"
+fitness_clause = "fitness:" "fn" "(" params ")" "->" type_expr
+
+regulate_block = "regulate" Name
+                   "target:" expr
+                   "bounds:" "(" expr "," expr ")"
+                   "response:" ("|" pattern "->" expr)+
+                 "end"
+
+evolve_block   = "evolve"
+                   "toward:" Name
+                   "search:" ("|" search_strategy "when" expr)+
+                   "constraint:" string
+                 "end"
+
+search_strategy = "gradient_descent"
+                | "stochastic_gradient"
+                | "simulated_annealing"
+                | "derivative_free"
+                | "mcmc"
+```
+
+### 14.3 The Four Aristotelian Causes
+
+| Cause | Keyword | Role |
+|-------|---------|------|
+| Material cause | `matter:` | The fields / state the being is composed of |
+| Formal cause | `form:` | The type structure / organisation |
+| Efficient cause | `function:` | The operations the being can perform |
+| Final cause | `telos:` | The convergence target (required) |
+
+### 14.4 `telos:` — Required Final Cause
+
+`telos:` is not optional. A `being:` block without `telos:` is a **compile error**. The missing final cause is the type error most production systems ship — a system without a stated objective is formally incomplete.
+
+```loom
+being Neuron
+  telos: "efficient signal processing maximizing information transmission"
+    fitness: fn(state: Signal, env: Network) -> Float<fitness>
+  end
+end
+```
+
+### 14.5 `regulate:` — Homeostatic Regulation
+
+Declares a named homeostatic regulator with a target value, acceptable bounds, and response clauses. The checker verifies bounds are well-typed and response patterns are exhaustive.
+
+```loom
+regulate MembraneCharge
+  target: -70.0
+  bounds: (-90.0, -55.0)
+  response:
+    | below_threshold -> refractory_period
+    | above_threshold -> fire
+end
+```
+
+- `target:` — the equilibrium value
+- `bounds:` — `(min, max)` tuple; values outside bounds trigger the response
+- `response:` — pattern-matched action clauses (must be exhaustive)
+
+### 14.6 `evolve:` — Directed Search Toward Telos
+
+Declares a search strategy that drives the being toward its `telos:`. Valid strategies:
+
+| Strategy | When to use |
+|----------|------------|
+| `gradient_descent` | Differentiable landscape with available gradient |
+| `stochastic_gradient` | Noisy/large-scale landscape |
+| `simulated_annealing` | Non-convex landscape; accepts uphill moves probabilistically |
+| `derivative_free` | Black-box objective; no gradient available |
+| `mcmc` | Probability distribution sampling |
+
+The `constraint:` clause is a string assertion that `E[distance_to_telos]` is non-increasing. This is the validity condition: stochastic strategies are valid as long as expected progress toward telos is guaranteed over iterations.
+
+```loom
+evolve
+  toward: telos
+  search:
+    | gradient_descent    when gradient_available
+    | stochastic_gradient when noisy_landscape
+  constraint: "E[distance_to_telos] decreasing"
+end
+```
+
+### 14.7 `ecosystem:` Block
+
+An `ecosystem:` block composes multiple beings with session-typed signal channels.
+
+**EBNF:**
+
+```ebnf
+ecosystem_def = "ecosystem" Name
+                  "members:" "[" Name ("," Name)* "]"
+                  signal_def*
+                  telos_block
+                "end"
+
+signal_def    = "signal" Name "from" Name "to" Name
+                  "payload:" type_expr
+                "end"
+```
+
+The checker verifies:
+- All `members:` names refer to declared `being:` blocks
+- Signal `from` / `to` endpoints are members of this ecosystem
+- `telos:` is present (required, same as `being:`)
+
+### 14.8 Checker Rules
+
+| Rule | Error |
+|------|-------|
+| `being:` without `telos:` | Compile error: missing final cause |
+| `regulate:` without `bounds:` | Compile error: homeostasis requires bounds |
+| `regulate:` with `bounds: (lo, hi)` where `lo >= hi` | Compile error: inverted bounds |
+| `evolve:` without `constraint:` | Compile error: convergence constraint required |
+| `ecosystem:` member not declared | Compile error: unknown being |
+| `ecosystem:` without `telos:` | Compile error: missing final cause |
+| `epigenetic:` without `trigger:` | Compile error: epigenetic modifier requires trigger condition |
+| `morphogen:` without `gradient:` | Compile error: reaction-diffusion requires gradient field |
+| `telomere:` without `limit:` | Compile error: finite replication limit required |
+| `telomere:` with `limit:` ≤ 0 | Compile error: telomere limit must be positive |
+| `crispr:` without `target:` | Compile error: targeted self-modification requires target |
+| `quorum:` without `threshold:` | Compile error: population coordination requires threshold |
+| `plasticity:` without `learning_rate:` | Compile error: Hebbian adaptation requires learning rate |
+| `autopoietic: true` without `@mortal @corrigible @sandboxed` | SafetyChecker compile error: unbounded autopoietic being |
+
+### 14.9 Emission Table
+
+| Construct | Rust | TypeScript | OpenAPI | JSON Schema |
+|-----------|------|-----------|---------|-------------|
+| `being:` | struct + impl block | interface + class | `x-being` extension | `x-being: true` |
+| `matter:` fields | struct fields | interface fields | schema properties | properties |
+| `form:` types | nested structs | nested interfaces | `$defs` | `$defs` |
+| `function:` sigs | impl methods | class methods | paths | — |
+| `telos:` | doc comment + `x-telos` | JSDoc `@telos` | `x-telos` | `x-telos` |
+| `regulate:` | `debug_assert!` bounds | runtime guard | `x-homeostasis` | `x-bounds` |
+| `evolve:` | search trait impl | optimizer interface | `x-evolve-strategy` | — |
+| `ecosystem:` | composition struct | composition class | `x-ecosystem` | `x-ecosystem` |
+| `signal` | channel type | event type | AsyncAPI channel | — |
+| `epigenetic:` | conditional config modifier | behavioral guard | `x-epigenetic` | `x-epigenetic` |
+| `morphogen:` | reaction-diffusion impl | gradient field interface | `x-morphogen` | `x-morphogen` |
+| `telomere:` | `AtomicU64` counter + drop impl | replication counter | `x-telomere` | `x-telomere` |
+| `crispr:` | self-modification method | mutation interface | `x-crispr` | `x-crispr` |
+| `quorum:` | threshold barrier type | coordination guard | `x-quorum` | `x-quorum` |
+| `plasticity:` | weight table + update fn | learning interface | `x-plasticity` | `x-plasticity` |
+| `autopoietic: true` | self-build trait impl | self-build interface | `x-autopoietic` | `x-autopoietic` |
+| `compile_simulation()` | — | — | Mesa ABM Python | — |
+| `compile_neuroml()` | — | — | NeuroML 2 XML | — |
+
+### 14.10 Complete Example
+
+```loom
+being Neuron
+  describe: "A signal-processing biological entity"
+  matter:
+    charge: Float<mv>
+    threshold: Float<mv>
+  end
+  form:
+    type Signal = { strength: Float<mv>, frequency: Float<hz> }
+  end
+  function:
+    fn fire    :: Float<mv> -> Effect<[IO], Signal>
+    fn inhibit :: Signal -> Effect<[IO], Unit>
+  end
+  regulate MembraneCharge
+    target: -70.0
+    bounds: (-90.0, -55.0)
+    response:
+      | below_threshold -> refractory_period
+      | above_threshold -> fire
+  end
+  evolve
+    toward: telos
+    search:
+      | gradient_descent    when gradient_available
+      | stochastic_gradient when noisy_landscape
+    constraint: "E[distance_to_telos] decreasing"
+  end
+  telos: "efficient signal processing maximizing information transmission"
+    fitness: fn(state: Signal, env: Network) -> Float<fitness>
+  end
+end
+
+ecosystem NeuralNetwork
+  members: [Neuron, Synapse, GlialCell]
+  signal ActionPotential from Neuron to Synapse
+    payload: Signal
+  end
+  signal GlialSupport from GlialCell to Neuron
+    payload: Nutrients
+  end
+  telos: "coherent information processing toward learned representation"
+end
+```
+
+### 14.11 Grammar Extension (EBNF)
+
+Add the following productions to the grammar in §13:
+
+```ebnf
+item        += being_def | ecosystem_def
+
+being_def   = "being" Name describe? matter_block form_block
+              function_block regulate_block* evolve_block? telos_block "end"
+matter_block   = "matter:" field+ "end"
+form_block     = "form:" type_def* "end"
+function_block = "function:" fn_sig+ "end"
+telos_block    = "telos:" string ("fitness:" fn_expr "end")? "end"
+regulate_block = "regulate" Name "target:" expr "bounds:" "(" expr "," expr ")"
+                 "response:" ("|" pattern "->" expr)+ "end"
+evolve_block   = "evolve" "toward:" Name "search:" ("|" search_strategy "when" expr)+
+                 "constraint:" string "end"
+search_strategy = "gradient_descent" | "stochastic_gradient"
+                | "simulated_annealing" | "derivative_free" | "mcmc"
+ecosystem_def  = "ecosystem" Name "members:" "[" Name ("," Name)* "]"
+                 signal_def* telos_block "end"
+signal_def     = "signal" Name "from" Name "to" Name "payload:" type_expr "end"
+```
+
+---
+
+## 15. Safety Architecture (M55)
+
+### 15.1 Safety Annotations for Autopoietic Beings
+
+When a `being:` block carries `autopoietic: true`, the SafetyChecker (M55) runs after the TeleosChecker and enforces the following annotations as **compile requirements**. Missing annotations on autopoietic beings are compile errors, not warnings.
+
+| Annotation | Enforced constraint | Missing = compile error |
+|---|---|---|
+| `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
+| `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
+| `@sandboxed` | Effects only within declared `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
+| `@transparent` | All state transitions observable (emitted to log) | `autopoietic being with hidden state` |
+| `@bounded_telos` | Telos description must not contain open-ended utility terms; requires `bounded_by:` field | `unbounded telos: add bounded_by: field` |
+
+### 15.2 Complete SafeAgent Example
+
+```loom
+being SafeAgent
+  autopoietic: true
+  @mortal @corrigible @sandboxed @bounded_telos
+
+  telos: "coordinate task allocation within declared operational scope"
+    modifiable_by: HumanAuthority
+    bounded_by: TaskAllocationDomain
+  end
+
+  telomere:
+    limit: 10000
+    on_exhaustion: graceful_shutdown
+  end
+
+  matter: { active_tasks: List<Task>, completed: Int }
+  regulate:
+    target: active_tasks.len()
+    bounds: [0, 100]
+    on_violation: shed_oldest_task
+  end
+end
+```
+
+### 15.3 SafetyChecker Pipeline Position
+
+The SafetyChecker runs as checker step 11 in the compilation pipeline, after TeleosChecker (step 10):
+
+```
+lexer → parser → TypeChecker → ExhaustivenessChecker → EffectChecker
+      → InterfaceChecker → UnitsChecker → PrivacyChecker → AlgebraicChecker
+      → TypestateChecker → InfoFlowChecker → TeleosChecker → SafetyChecker
+      → codegen
+```
+
+Any autopoietic being that reaches `SafetyChecker` without `@mortal @corrigible @sandboxed` is a build failure. The SafetyChecker is a gate, not a suggestion. An autopoietic being without these annotations is not a missing annotation — it is a formally unconstrained autonomous system.
 
 ---
 

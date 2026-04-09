@@ -1,0 +1,13 @@
+-- stats.loom: statistics using the math utilities.
+
+module Stats
+
+fn count :: List<Int> -> Int
+  0
+end
+
+fn is_positive :: Int -> Bool
+  true
+end
+
+end

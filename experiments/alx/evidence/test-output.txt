@@ -1,0 +1,3221 @@
+warning: unused import: `Span`
+ --> src\codegen\wasm.rs:7:31
+  |
+7 | use crate::error::{LoomError, Span};
+  |                               ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Span`
+ --> src\lsp.rs:4:31
+  |
+4 | use crate::error::{LoomError, Span};
+  |                               ^^^^
+
+warning: unused variable: `span`
+   --> src\parser\mod.rs:290:13
+    |
+290 |         let span = Span::new(start, self.current_span().end);
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_span`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `ret_unit`
+  --> src\checker\units.rs:29:17
+   |
+29 |             let ret_unit = unit_of(&f.type_sig.return_type);
+   |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ret_unit`
+
+warning: unused variable: `m`
+  --> src\codegen\neuroml.rs:44:58
+   |
+44 |         let has_neural_members = eco.members.iter().any(|m| {
+   |                                                          ^ help: if this is intentional, prefix it with an underscore: `_m`
+
+warning: method `peek2` is never used
+  --> src\parser\mod.rs:40:8
+   |
+23 | impl Parser {
+   | ----------- method in this implementation
+...
+40 |     fn peek2(&self) -> Option<&Token> {
+   |        ^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `module_uses_collection` is never used
+   --> src\codegen\rust.rs:646:4
+    |
+646 | fn module_uses_collection(module: &Module, type_name: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `type_expr_uses` is never used
+   --> src\codegen\rust.rs:663:4
+    |
+663 | fn type_expr_uses(ty: TypeExpr, name: &str) -> bool {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `param_schema_name` is never used
+   --> src\codegen\openapi.rs:288:4
+    |
+288 | fn param_schema_name(f: &FnDef) -> String {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `return_schema_name` is never used
+   --> src\codegen\openapi.rs:298:4
+    |
+298 | fn return_schema_name(f: &FnDef) -> String {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `return_schema_name_from_type` is never used
+   --> src\codegen\openapi.rs:312:4
+    |
+312 | fn return_schema_name_from_type(ty: &TypeExpr) -> String {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ProjectToml` is never constructed
+  --> src\project.rs:10:8
+   |
+10 | struct ProjectToml {
+   |        ^^^^^^^^^^^
+
+warning: struct `ProjectConfig` is never constructed
+  --> src\project.rs:15:8
+   |
+15 | struct ProjectConfig {
+   |        ^^^^^^^^^^^^^
+
+warning: `loom` (lib) generated 13 warnings (run `cargo fix --lib -p loom` to apply 5 suggestions)
+warning: `loom` (lib test) generated 13 warnings (13 duplicates)
+warning: unused imports: `BeingDef`, `EvolveBlock`, `RegulateBlock`, `Span`, and `TelosDef`
+ --> tests\being_test.rs:3:17
+  |
+3 | use loom::ast::{BeingDef, EvolveBlock, RegulateBlock, Span, TelosDef};
+  |                 ^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^  ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `type_errors` is never used
+  --> tests\inference_test.rs:14:4
+   |
+14 | fn type_errors(src: &str) -> Vec<LoomError> {
+   |    ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `LifecycleDef` and `Span`
+  --> tests\typestate_test.rs:13:17
+   |
+13 | use loom::ast::{LifecycleDef, Span};
+   |                 ^^^^^^^^^^^^  ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `FlowLabel` and `Span`
+ --> tests\infoflow_test.rs:4:17
+  |
+4 | use loom::ast::{FlowLabel, Module, Span};
+  |                 ^^^^^^^^^          ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `loom` (test "being_test") generated 1 warning (run `cargo fix --test "being_test" -p loom` to apply 1 suggestion)
+warning: `loom` (test "inference_test") generated 1 warning
+warning: `loom` (test "typestate_test") generated 1 warning (run `cargo fix --test "typestate_test" -p loom` to apply 1 suggestion)
+warning: `loom` (test "infoflow_test") generated 1 warning (run `cargo fix --test "infoflow_test" -p loom` to apply 1 suggestion)
+warning: unused import: `std::path::PathBuf`
+ --> tests\project_test.rs:3:5
+  |
+3 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `out_dir`
+   --> tests\project_test.rs:133:9
+    |
+133 |     let out_dir = tmp.join("out");
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_out_dir`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `loom::codegen::typescript::TypeScriptEmitter`
+ --> tests\selfmod_test.rs:9:5
+  |
+9 | use loom::codegen::typescript::TypeScriptEmitter;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `loom` (test "project_test") generated 2 warnings (run `cargo fix --test "project_test" -p loom` to apply 2 suggestions)
+warning: `loom` (test "selfmod_test") generated 1 warning (run `cargo fix --test "selfmod_test" -p loom` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.78s
+     Running unittests src\lib.rs (target\debug\deps\loom-1de56473942178ea.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\loom-84e15d724369b094.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\algebraic_test.rs (target\debug\deps\algebraic_test-ee510694c0f6de4b.exe)
+
+running 14 tests
+test at_most_once_and_exactly_once_together_is_error ... FAILED
+test at_most_once_emits_retry_policy_never_in_openapi ... FAILED
+test commutative_emits_doc_comment_in_rust ... FAILED
+test associative_emits_x_associative_in_openapi ... FAILED
+test commutative_on_one_param_fn_is_error ... ok
+test commutative_emits_x_commutative_in_openapi ... FAILED
+test commutative_on_two_param_fn_is_valid ... ok
+test exactly_once_on_non_effectful_fn_is_error ... FAILED
+test idempotent_and_exactly_once_together_is_error ... FAILED
+test idempotent_emits_doc_comment_in_rust ... FAILED
+test idempotent_emits_jsdoc_in_typescript ... FAILED
+test idempotent_on_effectful_fn_is_valid ... ok
+test idempotent_fn_emits_x_idempotent_in_openapi ... ok
+test idempotent_post_fn_gets_promoted_to_put_in_openapi ... FAILED
+
+failures:
+
+---- at_most_once_and_exactly_once_together_is_error stdout ----
+
+thread 'at_most_once_and_exactly_once_together_is_error' (99812) panicked at tests\algebraic_test.rs:63:5:
+expected conflicting multiplicity error, got: function 'send_email': @exactly-once and @at-most-once are mutually exclusive at Span { start: 15, end: 109 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- at_most_once_emits_retry_policy_never_in_openapi stdout ----
+
+thread 'at_most_once_emits_retry_policy_never_in_openapi' (76920) panicked at tests\algebraic_test.rs:156:5:
+expected x-at-most-once in OpenAPI, got:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "Payments",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/string/{id}": {
+      "post": {
+        "operationId": "charge_card",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "format": "int64",
+                "type": "integer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "x-loom-async": true
+      }
+    }
+  }
+}
+
+---- commutative_emits_doc_comment_in_rust stdout ----
+
+thread 'commutative_emits_doc_comment_in_rust' (100260) panicked at tests\algebraic_test.rs:210:5:
+expected commutative doc comment in Rust, got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    /// @commutative: f(a,b) = f(b,a)
+    pub fn combine(p0: i64, p1: i64) -> i64 {
+        // body:
+        // todo
+        todo!()
+    }
+
+}
+
+
+---- associative_emits_x_associative_in_openapi stdout ----
+
+thread 'associative_emits_x_associative_in_openapi' (25144) panicked at tests\algebraic_test.rs:244:5:
+expected x-associative in OpenAPI, got:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "Math",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/int/{id}": {
+      "post": {
+        "operationId": "fold_values",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "format": "int64",
+                "type": "integer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "x-loom-async": true
+      }
+    }
+  }
+}
+
+---- commutative_emits_x_commutative_in_openapi stdout ----
+
+thread 'commutative_emits_x_commutative_in_openapi' (96500) panicked at tests\algebraic_test.rs:176:5:
+expected x-commutative in OpenAPI, got:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "Math",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/int/{id}": {
+      "post": {
+        "operationId": "add_values",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "format": "int64",
+                "type": "integer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "x-loom-async": true
+      }
+    }
+  }
+}
+
+---- exactly_once_on_non_effectful_fn_is_error stdout ----
+
+thread 'exactly_once_on_non_effectful_fn_is_error' (97732) panicked at tests\algebraic_test.rs:101:5:
+expected exactly-once effectful error, got: function 'pure_fn': @exactly-once requires an Effect return type at Span { start: 15, end: 69 }
+
+---- idempotent_and_exactly_once_together_is_error stdout ----
+
+thread 'idempotent_and_exactly_once_together_is_error' (89276) panicked at tests\algebraic_test.rs:82:5:
+expected contradictory error, got: function 'pay': @idempotent and @exactly-once are mutually exclusive at Span { start: 15, end: 104 }
+
+---- idempotent_emits_doc_comment_in_rust stdout ----
+
+thread 'idempotent_emits_doc_comment_in_rust' (63264) panicked at tests\algebraic_test.rs:194:5:
+expected '@idempotent ΓÇö safe to retry' doc comment in Rust, got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    /// @idempotent: f(f(x)) = f(x)
+    pub fn retry_safe(p0: i64) -> i64 {
+        // body:
+        // n
+        todo!()
+    }
+
+}
+
+
+---- idempotent_emits_jsdoc_in_typescript stdout ----
+
+thread 'idempotent_emits_jsdoc_in_typescript' (79080) panicked at tests\algebraic_test.rs:228:5:
+expected '@idempotent ΓÇö safe to retry' JSDoc in TypeScript, got:
+// Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Demo {
+  /** @idempotent */
+  export async function safe_update(p0: number): Promise<number> {
+    return n as any;
+  }
+
+}
+
+
+---- idempotent_post_fn_gets_promoted_to_put_in_openapi stdout ----
+
+thread 'idempotent_post_fn_gets_promoted_to_put_in_openapi' (37904) panicked at tests\algebraic_test.rs:136:5:
+expected PUT (not POST) for @idempotent fn, got:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "Orders",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/string/{id}": {
+      "post": {
+        "operationId": "submit_order",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "format": "int64",
+                "type": "integer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "x-idempotent": true,
+        "x-loom-async": true
+      }
+    }
+  }
+}
+
+
+failures:
+    associative_emits_x_associative_in_openapi
+    at_most_once_and_exactly_once_together_is_error
+    at_most_once_emits_retry_policy_never_in_openapi
+    commutative_emits_doc_comment_in_rust
+    commutative_emits_x_commutative_in_openapi
+    exactly_once_on_non_effectful_fn_is_error
+    idempotent_and_exactly_once_together_is_error
+    idempotent_emits_doc_comment_in_rust
+    idempotent_emits_jsdoc_in_typescript
+    idempotent_post_fn_gets_promoted_to_put_in_openapi
+
+test result: FAILED. 4 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test algebraic_test`
+     Running tests\autopoiesis_test.rs (target\debug\deps\autopoiesis_test-c6171400f51c0fc1.exe)
+
+running 15 tests
+test epigenetic_empty_modifies_fails_checker ... ok
+test epigenetic_empty_signal_fails_checker ... ok
+test morphogen_empty_produces_fails_checker ... ok
+test epigenetic_parses_with_signal_and_modifies ... ok
+test morphogen_parses_with_threshold_and_produces ... ok
+test morphogen_threshold_out_of_range_fails_checker ... ok
+test rust_emit_being_has_differentiate_fn ... FAILED
+test rust_emit_being_has_epigenetic_fn ... FAILED
+test telomere_rust_emit_has_replicate_fn ... FAILED
+test telomere_zero_limit_fails_checker ... ok
+test telomere_parses_with_limit_and_exhaustion ... ok
+test typescript_emit_being_has_differentiate_method ... FAILED
+test telomere_rust_emit_has_telomere_count_field ... ok
+test typescript_emit_being_has_epigenetic_method ... FAILED
+test typescript_emit_telomere_has_limit_field ... FAILED
+
+failures:
+
+---- rust_emit_being_has_differentiate_fn stdout ----
+
+thread 'rust_emit_being_has_differentiate_fn' (14896) panicked at tests\autopoiesis_test.rs:226:5:
+expected differentiate fn in: #![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: survive and replicate
+    #[derive(Debug, Clone)]
+    pub struct Cell {
+    }
+
+    impl Cell {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Reaction-diffusion: signal 'GrowthFactor' produces [Ribosome].
+        pub fn differentiate_growthfactor(&self) {
+            // signal: GrowthFactor, threshold: 0.8, produces: ["Ribosome"]
+            todo!()
+        }
+
+    }
+
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- rust_emit_being_has_epigenetic_fn stdout ----
+
+thread 'rust_emit_being_has_epigenetic_fn' (92312) panicked at tests\autopoiesis_test.rs:136:5:
+expected apply_epigenetic fn in: #![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: survive and replicate
+    #[derive(Debug, Clone)]
+    pub struct Cell {
+    }
+
+    impl Cell {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Epigenetic modifier: signal 'EnvironmentalStress' modifies 'metabolism.rate'.
+        pub fn apply_epigenetic_environmentalstress(&mut self, signal_strength: f64) {
+            // modifies: metabolism.rate
+            // reverts_when: stress_absent
+            todo!()
+        }
+
+    }
+
+}
+
+
+---- telomere_rust_emit_has_replicate_fn stdout ----
+
+thread 'telomere_rust_emit_has_replicate_fn' (92056) panicked at tests\autopoiesis_test.rs:309:5:
+expected 'telomere exhausted' in: #![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: survive and replicate
+    #[derive(Debug, Clone)]
+    pub struct Cell {
+        pub telomere_count: u64,
+    }
+
+    impl Cell {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Replicate with finite Hayflick limit.
+        pub fn replicate(&mut self) -> Option<Self> where Self: Clone {
+            if self.telomere_count >= 50 {
+                // on_exhaustion: senescence
+                return None;
+            }
+            self.telomere_count += 1;
+            Some(self.clone())
+        }
+
+    }
+
+}
+
+
+---- typescript_emit_being_has_differentiate_method stdout ----
+
+thread 'typescript_emit_being_has_differentiate_method' (103092) panicked at tests\autopoiesis_test.rs:241:5:
+expected TS differentiate method in: // Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Test {
+/** @telos survive and replicate */
+export class Cell {
+
+  constructor(init?: Partial<Cell>) {{
+    if (init) Object.assign(this, init);
+  }
+
+  fitness(): number { throw new Error('not implemented'); }
+
+}
+
+}
+
+
+---- typescript_emit_being_has_epigenetic_method stdout ----
+
+thread 'typescript_emit_being_has_epigenetic_method' (58324) panicked at tests\autopoiesis_test.rs:151:5:
+expected TS epigenetic method in: // Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Test {
+/** @telos survive and replicate */
+export class Cell {
+
+  constructor(init?: Partial<Cell>) {{
+    if (init) Object.assign(this, init);
+  }
+
+  fitness(): number { throw new Error('not implemented'); }
+
+}
+
+}
+
+
+---- typescript_emit_telomere_has_limit_field stdout ----
+
+thread 'typescript_emit_telomere_has_limit_field' (96916) panicked at tests\autopoiesis_test.rs:322:5:
+expected telomereLimit in: // Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Test {
+/** @telos survive and replicate */
+export class Cell {
+  private _telomereCount: number = 0;
+
+  constructor(init?: Partial<Cell>) {{
+    if (init) Object.assign(this, init);
+  }
+
+  fitness(): number { throw new Error('not implemented'); }
+
+  replicate(): Cell | null {
+    if (this._telomereCount >= 50) return null;
+    this._telomereCount++;
+    return new Cell(this as any);
+  }
+
+}
+
+}
+
+
+
+failures:
+    rust_emit_being_has_differentiate_fn
+    rust_emit_being_has_epigenetic_fn
+    telomere_rust_emit_has_replicate_fn
+    typescript_emit_being_has_differentiate_method
+    typescript_emit_being_has_epigenetic_method
+    typescript_emit_telomere_has_limit_field
+
+test result: FAILED. 9 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test autopoiesis_test`
+     Running tests\autopoietic_test.rs (target\debug\deps\autopoietic_test-a07f11e042e9e0eb.exe)
+
+running 5 tests
+test autopoietic_missing_matter_fails ... FAILED
+test autopoietic_missing_regulate_fails ... FAILED
+test autopoietic_missing_evolve_fails ... FAILED
+test autopoietic_true_with_all_requirements_passes ... ok
+test rust_emit_autopoietic_has_is_autopoietic_fn ... ok
+
+failures:
+
+---- autopoietic_missing_matter_fails stdout ----
+
+thread 'autopoietic_missing_matter_fails' (64860) panicked at tests\autopoietic_test.rs:128:5:
+expected error for missing matter:
+
+---- autopoietic_missing_regulate_fails stdout ----
+
+thread 'autopoietic_missing_regulate_fails' (85516) panicked at tests\autopoietic_test.rs:67:5:
+expected error for missing regulate:
+
+---- autopoietic_missing_evolve_fails stdout ----
+
+thread 'autopoietic_missing_evolve_fails' (104300) panicked at tests\autopoietic_test.rs:96:5:
+expected error for missing evolve:
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    autopoietic_missing_evolve_fails
+    autopoietic_missing_matter_fails
+    autopoietic_missing_regulate_fails
+
+test result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test autopoietic_test`
+     Running tests\being_test.rs (target\debug\deps\being_test-6e5794a7e7e9ce6e.exe)
+
+running 12 tests
+test being_parses_with_telos ... ok
+test being_without_telos_fails_checker ... ok
+test evolve_without_constraint_fails_checker ... ok
+test being_with_matter_parses ... ok
+test regulate_without_bounds_fails_checker ... ok
+test openapi_emit_being_has_x_telos ... ok
+test rust_emit_being_has_fitness_fn ... ok
+test rust_emit_being_has_regulate_fn ... ok
+test rust_emit_being_has_struct ... ok
+test typescript_emit_being_has_class ... ok
+test typescript_emit_being_has_fitness ... ok
+test typescript_emit_being_has_telos_jsdoc ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cli_test.rs (target\debug\deps\cli_test-240ff0351ea20aed.exe)
+
+running 11 tests
+test build_missing_manifest_exits_nonzero ... ok
+test build_project_with_valid_manifest ... ok
+test check_only_valid_file_exits_zero ... ok
+test check_only_does_not_write_output_file ... ok
+test compile_missing_file_exits_nonzero ... ok
+test compile_error_message_contains_file_name ... ok
+test compile_prints_compiled_message ... ok
+test compile_wasm_check_only ... ok
+test compile_writes_rs_file ... ok
+test compile_wasm_target_writes_wat_file ... ok
+test compile_invalid_loom_exits_nonzero_with_error ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests\coercion_test.rs (target\debug\deps\coercion_test-32d3fa000ed55603.exe)
+
+running 6 tests
+test as_float_to_int_emits_cast ... FAILED
+test as_in_arithmetic_expression ... FAILED
+test as_int_to_float_emits_cast ... FAILED
+test parenthesized_expression_parses ... ok
+test pricing_engine_corpus_compiles ... FAILED
+test e2e_int_as_float_runtime ... FAILED
+
+failures:
+
+---- as_float_to_int_emits_cast stdout ----
+
+thread 'as_float_to_int_emits_cast' (3420) panicked at tests\coercion_test.rs:33:5:
+Float as Int should emit 'as i64', got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    pub fn truncate(p0: f64) -> i64 {
+        // body:
+        // x as
+        // Int
+        todo!()
+    }
+
+}
+
+
+---- as_in_arithmetic_expression stdout ----
+
+thread 'as_in_arithmetic_expression' (98208) panicked at tests\coercion_test.rs:49:5:
+Int as Float in binop should emit as f64, got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    pub fn mixed(p0: i64, p1: f64) -> f64 {
+        // body:
+        // x as
+        // Float *
+        // y
+        todo!()
+    }
+
+}
+
+
+---- as_int_to_float_emits_cast stdout ----
+
+thread 'as_int_to_float_emits_cast' (101472) panicked at tests\coercion_test.rs:17:5:
+Int as Float should emit 'as f64', got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    pub fn to_float(p0: i64) -> f64 {
+        // body:
+        // x as
+        // Float
+        todo!()
+    }
+
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- pricing_engine_corpus_compiles stdout ----
+
+thread 'pricing_engine_corpus_compiles' (59940) panicked at tests\coercion_test.rs:63:5:
+pricing_engine should use as f64 cast, got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod pricing_engine {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct OrderLine {
+        pub quantity: i64,
+        pub unit_price: f64,
+        pub discount: f64,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct OrderTotal {
+        pub subtotal: f64,
+        pub tax: f64,
+        pub total: f64,
+    }
+
+    pub fn compute_total(p0: OrderLine) -> OrderTotal {
+        debug_assert!(line . quantity > 0, "require: line . quantity > 0");
+        debug_assert!(line . unit_price >= 0.0, "require: line . unit_price >= 0.0");
+        todo!()
+        debug_assert!({}, "ensure: result >= 0.0 let subtotal = line . quantity as Float * line . unit_price let discounted = subtotal * line . discount let tax = discounted * 0.15 let total = discounted + tax total");
+    }
+
+}
+
+
+---- e2e_int_as_float_runtime stdout ----
+
+thread 'e2e_int_as_float_runtime' (69092) panicked at tests\coercion_test.rs:120:9:
+rustc failed:
+error[E0425]: cannot find value `arg0` in this scope
+ --> C:\Users\JC\AppData\Local\Temp\loom_coerce_e2e_92207500\main.rs:8:9
+  |
+8 |         arg0 as f64 + 0.5
+  |         ^^^^ not found in this scope
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0425`.
+
+source:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod coerce_e2_e {
+    use super::*;
+
+    pub fn int_to_float(p0: i64) -> f64 {
+        arg0 as f64 + 0.5
+    }
+
+}
+
+fn main() {
+    println!("{}", coerce_e2_e::int_to_float(3));
+}
+
+
+
+failures:
+    as_float_to_int_emits_cast
+    as_in_arithmetic_expression
+    as_int_to_float_emits_cast
+    e2e_int_as_float_runtime
+    pricing_engine_corpus_compiles
+
+test result: FAILED. 1 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+error: test failed, to rerun pass `--test coercion_test`
+     Running tests\describe_test.rs (target\debug\deps\describe_test-1ab2ac85f91394b1.exe)
+
+running 9 tests
+test at_decision_emits_doc_comment ... ok
+test at_deprecated_emits_doc_comment_and_attribute ... ok
+test at_since_annotation_emits_doc_comment ... ok
+test describe_and_annotation_both_emitted ... ok
+test fn_describe_emits_doc_comment ... ok
+test missing_describe_compiles_normally ... ok
+test module_at_annotation_emits_doc_comment ... ok
+test module_describe_emits_doc_comment ... ok
+test multiple_annotations_emitted_in_order ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\di_test.rs (target\debug\deps\di_test-9d836f00f5baf00d.exe)
+
+running 9 tests
+test function_with_dep_gets_ctx_parameter ... FAILED
+test function_referencing_dep_not_in_requires_errors ... FAILED
+test function_referencing_undeclared_dep_errors ... FAILED
+test function_without_with_gets_no_ctx_parameter ... ok
+test module_with_multiple_requires_emits_all_fields ... FAILED
+test module_without_requires_emits_no_context_struct ... ok
+test module_with_requires_emits_context_struct ... FAILED
+test pricing_engine_corpus_still_compiles ... ok
+test user_service_corpus_still_compiles ... ok
+
+failures:
+
+---- function_with_dep_gets_ctx_parameter stdout ----
+
+thread 'function_with_dep_gets_ctx_parameter' (90960) panicked at tests\di_test.rs:67:5:
+expected ctx param in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod m {
+    use super::*;
+
+    pub fn find(p0: i64) -> String {
+        // body:
+        // with db
+        // "found"
+        todo!()
+    }
+
+}
+
+
+---- function_referencing_dep_not_in_requires_errors stdout ----
+
+thread 'function_referencing_dep_not_in_requires_errors' (93848) panicked at tests\di_test.rs:8:24:
+expected compilation to fail: "#![allow(unused)]\nuse std::convert::TryFrom;\n\npub mod m {\n    use super::*;\n\n    pub fn fetch(p0: i64) -> String {\n        // body:\n        // with cache\n        // \"found\"\n        todo!()\n    }\n\n}\n"
+
+---- function_referencing_undeclared_dep_errors stdout ----
+
+thread 'function_referencing_undeclared_dep_errors' (97328) panicked at tests\di_test.rs:8:24:
+expected compilation to fail: "#![allow(unused)]\nuse std::convert::TryFrom;\n\npub mod m {\n    use super::*;\n\n    pub fn find(p0: i64) -> String {\n        // body:\n        // with db\n        // \"found\"\n        todo!()\n    }\n\n}\n"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- module_with_multiple_requires_emits_all_fields stdout ----
+
+thread 'module_with_multiple_requires_emits_all_fields' (97772) panicked at tests\di_test.rs:33:5:
+expected SvcContext in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod svc {
+    use super::*;
+}
+
+
+---- module_with_requires_emits_context_struct stdout ----
+
+thread 'module_with_requires_emits_context_struct' (98348) panicked at tests\di_test.rs:21:5:
+expected MContext struct in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod m {
+    use super::*;
+}
+
+
+
+failures:
+    function_referencing_dep_not_in_requires_errors
+    function_referencing_undeclared_dep_errors
+    function_with_dep_gets_ctx_parameter
+    module_with_multiple_requires_emits_all_fields
+    module_with_requires_emits_context_struct
+
+test result: FAILED. 4 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test di_test`
+     Running tests\e2e_test.rs (target\debug\deps\e2e_test-a2b55f155dfbaebe.exe)
+
+running 9 tests
+test e2e_generic_identity_function ... ok
+test e2e_pricing_engine_corpus_emits_valid_rust ... FAILED
+test e2e_boolean_function_runs_correctly ... FAILED
+test e2e_enum_match_runs_correctly ... FAILED
+test e2e_comparison_returns_correct_bool ... FAILED
+test e2e_let_bindings_produce_correct_result ... FAILED
+test e2e_integer_arithmetic_runs_correctly ... FAILED
+test e2e_struct_is_valid_rust ... FAILED
+test e2e_module_name_is_snake_case ... FAILED
+
+failures:
+
+---- e2e_pricing_engine_corpus_emits_valid_rust stdout ----
+
+thread 'e2e_pricing_engine_corpus_emits_valid_rust' (98648) panicked at tests\e2e_test.rs:325:5:
+assertion `left == right` failed: pricing_engine emitted Rust has structural errors:
+error: expected `;`, found `debug_assert`
+  --> C:\Users\JC\AppData\Local\Temp\loom_e2e_pe.rs:25:16
+   |
+25 | ...   todo!()
+   |              ^ help: add `;` here
+26 | ...   debug_assert!({}, "ensure: result >= 0.0 let subtotal = line . quantity as Float * line . unit_price let discounted = subtotal...
+   |       ------------ unexpected token
+
+error[E0423]: expected value, found macro `line`
+  --> C:\Users\JC\AppData\Local\Temp\loom_e2e_pe.rs:23:23
+   |
+23 |         debug_assert!(line . quantity > 0, "require: line . quantity > 0");
+   |                       ^^^^ not a value
+
+error[E0423]: expected value, found macro `line`
+  --> C:\Users\JC\AppData\Local\Temp\loom_e2e_pe.rs:24:23
+   |
+24 |         debug_assert!(line . unit_price >= 0.0, "require: line . unit_price >= 0.0");
+   |                       ^^^^ not a value
+
+error[E0308]: mismatched types
+  --> C:\Users\JC\AppData\Local\Temp\loom_e2e_pe.rs:26:23
+   |
+26 | ...   debug_assert!({}, "ensure: result >= 0.0 let subtotal = line . quantity as Float * line . unit_price let discounted = subtotal...
+   |                     ^^ expected `bool`, found `()`
+
+error[E0308]: mismatched types
+  --> C:\Users\JC\AppData\Local\Temp\loom_e2e_pe.rs:22:44
+   |
+22 |     pub fn compute_total(p0: OrderLine) -> OrderTotal {
+   |            -------------                   ^^^^^^^^^^ expected `OrderTotal`, found `()`
+   |            |
+   |            implicitly returns `()` as its body has no tail or `return` expression
+
+error: aborting due to 5 previous errors
+
+Some errors have detailed explanations: E0308, E0423.
+For more information about an error, try `rustc --explain E0308`.
+
+--- Source ---
+#![allow(unused)]
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod pricing_engine {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct OrderLine {
+        pub quantity: i64,
+        pub unit_price: f64,
+        pub discount: f64,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct OrderTotal {
+        pub subtotal: f64,
+        pub tax: f64,
+        pub total: f64,
+    }
+
+    pub fn compute_total(p0: OrderLine) -> OrderTotal {
+        debug_assert!(line . quantity > 0, "require: line . quantity > 0");
+        debug_assert!(line . unit_price >= 0.0, "require: line . unit_price >= 0.0");
+        todo!()
+        debug_assert!({}, "ensure: result >= 0.0 let subtotal = line . quantity as Float * line . unit_price let discounted = subtotal * line . discount let tax = discounted * 0.15 let total = discounted + tax total");
+    }
+
+}
+
+  left: 2
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- e2e_boolean_function_runs_correctly stdout ----
+
+thread 'e2e_boolean_function_runs_correctly' (92792) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `bool_fn`: 
+thread 'main' (89376) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_bool_fn.rs:10:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_enum_match_runs_correctly stdout ----
+
+thread 'e2e_enum_match_runs_correctly' (23580) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `enum_match`: 
+thread 'main' (90904) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_enum_match.rs:23:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_comparison_returns_correct_bool stdout ----
+
+thread 'e2e_comparison_returns_correct_bool' (71176) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `comparison`: 
+thread 'main' (66708) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_comparison.rs:13:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_let_bindings_produce_correct_result stdout ----
+
+thread 'e2e_let_bindings_produce_correct_result' (100272) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `let_bindings`: 
+thread 'main' (88480) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_let_bindings.rs:15:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_integer_arithmetic_runs_correctly stdout ----
+
+thread 'e2e_integer_arithmetic_runs_correctly' (77844) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `int_arith`: 
+thread 'main' (101808) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_int_arith.rs:15:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_struct_is_valid_rust stdout ----
+
+thread 'e2e_struct_is_valid_rust' (91888) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `struct_field`: 
+thread 'main' (54624) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_struct_field.rs:19:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- e2e_module_name_is_snake_case stdout ----
+
+thread 'e2e_module_name_is_snake_case' (78928) panicked at tests\e2e_test.rs:61:9:
+binary exited non-zero for test `snake_case_mod`: 
+thread 'main' (85772) panicked at C:\Users\JC\AppData\Local\Temp\loom_e2e_snake_case_mod.rs:10:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+
+failures:
+    e2e_boolean_function_runs_correctly
+    e2e_comparison_returns_correct_bool
+    e2e_enum_match_runs_correctly
+    e2e_integer_arithmetic_runs_correctly
+    e2e_let_bindings_produce_correct_result
+    e2e_module_name_is_snake_case
+    e2e_pricing_engine_corpus_emits_valid_rust
+    e2e_struct_is_valid_rust
+
+test result: FAILED. 1 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.67s
+
+error: test failed, to rerun pass `--test e2e_test`
+     Running tests\ecosystem_test.rs (target\debug\deps\ecosystem_test-bc11747a4fb606a9.exe)
+
+running 10 tests
+test ecosystem_signal_unknown_being_fails ... FAILED
+test ecosystem_multiple_signals_parse ... ok
+test ecosystem_with_telos_parses ... ok
+test ecosystem_parses_with_members_and_signals ... ok
+test ecosystem_without_signals_fails ... FAILED
+test rust_emit_ecosystem_has_coordinate_fn ... ok
+test openapi_emit_ecosystem_has_x_ecosystems ... FAILED
+test rust_emit_ecosystem_has_signal_structs ... ok
+test rust_emit_ecosystem_has_module ... FAILED
+test typescript_emit_ecosystem_has_namespace ... ok
+
+failures:
+
+---- ecosystem_signal_unknown_being_fails stdout ----
+
+thread 'ecosystem_signal_unknown_being_fails' (14048) panicked at tests\ecosystem_test.rs:128:5:
+expected error mentioning unknown being, got: [General { message: "ecosystem 'BadEco': missing telos: ΓÇö every ecosystem must have a final cause", span: Span { start: 0, end: 0 } }]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- ecosystem_without_signals_fails stdout ----
+
+thread 'ecosystem_without_signals_fails' (101864) panicked at tests\ecosystem_test.rs:82:5:
+expected 'no signals' error, got: [General { message: "ecosystem 'EmptyEco': missing telos: ΓÇö every ecosystem must have a final cause", span: Span { start: 0, end: 0 } }]
+
+---- openapi_emit_ecosystem_has_x_ecosystems stdout ----
+
+thread 'openapi_emit_ecosystem_has_x_ecosystems' (46696) panicked at tests\ecosystem_test.rs:417:5:
+expected x-ecosystems in:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "Test",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {}
+}
+
+---- rust_emit_ecosystem_has_module stdout ----
+
+thread 'rust_emit_ecosystem_has_module' (100512) panicked at tests\ecosystem_test.rs:243:5:
+expected pub mod in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: sustainable nutrient cycling
+    pub mod forestecosystem {
+        use super::*;
+
+        #[derive(Debug, Clone)]
+        pub struct NutrientFlowSignal {
+            pub from: String,
+            pub to: String,
+            // payload: Float
+        }
+
+        /// Coordinate all member beings.
+        pub fn coordinate() {
+            // coordinate: Tree
+            // coordinate: Fungus
+            todo!()
+        }
+
+        pub fn check_quorum(_population_size: usize, _active: usize) -> bool { false }
+
+    }
+
+}
+
+
+
+failures:
+    ecosystem_signal_unknown_being_fails
+    ecosystem_without_signals_fails
+    openapi_emit_ecosystem_has_x_ecosystems
+    rust_emit_ecosystem_has_module
+
+test result: FAILED. 6 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test ecosystem_test`
+     Running tests\effect_test.rs (target\debug\deps\effect_test-bfe91a8eab2a652b.exe)
+
+running 12 tests
+test effectful_fn_calling_effectful_fn_same_effect_is_ok ... ok
+test effectful_fn_declared_with_io_is_ok ... ok
+test fn_declaring_superset_of_effects_is_ok ... ok
+test effectful_fn_missing_declared_effect_is_error ... FAILED
+test mixed_module_pure_and_effectful_coexist ... ok
+test pure_fn_calling_another_pure_fn_is_ok ... ok
+test pure_empty_module_is_ok ... ok
+test pure_fn_with_literal_body_is_ok ... ok
+test pure_fn_calling_effectful_fn_is_error ... FAILED
+test pure_fn_calling_transitive_effectful_fn_is_error ... FAILED
+test user_service_corpus_effectful_fns_accepted ... ok
+test pricing_engine_corpus_no_effect_errors ... ok
+
+failures:
+
+---- effectful_fn_missing_declared_effect_is_error stdout ----
+
+thread 'effectful_fn_missing_declared_effect_is_error' (100024) panicked at tests\effect_test.rs:160:5:
+expected effect error: IO effect used but not declared
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- pure_fn_calling_effectful_fn_is_error stdout ----
+
+thread 'pure_fn_calling_effectful_fn_is_error' (96500) panicked at tests\effect_test.rs:114:5:
+expected effect error: pure fn calling effectful fn
+
+---- pure_fn_calling_transitive_effectful_fn_is_error stdout ----
+
+thread 'pure_fn_calling_transitive_effectful_fn_is_error' (33188) panicked at tests\effect_test.rs:138:5:
+expected effect error: transitive effect not declared
+
+
+failures:
+    effectful_fn_missing_declared_effect_is_error
+    pure_fn_calling_effectful_fn_is_error
+    pure_fn_calling_transitive_effectful_fn_is_error
+
+test result: FAILED. 9 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test effect_test`
+     Running tests\evolve_test.rs (target\debug\deps\evolve_test-b505e0a2bf95db02.exe)
+
+running 10 tests
+test evolve_empty_search_fails ... ok
+test evolve_constraint_no_convergence_word_fails ... ok
+test evolve_gradient_and_derivative_free_no_when_fails ... FAILED
+test evolve_with_all_strategies_passes ... ok
+test evolve_with_gradient_descent_passes ... ok
+test rust_emit_evolve_has_constraint_comment ... ok
+test rust_emit_evolve_has_dispatcher ... FAILED
+test rust_emit_evolve_has_gradient_method ... FAILED
+test typescript_emit_evolve_dispatcher_has_loop ... FAILED
+test typescript_emit_evolve_has_camel_methods ... FAILED
+
+failures:
+
+---- evolve_gradient_and_derivative_free_no_when_fails stdout ----
+
+thread 'evolve_gradient_and_derivative_free_no_when_fails' (14896) panicked at tests\evolve_test.rs:102:5:
+expected error for gradient_descent + derivative_free without when
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- rust_emit_evolve_has_dispatcher stdout ----
+
+thread 'rust_emit_evolve_has_dispatcher' (62420) panicked at tests\evolve_test.rs:168:5:
+expected pub fn evolve_step in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: converge to full potential
+    #[derive(Debug, Clone)]
+    pub struct Organism {
+    }
+
+    impl Organism {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Directed search toward telos.
+        /// constraint: E[distance_to_telos] converging
+        pub fn evolve(&mut self) {
+            // simulated_annealing when local_minima_risk
+            todo!()
+        }
+
+    }
+
+}
+
+
+---- rust_emit_evolve_has_gradient_method stdout ----
+
+thread 'rust_emit_evolve_has_gradient_method' (103092) panicked at tests\evolve_test.rs:153:5:
+expected evolve_gradient_descent in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: converge to full potential
+    #[derive(Debug, Clone)]
+    pub struct Organism {
+    }
+
+    impl Organism {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Directed search toward telos.
+        /// constraint: E[distance_to_telos] decreasing
+        pub fn evolve(&mut self) {
+            // gradient_descent when gradient_available
+            todo!()
+        }
+
+    }
+
+}
+
+
+---- typescript_emit_evolve_dispatcher_has_loop stdout ----
+
+thread 'typescript_emit_evolve_dispatcher_has_loop' (99472) panicked at tests\evolve_test.rs:215:5:
+expected 'while (distance' in:
+// Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Test {
+/** @telos converge to full potential */
+export class Organism {
+
+  constructor(init?: Partial<Organism>) {{
+    if (init) Object.assign(this, init);
+  }
+
+  fitness(): number { throw new Error('not implemented'); }
+
+  evolve(): void { throw new Error('not implemented'); }
+
+}
+
+}
+
+
+---- typescript_emit_evolve_has_camel_methods stdout ----
+
+thread 'typescript_emit_evolve_has_camel_methods' (58324) panicked at tests\evolve_test.rs:200:5:
+expected evolveGradientDescent in:
+// Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export namespace Test {
+/** @telos converge to full potential */
+export class Organism {
+
+  constructor(init?: Partial<Organism>) {{
+    if (init) Object.assign(this, init);
+  }
+
+  fitness(): number { throw new Error('not implemented'); }
+
+  evolve(): void { throw new Error('not implemented'); }
+
+}
+
+}
+
+
+
+failures:
+    evolve_gradient_and_derivative_free_no_when_fails
+    rust_emit_evolve_has_dispatcher
+    rust_emit_evolve_has_gradient_method
+    typescript_emit_evolve_dispatcher_has_loop
+    typescript_emit_evolve_has_camel_methods
+
+test result: FAILED. 5 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test evolve_test`
+     Running tests\exhaustiveness_test.rs (target\debug\deps\exhaustiveness_test-44cfa74dfb8e7cf0.exe)
+
+running 8 tests
+test exhaustive_match_all_variants_covered_passes ... ok
+test guarded_arm_does_not_count_as_covering ... FAILED
+test missing_multiple_variants_errors ... FAILED
+test non_enum_match_is_not_checked ... ok
+test variable_ident_arm_covers_all_passes ... ok
+test missing_one_variant_errors ... FAILED
+test wildcard_with_guard_does_not_count_as_total_cover ... FAILED
+test wildcard_arm_covers_all_passes ... ok
+
+failures:
+
+---- guarded_arm_does_not_count_as_covering stdout ----
+
+thread 'guarded_arm_does_not_count_as_covering' (64860) panicked at tests\exhaustiveness_test.rs:177:5:
+assertion `left == right` failed: guarded arm must not count as a cover
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- missing_multiple_variants_errors stdout ----
+
+thread 'missing_multiple_variants_errors' (85516) panicked at tests\exhaustiveness_test.rs:153:5:
+assertion `left == right` failed: expected exactly one exhaustiveness error
+  left: 0
+ right: 1
+
+---- missing_one_variant_errors stdout ----
+
+thread 'missing_one_variant_errors' (104300) panicked at tests\exhaustiveness_test.rs:132:5:
+assertion `left == right` failed: expected exactly one exhaustiveness error
+  left: 0
+ right: 1
+
+---- wildcard_with_guard_does_not_count_as_total_cover stdout ----
+
+thread 'wildcard_with_guard_does_not_count_as_total_cover' (101604) panicked at tests\exhaustiveness_test.rs:196:5:
+assertion `left == right` failed: guarded wildcard must not count as total cover
+  left: 0
+ right: 1
+
+
+failures:
+    guarded_arm_does_not_count_as_covering
+    missing_multiple_variants_errors
+    missing_one_variant_errors
+    wildcard_with_guard_does_not_count_as_total_cover
+
+test result: FAILED. 4 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test exhaustiveness_test`
+     Running tests\generics_test.rs (target\debug\deps\generics_test-ebd2cdaefcc5851e.exe)
+
+running 7 tests
+test multiple_type_params_are_all_valid_in_scope ... ok
+test non_generic_fn_emits_no_angle_brackets ... ok
+test single_type_param_emits_generic_fn ... ok
+test generic_fn_with_list_param ... ok
+test two_type_params_emit_correctly ... ok
+test type_param_names_are_valid_in_function_scope ... ok
+test all_existing_corpus_still_compiles_after_generics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\inference_test.rs (target\debug\deps\inference_test-762ffed422cd64fa.exe)
+
+running 9 tests
+test recursive_function_inference_passes ... ok
+test basic_let_inference_passes ... ok
+test binop_operand_mismatch_returns_error ... FAILED
+test bool_literal_passes ... ok
+test function_argument_inference_passes ... ok
+test literal_inference_passes ... ok
+test literal_return_type_mismatch_returns_error ... FAILED
+test body_type_mismatch_returns_error ... FAILED
+test comparison_returns_bool_passes ... ok
+
+failures:
+
+---- binop_operand_mismatch_returns_error stdout ----
+
+thread 'binop_operand_mismatch_returns_error' (101380) panicked at tests\inference_test.rs:153:5:
+Int + Bool operand mismatch should produce a unification error
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- literal_return_type_mismatch_returns_error stdout ----
+
+thread 'literal_return_type_mismatch_returns_error' (108448) panicked at tests\inference_test.rs:169:5:
+Int literal should not match Bool return type
+
+---- body_type_mismatch_returns_error stdout ----
+
+thread 'body_type_mismatch_returns_error' (101300) panicked at tests\inference_test.rs:137:5:
+body type Int should not unify with declared return Bool
+
+
+failures:
+    binop_operand_mismatch_returns_error
+    body_type_mismatch_returns_error
+    literal_return_type_mismatch_returns_error
+
+test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test inference_test`
+     Running tests\infoflow_test.rs (target\debug\deps\infoflow_test-3f68984f2d4ef409.exe)
+
+running 11 tests
+test checker_allows_module_without_flow_labels ... ok
+test checker_allows_declassification_fn ... ok
+test checker_allows_secret_to_secret_flow ... ok
+test flow_label_has_correct_fields ... ok
+test checker_rejects_tainted_to_db_operation ... FAILED
+test flow_label_parses_correctly ... ok
+test module_without_flow_labels_has_empty_vec ... ok
+test multiple_flow_labels_parse ... ok
+test checker_rejects_secret_to_public_without_declassification ... FAILED
+test openapi_emits_x_security_labels ... FAILED
+test typescript_emits_branded_types_for_flow_labels ... ok
+
+failures:
+
+---- checker_rejects_tainted_to_db_operation stdout ----
+
+thread 'checker_rejects_tainted_to_db_operation' (89180) panicked at tests\infoflow_test.rs:151:5:
+expected tainted-to-db error
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- checker_rejects_secret_to_public_without_declassification stdout ----
+
+thread 'checker_rejects_secret_to_public_without_declassification' (98888) panicked at tests\infoflow_test.rs:130:5:
+expected info-flow error
+
+---- openapi_emits_x_security_labels stdout ----
+
+thread 'openapi_emits_x_security_labels' (69016) panicked at tests\infoflow_test.rs:190:5:
+should contain x-security-labels
+
+
+failures:
+    checker_rejects_secret_to_public_without_declassification
+    checker_rejects_tainted_to_db_operation
+    openapi_emits_x_security_labels
+
+test result: FAILED. 8 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test infoflow_test`
+     Running tests\inline_test.rs (target\debug\deps\inline_test-694877309d75e1a0.exe)
+
+running 7 tests
+test inline_body_emits_verbatim ... ok
+test inline_body_not_wrapped ... ok
+test inline_body_with_braces ... ok
+test todo_body_still_works ... ok
+test inline_with_multiline_content ... ok
+test inline_demo_corpus_compiles ... ok
+test e2e_inline_forty_two ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+
+     Running tests\integration_test.rs (target\debug\deps\integration_test-b6b85e761607fc85.exe)
+
+running 2 tests
+test pricing_engine_compiles_successfully ... ok
+test user_service_compiles_successfully ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\interface_test.rs (target\debug\deps\interface_test-e206f2c82d037578.exe)
+
+running 9 tests
+test implements_emits_impl_block ... ok
+test import_emits_use_super ... ok
+test implements_missing_method_is_error ... ok
+test interface_emits_rust_trait ... ok
+test interface_with_multiple_methods_emits_all ... ok
+test multiple_imports_emit_multiple_use_lines ... ok
+test implements_with_matching_method_is_ok ... ok
+test no_imports_no_use_lines ... ok
+error[E0428]: the name `Addable` is defined multiple times
+  --> C:\Users\JC\AppData\Local\Temp\loom_m16_e2e.rs:23:5
+   |
+ 7 |     pub trait Addable {
+   |     ----------------- previous definition of the trait `Addable` here
+...
+23 |     pub trait Addable {
+   |     ^^^^^^^^^^^^^^^^^ `Addable` redefined here
+   |
+   = note: `Addable` must be defined only once in the type namespace of this module
+
+error[E0449]: visibility qualifiers are not permitted here
+  --> C:\Users\JC\AppData\Local\Temp\loom_m16_e2e.rs:14:5
+   |
+14 |     pub fn add(p0: i64, p1: i64) -> i64 {
+   |     ^^^ help: remove the qualifier
+   |
+   = note: trait items always share the visibility of their trait
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0428, E0449.
+For more information about an error, try `rustc --explain E0428`.
+test e2e_interface_implements_compiles ... FAILED
+
+failures:
+
+---- e2e_interface_implements_compiles stdout ----
+
+thread 'e2e_interface_implements_compiles' (90960) panicked at tests\interface_test.rs:197:18:
+rustc failed on:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod adder {
+    use super::*;
+
+    pub trait Addable {
+        fn add(p0: i64, p1: i64) -> i64;
+    }
+
+    pub struct AdderImpl;
+
+    impl Addable for AdderImpl {
+    pub fn add(p0: i64, p1: i64) -> i64 {
+        // body:
+        // x +
+        // y
+        todo!()
+    }
+
+    }
+
+    pub trait Addable {
+        fn add(p0: i64, p1: i64) -> i64;
+    }
+
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    e2e_interface_implements_compiles
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+error: test failed, to rerun pass `--test interface_test`
+     Running tests\invariant_test.rs (target\debug\deps\invariant_test-b4c150e4aa5bdb91.exe)
+
+running 10 tests
+test cfg_debug_assertions_wraps_check_invariants ... FAILED
+test irreversible_callee_from_reversible_caller_is_error ... FAILED
+test invariant_emits_debug_assert ... FAILED
+test multiple_invariants_all_emitted ... ok
+test reversible_tier_emits_doc_comment ... FAILED
+test no_invariants_compiles_normally ... ok
+test pure_annotation_calling_effectful_fn_is_error ... FAILED
+test same_tier_callee_is_allowed ... ok
+test effect_tier_emits_doc_comment ... FAILED
+test e2e_invariant_module_compiles_to_valid_rust ... ok
+
+failures:
+
+---- cfg_debug_assertions_wraps_check_invariants stdout ----
+
+thread 'cfg_debug_assertions_wraps_check_invariants' (101640) panicked at tests\invariant_test.rs:89:5:
+expected #[cfg(debug_assertions)] around _check_invariants:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod guard {
+    use super::*;
+
+    pub fn get() -> i64 {
+        // body:
+        // 1
+        todo!()
+    }
+
+    // invariant positive: n > 0
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- irreversible_callee_from_reversible_caller_is_error stdout ----
+
+thread 'irreversible_callee_from_reversible_caller_is_error' (94864) panicked at tests\invariant_test.rs:163:5:
+expected tier violation error
+
+---- invariant_emits_debug_assert stdout ----
+
+thread 'invariant_emits_debug_assert' (63352) panicked at tests\invariant_test.rs:40:5:
+expected _check_invariants fn in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod account {
+    use super::*;
+
+    pub fn get() -> i64 {
+        // body:
+        // 42
+        todo!()
+    }
+
+    // invariant non_negative: amount >= 0
+}
+
+
+---- reversible_tier_emits_doc_comment stdout ----
+
+thread 'reversible_tier_emits_doc_comment' (80716) panicked at tests\invariant_test.rs:119:5:
+expected reversible tier comment in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod d_b {
+    use super::*;
+
+    pub fn save() -> i64 {
+        // body:
+        // 1
+        todo!()
+    }
+
+}
+
+
+---- pure_annotation_calling_effectful_fn_is_error stdout ----
+
+thread 'pure_annotation_calling_effectful_fn_is_error' (107740) panicked at tests\invariant_test.rs:141:5:
+expected error when @pure calls effectful fn
+
+---- effect_tier_emits_doc_comment stdout ----
+
+thread 'effect_tier_emits_doc_comment' (68512) panicked at tests\invariant_test.rs:105:5:
+expected tier doc comment in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod payment_service {
+    use super::*;
+
+    pub fn charge() -> i64 {
+        // body:
+        // 42
+        todo!()
+    }
+
+}
+
+
+
+failures:
+    cfg_debug_assertions_wraps_check_invariants
+    effect_tier_emits_doc_comment
+    invariant_emits_debug_assert
+    irreversible_callee_from_reversible_caller_is_error
+    pure_annotation_calling_effectful_fn_is_error
+    reversible_tier_emits_doc_comment
+
+test result: FAILED. 4 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+error: test failed, to rerun pass `--test invariant_test`
+     Running tests\iteration_test.rs (target\debug\deps\iteration_test-7fcdab7cfce88302.exe)
+
+running 10 tests
+test filter_emits_iter_chain ... FAILED
+test fold_emits_iter_fold ... FAILED
+test lambda_emits_rust_closure ... ok
+test lambda_multi_param ... FAILED
+test lambda_single_param_no_type ... FAILED
+test for_in_emits_rust_for_loop ... FAILED
+test lambda_with_type_annotation ... FAILED
+test map_emits_iter_chain ... FAILED
+test e2e_map_double ... FAILED
+test e2e_fold_sum ... FAILED
+
+failures:
+
+---- filter_emits_iter_chain stdout ----
+
+thread 'filter_emits_iter_chain' (102516) panicked at tests\iteration_test.rs:95:5:
+filter should emit iter chain
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- fold_emits_iter_fold stdout ----
+
+thread 'fold_emits_iter_fold' (97060) panicked at tests\iteration_test.rs:109:5:
+fold should emit iter.fold()
+
+---- lambda_multi_param stdout ----
+
+thread 'lambda_multi_param' (81980) panicked at tests\iteration_test.rs:60:5:
+multi-param lambda should emit
+
+---- lambda_single_param_no_type stdout ----
+
+thread 'lambda_single_param_no_type' (97688) panicked at tests\iteration_test.rs:31:5:
+lambda should emit as Rust closure
+
+---- for_in_emits_rust_for_loop stdout ----
+
+thread 'for_in_emits_rust_for_loop' (96272) panicked at tests\iteration_test.rs:125:5:
+for-in should emit Rust for loop, got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    pub fn print_all(p0: Vec<i64>) -> i64 {
+        // body:
+        // for n
+        // in xs
+        // { n
+        // } 0
+        todo!()
+    }
+
+}
+
+
+---- lambda_with_type_annotation stdout ----
+
+thread 'lambda_with_type_annotation' (74712) panicked at tests\iteration_test.rs:46:5:
+lambda param type should be emitted
+
+---- map_emits_iter_chain stdout ----
+
+thread 'map_emits_iter_chain' (36748) panicked at tests\iteration_test.rs:75:5:
+map should emit .iter().map(), got:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod demo {
+    use super::*;
+
+    pub fn doubled(p0: Vec<i64>) -> Vec<i64> {
+        // body:
+        // map (
+        // xs ,
+        // | x
+        // | x
+        // )
+        todo!()
+    }
+
+}
+
+
+---- e2e_map_double stdout ----
+
+thread 'e2e_map_double' (77164) panicked at tests\iteration_test.rs:170:9:
+rustc failed:
+error[E0425]: cannot find value `arg0` in this scope
+ --> C:\Users\JC\AppData\Local\Temp\loom_iter_e2e_677982600\main.rs:8:9
+  |
+8 |         arg0.iter().map(|x| x * 2).collect::<Vec<_>>()
+  |         ^^^^ not found in this scope
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0425`.
+
+source:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod iter_e2_e {
+    use super::*;
+
+    pub fn double_all(p0: Vec<i64>) -> Vec<i64> {
+        arg0.iter().map(|x| x * 2).collect::<Vec<_>>()
+    }
+
+}
+
+fn main() {
+    println!("{}", iter_e2_e::double_all(vec![1i64, 2, 3]).len());
+}
+
+
+---- e2e_fold_sum stdout ----
+
+thread 'e2e_fold_sum' (77732) panicked at tests\iteration_test.rs:170:9:
+rustc failed:
+error[E0425]: cannot find value `arg0` in this scope
+ --> C:\Users\JC\AppData\Local\Temp\loom_iter_e2e_677914000\main.rs:8:9
+  |
+8 |         arg0.iter().fold(0i64, |acc, x| acc + x)
+  |         ^^^^ not found in this scope
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0425`.
+
+source:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod iter_e2_e {
+    use super::*;
+
+    pub fn sum_list(p0: Vec<i64>) -> i64 {
+        arg0.iter().fold(0i64, |acc, x| acc + x)
+    }
+
+}
+
+fn main() {
+    println!("{}", iter_e2_e::sum_list(vec![1i64, 2, 3, 4, 5]));
+}
+
+
+
+failures:
+    e2e_fold_sum
+    e2e_map_double
+    filter_emits_iter_chain
+    fold_emits_iter_fold
+    for_in_emits_rust_for_loop
+    lambda_multi_param
+    lambda_single_param_no_type
+    lambda_with_type_annotation
+    map_emits_iter_chain
+
+test result: FAILED. 1 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+error: test failed, to rerun pass `--test iteration_test`
+     Running tests\lsp_test.rs (target\debug\deps\lsp_test-6b106b6052eb6bf0.exe)
+
+running 9 tests
+test lex_error_produces_error_severity_diagnostic ... ok
+test diagnostic_source_is_loom ... ok
+test multiline_span_maps_to_correct_range ... ok
+test offset_at_start_of_second_line ... ok
+test offset_in_middle_of_second_line ... ok
+test offset_beyond_end_is_clamped_to_last_position ... ok
+test offset_at_start_of_source_returns_zero_zero ... ok
+test offset_on_first_line_returns_line_zero ... ok
+test server_can_be_created ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\neuroml_test.rs (target\debug\deps\neuroml_test-4c078b3d2154f613.exe)
+
+running 10 tests
+test being_with_plasticity_emits_neuroml_cell ... ok
+test being_without_plasticity_not_emitted ... ok
+test morphogen_block_emits_morphology ... FAILED
+test regulate_block_emits_biophysical_properties ... FAILED
+test signal_emits_projection ... FAILED
+test boltzmann_rule_emits_synapse ... FAILED
+test neuroml_has_correct_xmlns ... FAILED
+test compile_neuroml_returns_xml_string ... ok
+test hebbian_rule_emits_synapse ... FAILED
+test ecosystem_with_beings_emits_network ... ok
+
+failures:
+
+---- morphogen_block_emits_morphology stdout ----
+
+thread 'morphogen_block_emits_morphology' (79512) panicked at tests\neuroml_test.rs:209:5:
+expected threshold="0.8" in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="Neuron">
+    <!-- telos: differentiate spatially -->
+    <morphology id="morpho">
+      <!-- signal: Wnt threshold: 0.8 produces: ["DendriticCell"] -->
+      <segment id="0" name="DendriticCell">
+        <proximal x="0" y="0" z="0" diameter="1.0"/>
+        <distal x="0" y="0" z="10" diameter="1.0"/>
+      </segment>
+    </morphology>
+    <synapse id="SynapticWeight" rule="Hebbian" trigger="FireSignal" modifies="SynapticWeight"/>
+  </cell>
+
+</neuroml>
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- regulate_block_emits_biophysical_properties stdout ----
+
+thread 'regulate_block_emits_biophysical_properties' (96024) panicked at tests\neuroml_test.rs:189:5:
+expected variable="voltage" in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="Neuron">
+    <!-- telos: maintain homeostasis -->
+    <biophysicalProperties id="biophys">
+      <!-- regulate voltage target=resting -->
+      <property name="voltage" value="resting" min="min_v" max="max_v"/>
+    </biophysicalProperties>
+    <synapse id="SynapticWeight" rule="Hebbian" trigger="FireSignal" modifies="SynapticWeight"/>
+  </cell>
+
+</neuroml>
+
+
+---- signal_emits_projection stdout ----
+
+thread 'signal_emits_projection' (96492) panicked at tests\neuroml_test.rs:249:5:
+expected presynapticPopulation in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="Neuron">
+    <!-- telos: fire toward signal propagation -->
+    <synapse id="SynapticWeight" rule="Hebbian" trigger="FireSignal" modifies="SynapticWeight"/>
+  </cell>
+
+  <network id="Brain">
+    <!-- telos: emergent cognition -->
+    <population id="neuron_pop" component="Neuron"
+                size="1"/>
+    <projection id="Spike" presynapticPopulation="neuron_pop" postsynapticPopulation="neuron_pop">
+      <!-- payload: Base("Float") -->
+      <connection id="0" preCellId="../neuron_pop/0/Neuron" postCellId="../neuron_pop/0/Neuron"/>
+    </projection>
+  </network>
+
+</neuroml>
+
+
+---- boltzmann_rule_emits_synapse stdout ----
+
+thread 'boltzmann_rule_emits_synapse' (58992) panicked at tests\neuroml_test.rs:169:5:
+expected rule="boltzmann" in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="BoltzNeuron">
+    <!-- telos: equilibrate energy -->
+    <synapse id="NetworkWeight" rule="Boltzmann" trigger="EnergySignal" modifies="NetworkWeight"/>
+  </cell>
+
+</neuroml>
+
+
+---- neuroml_has_correct_xmlns stdout ----
+
+thread 'neuroml_has_correct_xmlns' (96448) panicked at tests\neuroml_test.rs:261:5:
+expected NeuroML2 namespace in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="Neuron">
+    <!-- a spiking neuron -->
+    <!-- telos: learn from experience -->
+    <synapse id="SynapticWeight" rule="Hebbian" trigger="FireSignal" modifies="SynapticWeight"/>
+  </cell>
+
+</neuroml>
+
+
+---- hebbian_rule_emits_synapse stdout ----
+
+thread 'hebbian_rule_emits_synapse' (86604) panicked at tests\neuroml_test.rs:153:5:
+expected rule="hebbian" in:
+<?xml version="1.0" encoding="UTF-8"?>
+<neuroml xmlns="https://www.neuroml.org/schema/neuroml2"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://www.neuroml.org/schema/neuroml2 https://raw.github.com/NeuroML/NeuroML2/development/Schemas/NeuroML2/NeuroML_v2.2.xsd"
+         id="NeuralNet">
+
+  <cell id="Neuron">
+    <!-- a spiking neuron -->
+    <!-- telos: learn from experience -->
+    <synapse id="SynapticWeight" rule="Hebbian" trigger="FireSignal" modifies="SynapticWeight"/>
+  </cell>
+
+</neuroml>
+
+
+
+failures:
+    boltzmann_rule_emits_synapse
+    hebbian_rule_emits_synapse
+    morphogen_block_emits_morphology
+    neuroml_has_correct_xmlns
+    regulate_block_emits_biophysical_properties
+    signal_emits_projection
+
+test result: FAILED. 4 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test neuroml_test`
+     Running tests\privacy_test.rs (target\debug\deps\privacy_test-4e3407f81c949329.exe)
+
+running 14 tests
+test field_def_annotations_contain_pii_and_gdpr ... ok
+test hipaa_without_encrypt_at_rest_fails ... ok
+test multiple_fields_with_multiple_labels ... ok
+test parses_field_annotations_pii_gdpr ... ok
+test pci_without_encrypt_at_rest_fails ... ok
+test openapi_includes_x_data_protection_for_pii ... FAILED
+test pci_with_required_annotations_passes ... ok
+test rust_emission_includes_loom_pii_attribute ... FAILED
+test pci_without_never_log_fails ... ok
+test corpus_pricing_engine_still_compiles ... ok
+test parses_hyphenated_annotations ... ok
+test schema_emission_includes_x_pii ... FAILED
+test rust_never_log_comment_emitted ... FAILED
+test typescript_emission_includes_jsdoc_pii ... ok
+
+failures:
+
+---- openapi_includes_x_data_protection_for_pii stdout ----
+
+thread 'openapi_includes_x_data_protection_for_pii' (95572) panicked at tests\privacy_test.rs:83:5:
+expected x-data-protection in OpenAPI:
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "M",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {}
+}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- rust_emission_includes_loom_pii_attribute stdout ----
+
+thread 'rust_emission_includes_loom_pii_attribute' (75076) panicked at tests\privacy_test.rs:56:5:
+expected #[loom_pii] in Rust output:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod m {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct User {
+        pub id: i64,
+        // @pii
+        pub email: String,
+    }
+
+}
+
+
+---- schema_emission_includes_x_pii stdout ----
+
+thread 'schema_emission_includes_x_pii' (101436) panicked at tests\privacy_test.rs:74:5:
+expected x-pii in schema:
+{"$defs":{"User":{"additionalProperties":false,"properties":{"email":{"type":"string","x-pii":true},"id":{"format":"int64","type":"integer"}},"required":["id","email"],"type":"object"}},"$id":"M","$schema":"https://json-schema.org/draft/2020-12/schema","title":"M"}
+
+---- rust_never_log_comment_emitted stdout ----
+
+thread 'rust_never_log_comment_emitted' (101232) panicked at tests\privacy_test.rs:176:5:
+expected NEVER LOG comment in Rust output:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod m {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Sec {
+        // @never-log
+        pub tok: String,
+    }
+
+}
+
+
+
+failures:
+    openapi_includes_x_data_protection_for_pii
+    rust_emission_includes_loom_pii_attribute
+    rust_never_log_comment_emitted
+    schema_emission_includes_x_pii
+
+test result: FAILED. 10 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test privacy_test`
+     Running tests\project_test.rs (target\debug\deps\project_test-7ed2e0d0d238b99f.exe)
+
+running 6 tests
+test manifest_parses_name_and_modules ... ok
+test manifest_with_missing_name_errors ... ok
+test build_with_compile_error_returns_error ... FAILED
+test build_single_module_project_succeeds ... ok
+test loom_build_with_valid_toml_succeeds ... ok
+test build_multiple_modules_emits_all_outputs ... ok
+
+failures:
+
+---- build_with_compile_error_returns_error stdout ----
+
+thread 'build_with_compile_error_returns_error' (107672) panicked at tests\project_test.rs:117:5:
+expected build to fail on invalid source
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    build_with_compile_error_returns_error
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--test project_test`
+     Running tests\realworld_test.rs (target\debug\deps\realworld_test-f4cb7993a94a9ccf.exe)
+
+running 18 tests
+test chained_let_bindings_emit_as_statements ... FAILED
+test comparison_operators_emit_correctly ... FAILED
+test effect_fn_emits_result_return_type ... FAILED
+test di_full_roundtrip_emits_context_and_ctx_param ... FAILED
+test generic_fn_with_collection_param_and_return ... ok
+test enum_match_with_payload_emits_rust_match ... FAILED
+test hashmap_import_only_when_map_type_present ... ok
+test contracts_emit_debug_assert_and_comment ... ok
+test match_with_wildcard_arm_emits_underscore ... FAILED
+test match_arm_with_guard_emits_if_clause ... FAILED
+test pipe_operator_emits_intermediate_let ... FAILED
+test module_name_converted_to_snake_case_in_rust ... ok
+test provides_emits_rust_trait ... FAILED
+test refined_type_emits_newtype_and_try_from ... FAILED
+test struct_field_arithmetic_emits_correctly ... FAILED
+test todo_in_body_emits_macro_call ... ok
+test user_service_emits_enum_and_refined_type ... FAILED
+test pricing_engine_emits_expected_rust_constructs ... FAILED
+
+failures:
+
+---- chained_let_bindings_emit_as_statements stdout ----
+
+thread 'chained_let_bindings_emit_as_statements' (100576) panicked at tests\realworld_test.rs:113:5:
+missing let base
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- comparison_operators_emit_correctly stdout ----
+
+thread 'comparison_operators_emit_correctly' (90608) panicked at tests\realworld_test.rs:361:5:
+expected comparison in body:
+    pub fn in_range(p0: i64) -> bool {
+        // body:
+        // let lo
+        // = 0
+        // let hi
+        // = 100
+        // lo <
+        // hi
+        todo!()
+    }
+
+}
+
+---- effect_fn_emits_result_return_type stdout ----
+
+thread 'effect_fn_emits_result_return_type' (64044) panicked at tests\realworld_test.rs:191:5:
+expected Result return type:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod i_o {
+    use super::*;
+
+    pub fn fetch_data(p0: i64) -> String {
+        // body:
+        // todo
+        todo!()
+    }
+
+}
+
+
+---- di_full_roundtrip_emits_context_and_ctx_param stdout ----
+
+thread 'di_full_roundtrip_emits_context_and_ctx_param' (97228) panicked at tests\realworld_test.rs:278:5:
+expected context struct:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod user_repo {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct User {
+        pub id: i64,
+        pub name: String,
+    }
+
+    pub fn find_user(p0: i64) -> String {
+        // body:
+        // with db
+        // todo
+        todo!()
+    }
+
+    pub fn get_cached(p0: i64) -> String {
+        // body:
+        // with cache
+        // todo
+        todo!()
+    }
+
+    pub fn count_users(p0: i64) -> i64 {
+        // body:
+        // 0
+        todo!()
+    }
+
+}
+
+
+---- enum_match_with_payload_emits_rust_match stdout ----
+
+thread 'enum_match_with_payload_emits_rust_match' (96784) panicked at tests\realworld_test.rs:93:5:
+missing Circle arm
+
+---- match_with_wildcard_arm_emits_underscore stdout ----
+
+thread 'match_with_wildcard_arm_emits_underscore' (56748) panicked at tests\realworld_test.rs:338:5:
+expected Red arm:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod status {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    pub fn is_red(p0: Color) -> bool {
+        // body:
+        // match col
+        // | Red
+        // -> true
+        // | _
+        // -> false
+        todo!()
+    }
+
+}
+
+
+---- match_arm_with_guard_emits_if_clause stdout ----
+
+thread 'match_arm_with_guard_emits_if_clause' (82340) panicked at tests\realworld_test.rs:382:5:
+expected guard in match arm:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod guard {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum Val {
+        Num(i64),
+        Other,
+    }
+
+    pub fn check(p0: Val) -> i64 {
+        // body:
+        // match v
+        // | Num
+        // ( n
+        // ) if
+        // n >
+        // 0 ->
+        // 1 |
+        // Num (
+        // n )
+        // -> 0
+        // | Other
+        // -> 2
+        todo!()
+    }
+
+}
+
+
+---- pipe_operator_emits_intermediate_let stdout ----
+
+thread 'pipe_operator_emits_intermediate_let' (101000) panicked at tests\realworld_test.rs:146:5:
+expected pipe expansion:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod pipeline {
+    use super::*;
+
+    pub fn double(p0: i64) -> i64 {
+        // body:
+        // 0
+        todo!()
+    }
+
+    pub fn add_ten(p0: i64) -> i64 {
+        // body:
+        // 0
+        todo!()
+    }
+
+    pub fn process(p0: i64) -> i64 {
+        // body:
+        // 42 |>
+        // double |>
+        // add_ten
+        todo!()
+    }
+
+}
+
+
+---- provides_emits_rust_trait stdout ----
+
+thread 'provides_emits_rust_trait' (103044) panicked at tests\realworld_test.rs:242:5:
+expected trait:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod calculator {
+    use super::*;
+
+    pub fn add(p0: i64, p1: i64) -> i64 {
+        // body:
+        // 0
+        todo!()
+    }
+
+    pub fn multiply(p0: i64, p1: i64) -> i64 {
+        // body:
+        // 0
+        todo!()
+    }
+
+}
+
+
+---- refined_type_emits_newtype_and_try_from stdout ----
+
+thread 'refined_type_emits_newtype_and_try_from' (55672) panicked at tests\realworld_test.rs:210:5:
+expected newtype:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod validated {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Score(pub i64);
+
+    impl TryFrom<i64> for Score {
+        type Error = String;
+        fn try_from(value: i64) -> Result<Self, Self::Error> {
+            // Predicate: score_valid
+            // ALX: predicate is raw text; full validation requires expression eval
+            Ok(Self(value))
+        }
+    }
+
+}
+
+
+---- struct_field_arithmetic_emits_correctly stdout ----
+
+thread 'struct_field_arithmetic_emits_correctly' (76988) panicked at tests\realworld_test.rs:58:5:
+expected field access in body:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod pricing {
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct Item {
+        pub quantity: i64,
+        pub price: f64,
+    }
+
+    pub fn total_cost(p0: Item) -> f64 {
+        // body:
+        // item .
+        // quantity *
+        // item .
+        // price
+        todo!()
+    }
+
+}
+
+
+---- user_service_emits_enum_and_refined_type stdout ----
+
+thread 'user_service_emits_enum_and_refined_type' (11072) panicked at tests\realworld_test.rs:457:5:
+missing Email newtype
+
+---- pricing_engine_emits_expected_rust_constructs stdout ----
+
+thread 'pricing_engine_emits_expected_rust_constructs' (101856) panicked at tests\realworld_test.rs:439:5:
+missing line.quantity field access
+
+
+failures:
+    chained_let_bindings_emit_as_statements
+    comparison_operators_emit_correctly
+    di_full_roundtrip_emits_context_and_ctx_param
+    effect_fn_emits_result_return_type
+    enum_match_with_payload_emits_rust_match
+    match_arm_with_guard_emits_if_clause
+    match_with_wildcard_arm_emits_underscore
+    pipe_operator_emits_intermediate_let
+    pricing_engine_emits_expected_rust_constructs
+    provides_emits_rust_trait
+    refined_type_emits_newtype_and_try_from
+    struct_field_arithmetic_emits_correctly
+    user_service_emits_enum_and_refined_type
+
+test result: FAILED. 5 passed; 13 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test realworld_test`
+     Running tests\safety_test.rs (target\debug\deps\safety_test-1f193c3c4cd771a0.exe)
+
+running 12 tests
+test autopoietic_with_both_annotations_ok ... ok
+test autopoietic_without_mortal_errors ... ok
+test autopoietic_without_sandboxed_errors ... ok
+test bounded_telos_rejects_unlimited ... ok
+test bounded_telos_with_bounded_by_ok ... ok
+test bounded_telos_rejects_maximize ... ok
+test bounded_telos_without_bounded_by_errors ... ok
+test corrigible_with_modifiable_by_ok ... ok
+test mortal_with_telomere_ok ... ok
+test corrigible_without_modifiable_by_errors ... ok
+test non_autopoietic_being_no_safety_errors ... ok
+test mortal_without_telomere_errors ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\schema_test.rs (target\debug\deps\schema_test-6579c3ab08624889.exe)
+
+running 27 tests
+test compile_json_schema_pipeline ... ok
+test compile_openapi_pipeline ... ok
+test effect_return_emits_async_extension ... ok
+test enum_with_payload_emits_tagged_object ... ok
+test enum_without_payload_emits_const_strings ... ok
+test enums_appear_in_components_schemas ... ok
+test fn_describe_becomes_summary ... ok
+test json_schema_contains_schema_version ... ok
+test fn_generates_path ... ok
+test fn_name_becomes_operation_id ... ok
+test fn_with_no_params_defaults_to_get ... ok
+test openapi_info_description_from_describe ... ok
+test json_schema_uses_module_name_as_id ... FAILED
+test list_type_maps_to_array_schema ... ok
+test path_annotation_overrides_default ... ok
+test openapi_document_version ... ok
+test method_annotation_overrides_default ... ok
+test fn_with_params_defaults_to_post ... ok
+test openapi_info_title_is_module_name ... ok
+test refined_type_emits_allof_with_description ... ok
+test post_fn_emits_request_body ... ok
+test option_type_maps_to_oneof_with_null ... ok
+test return_type_maps_to_response_schema ... FAILED
+test type_def_emits_object_schema ... ok
+test type_def_fields_have_correct_types ... ok
+test types_appear_in_components_schemas ... ok
+test user_type_ref_emits_dollar_ref ... ok
+
+failures:
+
+---- json_schema_uses_module_name_as_id stdout ----
+
+thread 'json_schema_uses_module_name_as_id' (54980) panicked at tests\schema_test.rs:51:5:
+missing $id:
+{"$defs":{},"$id":"Pricing","$schema":"https://json-schema.org/draft/2020-12/schema","title":"Pricing"}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- return_type_maps_to_response_schema stdout ----
+
+thread 'return_type_maps_to_response_schema' (56056) panicked at tests\schema_test.rs:299:5:
+expected integer response schema:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "M",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/m": {
+      "get": {
+        "operationId": "get_count",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+failures:
+    json_schema_uses_module_name_as_id
+    return_type_maps_to_response_schema
+
+test result: FAILED. 25 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test schema_test`
+     Running tests\selfmod_test.rs (target\debug\deps\selfmod_test-bade81d81956223f.exe)
+
+running 15 tests
+test crispr_empty_guide_fails ... ok
+test crispr_empty_replace_fails ... ok
+test plasticity_boltzmann_rule_parses ... ok
+test crispr_parses_target_replace_guide ... ok
+test plasticity_empty_modifies_fails ... ok
+test crispr_empty_target_fails ... ok
+test quorum_invalid_threshold_fails ... FAILED
+test plasticity_parses_trigger_modifies_rule ... ok
+test quorum_empty_signal_fails ... ok
+test rust_emit_quorum_has_check_fn ... FAILED
+test plasticity_empty_trigger_fails ... ok
+test rust_emit_crispr_has_edit_fn ... FAILED
+test rust_emit_plasticity_has_update_fn ... FAILED
+test quorum_empty_action_fails ... ok
+test quorum_parses_signal_threshold_action ... ok
+
+failures:
+
+---- quorum_invalid_threshold_fails stdout ----
+
+thread 'quorum_invalid_threshold_fails' (95380) panicked at tests\selfmod_test.rs:416:5:
+expected 'threshold' in: ecosystem 'Colony': missing telos: ΓÇö every ecosystem must have a final cause at Span { start: 0, end: 0 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- rust_emit_quorum_has_check_fn stdout ----
+
+thread 'rust_emit_quorum_has_check_fn' (60132) panicked at tests\selfmod_test.rs:445:5:
+expected check_quorum_a_h_l in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: collective biofilm formation
+    pub mod colony {
+        use super::*;
+
+        #[derive(Debug, Clone)]
+        pub struct AHLSignal {
+            pub from: String,
+            pub to: String,
+            // payload: Float
+        }
+
+        /// Coordinate all member beings.
+        pub fn coordinate() {
+            // coordinate: Bacterium
+            todo!()
+        }
+
+        /// Check quorum (threshold: 0.6) for signal 'AHL'.
+        pub fn check_quorum(population_size: usize, active: usize) -> bool {
+            // threshold: 0.6
+            active > 0 && population_size > 0
+        }
+
+    }
+
+}
+
+
+---- rust_emit_crispr_has_edit_fn stdout ----
+
+thread 'rust_emit_crispr_has_edit_fn' (56940) panicked at tests\selfmod_test.rs:185:5:
+expected edit_cas_protein in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: self-correct errors
+    #[derive(Debug, Clone)]
+    pub struct Genome {
+    }
+
+    impl Genome {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// CRISPR-guided self-modification: CasProtein.
+        pub fn edit_casprotein(&mut self) {
+            // target: error_sequence, replace with: CorrectType
+            todo!()
+        }
+
+    }
+
+}
+
+
+---- rust_emit_plasticity_has_update_fn stdout ----
+
+thread 'rust_emit_plasticity_has_update_fn' (68896) panicked at tests\selfmod_test.rs:287:5:
+expected update_synaptic_weight in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod test {
+    use super::*;
+
+    /// telos: self-correct errors
+    #[derive(Debug, Clone)]
+    pub struct Genome {
+    }
+
+    impl Genome {
+        /// Evaluate fitness toward telos.
+        pub fn fitness(&self) -> f64 {
+            todo!("implement fitness function")
+        }
+
+        /// Plasticity rule (Hebbian) modifies SynapticWeight.
+        pub fn update_synapticweight(&mut self) {
+            // trigger: FireSignal
+            todo!()
+        }
+
+    }
+
+}
+
+
+
+failures:
+    quorum_invalid_threshold_fails
+    rust_emit_crispr_has_edit_fn
+    rust_emit_plasticity_has_update_fn
+    rust_emit_quorum_has_check_fn
+
+test result: FAILED. 11 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test selfmod_test`
+     Running tests\simulation_test.rs (target\debug\deps\simulation_test-bc5b793510d9437f.exe)
+
+running 10 tests
+test compile_simulation_entry_point_works ... ok
+test simulation_agent_has_fitness_method ... ok
+test simulation_agent_has_step_method ... ok
+test simulation_agent_has_telos_comment ... ok
+test simulation_being_becomes_agent_class ... ok
+test simulation_ecosystem_becomes_model ... ok
+test simulation_emits_mesa_imports ... ok
+test simulation_model_has_schedule ... ok
+test simulation_multiple_beings_emit_multiple_agents ... ok
+test simulation_model_has_step_method ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\stdlib_test.rs (target\debug\deps\stdlib_test-b0efa3669c354f2c.exe)
+
+running 10 tests
+test list_int_emits_vec_i64 ... ok
+test map_string_int_emits_hashmap ... ok
+test list_string_emits_vec_string ... ok
+test module_not_using_collections_gets_no_extra_imports ... ok
+test list_type_does_not_produce_type_error ... ok
+test module_using_both_collections_gets_combined_import ... ok
+test module_using_map_gets_hashmap_import ... ok
+test module_using_set_gets_hashset_import ... ok
+test set_bool_emits_hashset ... ok
+test all_existing_corpus_still_compiles ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\testblock_test.rs (target\debug\deps\testblock_test-ad9c081525036f4d.exe)
+
+running 9 tests
+test ensure_uses_condition_text_in_message ... ok
+test ensure_emits_debug_assert ... ok
+test no_test_defs_no_cfg_test_block ... ok
+test multiple_test_blocks_all_emitted ... ok
+test for_all_emits_edge_case_loop ... FAILED
+test test_block_emits_cfg_test_mod ... ok
+test test_block_emits_test_fn ... ok
+test test_block_uses_super_import ... ok
+
+running 1 test
+test adder::tests::add_one_plus_one ... FAILED
+
+failures:
+
+---- adder::tests::add_one_plus_one stdout ----
+
+thread 'adder::tests::add_one_plus_one' (96872) panicked at C:\Users\JC\AppData\Local\Temp\loom_m15_e2e.rs:11:9:
+not yet implemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    adder::tests::add_one_plus_one
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+test e2e_test_block_compiles_and_runs ... FAILED
+
+failures:
+
+---- for_all_emits_edge_case_loop stdout ----
+
+thread 'for_all_emits_edge_case_loop' (102448) panicked at tests\testblock_test.rs:154:5:
+expected edge case loop in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod m {
+    use super::*;
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn prop() {
+            for_all(|x: Int| x + 0 >= x)
+        }
+
+    }
+
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- e2e_test_block_compiles_and_runs stdout ----
+
+thread 'e2e_test_block_compiles_and_runs' (5512) panicked at tests\testblock_test.rs:196:27:
+test binary failed
+
+
+failures:
+    e2e_test_block_compiles_and_runs
+    for_all_emits_edge_case_loop
+
+test result: FAILED. 7 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+error: test failed, to rerun pass `--test testblock_test`
+     Running tests\typescript_test.rs (target\debug\deps\typescript_test-7286843f27f65d85.exe)
+
+running 18 tests
+test annotations_emit_jsdoc ... ok
+test enum_with_payload_emits_tagged_union ... ok
+test int_maps_to_number ... ok
+test effectful_fn_emits_async_promise ... ok
+test ensure_emits_postcondition_check ... ok
+test enum_emits_union_type ... ok
+test fn_emits_export_function ... ok
+test describe_emits_jsdoc_comment ... ok
+test interface_emits_ts_interface ... ok
+test module_emits_namespace ... ok
+test require_emits_throw_on_violation ... ok
+test string_maps_to_string ... ok
+test type_def_emits_interface ... ok
+test implements_emits_class ... ok
+test map_call_emits_array_map ... ok
+test import_emits_es_import ... ok
+test bool_maps_to_boolean ... ok
+test e2e_typescript_output_compiles_with_tsc ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\typestate_test.rs (target\debug\deps\typestate_test-f11b2d62b86a2e19.exe)
+
+running 8 tests
+test lifecycle_declaration_parses ... ok
+test invalid_transition_skipping_state_fails ... ok
+test lifecycle_def_has_correct_fields ... ok
+test module_without_lifecycle_compiles_unchanged ... ok
+test rust_emits_phantom_state_structs ... FAILED
+test openapi_includes_x_lifecycle_extension ... FAILED
+test typescript_emits_state_union_type ... FAILED
+test valid_transition_passes_checker ... ok
+
+failures:
+
+---- rust_emits_phantom_state_structs stdout ----
+
+thread 'rust_emits_phantom_state_structs' (97940) panicked at tests\typestate_test.rs:111:5:
+missing comment in:
+#![allow(unused)]
+use std::convert::TryFrom;
+
+pub mod connection_service {
+    use super::*;
+
+    // Lifecycle: Connection states
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Disconnected;
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Connected;
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Authenticated;
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Closed;
+
+    pub fn connect(p0: String) -> String {
+        // body:
+        // host
+        todo!()
+    }
+
+}
+
+
+---- openapi_includes_x_lifecycle_extension stdout ----
+
+thread 'openapi_includes_x_lifecycle_extension' (108440) panicked at tests\typestate_test.rs:156:5:
+expected x-lifecycle in OpenAPI output:
+{
+  "components": {
+    "schemas": {}
+  },
+  "info": {
+    "title": "ConnectionService",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/connection": {
+      "post": {
+        "operationId": "connect",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        }
+      }
+    }
+  }
+}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- typescript_emits_state_union_type stdout ----
+
+thread 'typescript_emits_state_union_type' (101432) panicked at tests\typestate_test.rs:138:5:
+missing Connection interface in:
+// Generated by Loom ALX compiler.
+// @ts-nocheck
+
+import { z } from 'zod';
+export type ConnectionState = "Disconnected" | "Connected" | "Authenticated";
+
+export namespace ConnectionService {
+  export function connect(p0: string): string {
+    return host as any;
+  }
+
+}
+
+
+
+failures:
+    openapi_includes_x_lifecycle_extension
+    rust_emits_phantom_state_structs
+    typescript_emits_state_union_type
+
+test result: FAILED. 5 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test typestate_test`
+     Running tests\units_test.rs (target\debug\deps\units_test-008f66b772069d79.exe)
+
+running 16 tests
+test add_same_unit_ok ... ok
+test dimensionless_float_add_ok ... ok
+test add_different_units_errors ... FAILED
+test float_with_unit_parses_as_generic ... ok
+test int_with_unit_parses_as_generic ... ok
+test full_pipeline_with_units_ok ... FAILED
+test let_bound_same_unit_no_error ... ok
+test json_schema_emits_x_unit ... ok
+test multi_unit_module_emits_multiple_structs ... FAILED
+test multiply_different_units_allowed ... FAILED
+test rust_codegen_emits_usd_in_fn_signature ... FAILED
+test rust_codegen_emits_usd_struct ... FAILED
+test struct_field_unit_emits_in_rust ... FAILED
+test sub_different_units_errors ... FAILED
+test sub_same_unit_ok ... ok
+test typescript_emits_branded_type_alias ... FAILED
+
+failures:
+
+---- add_different_units_errors stdout ----
+
+thread 'add_different_units_errors' (10060) panicked at tests\units_test.rs:117:5:
+cross-unit addition should produce a TypeError
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- full_pipeline_with_units_ok stdout ----
+
+thread 'full_pipeline_with_units_ok' (48592) panicked at tests\units_test.rs:248:5:
+full compile() pipeline should succeed with unit types
+
+---- multi_unit_module_emits_multiple_structs stdout ----
+
+thread 'multi_unit_module_emits_multiple_structs' (77028) panicked at tests\units_test.rs:265:35:
+compile failed: [General { message: "unknown type 'eur'", span: Span { start: 10, end: 65 } }, General { message: "unknown type 'usd'", span: Span { start: 10, end: 65 } }]
+
+---- multiply_different_units_allowed stdout ----
+
+thread 'multiply_different_units_allowed' (21556) panicked at tests\units_test.rs:231:5:
+unit multiplication should not trigger a unit-mismatch error
+
+---- rust_codegen_emits_usd_in_fn_signature stdout ----
+
+thread 'rust_codegen_emits_usd_in_fn_signature' (103532) panicked at tests\units_test.rs:157:35:
+compile failed: [General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }, General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }]
+
+---- rust_codegen_emits_usd_struct stdout ----
+
+thread 'rust_codegen_emits_usd_struct' (103688) panicked at tests\units_test.rs:143:35:
+compile failed: [General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }, General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }]
+
+---- struct_field_unit_emits_in_rust stdout ----
+
+thread 'struct_field_unit_emits_in_rust' (58516) panicked at tests\units_test.rs:216:5:
+should emit Usd newtype
+
+---- sub_different_units_errors stdout ----
+
+thread 'sub_different_units_errors' (90904) panicked at tests\units_test.rs:129:5:
+cross-unit subtraction should produce a TypeError
+
+---- typescript_emits_branded_type_alias stdout ----
+
+thread 'typescript_emits_branded_type_alias' (23580) panicked at tests\units_test.rs:173:44:
+ts compile failed: [General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }, General { message: "unknown type 'usd'", span: Span { start: 10, end: 60 } }]
+
+
+failures:
+    add_different_units_errors
+    full_pipeline_with_units_ok
+    multi_unit_module_emits_multiple_structs
+    multiply_different_units_allowed
+    rust_codegen_emits_usd_in_fn_signature
+    rust_codegen_emits_usd_struct
+    struct_field_unit_emits_in_rust
+    sub_different_units_errors
+    typescript_emits_branded_type_alias
+
+test result: FAILED. 7 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test units_test`
+     Running tests\wasm_test.rs (target\debug\deps\wasm_test-89f6fd86048902da.exe)
+
+running 8 tests
+test effectful_function_returns_wasm_unsupported ... ok
+test bool_return_type_emits_i32_result ... FAILED
+test match_expression_returns_wasm_unsupported ... ok
+test refined_type_returns_wasm_unsupported ... ok
+test simple_int_function_emits_module_and_func ... FAILED
+test single_param_let_binding_emits_local ... FAILED
+test rust_compile_still_works_after_wasm_added ... ok
+test wasm_demo_corpus_compiles_successfully ... ok
+
+failures:
+
+---- bool_return_type_emits_i32_result stdout ----
+
+thread 'bool_return_type_emits_i32_result' (108404) panicked at tests\wasm_test.rs:69:5:
+greater-than on Int must use i64.gt_s
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- simple_int_function_emits_module_and_func stdout ----
+
+thread 'simple_int_function_emits_module_and_func' (104084) panicked at tests\wasm_test.rs:38:5:
+func must be exported
+
+---- single_param_let_binding_emits_local stdout ----
+
+thread 'single_param_let_binding_emits_local' (103712) panicked at tests\wasm_test.rs:53:5:
+must declare local for let binding
+
+
+failures:
+    bool_return_type_emits_i32_result
+    simple_int_function_emits_module_and_func
+    single_param_let_binding_emits_local
+
+test result: FAILED. 5 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test wasm_test`
+   Doc-tests loom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 25 targets failed:
+    `--test algebraic_test`
+    `--test autopoiesis_test`
+    `--test autopoietic_test`
+    `--test coercion_test`
+    `--test di_test`
+    `--test e2e_test`
+    `--test ecosystem_test`
+    `--test effect_test`
+    `--test evolve_test`
+    `--test exhaustiveness_test`
+    `--test inference_test`
+    `--test infoflow_test`
+    `--test interface_test`
+    `--test invariant_test`
+    `--test iteration_test`
+    `--test neuroml_test`
+    `--test privacy_test`
+    `--test project_test`
+    `--test realworld_test`
+    `--test schema_test`
+    `--test selfmod_test`
+    `--test testblock_test`
+    `--test typestate_test`
+    `--test units_test`
+    `--test wasm_test`

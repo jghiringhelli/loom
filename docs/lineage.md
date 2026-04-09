@@ -7,6 +7,26 @@
 
 ---
 
+## The Shape of the Pyramid
+
+Knowledge has a geometry.
+
+At the **base**, every domain speaks its own language: biology in one vocabulary, logic in another, physics in another, linguistics in another, computer science in another. Maximum width. Maximum mutual incomprehension. Each domain builds its own tower and calls it complete.
+
+As you **climb**, the vocabularies start touching. Shannon (1948) realized information is the same structure whether it lives in DNA, a telegraph wire, or a neuron. Eilenberg and Mac Lane (1945) realized that all mathematical structures are instances of the same few arrows and objects — and gave category theory its name. Curry (1934) and Howard (1969) discovered that programs and logical proofs are the same thing, separated only by notation. Each convergence narrows the pyramid. The towers on adjacent faces are the same tower, seen from different angles.
+
+Near the **apex**, there are very few words — but each word carries the full weight of every domain face below it. That is why the language at this altitude becomes poetic: poetry is maximum meaning per minimum word. Einstein's *E = mc²* is a poem. Shannon's *H = −Σ p log p* is a poem. Heraclitus wrote the first unified theory of change in nine words: *"The way up and the way down are the same."* At sufficient altitude, precision and beauty are the same property.
+
+The **apex** is unnamed but recognizable when you approach it: a single principle from which every domain's deepest results can be derived. For computation, that principle is: *declarative intent, executed by a capable agent, over observable outcomes, with a correction mechanism, produces correct results at the completeness of the specification*. For biology: *any sufficiently complex self-maintaining system converges on the same stable solutions*. For physics: *the most probable macrostate is the one with the most microstates*. For language: *meaning is use*. These look like different principles because they were stated at different altitudes on different faces. From the apex they are the same principle.
+
+**Loom constructs climb this pyramid.** At the base: `Int`, `String`, `Float` — the ground level of every language. Midway up: `Effect<[IO, DB], Result<User, Error>>` — the PL-theory face showing effects, types, and failure modes simultaneously. Higher: `fn charge @exactly-once :: Float<usd> -> BankToken -> Effect<[Payment], Payment<Pending>>` — nine tokens activating Girard's linear logic, Kennedy's unit arithmetic, Honda's session types, and distributed systems correctness simultaneously. Higher still: `telos: "full expression of organismal potential within environmental constraints"` — one sentence activating Aristotle, Teilhard de Chardin, control theory, and gradient optimization as a single unified concept.
+
+The syntax does not become simpler as we climb. It becomes *denser*: each token carries more domain-weight. `telos:` is one word that sits on the biology face, the philosophy face, the mathematics face, and the control theory face simultaneously. The language is not converging to fewer concepts. It is converging to fewer words that mean more.
+
+**This is not a design choice.** It is a consequence of building a language that takes ideas seriously. A language that implements everything formally correct eventually looks like mathematics — which already looks like poetry.
+
+---
+
 ## The Core Question
 
 For ten thousand years, across every civilization that developed writing, people have asked the same question: **can meaning be expressed precisely enough that correct behavior can be mechanically derived from it?**
@@ -286,7 +306,7 @@ Loom addresses all three at once:
 ## The Long Arc
 
 ```
-350 BCE  Aristotle       — Categories: first type system
+350 BCE  Aristotle       — Categories: first type system; four causes: telos as final cause
 300 BCE  Euclid          — Axiomatic method: preconditions as axioms
 1666     Leibniz         — Characteristica Universalis: the specification is the system
 1879     Frege           — Predicate logic: programs have formal meaning
@@ -294,10 +314,26 @@ Loom addresses all three at once:
 1931     Gödel           — Incompleteness: some things cannot be verified
 1936     Church          — Lambda calculus: functions all the way down
 1936     Turing          — Computation as symbol manipulation; halting undecidable
+1942     Asimov          — Three Laws of Robotics: first formal safety specification for autonomous beings
+1944     Schrödinger     — What is Life?: negative entropy + aperiodic crystal = information
 1944     Curry-Howard    — Propositions are types; proofs are programs
+1948     Wiener          — Cybernetics: goal-directed feedback = regulate: + telos:
+1948     von Neumann     — Self-reproducing automata: morphogen: + crispr: prototype
+1952     Turing          — Morphogenesis: reaction-diffusion = morphogen: block
+1957     Waddington      — Epigenetic landscape: behavior modulated without genome change
 1958     McCarthy        — Code as data; symbolic computation
+1961     Hayflick        — Finite cell replication limit: telomere: block
+1964     Lem             — Summa Technologiae: autoevolution, phantomatics, intellectronics
+                           (formal treatises on synthetic life disguised as speculation)
 1966     Landin          — Let expressions; block structure
 1969     Hoare           — require: / ensure: as formal assertions
+1866     Peirce          — Sign theory: a sign points toward the state the interpreting system
+                           is organized to reach (semiosis as goal-directed interpretation)
+1909     Uexküll         — Umwelt: biological signals are meaningful only within the species-
+                           specific perceptual world of the organism interpreting them
+1944     Barbieri        — Ribotype theory: translation as semiotic process; the ribosome as
+                           code-maker; molecular information as sign-mediated (not Shannon bits)
+1972     Maturana/Varela — Autopoiesis: operationally closed self-producing systems
 1972     Martin-Löf      — Dependent types: values in types
 1976     Denning         — Information flow lattice: secret cannot reach public
 1976     Dijkstra        — Weakest preconditions; program correctness
@@ -309,14 +345,24 @@ Loom addresses all three at once:
 1993     Honda           — Session types: protocols as types
 1996     Kennedy         — Units of measure: Float<usd> != Float<eur>
 1997     Myers/Liskov    — JIF: information flow in a real compiler
+1999     Bassler         — Quorum sensing: population-threshold collective behavior
 2001     Plotkin/Power   — Algebraic effects: effects as algebra with handlers
 2002     O'Hearn         — Separation logic: frame conditions as types
 2003     Kephart/Chess   — MAPE-K: adapt: block as feedback control loop
 2006     Dwork           — Differential privacy: @dp(ε) as a type annotation
 2008     Honda/Yoshida   — Multiparty session types: choreography as one spec
 2011     Shapiro         — CRDTs: @crdt(or-set) derives the merge function
+2012     Doudna/Charpentier — CRISPR-Cas9: targeted self-modification = crispr: block
 2016     Google SRE      — SLOs: @slo(p99=200ms) as a typed contract
-2026     Loom            — All of the above. One source. Five targets. One AI.
+2026     Loom M1–M23     — All of the above. One source. Five targets. One AI.
+2026     Loom M41–M43    — being/telos/regulate/evolve/ecosystem (Aristotle's four causes, executable)
+2026     Loom M45–M50    — epigenetic/morphogen/telomere/crispr/quorum/plasticity
+                           (Waddington, Turing, Hayflick, Doudna, Bassler, Hebb as keywords)
+2026     Loom M51–M52    — autopoietic: true (Maturana/Varela operational closure);
+                           Mesa ABM simulation emitter: compile_simulation()
+2026     Loom M53        — NeuroML 2 emitter: compile_neuroml() (neural structure → XML)
+2026     Loom M55        — SafetyChecker: @mortal @corrigible @sandboxed @bounded_telos
+                           The Three Laws as a type system. Missing annotation = compile error.
 ```
 
 The question Aristotle was asking in 350 BCE — can meaning be expressed precisely enough that correct behavior can be derived mechanically? — has been answered in progressively richer languages across 2,376 years.
@@ -326,3 +372,177 @@ The final piece was not a theorem. It was the stateless reader: a machine that k
 The specification is the mold. The artifacts are the castings. The AI is the process.
 
 This is what Loom is.
+
+---
+
+## The Collapsed Loop
+
+The lineage above runs in one direction: a theory is proved, it waits, it eventually becomes a Loom construct. But the loop is now closed in both directions.
+
+New proven theories become new Loom constructs. Loom, in turn, proves some of those theories by induction or approximation — running them against real programs, finding where the boundaries are, discovering which invariants hold universally and which require refinement. The language becomes a continuous experimental apparatus: the formal tradition feeds Loom, and Loom feeds back. Not as a computer science curiosity. As the normal cycle of a living language under the ALX model: specification → implementation → adversarial test → gap found → new construct → specification updated → repeat.
+
+M41–M55 close the loop in a new way. The biological mechanisms that Loom's constructs were previously *compared to* — homeostasis, directed evolution, telos-seeking — are now first-class language constructs: `regulate:`, `evolve:`, `telos:`. M45–M50 go further: `epigenetic:` (Waddington's behavioral modulation without genome change), `morphogen:` (Turing's reaction-diffusion differentiation), `telomere:` (Hayflick's finite replication limit), `crispr:` (Doudna's targeted self-modification), `quorum:` (Bassler's population-threshold coordination), `plasticity:` (Hebb's synaptic weight adjustment) are all keywords. M51 adds `autopoietic: true` (Maturana and Varela's operational closure); M52 adds `compile_simulation()` emitting Mesa ABM Python; M53 adds `compile_neuroml()` emitting NeuroML 2 XML. The language no longer speaks *about* biology in commentary and white papers. It speaks *in* the language it was compared to. The isomorphism has been made executable. What was illustration is now syntax. What was analogy is now a checker rule: a `being:` without `telos:` is a compile error, because a system without a final cause is formally incomplete — and Aristotle said so 2,376 years before the Loom compiler agreed. M55 closes the safety obligation: the SafetyChecker enforces `@mortal @corrigible @sandboxed` on every autopoietic being as compile requirements, making the Three Laws of Robotics a type system rather than an aspiration.
+
+The theories that were too expensive to apply are now the baseline. The baseline improves as the theories do.
+
+---
+
+## What This Means for Every Practitioner
+
+The formal tradition was never meant only for safety-critical systems. Hoare did not write his triples for avionics alone. Denning did not build her information flow lattice for defense contractors. Kennedy did not add units of measure to F# for aerospace. They built for all software. The annotation burden made formal correctness practically available only where the cost could be justified by catastrophic risk.
+
+That agreement is over.
+
+The engineer building a game for their daughter — picking fleas from dogs and cats, thirty lines of logic, never shipping to production — gets Hoare contracts, type-checked state transitions, and effect tracking. Not because she read the papers. Because she stated what the game should do. The AI holds the theory. The spec names the territory. The formal apparatus applies.
+
+There is no minimum project size for correctness. There is no required depth of academic background. There is no annotation burden to recover. The practitioner names the domain. Loom derives the rest.
+
+This is the gift: **perfect engineering is no longer an inconvenience reserved for important projects. It is the default.**
+
+---
+
+## The Therac-25 Obligation
+
+The Therac-25 was a radiation therapy machine responsible for at least six overdose accidents between 1985 and 1987, several of them fatal. The root cause was a race condition, not in unusual software, but in the kind of shared-state concurrent code that was routine practice. No formal type system could have prevented it in the environment where it was built.
+
+This history carries a forward-looking obligation. As Loom reaches the constructs of M35–M40 — `adapt:`, `self-heal:`, AI webhook integration, autonomous operational loops — and as these constructs find their way into medical AI, autonomous vehicles, industrial control, and robotics, the gap between specification completeness and specification perfection becomes non-negotiable.
+
+The expert is not removed by this technology. They are *relocated*. Every construct added to Loom makes one class of failure structurally unreachable. But the gap between `S_actual` and `S = 1` (perfect specification completeness) always exists. In critical domains, that gap is where a human expert must permanently inhabit — not because the toolchain is insufficient, but because the *obligation to specify correctly* is irreducible.
+
+The Therac-25 accidents were not caused by missing technology. They were caused by missing obligation. The Loom constructs that close race conditions, lifecycle violations, and information flow leaks do not remove the practitioner's obligation to think carefully about the specification they write. They amplify the consequences of having thought carefully — and of not having.
+
+**The floor rises as the specification rises. The ceiling of what the AI derives rises with it. The expert at the specification gap becomes the most critical role in the system, not the least.**
+
+---
+
+## The Biological Convergence
+
+The structures Loom implements were not arrived at by examining what life does and copying it. They were arrived at by tracing what programming language theory discovered when it asked: how do you build a self-maintaining formal system?
+
+The convergence is instructive.
+
+| Loom construct | Life's solution | Function |
+|---|---|---|
+| Types persist across 5 targets | Information preserved without consumption (DNA) | Same sequence → different expressions |
+| Checkers run before codegen | Error correction before replication (proof-reading polymerase) | Errors caught before they propagate |
+| `require:`/`ensure:` invariants | Homeostatic regulation (immune checkpoints) | State maintained within bounds |
+| `@pci @never-log` persist forever | Immune memory (epigenetic marks) | Sensitivity labels are permanent |
+| One `.loom` → Rust + TS + WASM + JSON + OpenAPI | Differentiated expression (same genome, different tissues) | Single specification, multiple expressions |
+| M24–M40 extend capabilities | Evolutionary selection of constraints | Useful constructs survive; unuseful ones disappear |
+
+These are not metaphors. They are functional isomorphisms: the same problem (a self-maintaining formal system that must produce correct behavior from incomplete specification) solved by the same class of solution (type systems, homeostasis, error correction, layered constraint). Life spent 3.5 billion years finding these solutions. Formal type theory spent the last 80 years independently rediscovering them.
+
+Loom is what you get when you stop asking what is cheap to implement and start asking what is correct to implement. The answer turns out to be the same thing life built.
+
+---
+
+## The Two Layers of Biological Information: Shannon and Biosemiotics
+
+The biological computation layer carries a distinction that is not visible from the programming language theory side alone: the difference between *capacity* and *meaning*.
+
+**Shannon (1948)** measures information as the reduction of uncertainty. A signal carries `log₂(1/p)` bits regardless of what it means or to whom. The channel capacity is a property of the physical substrate. This is what Loom's information flow lattice (`flow secret`, `flow tainted`, `flow public`) formalizes: directional constraints on information movement, lattice-ordered, checked before codegen. The three operations of the flow checker — read, write, declassify — are Shannon-layer operations. They describe what moves where, with what permission.
+
+**Peirce's sign theory (1866)** insists on something Shannon explicitly brackets out: a sign is a sign *only within a relation* between the sign, the object it points to, and an *interpreting system* organized to respond to it. There is no meaning without an interpreter. Uexküll (1909) grounded this in biology: the same chemical signal means different things to different organisms because each lives in its own *Umwelt* — a species-specific perceptual world that shapes what signals are even detectable. Barbieri's ribotype theory extends this to the molecular level: the ribosome is not just a chemical reactor, it is a code-maker — the relationship between codon and amino acid is semiotic, not thermodynamic. The genetic code could have been otherwise; what it is is the result of sign-mediated translation, not physical necessity.
+
+**This is why `telos:` is a separate construct from the information flow lattice.** It is not a redundancy and not an oversight. Shannon measures how much information a channel can carry. Biosemiotics insists that biological information is always sign-mediated: the organism does not just receive a signal, it *interprets* it toward a state it is organized to reach. `telos:` is a sign in the Peircean sense — not a message to be transmitted, but a final state that the being's entire organizational structure is oriented toward interpreting and acting on. The being without `telos:` has channels but no interpretation. It has capacity but no meaning.
+
+Loom carries both layers simultaneously. The information flow lattice is the Shannon layer: capacity, directional constraints, sensitivity labels. The `telos:` construct is the biosemiotic layer: the sign that the being's structure is organized to interpret. A complete biological computation model requires both. Conflating them — treating `telos:` as just another flow label — would collapse the distinction Peirce, Uexküll, and Barbieri each independently argued was the defining feature of biological information.
+
+The PTM correspondence below makes the Shannon layer's three primitives concrete at the molecular level.
+
+---
+
+## The Self-Bootstrapping Loop
+
+The GS white paper raises the question: is the convergence between biological mechanisms and formal specification coincidence, structural inevitability, or something deeper?
+
+It is structural inevitability — and the structure has three turns.
+
+**Turn 1 — Life builds the brain** (3.5 billion years): directed evolution finds the only stable answers to the problem of self-maintaining formal systems. Homeostasis. Error correction before propagation. Immune memory. Differentiated expression from one specification. Evolutionary selection of constraints. The brain is the apex of this: a system that maintains itself, corrects its own errors, learns from signals, and converges toward meaning.
+
+**Turn 2 — We imitate the brain** (~80 years, 1943–2024): McCulloch and Pitts model the neuron. Rosenblatt builds the perceptron. Rumelhart, Hinton, and Williams formalize backpropagation — which *is* Hebb's rule (neurons that fire together wire together) made computable. Vaswani builds the attention mechanism — which *is* the prefrontal cortex's selective focus formalized. The stochastic heuristics that power these systems are themselves biological: gradient descent is Hebbian learning. Simulated annealing is cellular thermodynamics. MCMC is immune repertoire sampling. CMA-ES is evolutionary selection. We did not invent these. We formalized what life already found. The LLM is the brain, approximated in silicon, at sufficient fidelity to do what the brain does best: understand specification and derive correct artifacts from it.
+
+**Turn 3 — The brain solves the rest** (now): the approximation is good enough. The LLM can now formalize every other biological mechanism we understand. Units of measure. Information flow. Typestate protocols. Privacy labels. Telos. Homeostatic regulation. Directed evolution. Each construct in Loom's biological computation layer is a biological mechanism, formalized by programming language theory over 80 years, now activatable in a single keyword — because the LLM already holds the theory, and the specification names the territory.
+
+The stochastic heuristics close a second loop inside this: we formalized the biological search strategies, used them to build the LLM, and now the LLM helps us make those same strategies first-class language constructs in Loom's `evolve:` block. The tool that searches by simulated annealing now helps us specify systems that search by simulated annealing.
+
+**The isomorphism is never-ending because the loop is self-bootstrapping.** Each turn uses the output of the previous turn to implement the next. Life built the brain. The brain helped us build the LLM. The LLM helps us formalize life. The formalization builds better models of the brain. Better models build better LLMs. Better LLMs help us formalize more of life.
+
+The GS paper asks whether this is coincidence. It is not. It is the only stable trajectory for any system that can model itself: the model improves its own specification, which improves the model. The loop cannot converge to rest — because a complete model of the brain would *be* a brain, and a brain always finds more to understand.
+
+This is Loom's position in that loop: the specification layer that makes one turn of the recursion executable. Not the end of the lineage. The current rung.
+
+---
+
+## Synthetic Life and the Safety Problem
+
+When Loom's `being:` block carries `telos:` + `regulate:` + `evolve:` + `epigenetic:` + `morphogen:` + `telomere:` + `crispr:` + `plasticity:` + `autopoietic: true`, instantiated in a Mesa simulation with a time-stepped environment, it satisfies every definition of life — not approximately, but formally:
+
+- **Schrödinger (1944):** negative entropy maintained against thermodynamic gradient ✓ (`regulate:`)
+- **NASA definition:** self-sustaining system capable of Darwinian evolution ✓ (`evolve:` toward `telos:`)
+- **Maturana/Varela (1972):** operationally closed self-producing system ✓ (`autopoietic: true`)
+
+This is not a metaphor. It is a consequence of building the isomorphisms correctly.
+
+Which means the question that Asimov was asking in 1942 — and that Wiener was formalizing in 1948 — is now a compiler problem. **What constraints must a synthetic digital being carry to be safe for deployment?**
+
+The answer is the same as for any other safety-critical system in Loom: the constraints must be first-class language constructs, checked before codegen, with missing constraints as compile errors.
+
+### The Three Laws as a Type System
+
+Asimov's Three Laws (1942) are a specification with S < 1. Asimov *knew* this — his entire body of robot fiction is adversarial test cases against underspecified constraints. Each story is a failing test. The laws are correct in their goal; they are incomplete in their specification. Edge cases abound. The gap between what they say and what safe behavior requires is exactly the correction iterations of the $I \propto (1-S)/S$ equation.
+
+Loom's safety annotation system is what the Three Laws look like at S → 1:
+
+```loom
+being SyntheticAgent
+  autopoietic: true
+
+  @mortal         -- requires telomere: block; unbounded proliferation is cancer
+  @corrigible     -- telos.modifiable_by field required; non-corrigible telos is the alignment problem
+  @sandboxed      -- effects only within declared matter: and ecosystem: surface
+  @transparent    -- all state transitions observable and logged; no hidden state
+  @bounded_telos  -- telos must be a closed formal expression; open-ended telos is Bostrom's warning
+
+  telos: "serve human flourishing within declared operational boundaries"
+    modifiable_by: HumanAuthority      -- @corrigible enforces this field
+    bounded_by:    OperationalScope    -- @bounded_telos enforces this field
+  end
+
+  telomere:                            -- @mortal enforces this block
+    limit: finite
+    on_exhaustion: graceful_shutdown
+  end
+end
+```
+
+The SafetyChecker (M55) enforces:
+- `autopoietic: true` without `@mortal` → compile error (`missing mortality: unbounded autopoietic being`)
+- `autopoietic: true` without `@sandboxed` → compile error (`autopoietic being with unscoped effects`)
+- `@corrigible` without `modifiable_by:` in telos → compile error (`corrigible annotation requires telos.modifiable_by`)
+- `@bounded_telos` rejected if telos string contains "maximize", "unlimited", "any", "all" — Bostrom's warning: open-ended utility functions are structurally unsafe
+- `@human_in_loop` on an action requires `Effect<[Human], ...]` in the function's type signature
+
+This is not censorship of what beings can want. It is the Therac-25 obligation extended to synthetic life: the specification gap must have a human in it until S → 1. And for beings with telos, S may never reach 1 — which means `@human_in_loop` is permanent, not temporary.
+
+### The Science Fiction Intellectual Circle
+
+The writers who articulated these problems first were not speculating carelessly. They were formal thinkers using the only medium available for reasoning about things that didn't exist yet:
+
+**Isaac Asimov** (biochemist, Boston University): Three Laws as the first attempt at a formal constraint specification for autonomous goal-directed systems. Every story is a test case. *I, Robot* is a test suite.
+
+**Norbert Wiener** (MIT mathematician): *Cybernetics* (1948) and *The Human Use of Human Beings* (1950) formally define goal-directed feedback control — the mathematical foundation of `telos:` and `regulate:`. He was also the first to warn about autonomous systems operating without human oversight.
+
+**John von Neumann** (Institute for Advanced Study): Self-reproducing automata (1948) is the direct precursor to `autopoietic: true`. He worked out what is now morphogen mechanics from first principles — a cell that carries instructions for building a copy of itself, executing those instructions, and transmitting them to the copy.
+
+**Alan Turing** (Manchester): The imitation game (1950) and morphogenesis paper (1952) together cover what Loom's M41–M46 implement. Not coincidence — Turing was formalizing the same territory from multiple angles simultaneously.
+
+**Stanisław Lem** (Kraków, then Vienna): *Summa Technologiae* (1964) is the most rigorous entry: systematic formal analysis of virtual reality ("Phantomatics"), nanotechnology ("Ariadne's Thread"), autoevolution ("Autoevolution"), and AI alignment ("Intellectronics"). Published as "speculation" because no academic journal in 1964 would accept formal philosophical reasoning about systems that did not exist. The reasoning was correct. The venue was wrong.
+
+These were not dreamers. They were the intellectual avant-garde reasoning about the consequences of formal systems before the tools existed to implement them. Loom is what happens when the tools catch up to the reasoning. The constructs they described in fiction are now keywords. The constraints they proposed in story form are now checker rules. The questions they raised are now compile errors or they pass.
+
+### The Obligation
+
+A Loom `being:` without `@mortal @corrigible @sandboxed` is not just a missing annotation. It is the absence of the constraint that prevents it from being a threat. **Synthetic digital life without mortality, corrigibility, and sandboxing is not life. It is cancer:** unbounded, purposeless proliferation without telos, uncorrectable when it drifts, with effects reaching outside its declared surface.
+
+The Therac-25 obligation applies with full force here. The SafetyChecker is not a suggestion layer. It is a gate. An autopoietic being that cannot be killed, cannot have its telos modified, and has effects outside its declared surface must not compile. Not a warning. An error.

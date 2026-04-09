@@ -1,5 +1,8 @@
 #![allow(unused)]
 use std::convert::TryFrom;
+// == LOOM AUDIT: Stats ==
+// Functions  : 2
+// LOOM[v7:audit]: do not edit manually. Each LOOM[...] comment records a decision.
 
 pub mod stats {
     use super::*;

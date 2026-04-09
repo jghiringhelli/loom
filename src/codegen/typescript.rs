@@ -147,8 +147,25 @@ impl TypeScriptEmitter {
                 Item::Enum(ed) => self.emit_enum_def(ed),
                 Item::Fn(fd) => self.emit_fn_def(fd),
                 Item::RefinedType(rt) => self.emit_refined_type(rt),
+                Item::UseCase(uc) => self.emit_usecase_ts(uc),
+                _ => String::new(),
             };
             for line in item_src.lines() {
+                if line.is_empty() {
+                    body.push('\n');
+                } else {
+                    body.push_str("  ");
+                    body.push_str(line);
+                    body.push('\n');
+                }
+            }
+        }
+
+        // Emit being definitions as TypeScript classes.
+        for being in &module.being_defs {
+            body.push('\n');
+            let being_src = self.emit_being_ts(being);
+            for line in being_src.lines() {
                 if line.is_empty() {
                     body.push('\n');
                 } else {
@@ -170,6 +187,13 @@ impl TypeScriptEmitter {
         }
 
         out.push_str("}\n");
+
+        // Emit ecosystem namespaces (top-level, outside module namespace).
+        for eco in &module.ecosystem_defs {
+            out.push('\n');
+            out.push_str(&self.emit_ecosystem_ts(eco));
+        }
+
         out
     }
 
@@ -401,7 +425,13 @@ impl TypeScriptEmitter {
                 let es: Vec<String> = elems.iter().map(|e| self.emit_type_expr(e)).collect();
                 format!("[{}]", es.join(", "))
             }
+            TypeExpr::Dynamic => "any".to_string(),
             TypeExpr::TypeVar(id) => format!("/* infer:?{} */", id),
+            // Tensor<rank, shape, unit> — emit as nested Array type.
+            TypeExpr::Tensor { rank, unit, .. } => {
+                let inner = self.emit_type_expr(unit);
+                (0..*rank).fold(inner, |acc, _| format!("{}[]", acc))
+            }
         }
     }
 
@@ -579,9 +609,366 @@ impl TypeScriptEmitter {
             }
         }
     }
+
+    /// Emit an ecosystem as a TypeScript namespace.
+    fn emit_ecosystem_ts(&self, eco: &EcosystemDef) -> String {
+        let mut out = String::new();
+
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @ecosystem {}\n", eco.name));
+        if let Some(telos) = &eco.telos {
+            out.push_str(&format!(" * @telos {}\n", telos));
+        }
+        if !eco.members.is_empty() {
+            out.push_str(&format!(" * @members {}\n", eco.members.join(", ")));
+        }
+        out.push_str(" */\n");
+        out.push_str(&format!("export namespace {} {{\n", eco.name));
+
+        for sig in &eco.signals {
+            out.push_str(&format!("  /** Signal: {} ({} → {}) */\n", sig.name, sig.from, sig.to));
+            out.push_str(&format!("  export interface {} {{", sig.name));
+            out.push_str(&format!(" payload: {} ", self.payload_to_ts_type(&sig.payload)));
+            out.push_str("}\n");
+        }
+
+        // coordinate fn
+        let params: Vec<String> = eco.members.iter()
+            .map(|m| {
+                let param_name = m.chars().next().map(|c| c.to_lowercase().to_string())
+                    .unwrap_or_default() + &m[1..];
+                format!("{}: {}", param_name, m)
+            })
+            .collect();
+        out.push_str("\n  /** Coordinate beings toward ecosystem telos */\n");
+        out.push_str(&format!(
+            "  export async function coordinate(\n    {}\n  ): Promise<void> {{\n",
+            params.join(", ")
+        ));
+        out.push_str("    throw new Error('implement ecosystem coordination toward telos');\n");
+        out.push_str("  }\n");
+
+        // Quorum sensing blocks
+        for quorum in &eco.quorum_blocks {
+            let signal_pascal = to_pascal_case(&quorum.signal);
+            out.push_str(&format!(
+                "\n  /** Quorum sensing: {} threshold {} → {}\n",
+                quorum.signal, quorum.threshold, quorum.action
+            ));
+            out.push_str(&format!(
+                "   * @quorum signal={} threshold={} action={}\n",
+                quorum.signal, quorum.threshold, quorum.action
+            ));
+            out.push_str("   */\n");
+            out.push_str(&format!(
+                "  static checkQuorum{}(populationSignals: number[]): boolean {{\n",
+                signal_pascal
+            ));
+            out.push_str(
+                "    const fraction = populationSignals.filter(s => s > 0).length / populationSignals.length;\n"
+            );
+            out.push_str(&format!("    if (fraction >= {}) {{\n", quorum.threshold));
+            out.push_str(&format!(
+                "      // trigger collective action: {}\n",
+                quorum.action
+            ));
+            out.push_str(&format!(
+                "      throw new Error('implement quorum action: {}');\n    }}\n",
+                quorum.action
+            ));
+            out.push_str(&format!("    return fraction >= {};\n  }}\n", quorum.threshold));
+        }
+
+        out.push_str("}\n");
+        out
+    }
+
+    /// Map a payload type string to a TypeScript type.
+    fn payload_to_ts_type(&self, payload: &str) -> String {
+        let base = payload.split('<').next().unwrap_or(payload).trim();
+        match base {
+            "Float" | "Int" => "number".to_string(),
+            "String" | "Str" => "string".to_string(),
+            "Bool" => "boolean".to_string(),
+            other => other.to_string(),
+        }
+    }
+
+    /// Emit a being definition as a TypeScript class.
+    fn emit_being_ts(&self, being: &BeingDef) -> String {
+        let mut out = String::new();
+        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @being {}\n", being.name));
+        out.push_str(&format!(" * @telos {}\n", telos_desc));
+        if let Some(matter) = &being.matter {
+            let fields_str: Vec<String> = matter.fields.iter()
+                .map(|f| format!("{}: {}", f.name, self.emit_type_expr(&f.ty)))
+                .collect();
+            out.push_str(&format!(" * @matter {{{}}}\n", fields_str.join(", ")));
+        }
+        out.push_str(" */\n");
+
+        out.push_str(&format!("export class {} {{\n", being.name));
+
+        if let Some(matter) = &being.matter {
+            if !matter.fields.is_empty() {
+                let params: Vec<String> = matter.fields.iter()
+                    .map(|f| format!("public {}: {}", f.name, self.emit_type_expr(&f.ty)))
+                    .collect();
+                out.push_str(&format!("  constructor(\n    {}\n  ) {{}}\n\n", params.join(",\n    ")));
+            }
+        }
+
+        out.push_str(&format!("  /** Evaluate fitness relative to telos: {:?} */\n", telos_desc));
+        out.push_str(&format!(
+            "  fitness(): number {{\n    throw new Error('implement fitness toward telos: {}');\n  }}\n",
+            telos_desc
+        ));
+
+        for reg in &being.regulate_blocks {
+            let pascal = to_pascal_case(&reg.variable);
+            let (low, high) = reg.bounds.as_ref()
+                .map(|(l, h)| (l.as_str(), h.as_str()))
+                .unwrap_or(("?", "?"));
+            out.push_str(&format!(
+                "\n  /** Homeostatic regulation: {} → {} within [{}, {}] */\n",
+                reg.variable, reg.target, low, high
+            ));
+            out.push_str(&format!("  regulate{}(): void {{\n", pascal));
+            if !reg.response.is_empty() {
+                let resp: Vec<String> = reg.response.iter().map(|(c, a)| format!("{} -> {}", c, a)).collect();
+                out.push_str(&format!("    // response: {}\n", resp.join(", ")));
+            }
+            out.push_str(&format!(
+                "    throw new Error('implement regulation for {}');\n  }}\n",
+                reg.variable
+            ));
+        }
+
+        if let Some(evolve) = &being.evolve_block {
+            // Emit a strategy-specific method for each search case
+            for sc in &evolve.search_cases {
+                let method = strategy_ts_method(&sc.strategy);
+                let label = strategy_ts_label(&sc.strategy);
+                let step_comment = strategy_ts_step_comment(&sc.strategy);
+                out.push_str(&format!("\n  /** {} step toward telos.", label));
+                if !sc.when.trim().is_empty() {
+                    out.push_str(&format!(" When: {}", sc.when));
+                }
+                out.push_str(" */\n");
+                out.push_str(&format!("  async {}(environment: unknown): Promise<number> {{\n", method));
+                out.push_str(&format!("    // {}\n", step_comment));
+                out.push_str(&format!("    // constraint: {}\n", evolve.constraint));
+                out.push_str(&format!(
+                    "    throw new Error('implement {} toward telos');\n  }}\n",
+                    label
+                ));
+            }
+
+            // Emit the dispatcher
+            let strategy_labels: Vec<&str> = evolve.search_cases.iter()
+                .map(|sc| strategy_ts_label(&sc.strategy))
+                .collect();
+            let default_method = evolve.search_cases.first()
+                .map(|sc| strategy_ts_method(&sc.strategy))
+                .unwrap_or("evolveImpl");
+            out.push_str("\n  /** Select and apply the appropriate search strategy.\n");
+            out.push_str("   * Directed evolution: E[distance_to_telos] non-increasing.\n");
+            if !strategy_labels.is_empty() {
+                out.push_str(&format!("   * strategies: {}\n", strategy_labels.join(", ")));
+            }
+            out.push_str("   */\n");
+            out.push_str("  async evolve(environment: unknown): Promise<void> {\n");
+            out.push_str("    let distance = Infinity;\n");
+            out.push_str("    while (distance > Number.EPSILON) {\n");
+            out.push_str("      // select strategy based on landscape topology\n");
+            out.push_str(&format!("      distance = await this.{}(environment);\n", default_method));
+            out.push_str("    }\n  }\n");
+        }
+
+        // Epigenetic blocks
+        for epi in &being.epigenetic_blocks {
+            let signal_pascal = to_pascal_case(&epi.signal);
+            let reverts_str = epi.reverts_when.as_deref().unwrap_or("never");
+            out.push_str(&format!(
+                "\n  /** Epigenetic modulation: {} → {}\n   * @epigenetic signal={} modifies={}\n   * Reverts when: {}\n   */\n",
+                epi.signal, epi.modifies, epi.signal, epi.modifies, reverts_str
+            ));
+            out.push_str(&format!("  applyEpigenetic{}(signalStrength: number): void {{\n", signal_pascal));
+            out.push_str(&format!("    // modifies: {} without changing form structure\n", epi.modifies));
+            out.push_str("    throw new Error('implement epigenetic modulation');\n  }\n");
+        }
+
+        // Morphogen blocks
+        for morph in &being.morphogen_blocks {
+            let signal_pascal = to_pascal_case(&morph.signal);
+            let produces_str = morph.produces.join(", ");
+            out.push_str(&format!(
+                "\n  /** Morphogenetic differentiation: {} at threshold {}\n   * @morphogen signal={} threshold={} produces={}\n   */\n",
+                morph.signal, morph.threshold, morph.signal, morph.threshold, produces_str
+            ));
+            out.push_str(&format!("  differentiate{}(signalLevel: number): unknown[] | null {{\n", signal_pascal));
+            out.push_str(&format!("    if (signalLevel >= {}) {{\n", morph.threshold));
+            out.push_str(&format!("      // produces: {}\n", produces_str));
+            out.push_str("      throw new Error('implement differentiation');\n    }\n    return null;\n  }\n");
+        }
+
+        // Telomere block
+        if let Some(tel) = &being.telomere {
+            out.push_str(&format!(
+                "\n  /** @telomere limit={} on_exhaustion={}\n   * Hayflick limit: {} replications maximum\n   */\n",
+                tel.limit, tel.on_exhaustion, tel.limit
+            ));
+            out.push_str("  private telomereCount = 0;\n");
+            out.push_str(&format!("  readonly telomereLimit = {};\n\n", tel.limit));
+            out.push_str("  replicate(): boolean {\n");
+            out.push_str("    if (this.telomereCount >= this.telomereLimit) {\n");
+            out.push_str(&format!("      // on_exhaustion: {}\n", tel.on_exhaustion));
+            out.push_str("      return false; // exhausted\n    }\n");
+            out.push_str("    this.telomereCount++;\n    return true;\n  }\n");
+        }
+
+        if being.autopoietic {
+            out.push_str("\n  /** @autopoietic true\n");
+            out.push_str("   * Maturana/Varela (1972): operationally closed, self-producing.\n");
+            out.push_str("   * Requires: telos + regulate + evolve + matter\n");
+            out.push_str("   */\n");
+            out.push_str("  static isAutopoietic(): boolean { return true; }\n\n");
+            out.push_str("  verifyOperationalClosure(): boolean {\n");
+            out.push_str("    // verify all four autopoietic layers are functional\n");
+            out.push_str("    return false; // todo: implement\n");
+            out.push_str("  }\n");
+        }
+
+        // CRISPR blocks
+        for crispr in &being.crispr_blocks {
+            let guide_pascal = to_pascal_case(&crispr.guide);
+            out.push_str(&format!(
+                "\n  /** CRISPR edit: {} → {} replaced by {}\n",
+                crispr.guide, crispr.target, crispr.replace
+            ));
+            out.push_str(&format!(
+                "   * @crispr target={} replace={} guide={}\n",
+                crispr.target, crispr.replace, crispr.guide
+            ));
+            out.push_str("   */\n");
+            out.push_str(&format!("  edit{}(guide: {}): boolean {{\n", guide_pascal, crispr.guide));
+            out.push_str(&format!(
+                "    // target: {} → replace: {}\n",
+                crispr.target, crispr.replace
+            ));
+            out.push_str("    throw new Error('implement CRISPR edit');\n  }\n");
+        }
+
+        // Plasticity blocks
+        for plasticity in &being.plasticity_blocks {
+            let modifies_pascal = to_pascal_case(&plasticity.modifies);
+            let rule_str = match plasticity.rule {
+                PlasticityRule::Hebbian => "hebbian",
+                PlasticityRule::Boltzmann => "boltzmann",
+                PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+            };
+            let rule_description = match plasticity.rule {
+                PlasticityRule::Hebbian => "co-activation strengthens the connection weight",
+                PlasticityRule::Boltzmann => "energy minimization via thermal equilibration",
+                PlasticityRule::ReinforcementLearning => "reward signal updates weight toward policy optimum",
+            };
+            out.push_str(&format!(
+                "\n  /** Plasticity update: {} → {} via {}\n",
+                plasticity.trigger, plasticity.modifies, rule_str
+            ));
+            out.push_str(&format!(
+                "   * @plasticity trigger={} rule={}\n",
+                plasticity.trigger, rule_str
+            ));
+            out.push_str(&format!("   * Hebb (1949): {}\n", rule_description));
+            out.push_str("   */\n");
+            out.push_str(&format!(
+                "  update{}(triggerStrength: number): void {{\n",
+                modifies_pascal
+            ));
+            out.push_str(&format!("    // {}: {}\n", rule_str, rule_description));
+            out.push_str(&format!(
+                "    throw new Error('implement {} plasticity');\n  }}\n",
+                rule_str
+            ));
+        }
+
+        out.push_str("}\n");
+        out
+    }
+
+    // ── M110: Use-case JSDoc comment emitter ─────────────────────────────────
+
+    /// Emit a JSDoc comment block for a `usecase:` block (documentation artifact).
+    fn emit_usecase_ts(&self, uc: &UseCaseBlock) -> String {
+        let mut out = String::new();
+        out.push_str("/**\n");
+        out.push_str(&format!(" * @usecase {} — Actor: {}\n", uc.name, uc.actor));
+        if !uc.trigger.is_empty() {
+            out.push_str(&format!(" * @trigger {}\n", uc.trigger));
+        }
+        if !uc.precondition.is_empty() {
+            out.push_str(&format!(" * @precondition {}\n", uc.precondition));
+        }
+        if !uc.postcondition.is_empty() {
+            out.push_str(&format!(" * @postcondition {}\n", uc.postcondition));
+        }
+        if !uc.acceptance.is_empty() {
+            out.push_str(" * @acceptance\n");
+            for criterion in &uc.acceptance {
+                out.push_str(&format!(
+                    " *   - {}: {}\n",
+                    criterion.name, criterion.description
+                ));
+            }
+        }
+        out.push_str(" */\n");
+        out.push_str(&format!(
+            "// usecase: {} — {} acceptance criteria\n",
+            uc.name,
+            uc.acceptance.len()
+        ));
+        out
+    }
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/// Returns the camelCase TS method name for a search strategy.
+fn strategy_ts_method(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "evolveGradientDescent",
+        SearchStrategy::StochasticGradient => "evolveStochasticGradient",
+        SearchStrategy::SimulatedAnnealing => "evolveSimulatedAnnealing",
+        SearchStrategy::DerivativeFree    => "evolveDerivativeFree",
+        SearchStrategy::Mcmc              => "evolveMcmc",
+    }
+}
+
+/// Returns a short label for a search strategy (used in comments).
+fn strategy_ts_label(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "gradient descent",
+        SearchStrategy::StochasticGradient => "stochastic gradient",
+        SearchStrategy::SimulatedAnnealing => "simulated annealing",
+        SearchStrategy::DerivativeFree    => "derivative-free",
+        SearchStrategy::Mcmc              => "MCMC",
+    }
+}
+
+/// Returns a one-line implementation comment for a search strategy step.
+fn strategy_ts_step_comment(strategy: &SearchStrategy) -> &'static str {
+    match strategy {
+        SearchStrategy::GradientDescent   => "adjust parameters along negative gradient",
+        SearchStrategy::StochasticGradient => "noisy gradient estimation",
+        SearchStrategy::SimulatedAnnealing => "probabilistic uphill acceptance",
+        SearchStrategy::DerivativeFree    => "explore without gradient information",
+        SearchStrategy::Mcmc              => "sample from posterior landscape",
+    }
+}
 
 /// Returns a human-readable description for known algebraic annotation keys,
 /// or `None` if the key is not a recognised algebraic property.
@@ -608,6 +995,19 @@ fn to_kebab_case(name: &str) -> String {
         out.push(ch.to_lowercase().next().unwrap());
     }
     out
+}
+
+/// snake_case → PascalCase for method names.
+fn to_pascal_case(name: &str) -> String {
+    name.split('_')
+        .map(|part| {
+            let mut c = part.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        })
+        .collect()
 }
 
 /// Collect parameter names from a FnDef body (mirrors the Rust emitter logic).

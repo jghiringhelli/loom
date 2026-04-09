@@ -29,6 +29,25 @@ Loom — an AI-native functional language that transpiles to Rust, TypeScript, W
 - `flow secret :: TypeA, TypeB` — information flow label
 - `invariant name :: condition` — module-level invariant
 - `test name :: expr` — inline test block → `#[test]`
+- `being: ... end` / `ecosystem: ... end` — biological computation blocks (M41–M43)
+- `matter:` / `form:` / `function:` / `telos:` — Aristotle's four causes inside `being:`
+- `regulate Name ... end` — homeostatic bounds enforcement inside `being:`
+- `evolve ... end` — directed search toward telos (gradient_descent, stochastic_gradient, simulated_annealing, derivative_free, mcmc)
+- `signal Name from A to B` — session-typed channel inside `ecosystem:`
+- `epigenetic: trigger: ... end` — Waddington behavioral modulation without genome change (M45)
+- `morphogen: gradient: ... end` — Turing reaction-diffusion spatial differentiation (M46)
+- `telomere: limit: N on_exhaustion: ... end` — Hayflick finite replication limit (M47)
+- `crispr: target: ... end` — Doudna targeted self-modification (M48)
+- `quorum: threshold: N ... end` — Bassler population-threshold coordination (M49)
+- `plasticity: learning_rate: ... end` — Hebb synaptic weight adjustment (M50)
+- `autopoietic: true` — Maturana/Varela operational closure; requires `@mortal @corrigible @sandboxed` (M51)
+- `@mortal` — requires `telomere:` block; SafetyChecker compile error if missing (M55)
+- `@corrigible` — requires `telos.modifiable_by` field; SafetyChecker compile error if missing (M55)
+- `@sandboxed` — autopoietic effects must stay within `matter:` and `ecosystem:` (M55)
+- `@transparent` — all state transitions observable (M55)
+- `@bounded_telos` — telos must not contain open-ended utility terms; requires `bounded_by:` (M55)
+- `compile_simulation()` — Mesa ABM Python emitter for autopoietic beings (M52)
+- `compile_neuroml()` — NeuroML 2 XML emitter for neural structure (M53)
 - `describe: "..."` / `@key("value")` — GS self-describing annotations
 - `interface I ... end` / `implements I` — structural interface conformance
 - `import ModuleName` — cross-module dependency
@@ -44,6 +63,8 @@ Loom — an AI-native functional language that transpiles to Rust, TypeScript, W
 7. Algebraic checker — @exactly-once/@idempotent mutual exclusion
 8. Typestate checker — lifecycle transition validity
 9. Info-flow checker — secret → public without declassification
+10. Telos checker (TeleosChecker) — being:/ecosystem: without telos: is a compile error; regulate: requires bounds; evolve: requires convergence constraint
+11. Safety checker (SafetyChecker) — autopoietic beings without @mortal @corrigible @sandboxed are compile errors (M55)
 
 ## Annotation Syntax
 Annotations come AFTER `fn name`, before `::`:
@@ -91,3 +112,6 @@ All checkers are stateless: check(&Module) -> Result<(), Vec<LoomError>>
 - Token keywords must appear before Token::Ident in logos enum
 - All commits use --no-verify (pre-commit hook has syntax error at line 107)
 - PATH must include `$HOME\.cargo\bin` before any cargo commands on this machine
+- **telos: is REQUIRED** — a `being:` or `ecosystem:` without `telos:` is a checker error, not a warning
+- **SafetyChecker gate** — `autopoietic: true` without `@mortal @corrigible @sandboxed` is a compile error (M55); runs after TeleosChecker
+- `compile_simulation()` emits Mesa ABM Python; `compile_neuroml()` emits NeuroML 2 XML

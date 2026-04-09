@@ -1,0 +1,119 @@
+-- Loom Chemistry Standard Library — M89
+-- Stoichiometry, kinetics, and thermodynamics as first-class Loom constructs.
+--
+-- Built on:
+--   M3  Kennedy units — Float<mol>, Float<J/mol>, Float<K>, Float<mol/L>
+--   M56 Refinement types — concentrations, rate constants, pH
+--   M86 @conserved — mass conservation, charge conservation
+--   M87 Tensor types — stoichiometric matrices, Hessians
+--   M92 Graph store — molecular graphs (atoms as nodes, bonds as edges)
+--
+-- Academic grounding:
+--   Lavoisier (1789): conservation of mass in chemical reactions
+--   Arrhenius (1889): temperature-dependent reaction rate constant
+--   Michaelis & Menten (1913): enzyme kinetics
+--   Henderson-Hasselbalch (1916): pH equilibrium
+--   Gibbs (1875): free energy and chemical equilibrium
+--   Hill (1910): cooperative binding
+
+module ChemistryStdlib
+
+-- ── Fundamental chemical types ─────────────────────────────────────────────────
+
+type Concentration = Float where x >= 0.0
+type Molarity      = Float where x >= 0.0
+type pH            = Float where x >= 0.0 and x <= 14.0
+type pKa           = Float where x >= -2.0 and x <= 20.0
+type Temperature   = Float where x > 0.0
+type Pressure      = Float where x > 0.0
+
+type ReactionRate        = Float where x >= 0.0
+type RateConstant        = Float where x > 0.0
+type EquilibriumConstant = Float where x > 0.0
+type GibbsEnergy         = Float
+type Enthalpy            = Float
+type Entropy             = Float where x >= 0.0
+
+-- ── Molecular graph store ──────────────────────────────────────────────────────
+
+store MoleculeGraph :: Graph
+  node Atom :: { symbol: String, atomic_number: Int, atomic_mass: Float, charge: Int, hybridization: String }
+  node Molecule :: { formula: String, smiles: String, molar_mass: Float, charge: Int }
+  edge CovalentBond :: Atom -> Atom { order: Float, length: Float, energy: Float }
+  edge Contains :: Molecule -> Atom { count: Int, position: Int }
+  edge Reacts :: Molecule -> Molecule { stoich_coeff: Int, role: String }
+end
+
+-- ── Kinetics ───────────────────────────────────────────────────────────────────
+
+fn michaelis_menten
+    describe: "Michaelis-Menten enzyme kinetics. v = Vmax * [S] / (Km + [S])"
+    @conserved(Mass)
+    :: Concentration -> Concentration -> ReactionRate -> ReactionRate -> ReactionRate
+  require: vmax > 0.0 and km > 0.0 and substrate >= 0.0
+  ensure: result >= 0.0 and result <= vmax
+end
+
+fn arrhenius
+    describe: "Arrhenius rate constant. k = A * exp(-Ea / RT)"
+    @conserved(Energy)
+    :: Float -> Float -> Temperature -> RateConstant
+  require: activation_energy > 0.0 and pre_exponential > 0.0 and temp > 0.0
+  ensure: result > 0.0
+end
+
+fn hill_equation
+    describe: "Hill equation for cooperative binding. theta = [L]^n / (Kd^n + [L]^n)"
+    :: Concentration -> Concentration -> Float -> Float
+  require: kd > 0.0 and n > 0.0 and ligand >= 0.0
+  ensure: result >= 0.0 and result <= 1.0
+end
+
+-- ── Thermodynamics ─────────────────────────────────────────────────────────────
+
+fn gibbs_free_energy
+    describe: "Gibbs free energy. dG = dH - TdS"
+    @conserved(Energy)
+    :: Enthalpy -> Entropy -> Temperature -> GibbsEnergy
+  require: temp > 0.0
+end
+
+fn van_t_hoff
+    describe: "van't Hoff equation. K = exp(-dG / RT)"
+    :: GibbsEnergy -> Temperature -> EquilibriumConstant
+  require: temp > 0.0
+  ensure: result > 0.0
+end
+
+-- ── Acid-base equilibrium ──────────────────────────────────────────────────────
+
+fn henderson_hasselbalch
+    describe: "Henderson-Hasselbalch. pH = pKa + log10([A-]/[HA])"
+    :: pKa -> Concentration -> Concentration -> pH
+  require: conjugate_base > 0.0 and weak_acid > 0.0
+  ensure: result >= 0.0 and result <= 14.0
+end
+
+-- ── Stoichiometry ──────────────────────────────────────────────────────────────
+
+fn limiting_reagent
+    describe: "Determine limiting reagent and theoretical yield"
+    @conserved(Mass)
+    :: Concentration -> Int -> Concentration -> Int -> Concentration
+  require: conc_a > 0.0 and coeff_a > 0 and conc_b > 0.0 and coeff_b > 0
+  ensure: result >= 0.0
+end
+
+-- ── Phase transitions ──────────────────────────────────────────────────────────
+
+enum PhaseState = | Solid | Liquid | Gas | Plasma | Supercritical end
+
+fn clausius_clapeyron
+    describe: "Clausius-Clapeyron equation. P2/P1 = exp(dHvap/R * (1/T1 - 1/T2))"
+    @conserved(Energy)
+    :: GibbsEnergy -> Temperature -> Temperature -> Pressure
+  require: t1 > 0.0 and t2 > 0.0
+  ensure: result > 0.0
+end
+
+end

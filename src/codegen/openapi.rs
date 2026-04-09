@@ -204,6 +204,7 @@ impl OpenApiEmitter {
                     schemas.push(format!("      {:?}: {}", rt.name, schema));
                 }
                 Item::Fn(_) => {}
+                _ => {}
             }
         }
 
@@ -269,9 +270,186 @@ impl OpenApiEmitter {
             format!(",\n  \"x-security-labels\": {{\n{}\n  }}", entries.join(",\n"))
         };
 
+        // Build x-beings extension when being_defs are present.
+        let being_ext = if module.being_defs.is_empty() {
+            String::new()
+        } else {
+            let entries: Vec<String> = module.being_defs.iter().map(|being| {
+                let telos_str = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+                let matter_fields: Vec<String> = being.matter.as_ref()
+                    .map(|m| m.fields.iter().map(|f| format!("{:?}", f.name)).collect())
+                    .unwrap_or_default();
+                let form_types: Vec<String> = being.form.as_ref()
+                    .map(|f| {
+                        let mut names: Vec<String> = f.types.iter().map(|t| format!("{:?}", t.name)).collect();
+                        names.extend(f.enums.iter().map(|e| format!("{:?}", e.name)));
+                        names
+                    })
+                    .unwrap_or_default();
+                let regulate_entries: Vec<String> = being.regulate_blocks.iter().map(|reg| {
+                    let bounds_str = reg.bounds.as_ref()
+                        .map(|(l, h)| format!("{{\"low\": {:?}, \"high\": {:?}}}", l, h))
+                        .unwrap_or_else(|| "null".to_string());
+                    format!("{{\"variable\": {:?}, \"target\": {:?}, \"bounds\": {}}}", reg.variable, reg.target, bounds_str)
+                }).collect();
+                let mut parts = vec![
+                    format!("\"x-being\": true"),
+                    format!("\"x-telos\": {:?}", telos_str),
+                ];
+                if !form_types.is_empty() {
+                    parts.push(format!("\"x-form\": [{}]", form_types.join(", ")));
+                }
+                if !matter_fields.is_empty() {
+                    parts.push(format!("\"x-matter\": [{}]", matter_fields.join(", ")));
+                }
+                if let Some(evolve) = &being.evolve_block {
+                    parts.push(format!("\"x-evolve-constraint\": {:?}", evolve.constraint));
+                }
+                if !regulate_entries.is_empty() {
+                    parts.push(format!("\"x-regulate\": [{}]", regulate_entries.join(", ")));
+                }
+                if being.autopoietic {
+                    parts.push("\"x-autopoietic\": true".to_string());
+                }
+                if !being.epigenetic_blocks.is_empty() {
+                    let epi_entries: Vec<String> = being.epigenetic_blocks.iter().map(|epi| {
+                        format!("{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
+                            epi.signal, epi.modifies,
+                            epi.reverts_when.as_deref().map(|r| format!("{:?}", r)).unwrap_or("null".to_string()))
+                    }).collect();
+                    parts.push(format!("\"x-epigenetic\": [{}]", epi_entries.join(", ")));
+                }
+                if !being.morphogen_blocks.is_empty() {
+                    let morph_entries: Vec<String> = being.morphogen_blocks.iter().map(|morph| {
+                        format!("{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
+                            morph.signal, morph.threshold,
+                            morph.produces.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", "))
+                    }).collect();
+                    parts.push(format!("\"x-morphogen\": [{}]", morph_entries.join(", ")));
+                }
+                if let Some(tel) = &being.telomere {
+                    parts.push(format!("\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}", tel.limit, tel.on_exhaustion));
+                }
+                if !being.crispr_blocks.is_empty() {
+                    let crispr_entries: Vec<String> = being.crispr_blocks.iter().map(|c| {
+                        format!("{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}", c.target, c.replace, c.guide)
+                    }).collect();
+                    parts.push(format!("\"x-crispr\": [{}]", crispr_entries.join(", ")));
+                }
+                if !being.plasticity_blocks.is_empty() {
+                    let plasticity_entries: Vec<String> = being.plasticity_blocks.iter().map(|p| {
+                        let rule_str = match p.rule {
+                            PlasticityRule::Hebbian => "hebbian",
+                            PlasticityRule::Boltzmann => "boltzmann",
+                            PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+                        };
+                        format!("{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}", p.trigger, p.modifies, rule_str)
+                    }).collect();
+                    parts.push(format!("\"x-plasticity\": [{}]", plasticity_entries.join(", ")));
+                }
+                format!("      {:?}: {{{}}}", being.name, parts.join(", "))
+            }).collect();
+            format!(",\n  \"x-beings\": {{\n{}\n  }}", entries.join(",\n"))
+        };
+
+        // Add being schemas to components/schemas.
+        for being in &module.being_defs {
+            let telos_str = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+            let mut parts = vec![
+                format!("\"x-being\": true"),
+                format!("\"x-telos\": {:?}", telos_str),
+            ];
+            if let Some(matter) = &being.matter {
+                let props: Vec<String> = matter.fields.iter()
+                    .map(|f| format!("{:?}: {{\"type\": \"string\"}}", f.name))
+                    .collect();
+                if !props.is_empty() {
+                    parts.push(format!("\"properties\": {{{}}}", props.join(", ")));
+                }
+            }
+            if being.autopoietic {
+                parts.push("\"x-autopoietic\": true".to_string());
+            }
+            if !being.epigenetic_blocks.is_empty() {
+                let epi_entries: Vec<String> = being.epigenetic_blocks.iter().map(|epi| {
+                    format!("{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
+                        epi.signal, epi.modifies,
+                        epi.reverts_when.as_deref().map(|r| format!("{:?}", r)).unwrap_or("null".to_string()))
+                }).collect();
+                parts.push(format!("\"x-epigenetic\": [{}]", epi_entries.join(", ")));
+            }
+            if !being.morphogen_blocks.is_empty() {
+                let morph_entries: Vec<String> = being.morphogen_blocks.iter().map(|morph| {
+                    format!("{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
+                        morph.signal, morph.threshold,
+                        morph.produces.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", "))
+                }).collect();
+                parts.push(format!("\"x-morphogen\": [{}]", morph_entries.join(", ")));
+            }
+            if let Some(tel) = &being.telomere {
+                parts.push(format!("\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}", tel.limit, tel.on_exhaustion));
+            }
+            if !being.crispr_blocks.is_empty() {
+                let crispr_entries: Vec<String> = being.crispr_blocks.iter().map(|c| {
+                    format!("{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}", c.target, c.replace, c.guide)
+                }).collect();
+                parts.push(format!("\"x-crispr\": [{}]", crispr_entries.join(", ")));
+            }
+            if !being.plasticity_blocks.is_empty() {
+                let plasticity_entries: Vec<String> = being.plasticity_blocks.iter().map(|p| {
+                    let rule_str = match p.rule {
+                        PlasticityRule::Hebbian => "hebbian",
+                        PlasticityRule::Boltzmann => "boltzmann",
+                        PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+                    };
+                    format!("{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}", p.trigger, p.modifies, rule_str)
+                }).collect();
+                parts.push(format!("\"x-plasticity\": [{}]", plasticity_entries.join(", ")));
+            }
+            schemas.push(format!("      {:?}: {{\"type\": \"object\", {}}}", being.name, parts.join(", ")));
+        }
+
+        let schemas_section = if schemas.is_empty() {
+            "  \"components\": {\"schemas\": {}}".to_string()
+        } else {
+            format!("  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}", schemas.join(",\n"))
+        };
+
+        // Build x-ecosystems extension when ecosystem_defs are present.
+        let ecosystem_ext = if module.ecosystem_defs.is_empty() {
+            String::new()
+        } else {
+            let entries: Vec<String> = module.ecosystem_defs.iter().map(|eco| {
+                let telos_str = eco.telos.as_deref().unwrap_or("");
+                let members_json: Vec<String> = eco.members.iter().map(|m| format!("{:?}", m)).collect();
+                let signals_json: Vec<String> = eco.signals.iter().map(|sig| {
+                    format!(
+                        "{{\"name\": {:?}, \"from\": {:?}, \"to\": {:?}, \"payload\": {:?}}}",
+                        sig.name, sig.from, sig.to, sig.payload
+                    )
+                }).collect();
+                let quorum_json: Vec<String> = eco.quorum_blocks.iter().map(|q| {
+                    format!(
+                        "{{\"signal\": {:?}, \"threshold\": {:?}, \"action\": {:?}}}",
+                        q.signal, q.threshold, q.action
+                    )
+                }).collect();
+                let mut eco_parts = vec![
+                    format!("\"x-telos\": {:?}", telos_str),
+                    format!("\"x-members\": [{}]", members_json.join(", ")),
+                    format!("\"x-signals\": [{}]", signals_json.join(", ")),
+                ];
+                if !quorum_json.is_empty() {
+                    eco_parts.push(format!("\"x-quorum\": [{}]", quorum_json.join(", ")));
+                }
+                format!("    {:?}: {{{}}}", eco.name, eco_parts.join(", "))
+            }).collect();
+            format!(",\n  \"x-ecosystems\": {{\n{}\n  }}", entries.join(",\n"))
+        };
+
         format!(
-            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}\n}}",
-            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext
+            "{{\n  \"openapi\": \"3.0.3\",\n  \"info\": {{\n    \"title\": {:?},\n    \"description\": {:?},\n    \"version\": \"1.0.0\"{}\n  }},\n{},\n{}{}{}{}{}\n}}",
+            title, description, lifecycle_ext, paths_section, schemas_section, data_protection_ext, security_labels_ext, being_ext, ecosystem_ext
         )
     }
 

@@ -64,6 +64,14 @@ impl Substitution {
             TypeExpr::Tuple(elems) => {
                 TypeExpr::Tuple(elems.iter().map(|e| self.apply(e)).collect())
             }
+            TypeExpr::Dynamic => ty.clone(),
+            // Tensor — apply substitution to the unit type.
+            TypeExpr::Tensor { rank, shape, unit, span } => TypeExpr::Tensor {
+                rank: *rank,
+                shape: shape.clone(),
+                unit: Box::new(self.apply(unit)),
+                span: span.clone(),
+            },
         }
     }
 
@@ -160,6 +168,9 @@ pub fn unify(t1: &TypeExpr, t2: &TypeExpr, subst: &mut Substitution, span: Span)
             Ok(())
         }
 
+        // Dynamic type is compatible with anything.
+        (TypeExpr::Dynamic, _) | (_, TypeExpr::Dynamic) => Ok(()),
+
         // All other combinations are mismatches.
         _ => Err(LoomError::UnificationError {
             msg: format!("type mismatch: `{:?}` vs `{:?}`", t1, t2),
@@ -180,6 +191,9 @@ pub fn occurs(v: u32, ty: &TypeExpr) -> bool {
         TypeExpr::Option(inner) => occurs(v, inner),
         TypeExpr::Result(ok, err) => occurs(v, ok) || occurs(v, err),
         TypeExpr::Tuple(elems) => elems.iter().any(|e| occurs(v, e)),
+        TypeExpr::Dynamic => false,
+        // Tensor — check within the unit type.
+        TypeExpr::Tensor { unit, .. } => occurs(v, unit),
     }
 }
 
@@ -236,11 +250,24 @@ impl InferenceEngine {
             })
             .collect();
 
+        // Build refined-type-to-base-type map for subtyping during unification.
+        let refined_base_map: HashMap<String, TypeExpr> = module
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let Item::RefinedType(rt) = item {
+                    Some((rt.name.clone(), rt.base_type.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         let mut errors: Vec<LoomError> = Vec::new();
 
         for item in &module.items {
             if let Item::Fn(fd) = item {
-                if let Err(mut errs) = self.check_fn(fd, &fn_registry) {
+                if let Err(mut errs) = self.check_fn(fd, &fn_registry, &refined_base_map) {
                     errors.append(&mut errs);
                 }
             }
@@ -259,6 +286,7 @@ impl InferenceEngine {
         &self,
         fd: &FnDef,
         fn_registry: &HashMap<String, FnTypeSignature>,
+        refined_base_map: &HashMap<String, TypeExpr>,
     ) -> Result<(), Vec<LoomError>> {
         // Skip functions with Effect<…> return types — the EffectChecker
         // handles those separately.
@@ -295,6 +323,8 @@ impl InferenceEngine {
                 .get(i)
                 .cloned()
                 .unwrap_or_else(|| gen.fresh());
+            // Resolve refined types to their base types for arithmetic/comparison.
+            let ty = resolve_refined_type(&ty, refined_base_map);
             env.insert(var_name.clone(), ty);
         }
 
@@ -332,6 +362,25 @@ impl InferenceEngine {
         } else {
             Err(errors)
         }
+    }
+}
+
+// ── Refined type resolution ───────────────────────────────────────────────────
+
+/// Resolves a refined type name to its base type.
+///
+/// If `ty` is `Base("PositiveInt")` and `PositiveInt` refines `Int`,
+/// returns `Base("Int")`. Chains through multiple levels of refinement.
+fn resolve_refined_type(ty: &TypeExpr, refined_base_map: &HashMap<String, TypeExpr>) -> TypeExpr {
+    match ty {
+        TypeExpr::Base(name) => {
+            if let Some(base) = refined_base_map.get(name) {
+                resolve_refined_type(base, refined_base_map)
+            } else {
+                ty.clone()
+            }
+        }
+        _ => ty.clone(),
     }
 }
 

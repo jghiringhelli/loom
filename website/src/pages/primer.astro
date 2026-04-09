@@ -1,0 +1,134 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+
+const thinkers = [
+  {
+    name: 'Norbert Wiener',
+    years: '1894–1964',
+    field: 'Cybernetics',
+    core: 'All purposive behavior requires a feedback loop.',
+    loom: "regulate: and telos: are cybernetic feedback systems. Wiener's error signal is Loom's correction mechanism.",
+    work: 'Cybernetics (1948)',
+  },
+  {
+    name: 'C.H. Waddington',
+    years: '1905–1975',
+    field: 'Developmental Biology',
+    core: 'Development is canalized — the landscape guides the cell toward stable attractors.',
+    loom: 'evolve: and epigenetic: encode the Waddington landscape. The canalization principle is why evolve: converges rather than random-walks.',
+    work: 'The Strategy of the Genes (1957)',
+  },
+  {
+    name: 'Alan Turing',
+    years: '1912–1954',
+    field: 'Mathematical Biology',
+    core: 'Reaction-diffusion systems can spontaneously produce spatial patterns from homogeneous initial conditions.',
+    loom: 'morphogen: is the Loom construct for Turing instability. Pattern formation from a single specification.',
+    work: 'The Chemical Basis of Morphogenesis (1952)',
+  },
+  {
+    name: 'Humberto Maturana & Francisco Varela',
+    years: '1928–2021 / 1946–2001',
+    field: 'Systems Biology',
+    core: 'Living systems are organizationally closed — they produce and maintain their own components.',
+    loom: 'autopoietic: true is operational closure encoded as a type-level property. The compiler enforces self-production semantics.',
+    work: 'Autopoiesis and Cognition (1972)',
+  },
+];
+
+const referenceTable = [
+  { name: 'Aristotle', years: '384–322 BCE', contribution: 'Final causation — telos as explanatory category', construct: 'telos:, @corrigible' },
+  { name: 'Norbert Wiener', years: '1894–1964', contribution: 'Cybernetics — feedback and purposive behavior', construct: 'regulate:, telos:' },
+  { name: 'Alan Turing', years: '1912–1954', contribution: 'Reaction-diffusion morphogenesis', construct: 'morphogen:' },
+  { name: 'Donald Hebb', years: '1904–1985', contribution: 'Hebbian plasticity — use-dependent synaptic strengthening', construct: 'plasticity:' },
+  { name: 'C.H. Waddington', years: '1905–1975', contribution: 'Epigenetics and the developmental landscape', construct: 'evolve:, epigenetic:' },
+  { name: 'Leonard Hayflick', years: '1928–', contribution: 'The Hayflick limit — finite replication in normal cells', construct: 'telomere:, @mortal' },
+  { name: 'Maturana & Varela', years: '1928–2021 / 1946–2001', contribution: 'Autopoiesis — organizational closure of life', construct: 'autopoietic: true' },
+  { name: 'Bonnie Bassler', years: '1962–', contribution: 'Quorum sensing — population-density-dependent behavior', construct: 'quorum:' },
+  { name: 'Doudna & Charpentier', years: '1964– / 1968–', contribution: 'CRISPR-Cas9 — programmable genome editing', construct: 'crispr:' },
+];
+---
+
+<Base title="Intellectual Primer" description="The intellectual lineage of BIOISO — the thinkers whose discoveries made this possible.">
+  <Nav slot="nav" />
+
+  <div style="max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem;">
+
+    <!-- Header -->
+    <div style="max-width: 48rem; margin-bottom: 3.5rem;">
+      <p style="color: #7c3aed; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.75rem;">Intellectual Lineage</p>
+      <h1 style="font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.02em; color: #e2e8f0; margin-bottom: 1.25rem; line-height: 1.15;">
+        The Primer
+      </h1>
+      <p style="font-size: 1.0625rem; color: #94a3b8; line-height: 1.8;">
+        BIOISO did not emerge from nothing. It is the intersection of at least nine independent research traditions that converged — unknowingly — on the same set of solutions. These are the thinkers who got there first.
+      </p>
+    </div>
+
+    <!-- Featured thinkers -->
+    <div style="display: flex; flex-direction: column; gap: 2rem; margin-bottom: 4rem;">
+      {thinkers.map(t => (
+        <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.75rem; padding: 2rem; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: linear-gradient(to bottom, #7c3aed, transparent);"></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: baseline; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: #e2e8f0; margin: 0;">{t.name}</h2>
+            <span style="font-size: 0.8rem; color: #475569; font-family: 'JetBrains Mono', monospace;">{t.years}</span>
+            <span style="font-size: 0.75rem; background-color: #1e1e2e; color: #7c3aed; padding: 0.15rem 0.6rem; border-radius: 9999px; font-weight: 600;">{t.field}</span>
+          </div>
+          <p style="font-style: italic; color: #c4b5fd; margin-bottom: 0.75rem; font-size: 0.9375rem; line-height: 1.6;">
+            "{t.core}"
+          </p>
+          <p style="color: #94a3b8; font-size: 0.875rem; line-height: 1.7; margin-bottom: 0.75rem;">
+            <strong style="color: #cbd5e1;">Why it matters for Loom:</strong> {t.loom}
+          </p>
+          <p style="font-size: 0.8rem; color: #475569; font-family: 'JetBrains Mono', monospace;">{t.work}</p>
+        </div>
+      ))}
+    </div>
+
+    <!-- Reference table -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Reference Card</h2>
+      <div style="overflow-x: auto; border: 1px solid #1e1e2e; border-radius: 0.75rem;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 560px;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Thinker</th>
+              <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Contribution</th>
+              <th style="text-align: left; padding: 0.875rem 1.25rem; background-color: #13131a; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border-bottom: 1px solid #1e1e2e;">Loom construct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {referenceTable.map((row, i) => (
+              <tr style={i % 2 === 1 ? 'background-color: rgba(19,19,26,0.4);' : ''}>
+                <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e;">
+                  <p style="font-weight: 600; color: #e2e8f0; margin: 0 0 0.2rem 0; font-size: 0.9rem;">{row.name}</p>
+                  <p style="font-size: 0.775rem; color: #475569; margin: 0; font-family: 'JetBrains Mono', monospace;">{row.years}</p>
+                </td>
+                <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e; color: #94a3b8; font-size: 0.875rem; line-height: 1.5;">{row.contribution}</td>
+                <td style="padding: 0.875rem 1.25rem; border-bottom: 1px solid #1e1e2e;">
+                  <code style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; color: #c4b5fd; background-color: #1e1e2e; padding: 0.15rem 0.4rem; border-radius: 0.25rem;">{row.construct}</code>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Deep reading note -->
+    <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;">
+      <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.7; margin: 0;">
+        <strong style="color: #e2e8f0;">For deep reading:</strong> The full intellectual primer — with extended commentary on each thinker, the historical sequence of convergence, and the path from biology to formal language theory — is in <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">docs/primer.md</code> in the repository.
+      </p>
+    </div>
+
+    <p>
+      <a href="/isomorphisms" style="color: #c4b5fd; font-weight: 500;">See the convergence table →</a>
+      &nbsp;&nbsp;
+      <a href="/gs" style="color: #c4b5fd; font-weight: 500;">Read the GS theory →</a>
+    </p>
+
+  </div>
+</Base>

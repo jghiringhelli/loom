@@ -284,3 +284,32 @@ end
         "let-bound same-unit addition should not error"
     );
 }
+
+// ── 13. Unit type annotations in function signatures parse correctly ──────────
+
+#[test]
+fn units_type_annotation_parses() {
+    // Float<m> / Float<s> → Float<m/s> is valid in signatures (parse-only check)
+    let src = r#"
+module Physics
+  fn velocity :: Float<m> -> Float<s> -> Float<m_per_s>
+    describe: "Calculate velocity: distance / time"
+  end
+end
+"#;
+    assert!(loom::parse(src).is_ok(), "unit-annotated function should parse: {:?}", loom::parse(src).err());
+}
+
+// ── 14. Dimensionless efficiency ratio parses ─────────────────────────────────
+
+#[test]
+fn dimensionless_ratio_parses() {
+    let src = r#"
+module Math
+  fn efficiency :: Float<J> -> Float<J> -> Float
+    describe: "Energy efficiency: output / input (dimensionless)"
+  end
+end
+"#;
+    assert!(loom::parse(src).is_ok(), "dimensionless ratio signature should parse: {:?}", loom::parse(src).err());
+}

@@ -1,0 +1,42 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = 'BIOISO — Biological Isomorphisms formalized. Built on Loom. Powered by Generative Specification.' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <title>{title} — BIOISO</title>
+  </head>
+  <body>
+    <slot name="nav" />
+    <main>
+      <slot />
+    </main>
+    <footer style="border-top: 1px solid #1e1e2e; margin-top: 6rem; padding: 2.5rem 1.5rem; text-align: center;">
+      <p style="color: #475569; font-size: 0.875rem; line-height: 1.6;">
+        BIOISO — Biological Isomorphisms formalized.<br />
+        Built on <a href="/loom" style="color: #7c3aed;">Loom</a>. Powered by <a href="https://genspec.dev" target="_blank" rel="noopener" style="color: #7c3aed;">Generative Specification</a>.
+      </p>
+      <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #334155;">
+        <a href="https://github.com/PragmaWorks/loom" style="color: #475569;" target="_blank" rel="noopener">github.com/PragmaWorks/loom</a>
+        &nbsp;·&nbsp;
+        <a href="https://genspec.dev" style="color: #475569;" target="_blank" rel="noopener">genspec.dev</a>
+        &nbsp;·&nbsp;
+        <a href="https://doi.org/10.5281/zenodo.19073543" style="color: #475569;" target="_blank" rel="noopener">White Paper (Zenodo)</a>
+      </p>
+    </footer>
+  </body>
+</html>
