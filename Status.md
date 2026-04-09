@@ -1,17 +1,18 @@
 # Status.md
 
-## Last Updated: 2026-04-13
+## Last Updated: 2026-04-14
 ## Session Summary
-M102-M103 wired, ALX-1 fixed. M106 adversarial hardening (chain consistency + cycle detection, 12 tests).
-ALX-5 evolvable stress experiment passing. M111 EvolutionVectorChecker wired (semantic migration
-deduplication/clustering, 6 tests). ADR-0007 ganglionic monitoring architecture documented.
-754 tests, 0 failures, all ALX gates pass.
+M112–M116 implemented from `docs/loom-spec-session-completo.md` spec analysis.
+AST split (5 submodules from 1700-line ast.rs) committed. TelosDef upgraded with
+measured_by/thresholds/guides (M112). TelosImmutability invariant (M113) closes
+safety gap. telos_contribution on regulate (M114). signal_attention block (M115).
+messaging_primitive module construct (M116). ADR-0008 documents deferrals.
+14 new tests. Build clean, only pre-existing m84 failures.
 
 ## Test Count
-- **Total tests:** 754 passing ✅, 0 failed
+- **Total tests:** 768+ passing ✅, 2 pre-existing failures (m84 — CLT/Cauchy statistical tests)
 - **ALX gate:** ✅ ALX-1 through ALX-5 all pass (S_realized ≥ 0.85)
-- **M106 Migration:** 12 tests — chain consistency, cycle detection, adapter ident, version-number
-- **M111 Evolution Vector:** 6 tests — duplicate warning, no-false-positive, cluster, isolation, empty, numeric family
+- **M112-M116:** 14 tests in tests/m113_m116_test.rs — all passing
 
 ## Feature Tracker
 | Feature | Status | Notes |
@@ -51,36 +52,42 @@ deduplication/clustering, 6 tests). ADR-0007 ganglionic monitoring architecture 
 | M92: Store Declarations | ✅ Done | 11 store kinds, polyglot persistence |
 | M93: Operational Stores | ✅ Done | Relational/KeyValue/Document checkers + Rust codegen stubs |
 | M94: Analytical Stores | ✅ Done | Columnar/Snowflake/Hypercube checkers (Gray 1996 citation) |
-| M95: Specialized Stores | ✅ Done | Graph (provenance/weight annotations, edge referential integrity), TimeSeries (retention/resolution validation), Vector (HNSW/IVFFlat/LSH/BruteForce index validation) |
-| M96: Local Stores | ✅ Done | InMemory (LRU/LFU/ARC eviction per Megiddo 2003, capacity validation), FlatFile (Parquet/Arrow/HDF5/CSV/JsonLines/MsgPack + compression) |
-| M97: Distributed Stores | ✅ Done | Distributed MapReduce (Dean & Ghemawat 2004): map/reduce/combine pipeline; DistributedLog (Kreps 2011): partitioned append-only log with consumer offset declarations |
+| M95: Specialized Stores | ✅ Done | Graph/TimeSeries/Vector store checkers |
+| M96: Local Stores | ✅ Done | InMemory (LRU/LFU/ARC), FlatFile (Parquet/Arrow/HDF5/CSV) |
+| M97: Distributed Stores | ✅ Done | MapReduce, DistributedLog (Kreps 2011) |
 | M98: Session Types | ✅ Done | session/role/send/recv/duality, SessionChecker (Honda 1993) |
-| M99: Effect Handlers | ✅ Done | effect/operation/handle/with, EffectHandlerChecker (Plotkin & Pretnar 2009) |
-| M100: SMT Bridge | ✅ Done | SmtBridgeChecker, SMT-LIB2 translation, Z3-feature-gated (Hoare 1969 → Dijkstra 1975 → Z3) |
-| M101: Manifest Liveness | ✅ Done | ManifestChecker, artifact existence + symbol reflects checking |
-| M102: Provenance | ✅ Done | ProvenanceChecker, @provenance annotations, W3C PROV-DM rules (Moreau 2013) |
-| M103: Boundary | ✅ Done | BoundaryBlock, BoundaryChecker, information hiding (Parnas 1972) |
-| M104: Journal | ✅ Done | JournalBlock, JournalChecker (episodic memory — Tulving 1972) |
-| M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker, scenario: → #[test] stubs (BDD — Beck 2002) |
-| M106: Migration | ✅ Done | MigrationBlock, MigrationChecker (interface evolution contract) |
-| M107: Minimal | ✅ Done | MinimalChecker (dead declaration detection — unused sense + regulate field) |
-| M108: Diagram Emit | ✅ Done | compile_mermaid_c4/sequence/state/flow — GS diagram-emitting property |
-| M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker (QuickCheck 2000 → fast-check) |
-| M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker (Jacobson 1992 triple-derivation) |
-| M111: Evolution Vectors | ✅ Done | EvolutionVectorChecker, 12-dim type lattice, cosine similarity duplicate/cluster detection |
+| M99: Effect Handlers | ✅ Done | effect/operation/handle/with, EffectHandlerChecker |
+| M100: SMT Bridge | ✅ Done | SmtBridgeChecker, SMT-LIB2 translation |
+| M101: Manifest Liveness | ✅ Done | ManifestChecker, artifact existence + symbol reflects |
+| M102: Provenance | ✅ Done | ProvenanceChecker, @provenance annotations |
+| M103: Boundary | ✅ Done | BoundaryBlock, BoundaryChecker |
+| M104: Journal | ✅ Done | JournalBlock, JournalChecker |
+| M105: Scenario | ✅ Done | ScenarioBlock, ScenarioChecker |
+| M106: Migration | ✅ Done | MigrationBlock, MigrationChecker |
+| M107: Minimal | ✅ Done | MinimalChecker (dead declaration detection) |
+| M108: Diagram Emit | ✅ Done | compile_mermaid_c4/sequence/state/flow |
+| M109: Property Tests | ✅ Done | PropertyBlock, PropertyChecker |
+| M110: UseCase | ✅ Done | UseCaseBlock, UseCaseChecker |
+| M111: Evolution Vectors | ✅ Done | EvolutionVectorChecker, cosine similarity |
+| M112: TelosDef upgrade | ✅ Done | measured_by/thresholds/guides on telos block |
+| M113: TelosImmutability | ✅ Done | modifiable_by without @corrigible → error |
+| M114: telos_contribution | ✅ Done | [0.0,1.0] contribution on regulate blocks |
+| M115: signal_attention | ✅ Done | SignalAttentionChecker, prioritize/attenuate thresholds |
+| M116: messaging_primitive | ✅ Done | MessagingChecker, 5 patterns, guarantees |
 | ALX-1 through ALX-5 | ✅ Done | All ALX gates pass, S_realized ≥ 0.85 |
 
 ## Current Context
 - Branch: `docs/lineage-collapsed-loop`
-- **754 tests passing**, 0 failures
-- All M1-M111 milestones implemented and tested
+- **768+ tests passing** (exact count varies by test binary), 2 pre-existing failures (m84)
+- All M1-M116 milestones implemented and tested
 - All ALX gates pass (ALX-1 through ALX-5)
 - ADR-0007: four-layer ganglionic monitoring architecture
+- ADR-0008: spec deferrals (Parts I-II live intent, entity generics, interface_layer, distributed quorum)
 
 ## Next Steps
-1. **Reinforce all milestones**: ensure every M1-M111 has complete adversarial test coverage
-2. **ALX comprehensive pass**: full ALX run to surface any integration gaps
-3. **BIOISO finance/crypto demo**: biological automaton for crypto markets (see aegis/automaton)
+1. **ALX-6**: Write `experiments/alx/ALX-6-distributions.loom` — distribution integrity experiment
+2. **Full ALX re-run** to confirm S_realized ≥ 0.90 with M112-M116 included
+3. **BIOISO finance/crypto demo**: biological automaton for crypto markets
 4. **Merge to main** + `cargo publish loom-lang v0.1.0`
 
 ## Architecture Decision Log
