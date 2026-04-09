@@ -93,12 +93,9 @@ lifecycle Order ::
   Pending -> Filled -> Settled
 
 -- ── III. SESSION-TYPED EXECUTION CHANNEL (M23) ───────────────────
-
-signal OrderChannel from ScalpingAgent to Exchange
-  submit  :: Position
-  cancel  :: Int
-  confirm :: Fill
-end
+--
+-- Note: signal declarations live inside ecosystem blocks.
+-- See ecosystem Market below.
 
 -- ── IV. STOCHASTIC MODELS (M84–M89) ──────────────────────────────
 
@@ -160,13 +157,13 @@ end
 
 fn unrealized_pnl @pure :: Position -> Tick -> Float<usd>
   require: position.size > 0.0
-  ensure:  result == 0.0 || position.direction != Flat
+  ensure:  result >= 0.0
   0.0
 end
 
 fn update_pnl @pure :: PnL -> Float<usd> -> Bool -> PnL
-  require: trade_pnl != 0.0 || not is_win
-  PnL
+  require: trade_pnl != 0.0
+  pnl
 end
 
 fn risk_adjusted_return @pure :: PnL -> Float
@@ -186,7 +183,7 @@ describe: "OU mean-reversion scalper — enter on spread widening, exit on rever
 @transparent
 @bounded_telos
 
--- Internal state the agent owns
+-- Internal state + tunable parameters the agent owns
 matter:
   position:         Option<Position>
   cash:             Float<usd>
@@ -194,10 +191,7 @@ matter:
   mid_price_ema:    Float<usd>
   tick_count:       Int
   consecutive_losses: Int
-end
-
--- Tunable parameters (evolved via gradient_descent)
-form:
+  -- Tunable parameters (evolved via gradient_descent)
   spread_threshold_bps: SpreadBps
   stop_loss_bps:        SpreadBps
   take_profit_bps:      SpreadBps
@@ -205,41 +199,44 @@ form:
   ema_alpha:            Float
 end
 
--- Behavioural interface
-function:
-  on_tick:        fn :: Tick -> Signal
-  open_position:  fn :: Signal -> Effect<[IO@irreversible], OrderResult]
-  close_position: fn :: Tick -> Effect<[IO@irreversible], OrderResult]
-  update_ema:     fn :: Float<usd> -> Float<usd>
-end
+-- Behavioural interface (functions defined at module level above)
+-- on_tick, open_position, close_position, update_ema
 
 -- The agent's goal: maximize risk-adjusted PnL while staying safe.
--- `bounded_by` is enforced by the SafetyChecker — violating it is
--- a compile-time error if autopoietic: true.
-telos:
-  maximize:    "pnl.total"
+telos: "converge risk-adjusted PnL toward equilibrium within safety bounds"
   measured_by: risk_adjusted_return
-  bounded_by:  "pnl.realized > -500.0 && pnl.trade_count < 100"
-  modifiable_by: "operator"
+  bounded_by: pnl_safety_ok
+  modifiable_by: operator
   thresholds:
     convergence:  0.80
-    warning:      0.50
     divergence:   0.20
-    propagation:  0.90
-  guides:
-    minimize_drawdown
-    maximize_win_rate
-  end
 end
 
 -- Homeostatic risk management (Cannon 1932):
--- The agent automatically adjusts if parameters drift out of bounds.
-regulate SpreadBand
-  spread_threshold_bps between 5.0  and 50.0
-  stop_loss_bps        between 3.0  and 20.0
-  take_profit_bps      between 5.0  and 30.0
-  position_size        between 100.0 and 5000.0
-  consecutive_losses   between 0    and 5
+-- One regulate block per controlled variable.
+regulate spread_threshold_bps
+  target: spread_equilibrium
+  bounds: (min_spread_bps, max_spread_bps)
+end
+
+regulate stop_loss_bps
+  target: risk_floor
+  bounds: (min_stop_bps, max_stop_bps)
+end
+
+regulate take_profit_bps
+  target: profit_target
+  bounds: (min_tp_bps, max_tp_bps)
+end
+
+regulate position_size
+  target: optimal_size
+  bounds: (min_position, max_position)
+end
+
+regulate consecutive_losses
+  target: zero_losses
+  bounds: (zero, max_consecutive_losses)
 end
 
 -- Evolution: tune spread_threshold_bps to improve Sharpe over time.
@@ -248,27 +245,28 @@ evolve TuneParameters
   search:
     | gradient_descent when pnl.trade_count > 10
     | simulated_annealing when consecutive_losses >= 3
-  constraint: "pnl.realized >= -500.0"
+  constraint: "E[distance_to_telos] decreasing over trade_count"
   rate: 0.005
 end
 
 -- Epigenetic regime switch (Waddington 1957):
 -- When consecutive losses pile up, halve position size defensively.
-epigenetic LossProtection
-  trigger:  consecutive_losses >= 3
-  response: position_size = position_size * 0.5
+epigenetic:
+  signal: consecutive_losses_high
+  modifies: position_size
 end
 
 -- Epigenetic recovery: when losses stop, restore normal sizing.
-epigenetic Recovery
-  trigger:  consecutive_losses == 0
-  response: position_size = 1000.0
+epigenetic:
+  signal: losses_cleared
+  modifies: position_size
+  reverts_when: losses_cleared
 end
 
 -- Hayflick limit: max 100 trades per session, then rest.
 telomere:
   limit: 100
-  on_exhaustion: Flat
+  on_exhaustion: quiescence
 end
 
 -- Maturana/Varela operational closure:
@@ -295,12 +293,28 @@ end -- being ScalpingAgent
 
 -- ── VII. THE MARKET ECOSYSTEM ─────────────────────────────────────
 
+-- Minimal Exchange counterparty being (receives orders, returns fills).
+being Exchange
+describe: "The exchange counterparty — receives orders, returns fills"
+matter:
+  pending_orders: Int
+  last_fill_price: Float<usd>
+end
+telos: "execute orders fairly and return accurate fills"
+end
+end -- being Exchange
+
 ecosystem Market
 describe: "Synthetic OU market — the environment the scalper trades in"
 
-telos:
-  maximize: "price_discovery"
-  bounded_by: "step_count < 10000"
+signal OrderChannel from ScalpingAgent to Exchange
+  submit  :: Position
+  cancel  :: Int
+  confirm :: Fill
+end
+
+telos: "maximize price discovery within bounded simulation steps"
+  bounded_by: step_within_limit
 end
 
 end -- ecosystem Market
@@ -315,7 +329,7 @@ invariant telos_bounded_by_safety :: pnl.realized >= -500.0
 -- ── IX. INLINE TESTS ─────────────────────────────────────────────
 
 test spread_bps_zero_when_equal ::
-  spread_bps(100.0, 100.0) == 0.0
+  spread_bps(100.0, 100.0) = 0.0
 end
 
 test spread_bps_positive_when_spread ::
@@ -323,5 +337,5 @@ test spread_bps_positive_when_spread ::
 end
 
 test signal_hold_on_tight_spread ::
-  signal_from_tick(tight_tick, 50.0) == Hold
+  signal_from_tick(tight_tick, 50.0) = Hold
 end
