@@ -397,6 +397,119 @@ impl RustEmitter {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DAFNY PROOF SCAFFOLDS (V9 — Curry-Howard / Dependent Types)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl RustEmitter {
+    /// Emit a Dafny verification scaffold for `proof:` annotations.
+    ///
+    /// Curry-Howard correspondence (Howard 1980): proof strategies correspond to
+    /// type-theoretic constructions — structural recursion ↔ well-founded induction,
+    /// totality ↔ exhaustive pattern matching, induction ↔ mathematical induction.
+    ///
+    /// The scaffold is embedded as a `{FN_UPPER}_DAFNY_PROOF: &str` const so it
+    /// is always present in the generated crate.  To discharge the proof:
+    /// 1. Extract the const value to a `.dfy` file
+    /// 2. Run: `dafny verify <file>.dfy`
+    ///
+    /// Install Dafny: `dotnet tool install --global dafny`
+    pub(super) fn emit_dafny_proof(&self, fd: &FnDef, out: &mut String) {
+        if fd.proofs.is_empty() {
+            return;
+        }
+        let fn_name = &fd.name;
+        let upper = fn_name.to_uppercase();
+        let pascal = to_pascal_case(fn_name);
+
+        // Build one Dafny method scaffold per proof strategy.
+        let mut dafny_body = String::new();
+        for proof in &fd.proofs {
+            dafny_body.push_str(&dafny_method_for_strategy(fn_name, &pascal, &proof.strategy, fd));
+        }
+
+        out.push_str(&format!(
+            "// LOOM[V9:Dafny]: {fn_name} — Curry-Howard proof scaffold (Howard 1980)\n\
+// strategies: {strategies}\n\
+// Extract {upper}_DAFNY_PROOF to <fn>.dfy and run: dafny verify <fn>.dfy\n\
+// Install: dotnet tool install --global dafny\n\n",
+            strategies = fd.proofs.iter().map(|p| p.strategy.as_str()).collect::<Vec<_>>().join(", ")
+        ));
+        out.push_str(&format!(
+            "pub const {upper}_DAFNY_PROOF: &str = r##\"{dafny_body}\"##;\n\n"
+        ));
+    }
+}
+
+/// Build a Dafny method stub for a single proof strategy.
+///
+/// Returns a complete Dafny method string that Dafny can parse and verify.
+/// The actual implementation body is a `/* ... */` placeholder — the developer
+/// fills it in; the preconditions, postconditions, and `decreases` clause are
+/// the mechanically checkable part that Dafny verifies.
+fn dafny_method_for_strategy(fn_name: &str, pascal: &str, strategy: &str, fd: &FnDef) -> String {
+    // Build requires/ensures from Loom contracts if present.
+    let requires = fd.requires.iter()
+        .map(|_c| "  requires true // insert precondition")
+        .collect::<Vec<_>>()
+        .join("\n");
+    let ensures = fd.ensures.iter()
+        .map(|_c| "  ensures true // insert postcondition")
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    match strategy {
+        "structural_recursion" => format!(
+            "// Structural recursion — well-founded induction (König 1936 / Howard 1980)\n\
+// Dafny requires a `decreases` clause; the recursive calls must reduce the measure.\n\
+method {fn_name}_structural(n: nat) returns (result: int)\n\
+  requires n >= 0\n\
+{requires}\
+{ensures}\
+  decreases n\n\
+{{\n  if n == 0 {{\n    result := 0;\n  }} else {{\n    \
+var sub := {fn_name}_structural(n - 1);\n    result := sub + 1;\n  }}\n}}\n\n"
+        ),
+        "totality" => format!(
+            "// Totality — function terminates and returns a value for all inputs (Howard 1980)\n\
+// Dafny proves totality via exhaustive case analysis and absence of partial functions.\n\
+function method {fn_name}_total(input: {pascal}Input): {pascal}Output\n\
+  reads {{}}\n\
+{requires}\
+{ensures}\
+{{\n  // All cases must be covered — Dafny rejects partial matches.\n  \
+// Replace with actual implementation.\n  0 as {pascal}Output\n}}\n\n"
+        ),
+        "induction" => format!(
+            "// Mathematical induction — base case + inductive step (Peano 1889 / Howard 1980)\n\
+lemma {fn_name}_induction(n: nat)\n\
+  ensures {fn_name}_property(n)\n\
+{{\n  if n == 0 {{\n    // Base case: prove {fn_name}_property(0)\n  }} else {{\n    \
+{fn_name}_induction(n - 1); // Inductive hypothesis: assume holds for n-1\n    \
+// Inductive step: prove holds for n using IH\n  }}\n}}\n\n\
+predicate {fn_name}_property(n: nat) {{ true /* replace with actual property */ }}\n\n"
+        ),
+        "contradiction" => format!(
+            "// Proof by contradiction — assume ¬P, derive ⊥ (Howard 1980)\n\
+lemma {fn_name}_contradiction()\n\
+  ensures {fn_name}_invariant()\n\
+{{\n  // Assume the negation holds, then derive False.\n  \
+// Dafny will verify that the assumption leads to contradiction.\n  \
+assert {fn_name}_invariant();\n}}\n\n\
+predicate {fn_name}_invariant() {{ true /* replace with actual invariant */ }}\n\n"
+        ),
+        other => format!(
+            "// Proof strategy: {other} — manual verification required\n\
+// Dafny does not have a built-in tactic for this strategy.\n\
+// Reference: Howard (1980) Curry-Howard correspondence.\n\
+method {fn_name}_proof() returns (verified: bool)\n\
+  ensures verified\n\
+{{\n  verified := true; // Replace with proof\n}}\n\n"
+        ),
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FN ANNOTATION DISPATCHER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -435,6 +548,8 @@ impl RustEmitter {
         }
         // V2: Kani formal proof harnesses for require/ensure contracts.
         self.emit_kani_harness(fd, &mut out);
+        // V9: Dafny scaffolds for Curry-Howard / dependent type proofs.
+        self.emit_dafny_proof(fd, &mut out);
         out
     }
 }

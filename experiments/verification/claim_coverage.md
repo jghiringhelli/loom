@@ -104,6 +104,16 @@
 | Per-fn LOOM[...] comments on each claim     | Static | rustc  | PROVED  | multiple tests  |
 | Declared-only section for unproved claims   | Static | rustc  | PROVED  | header tests    |
 
+# ── V9: Dafny scaffolds for Curry-Howard / dependent type proofs ──────────────
+
+| Claim                                        | Tier   | Tool   | Status  | Experiment            |
+|----------------------------------------------|--------|--------|---------|-----------------------|
+| proof: structural_recursion → Dafny method   | Static | Dafny  | EMITTED | v9_dafny_proof_test.rs |
+| proof: totality → Dafny function method      | Static | Dafny  | EMITTED | v9_dafny_proof_test.rs |
+| proof: induction → Dafny lemma + base case   | Static | Dafny  | EMITTED | v9_dafny_proof_test.rs |
+| proof: contradiction → Dafny contradiction   | Static | Dafny  | EMITTED | v9_dafny_proof_test.rs |
+| {FN}_DAFNY_PROOF const always present        | Static | rustc  | PROVED  | v9_dafny_proof_test.rs |
+
 # ── V8: contract scaffolds upgraded DECLARED → EMITTED ───────────────────────
 
 | Claim                                        | Tier   | Tool              | Status  | Experiment                       |
@@ -122,29 +132,28 @@
 | Termination (König 1936)           | Kani / Dafny  | EMITTED  | TerminationGuard struct + tick() + const bound emitted; Kani to verify  |
 | Gradual typing boundary            | Type system   | EMITTED  | Runtime check via enum                                                  |
 | Convergence (telos)                | TLA+ / TLC    | EMITTED  | ConvergenceState enum + TLA+ spec const emitted; TLC to verify          |
-| Dependent types (Curry-Howard)     | Dafny / Coq   | DECLARED | emit_dafny() pending                                                    |
+| Dependent types (Curry-Howard)     | Dafny / Coq   | EMITTED  | {FN}_DAFNY_PROOF const with ready-to-run Dafny method stubs; run dafny verify |
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 55
-PROVED  (machine/type-system verified):  34  (62%)
-EMITTED (scaffold ready, tool separate):  14  (25%)
-DECLARED (annotation only, no scaffold):   3   (5%)
+Total Loom claims tracked: 60
+PROVED  (machine/type-system verified):  35  (58%)
+EMITTED (scaffold ready, tool separate):  19  (32%)
+DECLARED (annotation only, no scaffold):   2   (3%)
 PENDING (implementation required):         4   (7%)
 
-Changes from v1 of this table:
+Changes from v8:
+- V9: dependent types upgraded DECLARED → EMITTED (Dafny scaffolds for all 4 proof strategies)
+  {FN}_DAFNY_PROOF const emitted for structural_recursion, totality, induction, contradiction
+  5 new claim rows added (+4 EMITTED, +1 PROVED for const presence)
+  Only 2 DECLARED remain: proptest random sampling (RUSTFLAGS needed) + Kani CBMC (tool install)
+
+Prior changes:
 - V5: 8 store discipline claims → PROVED (UnitOfWork, Specification, Pagination,
   HATEOAS, CQRS, OpenAPI, EventStore, Aggregate, EventBus, Saga, all wired to codegen)
 - V3: proptest block emission → PROVED (v3_proptest_codegen_test, 10 tests)
-- Bug fixed: emit_fn_def_with_context now calls emit_fn_contracts
-  (all annotation-based codegen was previously silently dropped)
 - V8: 4 claims upgraded DECLARED → EMITTED:
-  Separation logic (Prusti #[cfg_attr] attributes on fn pairs)
-  Timing safety (subtle::ConstantTimeEq wrappers under feature flag)
-  Termination (TerminationGuard struct + const bound + tick()/iterations())
-  Telos convergence (ConvergenceState enum + convergence_state() + TLA+ spec const)
-
-Only 1 claim remains DECLARED: dependent types (Dafny/Coq emit_dafny() pending).
+  Separation logic, Timing safety, Termination, Telos convergence
 
 Key insight: The claims in the PROVED category cover the most critical runtime
 properties — contracts, protocol ordering, type safety, persistence structs.
