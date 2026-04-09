@@ -76,10 +76,12 @@ for file in $SOURCE_FILES; do
         fi
       fi
     fi
-    if grep -nE '\btodo!\(|\bunimplemented!\(' "$file" > /tmp/violations 2>/dev/null; then
-      if [ -s /tmp/violations ]; then
-        echo "  ❌ $file — todo!/unimplemented! in production code"
-        VIOLATIONS=$((VIOLATIONS + 1))
+    if ! is_excepted "rust/todo" "$file"; then
+      if grep -nE '\btodo!\(|\bunimplemented!\(' "$file" > /tmp/violations 2>/dev/null; then
+        if [ -s /tmp/violations ]; then
+          echo "  ❌ $file — todo!/unimplemented! in production code"
+          VIOLATIONS=$((VIOLATIONS + 1))
+        fi
       fi
     fi
     if grep -nE '^[[:space:]]*#\[allow\(dead_code\)\]' "$file" > /tmp/violations 2>/dev/null; then
