@@ -160,7 +160,12 @@ end
     );
     // V3: emits edge-case loop rather than todo!()
     assert!(
-        rust.contains("edge_cases") || rust.contains("for_all") || rust.contains("assert!"),
+        rust.contains("edge_cases") || rust.contains("proptest") || rust.contains("assert!"),
         "emitted property test must contain an assertion or edge-case loop:\n{}", rust
+    );
+    // V3+: also emits proptest block
+    assert!(
+        rust.contains("proptest"),
+        "emitted property test must contain proptest block:\n{}", rust
     );
 }

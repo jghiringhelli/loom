@@ -6,8 +6,8 @@ use super::{RustEmitter, to_snake_case};
 impl RustEmitter {
     /// Emit a property-based test from a `property:` block.
     ///
-    /// V3 implementation: instead of `todo!()`, emits a `#[test]` that runs the
-    /// invariant over a set of representative edge-case inputs.
+    /// V3 implementation: deterministic edge-case `#[test]` fn.
+    /// V3+ implementation: `proptest!` block with unlimited random sampling.
     ///
     /// The invariant string is translated from Loom surface syntax to Rust:
     /// - `x = y`  → `x == y`   (standalone `=` only; `<=`/`>=`/`!=` preserved)
@@ -15,28 +15,28 @@ impl RustEmitter {
     /// - ` or `   → ` || `
     /// - `not `   → `!`
     ///
-    /// QuickCheck (Claessen & Hughes 2000) approach: test invariants over edge cases.
+    /// QuickCheck (Claessen & Hughes 2000) + proptest (Hypothesis-style) approach.
     pub(super) fn emit_property_test(&self, pb: &PropertyBlock) -> String {
         let fn_name = to_snake_case(&pb.name);
         let invariant_rust = property_invariant_to_rust(&pb.invariant, &pb.var_name);
         let (var_type_rust, edge_cases) = property_edge_cases(&pb.var_type);
+        let strategy = property_proptest_strategy(&pb.var_type, var_type_rust);
 
         let mut out = String::new();
         out.push_str(&format!(
             "/// Property test: {} — forall {}: {}\n",
             pb.name, pb.var_name, pb.var_type
         ));
-        out.push_str(&format!(
-            "/// invariant: {}\n",
-            pb.invariant
-        ));
+        out.push_str(&format!("/// invariant: {}\n", pb.invariant));
         out.push_str(&format!(
             "/// samples (edge cases): {}, shrink: {}\n",
             pb.samples, pb.shrink
         ));
-        out.push_str("/// QuickCheck (Claessen & Hughes 2000): test invariants over edge cases.\n");
+        out.push_str("/// V3: QuickCheck edge cases. V3+: proptest random sampling.\n");
+
+        // V3 — deterministic edge cases
         out.push_str("#[test]\n");
-        out.push_str(&format!("fn property_{}() {{\n", fn_name));
+        out.push_str(&format!("fn property_{}_edge_cases() {{\n", fn_name));
         out.push_str(&format!(
             "    let edge_cases: &[{vt}] = &[{cases}];\n",
             vt = var_type_rust,
@@ -50,7 +50,34 @@ impl RustEmitter {
             vn = pb.var_name,
         ));
         out.push_str("    }\n");
+        out.push_str("}\n\n");
+
+        // V3+ — proptest random sampling
+        // Gate: compile with `RUSTFLAGS="--cfg loom_proptest"` or in Cargo:
+        //   [features] loom_proptest = []
+        // 1024 random cases per run.
+        out.push_str("#[cfg(loom_proptest)]\n");
+        out.push_str(&format!("mod property_{fn_name}_proptest {{\n"));
+        out.push_str("    use super::*;\n");
+        out.push_str("    use proptest::prelude::*;\n\n");
+        out.push_str("    proptest! {\n");
+        out.push_str("        #![proptest_config(proptest::test_runner::Config::with_cases(1024))]\n");
+        out.push_str(&format!(
+            "        #[test]\n        fn property_{fn_name}_random({vn}: {strat}) {{\n",
+            fn_name = fn_name,
+            vn = pb.var_name,
+            strat = strategy,
+        ));
+        out.push_str(&format!(
+            "            prop_assert!({inv}, \"property '{name}' failed for {vn}={{}}\", {vn});\n",
+            inv = invariant_rust,
+            name = pb.name,
+            vn = pb.var_name,
+        ));
+        out.push_str("        }\n");
+        out.push_str("    }\n");
         out.push_str("}\n");
+
         out
     }
 }
@@ -93,6 +120,18 @@ fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
         "Float"           => ("f64", "-1000.0, -1.0, 0.0, 1.0, 1000.0"),
         "Bool"            => ("bool", "false, true"),
         _                 => ("i64", "0, 1, -1"),
+    }
+}
+
+/// Map a Loom type name to a proptest strategy expression.
+///
+/// Float uses a bounded range to exclude NaN/Inf which cannot satisfy most invariants.
+fn property_proptest_strategy(loom_type: &str, rust_type: &'static str) -> String {
+    match loom_type {
+        "Int" | "Integer" => "i64".to_string(),
+        "Float"           => "proptest::num::f64::NORMAL | proptest::num::f64::ZERO".to_string(),
+        "Bool"            => "bool".to_string(),
+        _                 => rust_type.to_string(),
     }
 }
 

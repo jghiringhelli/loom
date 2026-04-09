@@ -479,7 +479,7 @@ end
     assert_eq!(output, "6", "double(3) should return 6");
 }
 
-/// V3: property: blocks emit edge-case loops that compile and run cleanly.
+/// V3+: property: blocks emit edge-case loops AND proptest random sampling.
 #[test]
 fn v3_property_test_runs_over_edge_cases() {
     let loom_src = r#"
@@ -493,7 +493,7 @@ end
 "#;
     let emitted = loom_compile(loom_src);
 
-    // The emitted code should contain an edge-case loop and an assertion.
+    // V3 edge-case loop
     assert!(
         emitted.contains("assert!"),
         "V3 emitted code must contain assert!:\n{}", emitted
@@ -502,8 +502,21 @@ end
         emitted.contains("edge_cases"),
         "V3 emitted code must contain an edge_cases array:\n{}", emitted
     );
+    // V3+ proptest block (gated by #[cfg(loom_proptest)] — runs with RUSTFLAGS="--cfg loom_proptest")
+    assert!(
+        emitted.contains("proptest!"),
+        "V3+ emitted code must contain proptest! macro:\n{}", emitted
+    );
+    assert!(
+        emitted.contains("prop_assert!"),
+        "V3+ emitted code must contain prop_assert! macro:\n{}", emitted
+    );
+    assert!(
+        emitted.contains("loom_proptest"),
+        "V3+ proptest block must be gated by cfg(loom_proptest):\n{}", emitted
+    );
 
-    // Compile with --test so #[test] fns are included in the binary.
+    // Compile + run edge-case tests (without loom_proptest flag — proptest block skipped)
     let output = rustc_and_run_tests(&emitted, "v3_property");
     assert!(
         output.contains("test result: ok"),
