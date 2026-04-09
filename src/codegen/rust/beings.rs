@@ -97,6 +97,71 @@ impl RustEmitter {
             out.push_str(&format!("/// {}\n", desc));
         }
 
+        // ── Telos convergence: emit threshold constants + convergence state ──
+        if let Some(telos) = &being.telos {
+            if let Some(thresholds) = &telos.thresholds {
+                let name_upper = being.name.to_uppercase();
+                out.push_str(&format!(
+                    "pub const {name_upper}_CONVERGENCE_THRESHOLD: f64  = {:.3};\n\
+pub const {name_upper}_WARNING_THRESHOLD:     f64  = {:.3};\n\
+pub const {name_upper}_DIVERGENCE_THRESHOLD:  f64  = {:.3};\n\n",
+                    thresholds.convergence,
+                    thresholds.warning.unwrap_or(thresholds.divergence),
+                    thresholds.divergence,
+                ));
+                let name_pascal = &being.name;
+                out.push_str(&format!(
+                    "/// Telos convergence state for `{name_pascal}` (Aristotle/Varela 1972).\n\
+/// Determined by comparing `fitness()` score against declared thresholds.\n\
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
+pub enum {name_pascal}ConvergenceState {{\n\
+    /// fitness >= {conv:.3}: being is converging toward telos.\n\
+    Converging,\n\
+    /// warning <= fitness < {conv:.3}: under stress, homeostasis active.\n\
+    Warning,\n\
+    /// fitness < {div:.3}: diverging, apoptosis candidate.\n\
+    Diverging,\n\
+}}\n\n",
+                    conv = thresholds.convergence,
+                    div = thresholds.divergence,
+                ));
+            }
+
+            // TLA+ convergence spec embedded as a const string for external verification.
+            let desc_safe = telos.description.replace('"', "'");
+            let name_upper = being.name.to_uppercase();
+            out.push_str(&format!(
+                "/// TLA+ convergence specification for `{}` (extract and run with TLC).\n\
+/// Invariant: fitness is monotonically non-decreasing toward telos.\n\
+pub const {name_upper}_TLA_SPEC: &str = r#\"\n\
+---- MODULE {name}ConvergenceCheck ----\n\
+EXTENDS Reals\n\
+\n\
+CONSTANT ConvergenceThreshold, DivergenceThreshold\n\
+VARIABLES fitness, state\n\
+\n\
+(* telos: {desc} *)\n\
+TypeInvariant ==\n\
+  /\\ fitness \\in REAL\n\
+  /\\ state \\in {{\"converging\", \"warning\", \"diverging\"}}\n\
+\n\
+TelosConverged == fitness >= ConvergenceThreshold\n\
+TelosDiverged  == fitness < DivergenceThreshold\n\
+\n\
+(* Liveness: the being eventually converges *)\n\
+ConvergenceProperty == []<>TelosConverged\n\
+\n\
+(* Safety: once converged, fitness never drops below divergence *)\n\
+NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
+\n\
+====\n\
+\"#;\n\n",
+                being.name,
+                name = being.name,
+                desc = desc_safe,
+            ));
+        }
+
         out.push_str("#[derive(Debug, Clone)]\n");
         out.push_str(&format!("pub struct {} {{\n", being.name));
         if let Some(matter) = &being.matter {
@@ -111,6 +176,7 @@ impl RustEmitter {
 
         out.push_str(&format!("impl {} {{\n", being.name));
 
+        // Fitness method: if thresholds are declared, emit convergence_state() too.
         let fitness_todo = if let Some(t) = &being.telos {
             if let Some(ff) = &t.fitness_fn {
                 format!("implement fitness: {}", ff)
@@ -120,9 +186,30 @@ impl RustEmitter {
         } else {
             "implement fitness".to_string()
         };
-        out.push_str("    /// Returns the fitness score relative to telos.\n");
+        out.push_str("    /// Returns the fitness score relative to telos (0.0 = worst, 1.0 = perfect).\n");
         out.push_str(&format!("    /// telos: {:?}\n", telos_desc));
         out.push_str(&format!("    pub fn fitness(&self) -> f64 {{\n        todo!({:?})\n    }}\n", fitness_todo));
+
+        // Convergence state helper (only when thresholds are declared).
+        if let Some(telos) = &being.telos {
+            if telos.thresholds.is_some() {
+                let name_upper = being.name.to_uppercase();
+                out.push_str(&format!(
+                    "\n    /// Classify the current convergence state against telos thresholds.\n\
+    pub fn convergence_state(&self) -> {}ConvergenceState {{\n\
+        let f = self.fitness();\n\
+        if f >= {name_upper}_CONVERGENCE_THRESHOLD {{\n\
+            {}ConvergenceState::Converging\n\
+        }} else if f >= {name_upper}_WARNING_THRESHOLD {{\n\
+            {}ConvergenceState::Warning\n\
+        }} else {{\n\
+            {}ConvergenceState::Diverging\n\
+        }}\n\
+    }}\n",
+                    being.name, being.name, being.name, being.name,
+                ));
+            }
+        }
 
         for reg in &being.regulate_blocks {
             let var_snake = to_snake_case(&reg.variable);

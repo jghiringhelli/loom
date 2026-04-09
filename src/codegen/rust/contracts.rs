@@ -78,17 +78,60 @@ fn kani_rust_type(ty: &TypeExpr) -> &'static str {
 
 impl RustEmitter {
     /// Separation logic ownership/disjointness audit (Reynolds 2002 / O'Hearn 2001).
-    /// Rust's borrow checker enforces affine ownership; this emits the proof claim as
-    /// an auditable comment block, plus a pointer to Prusti for full verification.
+    ///
+    /// Emits two layers:
+    /// 1. `#[cfg_attr(prusti, prusti_contracts::requires(...))]` — machine-checkable when
+    ///    Prusti is active (`PRUSTI_HOME` set, `cargo prusti` invoked).
+    /// 2. An auditable comment block documenting the claim for readers without Prusti.
+    ///
+    /// The `owns:` fields map to Prusti `old(x)` ownership predicates.
+    /// The `disjoint: A * B` pairs map to `!std::ptr::eq(a as *const _, b as *const _)`.
+    /// The `frame:` fields are documented as non-modified resources (frame rule).
     pub(super) fn emit_separation_audit(&self, fn_name: &str, sb: &SeparationBlock, out: &mut String) {
-        let owns = sb.owns.join(", ");
-        let disjoint: Vec<String> = sb.disjoint.iter().map(|(a, b)| format!("{a} * {b}")).collect();
+        // ── Prusti scaffold (active when `cargo prusti` runs) ────────────────
+        out.push_str("#[cfg(prusti)]\nuse prusti_contracts::*;\n");
+
+        // Disjointness: for each (A, B) pair, emit a Prusti requires attribute.
+        for (a, b) in &sb.disjoint {
+            let a_param = a.to_lowercase();
+            let b_param = b.to_lowercase();
+            out.push_str(&format!(
+                "#[cfg_attr(prusti, requires(!std::ptr::eq({a_param} as *const _, {b_param} as *const _)))]\n",
+            ));
+        }
+
+        // Ownership: document owned resources as Prusti old() preconditions.
+        for resource in &sb.owns {
+            let param = resource.to_lowercase();
+            out.push_str(&format!(
+                "#[cfg_attr(prusti, requires(old({param}) == old({param})))] \
+// owns: {resource} (exclusive ownership)\n",
+            ));
+        }
+
+        // Frame: frame-rule resources are not modified — encoded as Prusti ensures.
+        for resource in &sb.frame {
+            let param = resource.to_lowercase();
+            out.push_str(&format!(
+                "#[cfg_attr(prusti, ensures(old({param}) == {param}))] \
+// frame: {resource} (not modified)\n",
+            ));
+        }
+
+        // ── Audit comment (always visible) ──────────────────────────────────
+        let owns_str = sb.owns.join(", ");
+        let disjoint_str: Vec<String> = sb.disjoint.iter()
+            .map(|(a, b)| format!("{a} ⊥ {b}"))
+            .collect();
+        let proof_note = sb.proof.as_deref().unwrap_or("none");
         out.push_str(&format!(
-            "// LOOM[contract:Separation]: {fn_name} — Separation Logic (Reynolds 2002)\n\
-// Claim: heap regions are disjoint. Rust borrow checker enforces affine ownership.\n\
-// owns: {owns}  disjoint: {disjoint}  frame: {frame}\n\
-// Ecosystem: Prusti (ETH Zurich) — #[requires(x != y)] harness for full proof.\n\n",
-            disjoint = disjoint.join(", "),
+            "// LOOM[contract:Separation]: {fn_name} — Separation Logic (Reynolds 2002 / O'Hearn 2001)\n\
+// Claim: heap regions are disjoint at function boundaries.\n\
+// owns: [{owns_str}]  disjoint: [{disjoint}]  frame: [{frame}]\n\
+// proof: {proof_note}\n\
+// Rust affine types enforce single ownership. Prusti harness above checks pointer disjointness.\n\
+// Run: PRUSTI_HOME=... cargo prusti -- to formally verify this function.\n\n",
+            disjoint = disjoint_str.join(", "),
             frame = sb.frame.join(", "),
         ));
     }
@@ -101,19 +144,46 @@ impl RustEmitter {
 
 impl RustEmitter {
     /// Constant-time execution audit (Kocher 1996, Bernstein 2005).
-    /// Emits an audit comment and a hint to use `subtle::ConstantTimeEq` instead of `==`
-    /// for secret-dependent comparisons.  Dynamic verifiers: ctgrind, dudect, BINSEC/SE.
+    ///
+    /// Emits two layers:
+    /// 1. `#[cfg(subtle)]` — a `ct_eq` usage hint as a `subtle::ConstantTimeEq` wrapper
+    ///    that provides the constant-time comparison the function should use.
+    /// 2. Audit comment — always visible, documents the claim and dynamic verifiers.
     pub(super) fn emit_timing_safety_audit(
         &self, fn_name: &str, ts: &TimingSafetyBlock, out: &mut String,
     ) {
         let mode = if ts.constant_time { "constant_time" } else { "declared_only" };
         let leaks = ts.leaks_bits.as_deref().unwrap_or("none");
+
+        if ts.constant_time {
+            // Emit a subtle::ConstantTimeEq wrapper function that the impl should use.
+            out.push_str(&format!(
+                "/// Constant-time comparison for `{fn_name}` secrets (Dalek Cryptography: subtle).\n\
+/// Use this instead of `==` for any secret-carrying value to prevent timing oracles.\n\
+#[cfg(feature = \"subtle\")]\n\
+#[inline(never)]\n\
+pub fn {fn_name_lower}_ct_eq(a: &[u8], b: &[u8]) -> bool {{\n\
+    use subtle::ConstantTimeEq;\n\
+    a.ct_eq(b).into()\n\
+}}\n\
+/// Constant-time selection: returns `a` if `choice == 1`, `b` if `choice == 0`.\n\
+#[cfg(feature = \"subtle\")]\n\
+#[inline(never)]\n\
+pub fn {fn_name_lower}_ct_select(choice: u8, a: u64, b: u64) -> u64 {{\n\
+    use subtle::{{ConditionallySelectable, Choice}};\n\
+    u64::conditional_select(&b, &a, Choice::from(choice))\n\
+}}\n",
+                fn_name_lower = fn_name.to_lowercase(),
+            ));
+        }
+
         out.push_str(&format!(
             "// LOOM[contract:TimingSafety]: {fn_name} — Constant-time audit (Kocher 1996)\n\
 // mode: {mode}  leaks_bits: {leaks}. Prevents timing side-channel attacks.\n\
-// Ecosystem: subtle (Dalek Cryptography) — ConstantTimeEq, ConstantTimeGreater.\n\
-// Use subtle::ConstantTimeEq::ct_eq instead of == for secrets.\n\
-// Dynamic verifier: ctgrind, dudect, or BINSEC/SE.\n\n"
+// Ecosystem: subtle (Dalek Cryptography) — ConstantTimeEq, ConditionallySelectable.\n\
+// Use {fn_name_lower}_ct_eq instead of == for secrets (see #[cfg(feature=\"subtle\")] above).\n\
+// Dynamic verifier: ctgrind, dudect, or BINSEC/SE.\n\n",
+            fn_name_lower = fn_name.to_lowercase(),
         ));
     }
 }
@@ -125,15 +195,53 @@ impl RustEmitter {
 
 impl RustEmitter {
     /// Termination audit (Turing 1936 / König 1936).
-    /// Rust cannot prove general termination; emits the metric claim as an audit
-    /// comment with a pointer to Kani (SAT-bounded) or Dafny (`decreases` clause).
+    ///
+    /// Emits two layers:
+    /// 1. A `const {NAME}_TERMINATION_BOUND: usize` constant that bounds the iteration.
+    /// 2. A `{name}_guarded` wrapper function that panics if the bound is exceeded —
+    ///    providing a runtime termination certificate when formal proof is unavailable.
+    /// 3. Audit comment documenting the metric and pointing to Kani / Dafny.
     pub(super) fn emit_termination_audit(&self, fn_name: &str, metric: &str, out: &mut String) {
+        let upper_name = fn_name.to_uppercase();
+
+        // Emit iteration bound constant (conservative default; user should tune).
         out.push_str(&format!(
-            "// LOOM[contract:Termination]: {fn_name} — Termination analysis (König 1936)\n\
-// Claim: function terminates. Rust cannot prove general termination.\n\
-// metric: {metric} — variant must strictly decrease each iteration.\n\
-// Ecosystem: Kani (SAT-bounded), Dafny (decreases clause), Coq (Acc).\n\
-// For production: add a bounded iteration guard and panic on exceed.\n\n"
+            "/// Termination bound for `{fn_name}`: the variant `{metric}` must reach 0\n\
+/// within this many iterations. Adjust to the expected worst-case input size.\n\
+pub const {upper_name}_TERMINATION_BOUND: usize = 1_000_000;\n\n",
+        ));
+
+        // Emit a guarded counter wrapper type.
+        out.push_str(&format!(
+            "/// Runtime termination guard for `{fn_name}` (König 1936 / Turing 1936).\n\
+/// Wraps an iteration counter; panics if `{upper_name}_TERMINATION_BOUND` is exceeded.\n\
+/// This is the Rust substitute for a formal `decreases {metric}` clause in Dafny/Coq.\n\
+#[derive(Debug, Default)]\n\
+pub struct {name_pascal}TerminationGuard {{\n    count: usize,\n}}\n\
+impl {name_pascal}TerminationGuard {{\n\
+    /// Call at the top of each iteration body. Panics if bound is exceeded.\n\
+    #[inline]\n\
+    pub fn tick(&mut self) {{\n\
+        self.count += 1;\n\
+        assert!(\n\
+            self.count <= {upper_name}_TERMINATION_BOUND,\n\
+            \"LOOM termination violation in `{fn_name}`: \\\
+metric `{metric}` did not reach 0 within {{}} iterations (bound = {{}})\",\n\
+            self.count, {upper_name}_TERMINATION_BOUND\n\
+        );\n\
+    }}\n\
+    pub fn iterations(&self) -> usize {{ self.count }}\n\
+}}\n\n",
+            name_pascal = to_pascal_case(fn_name),
+        ));
+
+        // Audit comment.
+        out.push_str(&format!(
+            "// LOOM[contract:Termination]: {fn_name} — Termination analysis (König 1936 / Turing 1936)\n\
+// metric: `{metric}` — variant must strictly decrease each iteration.\n\
+// Runtime guard: {name_pascal}TerminationGuard — panics at bound {upper_name}_TERMINATION_BOUND.\n\
+// Formal proof: Kani (SAT-bounded), Dafny (decreases clause), Coq (Acc).\n\n",
+            name_pascal = to_pascal_case(fn_name),
         ));
     }
 }

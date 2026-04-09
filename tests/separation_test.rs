@@ -164,10 +164,10 @@ end
     );
 }
 
-// ── 7. Rust codegen emits separation as doc comments ─────────────────────────
+// ── 7. Rust codegen emits Prusti scaffold + audit comment ─────────────────────
 
 #[test]
-fn separation_block_emitted_in_rust_codegen() {
+fn separation_block_emits_prusti_scaffold() {
     let src = r#"
 module M
 fn reserve @thread_safe :: Resource -> Unit
@@ -179,9 +179,62 @@ end
 end
 "#;
     let rust = loom::compile(src).expect("compile failed");
+    // Prusti import scaffold
     assert!(
-        rust.contains("separation") || rust.contains("frame_rule_verified"),
-        "Expected separation doc comment in output, got:\n{}", rust
+        rust.contains("#[cfg(prusti)]") && rust.contains("prusti_contracts"),
+        "Expected prusti_contracts import, got:\n{}", rust
+    );
+    // Audit comment always present
+    assert!(
+        rust.contains("LOOM[contract:Separation]") && rust.contains("Reynolds 2002"),
+        "Expected separation audit comment, got:\n{}", rust
+    );
+    // Proof note is preserved
+    assert!(rust.contains("frame_rule_verified"), "Expected proof note in output");
+}
+
+// ── 7b. Disjoint pairs emit requires attributes ───────────────────────────────
+
+#[test]
+fn separation_disjoint_emits_prusti_requires() {
+    let src = r#"
+module Bank
+fn transferFunds @thread_safe :: Account -> Account -> Unit
+  separation:
+    owns: source
+    owns: target
+    disjoint: source * target
+  end
+end
+end
+"#;
+    let rust = loom::compile(src).expect("compile failed");
+    assert!(
+        rust.contains("#[cfg_attr(prusti, requires(!std::ptr::eq(source as *const _, target as *const _)))]"),
+        "Expected disjoint Prusti requires for source/target, got:\n{}", rust
+    );
+}
+
+// ── 7c. Frame fields emit ensures attributes ──────────────────────────────────
+
+#[test]
+fn separation_frame_emits_prusti_ensures() {
+    let src = r#"
+module M
+fn processOrder @thread_safe :: Order -> Unit
+  separation:
+    owns: order
+    owns: audit_log
+    frame: audit_log
+  end
+end
+end
+"#;
+    let rust = loom::compile(src).expect("compile failed");
+    // Frame field should produce a Prusti ensures attribute
+    assert!(
+        rust.contains("#[cfg_attr(prusti, ensures(old(audit_log)"),
+        "Expected frame Prusti ensures for audit_log, got:\n{}", rust
     );
 }
 
