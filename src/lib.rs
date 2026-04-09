@@ -53,11 +53,11 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker,
         EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
         ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
-        ManifestChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
+        ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
         PathwayChecker, PrivacyChecker, ProbabilisticChecker, PropertyChecker,
         ProvenanceChecker, RefinementChecker, ResonanceChecker, ScenarioChecker,
         SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
-        SessionChecker, SideChannelChecker, StoreChecker, SymbiosisChecker,
+        SessionChecker, SideChannelChecker, SignalAttentionChecker, StoreChecker, SymbiosisChecker,
         TensorChecker, TemporalChecker, TypeChecker, TypestateChecker, UmweltChecker,
         UnitsChecker, UseCaseChecker,
     };
@@ -135,9 +135,13 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::warn_only(PropertyChecker::new()),
         CheckerStage::warn_only(ProvenanceChecker::new()),
         CheckerStage::warn_only(BoundaryChecker::new()),
-        // Evolution / memory (M111-M112) — evolution is warn-only
+        // Evolution / memory (M111-M116) — evolution is warn-only
         CheckerStage::suppressing(EvolutionVectorChecker::new(), &["[warn]", ""]),
         CheckerStage::warn_only(CognitiveMemoryChecker::new()),
+        // M115: Signal attention filter validation
+        CheckerStage::hard(SignalAttentionChecker::new()),
+        // M116: Messaging primitive validation
+        CheckerStage::warn_only(MessagingChecker::new()),
     ];
 
     for stage in pipeline {

@@ -43,6 +43,9 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
             modifiable_by: None,
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],
@@ -64,6 +67,7 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         scenarios: vec![],
         boundary: None,
             cognitive_memory: None,
+        signal_attention: None,
         span: Span::synthetic(),
     }
 }

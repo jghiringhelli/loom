@@ -587,3 +587,36 @@ pub struct SmtVerification {
     pub status: SmtStatus,
 }
 
+// ── M116: Messaging Primitive — typed inter-being communication contract ───────
+//
+// Formalises SyncRequest/AsyncMessage/Stream/EventBus/RPC/MessageBroker as
+// first-class Loom constructs with compiler-verified delivery guarantees.
+// Lineage: session types (Honda 1993) → capability types → Loom `messaging_primitive`.
+
+/// The interaction pattern of a messaging primitive.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessagingPattern {
+    RequestResponse,
+    PublishSubscribe,
+    PointToPoint,
+    ProducerConsumer,
+    Bidirectional,
+}
+
+/// A top-level messaging primitive declaration.
+///
+/// Declares how a being communicates with other beings or external systems,
+/// including delivery guarantees and interaction pattern.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MessagingPrimitiveDef {
+    /// Primitive name (e.g. `SyncRequest`, `OrderEventBus`).
+    pub name: String,
+    /// Interaction pattern (request/response, pub/sub, etc.).
+    pub pattern: Option<MessagingPattern>,
+    /// Declared delivery guarantees (e.g. `@exactly-once`, `@at_least_once`).
+    pub guarantees: Vec<String>,
+    /// Whether a timeout declaration is mandatory for this primitive.
+    pub timeout_mandatory: bool,
+    pub span: Span,
+}
+

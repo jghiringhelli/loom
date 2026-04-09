@@ -314,6 +314,18 @@ impl RustEmitter {
                         bb.sealed.join(", ")
                     )
                 }
+                Item::MessagingPrimitive(mp) => {
+                    // M116: messaging_primitive emits a doc comment describing the messaging pattern.
+                    let mut src = format!("// messaging_primitive {}:\n", mp.name);
+                    src.push_str(&format!("//   pattern: {:?}\n", mp.pattern));
+                    if !mp.guarantees.is_empty() {
+                        src.push_str(&format!("//   guarantees: [{}]\n", mp.guarantees.join(", ")));
+                    }
+                    if mp.timeout_mandatory {
+                        src.push_str("//   timeout: mandatory\n");
+                    }
+                    src
+                }
             };
             body.push('\n');
             for line in item_src.lines() {

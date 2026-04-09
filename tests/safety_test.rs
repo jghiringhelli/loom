@@ -47,6 +47,9 @@ fn base_being() -> BeingDef {
             modifiable_by: None,
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],
@@ -68,6 +71,7 @@ fn base_being() -> BeingDef {
         scenarios: vec![],
         boundary: None,
             cognitive_memory: None,
+        signal_attention: None,
         span: Span::synthetic(),
     }
 }
@@ -172,6 +176,9 @@ fn corrigible_without_modifiable_by_errors() {
             modifiable_by: None,
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -194,6 +201,9 @@ fn corrigible_with_modifiable_by_ok() {
             modifiable_by: Some("HumanAuthority".to_string()),
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -213,6 +223,9 @@ fn bounded_telos_rejects_maximize() {
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -235,6 +248,9 @@ fn bounded_telos_rejects_unlimited() {
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -257,6 +273,9 @@ fn bounded_telos_without_bounded_by_errors() {
             modifiable_by: None,
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()
@@ -279,6 +298,9 @@ fn bounded_telos_with_bounded_by_ok() {
             modifiable_by: None,
             bounded_by: Some("OperationalScope".to_string()),
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         ..base_being()

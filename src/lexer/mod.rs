@@ -215,6 +215,22 @@ pub enum Token {
     #[token("shrink")]    Shrink,
     #[token("samples")]   Samples,
 
+    // ── M112: Telos-as-function + M113-M115 (spec session April 2026) ────────────
+    #[token("measured_by")]        MeasuredBy,
+    #[token("thresholds")]         Thresholds,
+    #[token("convergence")]        Convergence,
+    #[token("divergence")]         Divergence,
+    #[token("propagation")]        Propagation,
+    #[token("guides")]             Guides,
+    #[token("signal_attention")]   SignalAttention,
+    #[token("prioritize")]         Prioritize,
+    #[token("attenuate")]          Attenuate,
+    #[token("telos_contribution")] TelosContribution,
+
+    // ── M116: Messaging primitives ───────────────────────────────────────────────
+    #[token("messaging_primitive")] MessagingPrimitive,
+    #[token("guarantees")]          Guarantees,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

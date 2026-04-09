@@ -8,8 +8,9 @@
 //! - Every `evolve` constraint must assert convergence.
 //! - `gradient_descent` and `derivative_free` are mutually exclusive without `when` conditions.
 
-use crate::ast::{BeingDef, EcosystemDef, EvolveBlock, Module, SearchStrategy};
+use crate::ast::{BeingDef, EcosystemDef, EvolveBlock, Module, SearchStrategy, TelosDef};
 use crate::error::LoomError;
+use crate::ast::Span;
 
 /// Run all teleological checks on a module.
 pub fn check(module: &Module) -> Result<(), Vec<LoomError>> {
@@ -26,6 +27,24 @@ pub fn check(module: &Module) -> Result<(), Vec<LoomError>> {
 }
 
 fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
+    // M112: validate telos metric/threshold fields if present
+    if let Some(telos) = &being.telos {
+        check_telos_def(telos, &being.name, being.span.clone(), errors);
+    }
+    // M114: validate telos_contribution on regulate blocks
+    for reg in &being.regulate_blocks {
+        if let Some(contrib) = reg.telos_contribution {
+            if !(0.0..=1.0).contains(&contrib) {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "regulate '{}' in being '{}': telos_contribution {:.3} is out of range [0.0, 1.0]",
+                        reg.variable, being.name, contrib
+                    ),
+                    reg.span.clone(),
+                ));
+            }
+        }
+    }
     if being.telos.is_none() {
         errors.push(LoomError::type_err(
             format!(
@@ -180,6 +199,93 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
                 format!("plasticity block in being '{}' has empty modifies:", being.name),
                 plasticity.span.clone(),
             ));
+        }
+    }
+}
+
+/// M112: Validate telos metric and threshold fields.
+///
+/// Invariant (Carroll et al. homeostasis framing):
+///   divergence < warning ≤ convergence ≤ propagation
+/// All declared values must be in [0.0, 1.0].
+fn check_telos_def(telos: &TelosDef, being_name: &str, span: Span, errors: &mut Vec<LoomError>) {
+    if let Some(thresholds) = &telos.thresholds {
+        let in_range = |v: f64| (0.0..=1.0).contains(&v);
+
+        if !in_range(thresholds.convergence) {
+            errors.push(LoomError::type_err(
+                format!(
+                    "telos in being '{}': convergence threshold {:.3} out of range [0.0, 1.0]",
+                    being_name, thresholds.convergence
+                ),
+                span.clone(),
+            ));
+        }
+        if !in_range(thresholds.divergence) {
+            errors.push(LoomError::type_err(
+                format!(
+                    "telos in being '{}': divergence threshold {:.3} out of range [0.0, 1.0]",
+                    being_name, thresholds.divergence
+                ),
+                span.clone(),
+            ));
+        }
+        if let Some(w) = thresholds.warning {
+            if !in_range(w) {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "telos in being '{}': warning threshold {:.3} out of range [0.0, 1.0]",
+                        being_name, w
+                    ),
+                    span.clone(),
+                ));
+            }
+        }
+        if let Some(p) = thresholds.propagation {
+            if !in_range(p) {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "telos in being '{}': propagation threshold {:.3} out of range [0.0, 1.0]",
+                        being_name, p
+                    ),
+                    span.clone(),
+                ));
+            }
+        }
+
+        // Ordering invariant: divergence < convergence
+        if thresholds.divergence >= thresholds.convergence {
+            errors.push(LoomError::type_err(
+                format!(
+                    "telos in being '{}': divergence ({:.3}) must be strictly less than convergence ({:.3})",
+                    being_name, thresholds.divergence, thresholds.convergence
+                ),
+                span.clone(),
+            ));
+        }
+        // warning must be ≥ divergence and ≤ convergence
+        if let Some(w) = thresholds.warning {
+            if w < thresholds.divergence {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "telos in being '{}': warning ({:.3}) must be ≥ divergence ({:.3})",
+                        being_name, w, thresholds.divergence
+                    ),
+                    span.clone(),
+                ));
+            }
+        }
+        // propagation must be ≥ convergence
+        if let Some(p) = thresholds.propagation {
+            if p < thresholds.convergence {
+                errors.push(LoomError::type_err(
+                    format!(
+                        "telos in being '{}': propagation ({:.3}) must be ≥ convergence ({:.3})",
+                        being_name, p, thresholds.convergence
+                    ),
+                    span.clone(),
+                ));
+            }
         }
     }
 }

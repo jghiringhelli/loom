@@ -112,12 +112,12 @@ use super::{
     CriticalityChecker, CurryHowardChecker, DegeneracyChecker, DependentChecker,
     EffectChecker, EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
     ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
-    ManifestChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
+    ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
     PathwayChecker, PrivacyChecker, ProbabilisticChecker, PropertyChecker,
     ProvenanceChecker, RefinementChecker, ResonanceChecker, ScenarioChecker,
     SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
-    SessionChecker, SideChannelChecker, StochasticChecker, StoreChecker, SymbiosisChecker,
-    TensorChecker, TemporalChecker, TypeChecker, TypestateChecker,
+    SessionChecker, SideChannelChecker, SignalAttentionChecker, StochasticChecker, StoreChecker,
+    SymbiosisChecker, TensorChecker, TemporalChecker, TypeChecker, TypestateChecker,
     UmweltChecker, UnitsChecker, UseCaseChecker,
 };
 
@@ -136,9 +136,10 @@ impl_result_checker!(
 // Vec<LoomError> checkers
 impl_vec_checker!(
     BoundaryChecker, CognitiveMemoryChecker, ConservationChecker, EffectHandlerChecker,
-    EvolutionVectorChecker, JournalChecker, ManifestChecker, MigrationChecker,
-    MinimalChecker, PropertyChecker, ProvenanceChecker, ResonanceChecker,
-    ScenarioChecker, SemiosisChecker, SessionChecker, StoreChecker, UseCaseChecker,
+    EvolutionVectorChecker, JournalChecker, ManifestChecker, MessagingChecker,
+    MigrationChecker, MinimalChecker, PropertyChecker, ProvenanceChecker, ResonanceChecker,
+    ScenarioChecker, SemiosisChecker, SessionChecker, SignalAttentionChecker, StoreChecker,
+    UseCaseChecker,
 );
 
 // ── Outlier adapters ──────────────────────────────────────────────────────────

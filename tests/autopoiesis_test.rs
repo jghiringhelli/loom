@@ -51,6 +51,9 @@ fn base_being() -> BeingDef {
             modifiable_by: None,
             bounded_by: None,
             sign: None,
+            metric: None,
+            thresholds: None,
+            guides: vec![],
             span: Span::synthetic(),
         }),
         regulate_blocks: vec![],
@@ -72,6 +75,7 @@ fn base_being() -> BeingDef {
         scenarios: vec![],
         boundary: None,
             cognitive_memory: None,
+        signal_attention: None,
         span: Span::synthetic(),
     }
 }

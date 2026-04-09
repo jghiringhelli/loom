@@ -60,6 +60,8 @@ pub mod provenance;
 pub mod boundary;
 pub mod evolution_vector;
 pub mod cognitive_memory;
+pub mod signal_attention;
+pub mod messaging;
 pub mod loom_checker;
 
 pub use loom_checker::{
@@ -120,3 +122,5 @@ pub use provenance::ProvenanceChecker;
 pub use boundary::BoundaryChecker;
 pub use evolution_vector::EvolutionVectorChecker;
 pub use cognitive_memory::CognitiveMemoryChecker;
+pub use signal_attention::SignalAttentionChecker;
+pub use messaging::MessagingChecker;

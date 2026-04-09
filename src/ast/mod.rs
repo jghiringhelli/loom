@@ -144,5 +144,7 @@ pub enum Item {
     Property(PropertyBlock),
     /// Boundary block — module-level API surface declaration. M103.
     BoundaryBlock(BoundaryBlock),
+    /// M116: Messaging primitive — typed inter-being communication contract.
+    MessagingPrimitive(MessagingPrimitiveDef),
 }
 

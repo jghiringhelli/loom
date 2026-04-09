@@ -35,6 +35,8 @@ pub struct RegulateBlock {
     pub target: String,
     pub bounds: Option<(String, String)>,
     pub response: Vec<(String, String)>,
+    /// M114: How much this regulation contributes to telos convergence (0.0–1.0).
+    pub telos_contribution: Option<f64>,
     pub span: Span,
 }
 
@@ -50,6 +52,42 @@ pub struct TelosDef {
     /// M79: The signal type this being interprets as directional input (Peirce semiosis).
     /// A being is organized to interpret this sign toward its telos.
     pub sign: Option<String>,
+    /// M112: Typed metric function — `compute :: BeingState -> SignalSet -> Float`.
+    /// Turns telos from a string label into a measurable convergence function.
+    pub metric: Option<String>,
+    /// M112: Convergence thresholds for telos evaluation.
+    pub thresholds: Option<TelosThresholds>,
+    /// M112: Which decision axes this telos guides (signal attention, propagation, etc.).
+    pub guides: Vec<String>,
+    pub span: Span,
+}
+
+/// M112: Thresholds controlling telos-driven lifecycle transitions.
+///
+/// Invariant enforced by checker: divergence < warning ≤ convergence ≤ propagation.
+/// All values in [0.0, 1.0].
+#[derive(Debug, Clone, PartialEq)]
+pub struct TelosThresholds {
+    /// Being flourishes above this score; eligible for propagation signal.
+    pub convergence: f64,
+    /// Below `convergence`, above `warning`: being under stress, activates repair.
+    pub warning: Option<f64>,
+    /// Below this: apoptosis trigger.
+    pub divergence: f64,
+    /// Above this: eligible to propagate.  Defaults to `convergence` if absent.
+    pub propagation: Option<f64>,
+}
+
+/// M115: Declares how a being filters incoming signals based on telos relevance.
+///
+/// Signals above `prioritize_above` are given full attention;
+/// signals below `attenuate_below` are damped but not ignored.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignalAttentionBlock {
+    /// Signals with telos_relevance > this threshold receive priority processing.
+    pub prioritize_above: Option<f64>,
+    /// Signals with telos_relevance < this threshold are attenuated.
+    pub attenuate_below: Option<f64>,
     pub span: Span,
 }
 
@@ -213,6 +251,8 @@ pub struct BeingDef {
     pub boundary: Option<BoundaryBlock>,
     /// M112: Cognitive memory block — lightweight hippocampal layer.
     pub cognitive_memory: Option<CognitiveMemoryBlock>,
+    /// M115: Signal attention filter — prioritize/attenuate by telos relevance.
+    pub signal_attention: Option<SignalAttentionBlock>,
     pub span: Span,
 }
 

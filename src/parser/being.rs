@@ -175,6 +175,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut migrations: Vec<MigrationBlock> = Vec::new();
         let mut boundary: Option<BoundaryBlock> = None;
         let mut cognitive_memory: Option<CognitiveMemoryBlock> = None;
+        let mut signal_attention: Option<SignalAttentionBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -246,6 +247,9 @@ impl<'src> crate::parser::Parser<'src> {
                 let mut modifiable_by = None;
                 let mut bounded_by = None;
                 let mut sign = None;
+                let mut metric = None;
+                let mut thresholds: Option<TelosThresholds> = None;
+                let mut guides: Vec<String> = Vec::new();
                 // Loop over optional fields in any order until `end`.
                 while !self.at(&Token::End) && self.peek().is_some() {
                     if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
@@ -255,7 +259,9 @@ impl<'src> crate::parser::Parser<'src> {
                         while !self.at(&Token::End) && self.peek().is_some() {
                             // Stop if we hit a known telos field keyword.
                             let is_field = matches!(self.tokens.get(self.pos),
-                                Some((Token::ModifiableBy, _)) | Some((Token::BoundedBy, _)))
+                                Some((Token::ModifiableBy, _)) | Some((Token::BoundedBy, _))
+                                | Some((Token::MeasuredBy, _)) | Some((Token::Thresholds, _))
+                                | Some((Token::Guides, _)))
                                 || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                     if n == "sign");
                             if is_field { break; }
@@ -291,6 +297,89 @@ impl<'src> crate::parser::Parser<'src> {
                             self.pos += 1;
                             sign = Some(val);
                         }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::MeasuredBy, _))) {
+                        // M112: measured_by: <fn signature string>
+                        self.advance(); // consume `measured_by`
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::StrLit(sig), _)) = self.tokens.get(self.pos) {
+                            metric = Some(sig.clone());
+                            self.pos += 1;
+                        } else {
+                            // Collect tokens until next known field or `end`
+                            let mut parts = Vec::new();
+                            while !self.at(&Token::End) && self.peek().is_some() {
+                                let at_field = matches!(self.tokens.get(self.pos),
+                                    Some((Token::Thresholds, _)) | Some((Token::Guides, _))
+                                    | Some((Token::ModifiableBy, _)) | Some((Token::BoundedBy, _)));
+                                if at_field { break; }
+                                if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                    parts.push(format!("{:?}", tok));
+                                    self.pos += 1;
+                                }
+                            }
+                            metric = Some(parts.join(" "));
+                        }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Thresholds, _))) {
+                        // M112: thresholds: block — convergence/warning/divergence/propagation
+                        self.advance(); // consume `thresholds`
+                        self.expect(Token::Colon)?;
+                        let mut convergence = 0.8_f64;
+                        let mut warning = None;
+                        let mut divergence = 0.4_f64;
+                        let mut propagation = None;
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            let at_outer_field = matches!(self.tokens.get(self.pos),
+                                Some((Token::Guides, _)) | Some((Token::ModifiableBy, _))
+                                | Some((Token::BoundedBy, _)) | Some((Token::MeasuredBy, _)));
+                            if at_outer_field { break; }
+                            if matches!(self.tokens.get(self.pos), Some((Token::Convergence, _))) {
+                                self.advance();
+                                self.expect(Token::Colon)?;
+                                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                                    convergence = *v; self.pos += 1;
+                                }
+                            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "warning") {
+                                self.advance();
+                                self.expect(Token::Colon)?;
+                                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                                    warning = Some(*v); self.pos += 1;
+                                }
+                            } else if matches!(self.tokens.get(self.pos), Some((Token::Divergence, _))) {
+                                self.advance();
+                                self.expect(Token::Colon)?;
+                                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                                    divergence = *v; self.pos += 1;
+                                }
+                            } else if matches!(self.tokens.get(self.pos), Some((Token::Propagation, _))) {
+                                self.advance();
+                                self.expect(Token::Colon)?;
+                                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                                    propagation = Some(*v); self.pos += 1;
+                                }
+                            } else {
+                                self.advance();
+                            }
+                        }
+                        thresholds = Some(TelosThresholds { convergence, warning, divergence, propagation });
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Guides, _))) {
+                        // M112: guides: list of guide names (signal_attention, propagation_decision, etc.)
+                        self.advance(); // consume `guides`
+                        self.expect(Token::Colon)?;
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            let at_outer = matches!(self.tokens.get(self.pos),
+                                Some((Token::Thresholds, _)) | Some((Token::ModifiableBy, _))
+                                | Some((Token::BoundedBy, _)) | Some((Token::MeasuredBy, _)));
+                            if at_outer { break; }
+                            if let Some((Token::Ident(g), _)) = self.tokens.get(self.pos) {
+                                guides.push(g.clone());
+                                self.pos += 1;
+                            } else if matches!(self.tokens.get(self.pos), Some((Token::SignalAttention, _))) {
+                                guides.push("signal_attention".to_string());
+                                self.pos += 1;
+                            } else {
+                                self.advance();
+                            }
+                        }
                     } else {
                         // Unknown token in telos block — skip to avoid infinite loop.
                         self.advance();
@@ -298,7 +387,7 @@ impl<'src> crate::parser::Parser<'src> {
                 }
                 let sec_end = self.current_span();
                 self.expect(Token::End)?;
-                telos = Some(TelosDef { description, fitness_fn, modifiable_by, bounded_by, sign, span: Span::merge(&sec_start, &sec_end) });
+                telos = Some(TelosDef { description, fitness_fn, modifiable_by, bounded_by, sign, metric, thresholds, guides, span: Span::merge(&sec_start, &sec_end) });
             } else if self.at(&Token::Regulate) {
                 let sec_start = self.current_span();
                 self.advance(); // consume `regulate`
@@ -306,6 +395,7 @@ impl<'src> crate::parser::Parser<'src> {
                 let mut target = String::new();
                 let mut bounds = None;
                 let mut response = Vec::new();
+                let mut telos_contribution: Option<f64> = None;
                 while !self.at(&Token::End) && self.peek().is_some() {
                     if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "target") {
                         self.advance();
@@ -331,6 +421,14 @@ impl<'src> crate::parser::Parser<'src> {
                             let (action, _) = self.expect_ident()?;
                             response.push((condition, action));
                         }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::TelosContribution, _))) {
+                        // M114: telos_contribution: 0.9
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                            telos_contribution = Some(*v);
+                            self.pos += 1;
+                        }
                     } else {
                         self.advance();
                     }
@@ -342,6 +440,7 @@ impl<'src> crate::parser::Parser<'src> {
                     target,
                     bounds,
                     response,
+                    telos_contribution,
                     span: Span::merge(&sec_start, &sec_end),
                 });
             } else if self.at(&Token::Evolve) {
@@ -832,6 +931,8 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "memory")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
                 cognitive_memory = Some(self.parse_cognitive_memory_block()?);
+            } else if self.at(&Token::SignalAttention) {
+                signal_attention = Some(self.parse_signal_attention_block()?);
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -868,6 +969,7 @@ impl<'src> crate::parser::Parser<'src> {
             scenarios,
             boundary,
             cognitive_memory,
+            signal_attention,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -1762,6 +1864,47 @@ impl<'src> crate::parser::Parser<'src> {
             tier,
             span: Span::merge(&start, &end_span),
         })
+    }
+
+    /// Parse a `signal_attention` block inside a being.
+    ///
+    /// Grammar:
+    /// ```text
+    /// signal_attention
+    ///   prioritize: 0.6   -- signals with telos_relevance > threshold get priority
+    ///   attenuate: 0.2    -- signals with telos_relevance < threshold are damped
+    /// end
+    /// ```
+    pub(in crate::parser) fn parse_signal_attention_block(&mut self) -> Result<SignalAttentionBlock, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume `signal_attention`
+        let mut prioritize_above: Option<f64> = None;
+        let mut attenuate_below: Option<f64> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if matches!(self.tokens.get(self.pos), Some((Token::Prioritize, _))) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                    prioritize_above = Some(*v);
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Attenuate, _))) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                    attenuate_below = Some(*v);
+                    self.pos += 1;
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(SignalAttentionBlock { prioritize_above, attenuate_below, span: Span::merge(&start, &end_span) })
     }
 
 }

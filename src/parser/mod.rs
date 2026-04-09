@@ -483,6 +483,8 @@ impl<'src> Parser<'src> {
                 items.push(self.parse_symbiotic_import()?);
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "niche_construction") {
                 items.push(Item::NicheConstruction(self.parse_niche_construction()?));
+            } else if self.at(&Token::MessagingPrimitive) {
+                items.push(Item::MessagingPrimitive(self.parse_messaging_primitive()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -674,6 +676,7 @@ impl<'src> Parser<'src> {
             Some(Token::UseCase) => Ok(Item::UseCase(self.parse_usecase_block()?)),
             Some(Token::Property) => Ok(Item::Property(self.parse_property_block()?)),
             Some(Token::Boundary) => Ok(Item::BoundaryBlock(self.parse_boundary_block()?)),
+            Some(Token::MessagingPrimitive) => Ok(Item::MessagingPrimitive(self.parse_messaging_primitive()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -713,6 +716,71 @@ impl<'src> Parser<'src> {
         }
         self.expect(Token::RBrace)?;
         Ok(fields)
+    }
+
+    /// Parse a `messaging_primitive Name ... end` declaration.
+    ///
+    /// Grammar:
+    /// ```text
+    /// messaging_primitive SyncRequest
+    ///   pattern: request_response
+    ///   guarantees: @exactly-once
+    ///   timeout: mandatory
+    /// end
+    /// ```
+    fn parse_messaging_primitive(&mut self) -> Result<MessagingPrimitiveDef, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume `messaging_primitive`
+        let (name, _) = self.expect_ident()?;
+        let mut pattern = None;
+        let mut guarantees = Vec::new();
+        let mut timeout_mandatory = false;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "pattern") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(p), _)) = self.tokens.get(self.pos) {
+                    pattern = Some(match p.as_str() {
+                        "request_response"  => MessagingPattern::RequestResponse,
+                        "publish_subscribe" => MessagingPattern::PublishSubscribe,
+                        "point_to_point"    => MessagingPattern::PointToPoint,
+                        "producer_consumer" => MessagingPattern::ProducerConsumer,
+                        "bidirectional"     => MessagingPattern::Bidirectional,
+                        _                   => MessagingPattern::RequestResponse,
+                    });
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _))) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                // Collect guarantee tokens until next known field keyword
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let at_field = matches!(self.tokens.get(self.pos),
+                        Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
+                        || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _)));
+                    if at_field { break; }
+                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                        let s = format!("{:?}", tok);
+                        if !s.is_empty() { guarantees.push(s); }
+                        self.pos += 1;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout") {
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(v), _)) = self.tokens.get(self.pos) {
+                    timeout_mandatory = v == "mandatory";
+                    self.pos += 1;
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(MessagingPrimitiveDef { name, pattern, guarantees, timeout_mandatory, span: Span::merge(&start, &end_span) })
     }
 }
 

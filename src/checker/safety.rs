@@ -93,5 +93,24 @@ impl SafetyChecker {
                 }
             }
         }
+
+        // M113: TelosImmutability — if being is NOT @corrigible, declaring
+        // telos.modifiable_by is suspicious: telos should be immutable unless
+        // the being explicitly grants override authority via @corrigible.
+        if !annotations.contains(&"corrigible") {
+            if let Some(telos) = &being.telos {
+                if telos.modifiable_by.is_some() {
+                    errors.push(LoomError::type_err(
+                        format!(
+                            "[warn] being '{}': telos.modifiable_by is declared but @corrigible is absent — \
+                             telos is immutable without the corrigibility annotation; \
+                             add @corrigible or remove modifiable_by:",
+                            being.name
+                        ),
+                        being.span.clone(),
+                    ));
+                }
+            }
+        }
     }
 }

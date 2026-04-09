@@ -78,6 +78,7 @@ fn test_m101_missing_file_is_error() {
         scenarios: vec![],
         boundary: None,
             cognitive_memory: None,
+        signal_attention: None,
         span: Span::synthetic(),
     };
 
@@ -151,6 +152,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         scenarios: vec![],
         boundary: None,
             cognitive_memory: None,
+        signal_attention: None,
         span: Span::synthetic(),
     };
 
