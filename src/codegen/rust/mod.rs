@@ -19,10 +19,12 @@
 use crate::ast::*;
 
 mod beings;
+mod contracts;
 mod disciplines;
 mod exprs;
 mod functions;
 mod stores;
+mod structures;
 pub(crate) mod template;
 mod types;
 
@@ -419,6 +421,17 @@ pub(super) fn to_snake_case(name: &str) -> String {
         out.push(ch.to_lowercase().next().unwrap());
     }
     out
+}
+
+/// Convert a snake_case or lower identifier to PascalCase.
+pub(super) fn to_pascal_case(s: &str) -> String {
+    s.split('_').map(|w| {
+        let mut chars = w.chars();
+        match chars.next() {
+            None => String::new(),
+            Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+        }
+    }).collect()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
