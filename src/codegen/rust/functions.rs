@@ -371,7 +371,14 @@ impl RustEmitter {
     }
 
     pub(super) fn emit_fn_def(&self, fd: &FnDef) -> String {
-        self.emit_fn_def_inner(fd, None)
+        let mut out = self.emit_fn_def_inner(fd, None);
+        // Implicit disciplines: emit all structural/mathematical patterns from fn annotations
+        let disciplines = self.emit_fn_disciplines(fd);
+        if !disciplines.is_empty() {
+            out.push('\n');
+            out.push_str(&disciplines);
+        }
+        out
     }
 
     pub(super) fn emit_fn_def_inner(&self, fd: &FnDef, ctx_module: Option<&str>) -> String {

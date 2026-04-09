@@ -19,9 +19,11 @@
 use crate::ast::*;
 
 mod beings;
+mod disciplines;
 mod exprs;
 mod functions;
 mod stores;
+pub(crate) mod template;
 mod types;
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
@@ -286,10 +288,14 @@ impl RustEmitter {
                     format!("pub type {} = {};\n", name, self.emit_type_expr(ty))
                 }
                 Item::Session(sd) => {
-                    format!("// session_type: {}\n", sd.name)
+                    let mut buf = String::new();
+                    self.emit_session_state_machine(sd, &mut buf);
+                    buf
                 }
                 Item::Effect(ed) => {
-                    format!("// effect_def: {}\n", ed.name)
+                    let mut buf = String::new();
+                    self.emit_effect_handler(ed, &mut buf);
+                    buf
                 }
                 Item::UseCase(uc) => self.emit_usecase(uc),
                 Item::Property(pb) => self.emit_property_test(pb),
@@ -302,15 +308,9 @@ impl RustEmitter {
                     )
                 }
                 Item::MessagingPrimitive(mp) => {
-                    let mut src = format!("// messaging_primitive {}:\n", mp.name);
-                    src.push_str(&format!("//   pattern: {:?}\n", mp.pattern));
-                    if !mp.guarantees.is_empty() {
-                        src.push_str(&format!("//   guarantees: [{}]\n", mp.guarantees.join(", ")));
-                    }
-                    if mp.timeout_mandatory {
-                        src.push_str("//   timeout: mandatory\n");
-                    }
-                    src
+                    let mut buf = String::new();
+                    self.emit_messaging_channel(mp, &mut buf);
+                    buf
                 }
             };
             body.push('\n');

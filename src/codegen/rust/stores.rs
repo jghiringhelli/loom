@@ -108,8 +108,12 @@ impl RustEmitter {
                 out.push_str(&format!("// Table `{}` — primary key: {}\n", name, pk));
                 self.emit_named_struct(name, fields, out);
                 self.emit_crud_trait_impl(&store.name, name, pk, out);
+                self.emit_crud_in_memory_impl(&store.name, name, pk, out);
             }
         }
+        // HATEOAS links + CQRS stubs for the whole store
+        self.emit_hateoas_for_store(&store.name, out);
+        self.emit_cqrs_for_store(&store.name, out);
     }
 
     /// Emit a simple repository trait stub for a relational table.
@@ -271,6 +275,14 @@ impl RustEmitter {
                 "// LOOM[graph:hint]: petgraph::Graph<({nodes}), ({edges})> for in-memory graph\n\n"
             ));
         }
+        // Discipline: DAG + topological sort for directed-only graphs
+        let is_directed = store.config.iter().any(|c| c.key == "directed" && c.value == "true")
+            || store.kind == StoreKind::Graph;
+        if is_directed {
+            self.emit_dag_wrapper(&store.name, out);
+        } else {
+            self.emit_lts_graph(&store.name, out);
+        }
     }
 
     // ── TimeSeries ────────────────────────────────────────────────────────────
@@ -301,6 +313,12 @@ impl RustEmitter {
             .map(|c| c.value.as_str())
             .unwrap_or("unbounded");
         out.push_str(&format!("// LOOM[ts:retention]: {}\n\n", retention));
+        // Discipline: Event Sourcing + Domain Event Bus
+        let event_types: Vec<String> = store.schema.iter()
+            .filter_map(|e| if let StoreSchemaEntry::Event { name, .. } = e { Some(name.clone()) } else { None })
+            .collect();
+        self.emit_event_sourcing(&store.name, &event_types, out);
+        self.emit_domain_event_bus(&store.name, out);
     }
 
     // ── Vector ────────────────────────────────────────────────────────────────
@@ -486,6 +504,9 @@ impl RustEmitter {
         out.push_str(&format!("    /// Poll the next message from the log.\n"));
         out.push_str(&format!("    fn poll(&mut self) -> Option<{msg_type}>;\n"));
         out.push_str("}\n\n");
+        // Discipline: Domain Event Bus + Saga coordinator
+        self.emit_domain_event_bus(&store.name, out);
+        self.emit_saga_coordinator(&store.name, out);
     }
 }
 
