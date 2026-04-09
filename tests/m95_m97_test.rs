@@ -203,3 +203,106 @@ end
 "#;
     assert!(parse(src).is_ok(), "DistributedLog store should parse: {:?}", parse(src).err());
 }
+
+// ── V5+V7: Store codegen emits complete Rust with audit trail ─────────────────
+
+fn compile_to_rust(src: &str) -> Result<String, Vec<loom::LoomError>> {
+    loom::compile(src)
+}
+
+#[test]
+fn test_v5_graph_store_emits_node_edge_structs() {
+    let src = r#"
+module Chem
+  store MolGraph :: Graph
+    node Atom :: { symbol: String, number: Int }
+    edge Bond :: Atom -> Atom { order: Float }
+  end
+end
+"#;
+    let rust = compile_to_rust(src).expect("V5 graph store should compile");
+    assert!(rust.contains("pub struct Atom"), "should emit Atom node struct");
+    assert!(rust.contains("pub struct Bond"), "should emit Bond edge struct");
+    assert!(rust.contains("LOOM[store:Graph]"), "V7 audit trail for Graph");
+    assert!(rust.contains("petgraph"), "should recommend petgraph");
+}
+
+#[test]
+fn test_v5_timeseries_store_injects_timestamp() {
+    let src = r#"
+module Monitor
+  store Metrics :: TimeSeries
+    event Cpu :: { host: String, value: Float }
+  end
+end
+"#;
+    let rust = compile_to_rust(src).expect("V5 timeseries store should compile");
+    assert!(rust.contains("pub struct Cpu"), "should emit Cpu event struct");
+    assert!(rust.contains("timestamp"), "should inject timestamp field");
+    assert!(rust.contains("LOOM[ts]"), "V7 audit: timestamp auto-injected");
+}
+
+#[test]
+fn test_v5_vector_store_emits_embedding_struct() {
+    let src = r#"
+module Search
+  store EmbeddingDb :: Vector
+    embedding :: { id: String, text: String, vector: Float }
+    index: HNSW
+  end
+end
+"#;
+    let rust = compile_to_rust(src).expect("V5 vector store should compile");
+    assert!(rust.contains("EmbeddingDbEmbedding"), "should emit typed embedding struct");
+    assert!(rust.contains("LOOM[vector"), "V7 audit for vector");
+    assert!(rust.contains("nearest"), "should emit similarity search trait");
+}
+
+#[test]
+fn test_v5_distributedlog_emits_producer_consumer_traits() {
+    let src = r#"
+module Events
+  store AppLog :: DistributedLog
+    event Action :: { user: String, kind: String }
+    partitions: 8
+    replication: 3
+  end
+end
+"#;
+    let rust = compile_to_rust(src).expect("V5 DistributedLog store should compile");
+    assert!(rust.contains("AppLogProducer"), "should emit typed Producer trait");
+    assert!(rust.contains("AppLogConsumer"), "should emit typed Consumer trait");
+    assert!(rust.contains("LOOM[store:DistributedLog]"), "V7 audit trail");
+    assert!(rust.contains("rdkafka"), "should recommend rdkafka");
+}
+
+#[test]
+fn test_v7_audit_trail_in_contracts() {
+    let src = r#"
+module Contracts
+fn safe_divide :: Int -> Int -> Int
+  require: b != 0
+  a / b
+end
+end
+"#;
+    let rust = compile_to_rust(src).expect("contract fn should compile");
+    assert!(rust.contains("LOOM[require]"), "V7 audit: require contract annotated");
+    assert!(rust.contains("debug_assert!"), "precondition must emit debug_assert!");
+}
+
+#[test]
+fn test_v7_audit_header_in_all_emitted_files() {
+    let src = r#"
+module Anything
+fn id :: Int -> Int
+  x
+end
+end
+"#;
+    let rust = compile_to_rust(src).expect("trivial module should compile");
+    assert!(
+        rust.contains("LOOM[v7:audit]"),
+        "every emitted file must have V7 audit header"
+    );
+}

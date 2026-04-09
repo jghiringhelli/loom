@@ -466,11 +466,17 @@ impl RustEmitter {
 
         let mut body_lines: Vec<String> = Vec::new();
 
+        // V7: emit audit trail before each contract assertion.
         for contract in &fd.requires {
+            let expr_text = self.emit_expr(&contract.expr);
+            body_lines.push(format!(
+                "    // LOOM[require]: {} — debug_assert! (runtime, debug builds only)",
+                expr_text
+            ));
             body_lines.push(format!(
                 "    debug_assert!({}, \"precondition violated: {}\");",
-                self.emit_expr(&contract.expr),
-                self.emit_expr(&contract.expr).replace('"', "\\\""),
+                expr_text,
+                expr_text.replace('"', "\\\""),
             ));
         }
 
@@ -485,6 +491,10 @@ impl RustEmitter {
             for contract in &fd.ensures {
                 let raw = self.emit_expr(&contract.expr);
                 let cond = raw.replace("result", "_loom_result");
+                body_lines.push(format!(
+                    "    // LOOM[ensure]: {} — checked on return value via _loom_result",
+                    cond
+                ));
                 body_lines.push(format!(
                     "    debug_assert!({cond}, \"ensure: {}\");",
                     cond.replace('"', "\\\""),
