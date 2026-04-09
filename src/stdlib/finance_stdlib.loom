@@ -1,0 +1,181 @@
+-- Loom Finance Standard Library — M90
+-- Stochastic processes, portfolio theory, risk metrics, and pricing as
+-- first-class Loom constructs.
+--
+-- Built on:
+--   M3  Kennedy units — Float<USD>, Float<BPS>, Float<percent>
+--   M56 Refinement types — probabilities, rates, volatilities
+--   M84 Probabilistic types — GBM, Poisson, Beta distributions
+--   M85 Randomness discipline — crypto_random for key generation
+--   M86 @conserved — capital conservation, no-arbitrage
+--   M87 Tensor types — covariance matrices, factor loadings
+--   M92 Stores — time-series price data, relational portfolio positions
+--
+-- Academic grounding:
+--   Bachelier (1900): Brownian motion in finance
+--   Markowitz (1952): mean-variance portfolio optimisation
+--   Black & Scholes (1973): options pricing PDE
+--   Merton (1973): continuous-time portfolio theory
+--   Sharpe (1966): risk-adjusted return ratio
+--   VaR (Basel, 1996): quantile-based risk measure
+--   CVaR / ES (Rockafellar & Uryasev, 2000): coherent risk measure
+
+module FinanceStdlib
+
+-- ── Fundamental financial types ───────────────────────────────────────────────
+
+type Probability   = Float where x >= 0.0 and x <= 1.0
+type Volatility    = Float where x >= 0.0
+type Return        = Float
+type Price         = Float where x > 0.0
+type Yield         = Float
+type Spread        = Float
+type Duration      = Float where x >= 0.0
+type Convexity     = Float
+type Notional      = Float where x > 0.0
+type Weight        = Float where x >= 0.0 and x <= 1.0
+type ConfidenceLevel = Float where x > 0.0 and x < 1.0
+
+-- ── Stochastic process types ───────────────────────────────────────────────────
+
+-- Geometric Brownian Motion parameters (Black-Scholes world)
+type Drift        = Float
+type DiffusionCoeff = Float where x >= 0.0
+type TimeStep     = Float where x > 0.0
+
+-- ── Store: time-series price data ─────────────────────────────────────────────
+
+store PriceHistory :: TimeSeries
+  key: String           -- ticker symbol
+  value: Float          -- adjusted close price
+  timestamp: String     -- ISO 8601
+end
+
+store PortfolioPositions :: Relational
+  primary_key: position_id
+  fields:
+    position_id: Int
+    ticker: String
+    quantity: Float
+    cost_basis: Price
+    current_price: Price
+    asset_class: String
+end
+
+store RiskRegister :: Document
+  fields:
+    risk_id: String
+    factor: String
+    var_95: Float
+    cvar_95: Float
+    stress_loss: Float
+    last_updated: String
+end
+
+-- ── Geometric Brownian Motion ─────────────────────────────────────────────────
+
+fn gbm_next_price
+    describe: "One GBM step. S(t+dt) = S(t) * exp((mu - 0.5*sigma^2)*dt + sigma*sqrt(dt)*Z)"
+    @conserved(NoArbitrage)
+    :: Price -> Drift -> Volatility -> TimeStep -> Float -> Price
+  require: s0 > 0.0 and sigma >= 0.0 and dt > 0.0
+  ensure: result > 0.0
+end
+
+fn gbm_expected_price
+    describe: "GBM expected value. E[S(T)] = S0 * exp(mu * T)"
+    @conserved(NoArbitrage)
+    :: Price -> Drift -> Duration -> Price
+  require: s0 > 0.0 and t > 0.0
+  ensure: result > 0.0
+end
+
+-- ── Black-Scholes option pricing ──────────────────────────────────────────────
+
+fn black_scholes_call
+    describe: "European call option price. C = S*N(d1) - K*exp(-rT)*N(d2)"
+    @conserved(NoArbitrage)
+    :: Price -> Price -> Duration -> Float -> Volatility -> Price
+  require: spot > 0.0 and strike > 0.0 and t > 0.0 and sigma > 0.0
+  ensure: result >= 0.0
+end
+
+fn black_scholes_put
+    describe: "European put option price via put-call parity."
+    @conserved(NoArbitrage)
+    :: Price -> Price -> Duration -> Float -> Volatility -> Price
+  require: spot > 0.0 and strike > 0.0 and t > 0.0 and sigma > 0.0
+  ensure: result >= 0.0
+end
+
+fn black_scholes_delta
+    describe: "Option delta — sensitivity of price to underlying. N(d1) for call."
+    :: Price -> Price -> Duration -> Float -> Volatility -> Float
+  require: spot > 0.0 and strike > 0.0 and t > 0.0 and sigma > 0.0
+  ensure: result >= 0.0 and result <= 1.0
+end
+
+-- ── Portfolio theory (Markowitz) ──────────────────────────────────────────────
+
+fn portfolio_expected_return
+    describe: "Weighted sum of asset expected returns."
+    :: Float -> Float -> Weight
+  require: weight >= 0.0 and weight <= 1.0
+  ensure: true
+end
+
+fn portfolio_variance
+    describe: "sigma_p^2 = w^T * Sigma * w, quadratic form over covariance matrix."
+    :: Float -> Float -> Float -> Float
+  require: w1 >= 0.0 and w2 >= 0.0 and cov >= 0.0
+  ensure: result >= 0.0
+end
+
+fn sharpe_ratio
+    describe: "Sharpe ratio: (E[Rp] - Rf) / sigma_p. Risk-adjusted excess return."
+    :: Return -> Return -> Volatility -> Float
+  require: sigma_p > 0.0
+  ensure: true
+end
+
+-- ── Risk measures ─────────────────────────────────────────────────────────────
+
+fn value_at_risk
+    describe: "Parametric VaR at given confidence. VaR = mu + z_alpha * sigma."
+    :: Return -> Volatility -> ConfidenceLevel -> Float
+  require: sigma >= 0.0 and alpha > 0.0 and alpha < 1.0
+  ensure: true
+end
+
+fn conditional_value_at_risk
+    describe: "CVaR/Expected Shortfall — coherent risk measure beyond VaR threshold."
+    :: Return -> Volatility -> ConfidenceLevel -> Float
+  require: sigma >= 0.0 and alpha > 0.0 and alpha < 1.0
+  ensure: result >= 0.0
+end
+
+-- ── Fixed income ──────────────────────────────────────────────────────────────
+
+fn bond_price
+    describe: "Present value of bond cash flows. P = sum(C/(1+y)^t) + F/(1+y)^T"
+    @conserved(Capital)
+    :: Float -> Float -> Yield -> Duration -> Price
+  require: coupon >= 0.0 and face > 0.0 and yield_rate > 0.0 and maturity > 0.0
+  ensure: result > 0.0
+end
+
+fn macaulay_duration
+    describe: "Macaulay duration — weighted average time of cash flows."
+    :: Float -> Float -> Yield -> Duration -> Duration
+  require: face > 0.0 and yield_rate > 0.0 and maturity > 0.0
+  ensure: result > 0.0 and result <= maturity
+end
+
+fn modified_duration
+    describe: "Modified duration = Macaulay duration / (1 + y/k)."
+    :: Duration -> Yield -> Int -> Duration
+  require: mac_dur > 0.0 and y > 0.0 and k > 0
+  ensure: result > 0.0
+end
+
+end

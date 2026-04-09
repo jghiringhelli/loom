@@ -1,0 +1,162 @@
+-- Loom Quantum Mechanics Standard Library — M91
+-- State vectors, operators, measurement, and quantum information as
+-- first-class Loom constructs.
+--
+-- Built on:
+--   M3  Kennedy units — Float<eV>, Float<Hz>, Float<rad>
+--   M56 Refinement types — probabilities, normalized amplitudes
+--   M87 Tensor types — density matrices, unitary operators (complex tensors)
+--   M84 Probabilistic types — Born rule measurement outcomes
+--   M86 @conserved — unitarity, probability conservation
+--
+-- Academic grounding:
+--   Dirac (1930): bra-ket notation, superposition principle
+--   Heisenberg (1927): uncertainty principle ΔxΔp ≥ ℏ/2
+--   Schrödinger (1926): wave equation evolution
+--   Born (1926): probabilistic interpretation of |ψ|²
+--   von Neumann (1932): measurement collapse, density matrices
+--   Nielsen & Chuang (2000): quantum information and computation
+
+module QuantumStdlib
+
+-- ── Fundamental quantum types ─────────────────────────────────────────────────
+
+-- A probability amplitude — complex number with |amp|² giving measurement probability.
+-- Represented as (real, imag) pair with the Born rule normalisation constraint.
+type Amplitude     = Float                 -- real component; imaginary tracked separately
+type AmplitudeImag = Float                 -- imaginary component
+type BornProb      = Float where x >= 0.0 and x <= 1.0
+type QubitIndex    = Int  where x >= 0
+type NumQubits     = Int  where x > 0
+type Phase         = Float where x >= 0.0 and x <= 6.283185307  -- [0, 2π)
+type Energy        = Float
+type AngularFreq   = Float where x >= 0.0
+
+-- ── Qubit state representation ────────────────────────────────────────────────
+
+-- A pure single-qubit state |ψ⟩ = α|0⟩ + β|1⟩.
+-- Normalisation: |α|² + |β|² = 1.
+type QubitStateAlpha = Float where x >= 0.0 and x <= 1.0  -- |α|²
+type QubitStateBeta  = Float where x >= 0.0 and x <= 1.0  -- |β|²
+
+-- ── Store: quantum register ────────────────────────────────────────────────────
+
+-- Stores the amplitudes of an n-qubit register (2^n complex entries).
+store QuantumRegister :: KeyValue
+  key: Int     -- basis state index (0 to 2^n - 1)
+  value: Float -- real amplitude component (imaginary tracked in parallel key)
+end
+
+-- ── Measurement ───────────────────────────────────────────────────────────────
+
+fn born_probability
+    describe: "Born rule: probability of measuring |ψ⟩ in basis state |k⟩ is |<k|ψ>|²."
+    @conserved(Probability)
+    :: Amplitude -> AmplitudeImag -> BornProb
+  require: true
+  ensure: result >= 0.0 and result <= 1.0
+end
+
+fn normalise_check
+    describe: "Verify normalisation: sum of |alpha_k|² + |beta_k|² = 1 across all basis states."
+    @conserved(Probability)
+    :: Float -> Float -> Bool
+  require: true
+  ensure: true
+end
+
+fn measurement_collapse
+    describe: "After measuring outcome k, wavefunction collapses to |k⟩. Returns post-measurement amplitude."
+    @conserved(Probability)
+    :: Int -> Int -> Amplitude
+  require: basis_state >= 0 and num_basis_states > 0
+  ensure: result >= 0.0 and result <= 1.0
+end
+
+-- ── Single-qubit gates (unitary operators) ────────────────────────────────────
+
+fn hadamard_alpha
+    describe: "Hadamard gate real part for |0⟩ input: (|0⟩ + |1⟩)/√2. New alpha = (a + b)/√2."
+    @conserved(Unitarity)
+    :: Amplitude -> Amplitude -> Amplitude
+  require: true
+  ensure: true
+end
+
+fn hadamard_beta
+    describe: "Hadamard gate: new beta = (a - b)/√2."
+    @conserved(Unitarity)
+    :: Amplitude -> Amplitude -> Amplitude
+  require: true
+  ensure: true
+end
+
+fn pauli_x_alpha
+    describe: "Pauli-X (NOT) gate: swaps |0⟩ and |1⟩ amplitudes. New alpha = beta."
+    @conserved(Unitarity)
+    :: Amplitude -> Amplitude -> Amplitude
+  require: true
+  ensure: true
+end
+
+fn phase_gate
+    describe: "Phase gate R(θ): |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩. Returns phase-shifted beta."
+    @conserved(Unitarity)
+    :: AmplitudeImag -> Phase -> AmplitudeImag
+  require: true
+  ensure: true
+end
+
+-- ── Two-qubit gates ───────────────────────────────────────────────────────────
+
+fn cnot_target_alpha
+    describe: "CNOT gate: if control = |1⟩, flips target. Returns new target alpha."
+    @conserved(Unitarity)
+    :: Bool -> Amplitude -> Amplitude -> Amplitude
+  require: true
+  ensure: true
+end
+
+-- ── Uncertainty principle ─────────────────────────────────────────────────────
+
+fn heisenberg_satisfied
+    describe: "Check ΔxΔp ≥ ℏ/2. ℏ ≈ 1.054571817e-34 J·s."
+    :: Float -> Float -> Bool
+  require: delta_x >= 0.0 and delta_p >= 0.0
+  ensure: true
+end
+
+-- ── Schrödinger evolution ─────────────────────────────────────────────────────
+
+fn energy_eigenvalue
+    describe: "Time-independent Schrödinger: Ĥ|ψ⟩ = E|ψ⟩. Returns energy eigenvalue in eV."
+    @conserved(Energy)
+    :: Int -> AngularFreq -> Energy
+  require: n >= 1 and omega > 0.0
+  ensure: result > 0.0
+end
+
+fn time_evolution_phase
+    describe: "Time evolution phase: e^(-iEt/ℏ). Returns phase angle for given energy and time."
+    :: Energy -> Float -> Phase
+  require: t >= 0.0
+  ensure: result >= 0.0
+end
+
+-- ── Quantum information ───────────────────────────────────────────────────────
+
+fn von_neumann_entropy
+    describe: "Von Neumann entropy S(ρ) = -Tr(ρ log ρ). Returns entropy in bits for a qubit density matrix."
+    :: BornProb -> BornProb -> Float
+  require: p0 >= 0.0 and p1 >= 0.0
+  ensure: result >= 0.0
+end
+
+fn fidelity
+    describe: "State fidelity F(ψ,φ) = |⟨ψ|φ⟩|². 1 = identical states, 0 = orthogonal."
+    :: Amplitude -> AmplitudeImag -> Amplitude -> AmplitudeImag -> BornProb
+  require: true
+  ensure: result >= 0.0 and result <= 1.0
+end
+
+end
