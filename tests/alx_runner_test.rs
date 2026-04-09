@@ -250,3 +250,61 @@ fn alx5b_evolvable_migration_chain_structure() {
         "EvolvingTradingAgent should be autopoietic"
     );
 }
+
+/// ALX-6: AutonomousBioTrader — maximum-coverage compilation gate.
+///
+/// This is the definitive Loom integration test: every feature from M1–M116
+/// exercised in a single coherent program. Failure here means a feature has
+/// a cross-interaction regression.
+#[test]
+fn alx6_biotrader_compiles() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let result = compile(&source);
+    assert!(
+        result.is_ok(),
+        "ALX-6 biotrader must compile cleanly.\nErrors:\n{}",
+        result
+            .unwrap_err()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
+
+/// ALX-6b: AutonomousBioTrader — AST structure validates key constructs.
+#[test]
+fn alx6b_biotrader_ast_structure() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let tokens = loom::lexer::Lexer::tokenize(&source).expect("ALX-6 must lex");
+    let module = loom::parser::Parser::new(&tokens)
+        .parse_module()
+        .expect("ALX-6 must parse");
+
+    // TradingAgent must be autopoietic with signal_attention
+    let agent = module.being_defs.iter().find(|b| b.name == "TradingAgent")
+        .expect("TradingAgent being must be present");
+    assert!(agent.autopoietic, "TradingAgent must be autopoietic");
+    assert!(
+        agent.signal_attention.is_some(),
+        "TradingAgent must have a signal_attention block"
+    );
+    assert!(
+        !agent.migrations.is_empty(),
+        "TradingAgent must have migration blocks"
+    );
+
+    // Must have at least 3 messaging_primitive items
+    let messaging_count = module.items.iter()
+        .filter(|i| matches!(i, loom::ast::Item::MessagingPrimitive(_)))
+        .count();
+    assert!(
+        messaging_count >= 3,
+        "ALX-6 must have at least 3 messaging_primitive items, found {}",
+        messaging_count
+    );
+
+    // Must have a correctness_report
+    let has_report = module.items.iter().any(|i| matches!(i, loom::ast::Item::CorrectnessReport(_)));
+    assert!(has_report, "ALX-6 must have a correctness_report block");
+}

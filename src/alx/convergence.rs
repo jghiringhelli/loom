@@ -58,9 +58,11 @@ const STAGE_ORDER: &[(&str, &str)] = &[
     ("journal",          "JournalChecker"),
     ("scenario",         "ScenarioChecker"),
     ("property",         "PropertyChecker"),
-    ("provenance",       "ProvenanceChecker"),
-    ("boundary",         "BoundaryChecker"),
-    ("evolution_vector", "EvolutionVectorChecker"),
+    ("provenance",        "ProvenanceChecker"),
+    ("boundary",          "BoundaryChecker"),
+    ("evolution_vector",  "EvolutionVectorChecker"),
+    ("signal_attention",  "SignalAttentionChecker"),
+    ("messaging",         "MessagingChecker"),
 ];
 
 /// A single measurement point in the S_realized convergence curve.
@@ -312,6 +314,8 @@ fn stage_is_relevant(stage: &str, module: &Module) -> bool {
         "use_case"       => module.items.iter().any(|i| matches!(i, Item::UseCase(_))),
         "boundary"       => module.items.iter().any(|i| matches!(i, Item::BoundaryBlock(_))),
         "smt"            => module.items.iter().any(|i| matches!(i, Item::Fn(_))),
+        "signal_attention" => module.being_defs.iter().any(|b| b.signal_attention.is_some()),
+        "messaging"      => module.items.iter().any(|i| matches!(i, Item::MessagingPrimitive(_))),
         _                => true, // structural stages always relevant
     }
 }

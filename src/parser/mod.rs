@@ -305,7 +305,9 @@ impl<'src> Parser<'src> {
             Some((Token::Implements, _))  => Some("implements".to_string()),
             Some((Token::Export, _))      => Some("export".to_string()),
             Some((Token::Seal, _))        => Some("seal".to_string()),
-            Some((Token::Provenance, _))  => Some("provenance".to_string()),
+            Some((Token::Provenance, _))   => Some("provenance".to_string()),
+            Some((Token::Convergence, _))  => Some("convergence".to_string()),
+            Some((Token::Divergence, _))   => Some("divergence".to_string()),
             _ => None,
         }
     }
@@ -377,7 +379,9 @@ impl<'src> Parser<'src> {
             Some((Token::Operation, _))   => Some("operation".to_string()),
             Some((Token::Export, _))      => Some("export".to_string()),
             Some((Token::Seal, _))        => Some("seal".to_string()),
-            Some((Token::Provenance, _))  => Some("provenance".to_string()),
+            Some((Token::Provenance, _))   => Some("provenance".to_string()),
+            Some((Token::Convergence, _))  => Some("convergence".to_string()),
+            Some((Token::Divergence, _))   => Some("divergence".to_string()),
             _ => None,
         }
     }

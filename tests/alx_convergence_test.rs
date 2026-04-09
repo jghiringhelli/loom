@@ -137,6 +137,64 @@ fn alx5_migration_stage_contributes() {
     );
 }
 
+// ── ALX-6: biotrader maximum-coverage convergence ────────────────────────────
+
+#[test]
+fn alx6_convergence_is_claim_level() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let trace = compute_convergence_trace(&source);
+    trace.report("ALX-6 biotrader");
+    assert_eq!(
+        trace.mode,
+        ConvergenceTraceMode::ClaimLevel,
+        "ALX-6 has a correctness_report: it must use claim-level convergence"
+    );
+}
+
+#[test]
+fn alx6_convergence_is_monotonic() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let trace = compute_convergence_trace(&source);
+    assert!(
+        trace.is_monotonic,
+        "ALX-6 convergence must be monotonically non-decreasing.\nSparkline: {}",
+        trace.sparkline()
+    );
+}
+
+#[test]
+fn alx6_convergence_meets_0_90_gate() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let trace = compute_convergence_trace(&source);
+    assert!(
+        trace.final_s >= 0.90,
+        "ALX-6 final S_realized {:.4} < 0.90 gate. Proved: {}/{}\nSparkline: {}",
+        trace.final_s, trace.total_proved, trace.total_claims, trace.sparkline()
+    );
+}
+
+#[test]
+fn alx6_signal_attention_stage_contributes() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let trace = compute_convergence_trace(&source);
+    assert!(
+        trace.contributing_stages.contains(&"signal_attention"),
+        "ALX-6 has signal_attention: that stage must appear in contributing_stages.\nContributing: {:?}",
+        trace.contributing_stages
+    );
+}
+
+#[test]
+fn alx6_messaging_stage_contributes() {
+    let source = read_alx("ALX-6-biotrader.loom");
+    let trace = compute_convergence_trace(&source);
+    assert!(
+        trace.contributing_stages.contains(&"messaging"),
+        "ALX-6 has messaging_primitive: that stage must appear in contributing_stages.\nContributing: {:?}",
+        trace.contributing_stages
+    );
+}
+
 // ── Cross-experiment property: all ALX convergence curves are monotonic ───────
 
 #[test]
@@ -146,6 +204,7 @@ fn all_alx_convergence_curves_are_monotonic() {
         "ALX-2-cross-feature.loom",
         "ALX-3-self-description.loom",
         "ALX-5-evolvable-stress.loom",
+        "ALX-6-biotrader.loom",
     ];
     for filename in experiments {
         let source = read_alx(filename);
