@@ -348,26 +348,114 @@ impl RustEmitter {
     }
 
     /// Session-type state machine — phantom-type protocol (Honda 1993).
-    /// Wrong message order = compile-time error via typestate (Strom & Yemini 1986).
+    ///
+    /// Emits a complete typestate machine: each protocol step is a distinct Rust type.
+    /// Because the transition method (`send`/`recv`) consumes `self: Channel<StepN>` and
+    /// returns `Channel<StepN+1>`, calling steps in the wrong order is a **compile-time
+    /// type error** — no runtime overhead, no runtime check.
+    ///
+    /// Per-role emission:
+    ///   - State marker structs: `XyzRoleStep0`, `XyzRoleStep1`, …, `XyzRoleDone`
+    ///   - Typed channel wrapper: `XyzRoleChannel<State>`
+    ///   - Constructor: `impl XyzRoleChannel<XyzRoleStep0> { fn new() … }`
+    ///   - Transition impls: one `send(self, msg: T)` or `recv(self)` per step
+    ///
+    /// Ecosystem: ferrite-session, sesh. Theory: Gay & Hole (2005) subtyping.
     pub(super) fn emit_session_state_machine(&self, sd: &SessionDef, out: &mut String) {
         out.push_str(&format!(
-            "// LOOM[implicit:SessionType]: {} — phantom-type protocol (Honda 1993)\n", sd.name
+            "// LOOM[implicit:SessionType]: {} — phantom-type protocol (Honda 1993)\n",
+            sd.name
         ));
-        out.push_str("// Wrong send order = compile-time error. Ecosystem: ferrite-session, sesh\n\n");
+        out.push_str(
+            "// Wrong send/recv order is a compile-time type error. Zero runtime overhead.\n",
+        );
+        out.push_str(
+            "// Each step consumes the channel state; the next state is returned.\n",
+        );
+        out.push_str(
+            "// Ecosystem: ferrite-session, sesh. Theory: Gay & Hole (2005) subtyping.\n\n",
+        );
+
+        let chan = to_pascal_case(&sd.name);
+
         for role in &sd.roles {
-            out.push_str(&format!("pub struct {}State;\n", to_pascal_case(&role.name)));
+            let rp = to_pascal_case(&role.name);
+            let n_steps = role.steps.len();
+
+            // State marker structs: one per step + Done.
+            for i in 0..n_steps {
+                out.push_str(&format!("pub struct {chan}{rp}Step{i};\n"));
+            }
+            out.push_str(&format!("pub struct {chan}{rp}Done;\n\n"));
+
+            // Typed channel wrapper.
+            out.push_str(&format!(
+                "pub struct {chan}{rp}Channel<State> {{\n    _state: std::marker::PhantomData<State>,\n}}\n\n"
+            ));
+
+            // Constructor — starts in Step0 (or Done if no steps declared).
+            let start_state = if n_steps > 0 {
+                format!("{chan}{rp}Step0")
+            } else {
+                format!("{chan}{rp}Done")
+            };
+            out.push_str(&format!(
+                "impl {chan}{rp}Channel<{start_state}> {{\n"
+            ));
+            out.push_str(
+                "    pub fn new() -> Self { Self { _state: std::marker::PhantomData } }\n",
+            );
+            out.push_str("}\n\n");
+
+            // Typestate transitions — one impl block per step.
+            for (i, step) in role.steps.iter().enumerate() {
+                let cur = format!("{chan}{rp}Step{i}");
+                let nxt = if i + 1 < n_steps {
+                    format!("{chan}{rp}Step{}", i + 1)
+                } else {
+                    format!("{chan}{rp}Done")
+                };
+                match step {
+                    SessionStep::Send(ty) => {
+                        let rust_ty = self.emit_type_expr(ty);
+                        out.push_str(&format!("impl {chan}{rp}Channel<{cur}> {{\n"));
+                        out.push_str(&format!(
+                            "    /// Step {i} ({rp}): send {rust_ty}. Consumes state — calling in wrong order is a type error.\n"
+                        ));
+                        out.push_str(&format!(
+                            "    pub fn send(self, _msg: {rust_ty}) -> {chan}{rp}Channel<{nxt}> {{\n"
+                        ));
+                        out.push_str(&format!(
+                            "        {chan}{rp}Channel {{ _state: std::marker::PhantomData }}\n"
+                        ));
+                        out.push_str("    }\n");
+                        out.push_str("}\n\n");
+                    }
+                    SessionStep::Recv(ty) => {
+                        let rust_ty = self.emit_type_expr(ty);
+                        out.push_str(&format!("impl {chan}{rp}Channel<{cur}> {{\n"));
+                        out.push_str(&format!(
+                            "    /// Step {i} ({rp}): recv {rust_ty}. Consumes state — calling in wrong order is a type error.\n"
+                        ));
+                        out.push_str(&format!(
+                            "    pub fn recv(self) -> ({chan}{rp}Channel<{nxt}>, {rust_ty}) {{\n"
+                        ));
+                        out.push_str(&format!(
+                            "        todo!(\"implement: message transport for {chan} {rp} step {i}\")\n"
+                        ));
+                        out.push_str("    }\n");
+                        out.push_str("}\n\n");
+                    }
+                }
+            }
         }
-        out.push('\n');
-        let first_state = sd.roles.first()
-            .map(|r| format!("{}State", to_pascal_case(&r.name)))
-            .unwrap_or_else(|| "()".to_string());
-        let chan_name = to_pascal_case(&sd.name);
-        out.push_str(&format!(
-            "pub struct {chan_name}Channel<State> {{\n    _state: std::marker::PhantomData<State>,\n}}\n\n"
-        ));
-        out.push_str(&format!(
-            "impl {chan_name}Channel<{first_state}> {{\n    pub fn new() -> Self {{ Self {{ _state: std::marker::PhantomData }} }}\n}}\n\n"
-        ));
+
+        // Duality annotation as a doc comment when declared.
+        if let Some((a, b)) = &sd.duality {
+            out.push_str(&format!(
+                "// Session duality: {a} <-> {b} — the roles are dual: every send matches a recv.\n\n"
+            ));
+        }
     }
 
     /// Algebraic effect handler dispatch table (Plotkin & Pretnar 2009).

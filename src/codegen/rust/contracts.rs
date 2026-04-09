@@ -24,6 +24,55 @@ use super::{RustEmitter, to_pascal_case};
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// KANI HARNESS HELPERS (module-level free functions)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Collect free identifiers from a require/ensure expression in first-appearance order.
+/// Skips `result` (the postcondition result binding) — that's not a param.
+fn kani_scan_idents(
+    expr: &Expr,
+    out: &mut Vec<String>,
+    seen: &mut std::collections::HashSet<String>,
+) {
+    match expr {
+        Expr::Ident(name) if name != "result" => {
+            if seen.insert(name.clone()) {
+                out.push(name.clone());
+            }
+        }
+        Expr::BinOp { left, right, .. } => {
+            kani_scan_idents(left, out, seen);
+            kani_scan_idents(right, out, seen);
+        }
+        Expr::Call { args, .. } => {
+            for a in args {
+                kani_scan_idents(a, out, seen);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Map a Loom type to a Kani-compatible Rust type name.
+///
+/// `String` is not `kani::Arbitrary` — mapped to `i64` as a surrogate.
+/// This is a deliberate simplification: contracts on string-shaped data should be
+/// extracted to integer-range constraints for SAT proofs.
+fn kani_rust_type(ty: &TypeExpr) -> &'static str {
+    match ty {
+        TypeExpr::Base(name) => match name.as_str() {
+            "Int" | "Integer" | "Nat" | "Index" | "Count" => "i64",
+            "Float" | "Double" | "Real"                    => "f64",
+            "Bool" | "Boolean"                             => "bool",
+            "Byte" | "Char"                                => "u8",
+            _ => "i64", // String/other: not kani::Arbitrary — use i64 surrogate
+        },
+        _ => "i64",
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SEPARATION LOGIC
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -152,6 +201,94 @@ debug_assert!(!self.is_degenerate, \"degenerate fallback activated\"); self.valu
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// KANI FORMAL PROOF HARNESSES (V2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl RustEmitter {
+    /// Emit a `#[cfg(kani)] #[kani::proof]` harness for functions with contracts.
+    ///
+    /// For each fn with `require:`/`ensure:`, emits a Kani SAT-bounded proof that
+    /// the contracts hold for ALL inputs within the solver's bounds.
+    ///
+    /// The harness:
+    /// 1. Declares symbolic inputs via `kani::any::<T>()`
+    /// 2. Restricts the input domain via `kani::assume(require_condition)`
+    /// 3. Calls the function under test
+    /// 4. Asserts the postconditions via `kani::assert!(ensure_condition, "label")`
+    ///
+    /// Kani (2021, Amazon/AWS) uses CBMC bounded model checking over Rust MIR.
+    /// Install: `cargo install --locked kani-verifier`
+    /// Run:     `cargo kani`
+    pub(super) fn emit_kani_harness(&self, fd: &FnDef, out: &mut String) {
+        if fd.requires.is_empty() && fd.ensures.is_empty() {
+            return;
+        }
+        let fn_name = &fd.name;
+        let n_params = fd.type_sig.params.len();
+
+        // Infer parameter names from require/ensure expression identifiers.
+        let mut seen = std::collections::HashSet::new();
+        let mut inferred: Vec<String> = Vec::new();
+        for contract in fd.requires.iter().chain(fd.ensures.iter()) {
+            kani_scan_idents(&contract.expr, &mut inferred, &mut seen);
+            if inferred.len() >= n_params {
+                break;
+            }
+        }
+        let param_names: Vec<String> = (0..n_params)
+            .map(|i| inferred.get(i).cloned().unwrap_or_else(|| format!("arg{i}")))
+            .collect();
+
+        out.push_str(&format!(
+            "// LOOM[V2:Kani]: {fn_name} — SAT-bounded formal proof (Kani 2021)\n"
+        ));
+        out.push_str(
+            "// Proves require:/ensure: hold for ALL inputs within solver bounds.\n",
+        );
+        out.push_str(
+            "// Install: cargo install --locked kani-verifier   Run: cargo kani\n",
+        );
+        out.push_str(&format!(
+            "#[cfg(kani)]\n#[kani::proof]\nfn kani_verify_{fn_name}() {{\n"
+        ));
+
+        // Symbolic inputs.
+        for (i, ty) in fd.type_sig.params.iter().enumerate() {
+            let name = &param_names[i];
+            let rust_ty = kani_rust_type(ty);
+            out.push_str(&format!("    let {name}: {rust_ty} = kani::any();\n"));
+        }
+
+        // Assumptions from require:.
+        if !fd.requires.is_empty() {
+            out.push_str("    // Preconditions — restrict symbolic input domain\n");
+            for req in &fd.requires {
+                let cond = self.emit_predicate(&req.expr);
+                out.push_str(&format!("    kani::assume({cond});\n"));
+            }
+        }
+
+        // Call the function under test.
+        let args = param_names.join(", ");
+        out.push_str(&format!("    let result = {fn_name}({args});\n"));
+
+        // Assertions from ensure:.
+        if !fd.ensures.is_empty() {
+            out.push_str("    // Postconditions — Kani proves these for all valid inputs\n");
+            for ens in &fd.ensures {
+                let cond = self.emit_predicate(&ens.expr);
+                out.push_str(&format!(
+                    "    kani::assert!({cond}, \"{cond}\");\n"
+                ));
+            }
+        }
+
+        out.push_str("}\n\n");
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FN ANNOTATION DISPATCHER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -188,6 +325,8 @@ impl RustEmitter {
         if let Some(db) = &fd.degenerate {
             self.emit_degenerate_fallback(&fd.name, db, &mut out);
         }
+        // V2: Kani formal proof harnesses for require/ensure contracts.
+        self.emit_kani_harness(fd, &mut out);
         out
     }
 }

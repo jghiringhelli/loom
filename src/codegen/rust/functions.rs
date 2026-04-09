@@ -316,7 +316,15 @@ impl RustEmitter {
         module_has_requires: bool,
     ) -> String {
         let inject_ctx = module_has_requires && !fd.with_deps.is_empty();
-        self.emit_fn_def_inner(fd, if inject_ctx { Some(module_name) } else { None })
+        let mut out = self.emit_fn_def_inner(fd, if inject_ctx { Some(module_name) } else { None });
+        // Emit annotation contracts: Kani harnesses, stochastic structs, distribution samplers,
+        // separation logic audit comments, timing safety hints, etc.
+        let contracts = self.emit_fn_contracts(fd);
+        if !contracts.is_empty() {
+            out.push('\n');
+            out.push_str(&contracts);
+        }
+        out
     }
 
     /// Emit a `pub trait` for a `provides:` block.
