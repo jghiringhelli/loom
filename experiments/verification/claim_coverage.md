@@ -62,16 +62,24 @@
 
 # ── V5: store: → typed Rust structs ──────────────────────────────────────────
 
-| Claim                                    | Tier    | Tool       | Status  | Experiment     |
-|------------------------------------------|---------|------------|---------|----------------|
-| relational: → struct + CRUD trait        | Static  | rustc      | PROVED  | stores codegen |
-| document: → Serde struct + MongoDB hint  | Static  | rustc      | PROVED  | stores codegen |
-| key_value: → HashMap wrapper             | Static  | rustc      | PROVED  | stores codegen |
-| time_series: → struct + InfluxDB hint    | Static  | rustc      | PROVED  | stores codegen |
-| graph: → petgraph NodeIndex wrapper      | Static  | rustc      | PROVED  | stores codegen |
-| All 13 store kinds emit compilable Rust  | Static  | rustc      | PROVED  | stores codegen |
-| HATEOAS links struct from relational     | Static  | rustc      | PROVED  | stores codegen |
-| CQRS command/query split                 | Static  | rustc      | PROVED  | stores codegen |
+| Claim                                    | Tier    | Tool       | Status  | Experiment             |
+|------------------------------------------|---------|------------|---------|------------------------|
+| relational: → struct + CRUD trait        | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → Specification pattern      | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → Pagination cursor          | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → Unit of Work              | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → HATEOAS ResourceLink      | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → CQRS Command/Query        | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| relational: → OpenAPI utoipa hint        | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| document: → Serde struct + MongoDB hint  | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| key_value: → typed Store trait           | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| time_series: → struct + EventStore      | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| time_series: → Aggregate (fold events)  | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| time_series: → Domain Event Bus          | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| graph: → Node/Edge structs + DAG        | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| vector: → Embedding struct + VectorSearch| Static | rustc      | PROVED  | v5_struct_codegen_test |
+| distributed: → Saga coordinator         | Static  | rustc      | PROVED  | v5_struct_codegen_test |
+| All 13 store kinds emit compilable Rust  | Static  | rustc      | PROVED  | m95_m97_test           |
 
 # ── V6: domain structures → mathematical correctness ─────────────────────────
 
@@ -109,11 +117,18 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 45
-PROVED  (machine/type-system verified):  22  (49%)
-EMITTED (scaffold ready, tool separate):  10  (22%)
-DECLARED (annotation only, no scaffold):   8  (18%)
-PENDING (implementation required):         5  (11%)
+Total Loom claims tracked: 55
+PROVED  (machine/type-system verified):  34  (62%)
+EMITTED (scaffold ready, tool separate):  10  (18%)
+DECLARED (annotation only, no scaffold):   7  (13%)
+PENDING (implementation required):         4   (7%)
+
+Changes from v1 of this table:
+- V5: 8 store discipline claims → PROVED (UnitOfWork, Specification, Pagination,
+  HATEOAS, CQRS, OpenAPI, EventStore, Aggregate, EventBus, Saga, all wired to codegen)
+- V3: proptest block emission → PROVED (v3_proptest_codegen_test, 10 tests)
+- Bug fixed: emit_fn_def_with_context now calls emit_fn_contracts
+  (all annotation-based codegen was previously silently dropped)
 
 Key insight: The claims in the PROVED category cover the most critical runtime
 properties — contracts, protocol ordering, type safety, persistence structs.

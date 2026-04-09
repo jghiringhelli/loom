@@ -100,6 +100,7 @@ impl RustEmitter {
     fn codegen_relational_store(&self, store: &StoreDef, out: &mut String) {
         out.push_str("// Ecosystem: sqlx (compile-time query verification) | diesel | sea-orm\n");
         out.push_str("// LOOM[store:Relational]: tables → typed structs, PK/FK annotated\n\n");
+        let mut tables: Vec<String> = Vec::new();
         for entry in &store.schema {
             if let StoreSchemaEntry::Table { name, fields, .. } = entry {
                 let pk = fields.iter()
@@ -109,9 +110,16 @@ impl RustEmitter {
                 self.emit_named_struct(name, fields, out);
                 self.emit_crud_trait_impl(&store.name, name, pk, out);
                 self.emit_crud_in_memory_impl(&store.name, name, pk, out);
+                self.emit_specification_pattern(name, out);
+                self.emit_pagination_cursor(name, out);
+                self.emit_openapi_hints(name, out);
+                tables.push(name.clone());
             }
         }
-        // HATEOAS links + CQRS stubs for the whole store
+        // Store-level patterns
+        if !tables.is_empty() {
+            self.emit_unit_of_work(&store.name, &tables, out);
+        }
         self.emit_hateoas_for_store(&store.name, out);
         self.emit_cqrs_for_store(&store.name, out);
     }

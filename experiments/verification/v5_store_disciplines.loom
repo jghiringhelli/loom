@@ -1,0 +1,129 @@
+-- V5 Store Disciplines Experiment
+--
+-- Demonstrates that a single Loom store declaration automatically emits:
+-- CRUD + InMemory Fake + Specification + Pagination + Unit of Work +
+-- HATEOAS + CQRS + OpenAPI + EventStore + Aggregate + EventBus + Saga
+--
+-- This is the "implicit disciplines gratis" claim:
+-- A developer writes 10 lines of Loom; they receive 20+ Rust types and traits
+-- that would take a senior developer hours to write correctly.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ── Relational store: maximum discipline coverage ─────────────────────────
+-- One store declaration → 9 separate architectural patterns auto-generated.
+
+module ECommerce
+
+  store Orders :: Relational
+    table Order
+      id: String @primary_key
+      customer_id: String @foreign_key(Customers.id) @indexed
+      total: Float
+      status: String
+      created_at: Int
+    end
+    table Customer
+      id: String @primary_key
+      email: String @unique
+      name: String
+      tier: String
+    end
+    table OrderItem
+      id: String @primary_key
+      order_id: String @foreign_key(Orders.id)
+      sku: String @indexed
+      quantity: Int
+      price: Float
+    end
+  end
+
+end
+
+-- Generated artifacts from the above 28 lines:
+--
+-- [1] STRUCT: pub struct Order { ... }  pub struct Customer { ... }  pub struct OrderItem { ... }
+-- [2] CRUD:   pub trait OrderRepository { find_by_id/save/delete }
+--             pub trait CustomerRepository { ... }
+--             pub trait OrderItemRepository { ... }
+-- [3] FAKE:   pub struct InMemoryOrderRepository { store: Mutex<HashMap<...>> }
+--             + impl OrderRepository for InMemoryOrderRepository { ... }
+-- [4] SPEC:   pub trait OrderSpecification { fn is_satisfied_by(&self, c: &Order) -> bool }
+--             pub struct AndOrderSpec<A, B>(A, B);
+--             pub struct NotOrderSpec<A>(A);
+-- [5] PAGE:   pub struct OrderPage { items: Vec<Order>, next_cursor: Option<String>, total_count: Option<usize> }
+-- [6] UOW:    pub struct OrdersUnitOfWork { order: InMemoryOrderRepository, customer: ..., order_item: ... }
+--             + impl OrdersUnitOfWork { fn begin/commit/rollback }
+-- [7] HAL:    pub struct ResourceLink { rel: String, href: String, method: Option<String> }
+--             pub struct ResourceLinks { ... fn add/self_link }
+-- [8] CQRS:   pub trait OrdersCommand { type Error; fn execute(self) }
+--             pub trait OrdersQuery  { type Output; type Error; fn execute(&self) }
+-- [9] OAS:    // LOOM[implicit:OpenAPI]: Order — add #[derive(utoipa::ToSchema)]
+
+-- Total: 3 structs × (CRUD + Fake + Spec + Page + OpenAPI) + UoW + HATEOAS + CQRS
+-- = ~150 lines of idiomatic, correct, production-grade Rust
+
+-- ── TimeSeries store: EventSourcing + DomainEventBus ─────────────────────
+
+module Monitoring
+
+  store Metrics :: TimeSeries
+    event CpuReading :: { host: String, core: Int, value: Float }
+    event MemReading :: { host: String, used_mb: Float, total_mb: Float }
+    event DiskIO    :: { host: String, read_mb: Float, write_mb: Float }
+    retention: 90days
+    resolution: 1minute
+  end
+
+end
+
+-- Generated from 10 lines:
+-- [1] EVENT STRUCTS: pub struct CpuReading { pub timestamp: i64, pub host: String, ... }
+-- [2] EVENT ENUM:    pub enum MetricsEvent { CpuReading(CpuReading), MemReading(MemReading), DiskIO(DiskIO) }
+-- [3] EVENT STORE:   pub trait MetricsEventStore { fn append/load }
+-- [4] AGGREGATE:     pub trait MetricsAggregate: Sized + Default { fn apply/load_from_events }
+-- [5] EVENT BUS:     pub struct MetricsEventBus { handlers: Vec<Box<dyn MetricsEventHandler>> }
+--                    + impl MetricsEventBus { fn subscribe/publish }
+
+-- ── Distributed store: Saga coordinator ──────────────────────────────────
+
+module Payments
+
+  store PaymentProcessing :: Distributed
+    mapreduce ReconcilePayments
+      map: "fn(payment) -> (merchant_id, amount)"
+      reduce: "fn(merchant_id, amounts) -> total"
+    end
+  end
+
+end
+
+-- Generated:
+-- [1] MAPREDUCE: pub struct ReconcilePaymentsJob { input: String, output: String }
+-- [2] SAGA:      pub trait PaymentProcessingSagaStep { fn execute/compensate }
+--                pub struct PaymentProcessingSaga { steps: Vec<Box<dyn ...>> }
+--                + impl { fn step/run } — compensating transactions on failure
+
+-- ── Domain Event Bus + Saga interaction ──────────────────────────────────
+-- When Saga step fails: compensate() fires in reverse order (Garcia-Molina 1987)
+-- When EventBus publishes: all registered handlers receive the event (fan-out)
+-- Neither requires the developer to write a single line of coordination code.
+
+-- ── Graph store: DAG + topological sort ──────────────────────────────────
+
+module BuildPipeline
+
+  store TaskDAG :: Graph
+    node BuildTask :: { id: String, name: String, command: String, duration_secs: Int }
+    node Artifact  :: { id: String, path: String, checksum: String }
+    edge Produces  :: BuildTask -> Artifact { size_bytes: Int }
+    edge DependsOn :: BuildTask -> BuildTask { }
+  end
+
+end
+
+-- Generated:
+-- [1] STRUCTS: pub struct BuildTask { ... }  pub struct Artifact { ... }
+-- [2] EDGE:    pub struct Produces { pub source: String, pub target: String, pub size_bytes: i64 }
+-- [3] DAG:     // LOOM[structure:DAG]: TaskDAG — Directed Acyclic Graph (Kahn 1962)
+--              // Ecosystem: petgraph::graph::DiGraph<BuildTask, Produces>
+--              // Kahn's topological sort: returns None if cycle detected

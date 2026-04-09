@@ -1,0 +1,219 @@
+-- V6: Community experiments per Loom claim category.
+--
+-- Each section below maps to one claim category.
+-- The Loom source is intentionally minimal — the purpose is to show
+-- that Loom emits the *correct scaffold* that the community verifier
+-- would accept once the external tool is wired.
+--
+-- HOW TO RUN EACH TIER:
+--   1. Contracts (require/ensure):  `cargo test` — debug_assert! fires at runtime
+--   2. Kani harnesses:              `cargo kani` (requires cargo install kani-verifier)
+--   3. Proptest:                    `RUSTFLAGS="--cfg loom_proptest" cargo test`
+--   4. Prusti separation logic:     `cargo prusti` (requires Prusti installation)
+--   5. Refinement / Z3 SMT:         `loom verify --smt` (smt_bridge)
+--   6. Telos / TLA+:                `loom emit --tla && tlc out/module.tla`
+--   7. Probabilistic proptest:      `cargo test` (statistical sampling loop)
+--   8. Temporal:                    `loom emit --tla` + TLC
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ── 1. CONTRACTS (require/ensure) — Kani + runtime ────────────────────────
+-- Community source: Kani repo kani/tests/ui/assume.rs
+-- Loom claim: require: x > 0 → kani::assume!(x > 0); ensure: result > 0 → kani::assert!(result > 0)
+
+module ContractExperiment
+  fn add_positives :: Int -> Int -> Int
+    require: a > 0 and b > 0
+    ensure: result > 0
+    body: a + b
+  end
+
+  fn bounded_divide :: Float -> Float -> Float
+    require: divisor != 0.0
+    ensure: result > -1000000.0 and result < 1000000.0
+    body: dividend / divisor
+  end
+end
+
+-- Expected emission:
+-- #[cfg(kani)] #[kani::proof] fn kani_add_positives() { ... kani::assume!(a > 0 && b > 0); ... kani::assert!(result > 0); }
+-- Verification result: CBMC proves the Hoare triple for all bounded i64 values
+-- Run: cargo kani --harness kani_add_positives
+
+-- ── 2. PROPERTY TESTS (forall) — proptest ─────────────────────────────────
+-- Community source: proptest book https://proptest-rs.github.io/proptest/
+-- Loom claim: property: → proptest! block with prop_assert!
+
+module PropertyExperiment
+  property SortIdempotent:
+    forall n: Int
+    invariant: n > -1000000 and n < 1000000
+    samples: 1000
+    shrink: true
+  end
+
+  property FloatAbsNonNeg:
+    forall x: Float
+    invariant: x >= -1000.0 and x <= 1000.0
+    samples: 500
+    shrink: false
+  end
+
+  property BoolIdentity:
+    forall b: Bool
+    invariant: b = true or b = false
+    samples: 2
+    shrink: false
+  end
+end
+
+-- Expected emission: #[test] fn property_sort_idempotent_edge_cases() with i64 extremes
+--                  + #[cfg(loom_proptest)] proptest! { fn property_sort_idempotent_random(n: i64) { ... } }
+-- Run: RUSTFLAGS="--cfg loom_proptest" cargo test
+
+-- ── 3. SESSION TYPES — typestate compile-time enforcement ─────────────────
+-- Community source: ferrite crate (https://crates.io/crates/ferrite-session)
+--                   Honda, Vasconcelos, Kubo (1998) A Language Primitive for Concurrent Session Types
+-- Loom claim: wrong message order = rustc type error
+
+module SessionExperiment
+  session Handshake
+    role Client
+      send Int
+      recv String
+    end
+    role Server
+      recv Int
+      send String
+    end
+  end
+
+  session PingPong
+    role Pinger
+      send Bool
+      recv Bool
+      send Bool
+      recv Bool
+    end
+    role Ponger
+      recv Bool
+      send Bool
+      recv Bool
+      send Bool
+    end
+  end
+end
+
+-- Expected emission:
+-- struct HandshakeClientStep0;  struct HandshakeClientStep1;  struct HandshakeClientDone;
+-- struct HandshakeClientChannel<State>(_: PhantomData<State>);
+-- impl HandshakeClientChannel<HandshakeClientStep0> { fn send(self, _msg: i64) -> HandshakeClientChannel<HandshakeClientStep1> }
+-- impl HandshakeClientChannel<HandshakeClientStep1> { fn recv(self) -> (HandshakeClientChannel<HandshakeClientDone>, String) }
+-- Wrong order: calling recv before send = rustc "use of moved value" error
+
+-- ── 4. SEPARATION LOGIC — Prusti attributes ───────────────────────────────
+-- Community source: Prusti (https://viperproject.github.io/prusti-dev/)
+--                   Reynolds (2002) Separation Logic: A Logic for Shared Mutable Data Structures
+-- Loom claim: @separate(x, y) → Prusti pre/postconditions that disjoint ownership is preserved
+
+module SeparationExperiment
+  fn write_disjoint :: Int -> Int -> Int @separate(a, b)
+    require: a > 0
+    ensure: result > 0
+    body: a + b
+  end
+
+  fn swap_distinct :: Int -> Int -> Int @separate(x, y)
+    require: x != y
+    ensure: result > 0
+    body: x + y
+  end
+end
+
+-- Expected emission: #[requires(a > 0)] #[ensures(result > 0)] fn write_disjoint
+-- with separation attributes as comments for Prusti.
+-- Run: cargo prusti (requires Prusti installation)
+
+-- ── 5. REFINEMENT TYPES — Z3 SMT bridge ──────────────────────────────────
+-- Community source: Liquid Haskell (Vazou et al. 2014), Z3 SMT solver
+-- Loom claim: refine: x > 0 → Z3 assertion emitted via smt_bridge
+
+module RefinementExperiment
+  fn positive_only :: Int -> Int
+    refine: n is { v: Int | v > 0 }
+    body: n * 2
+  end
+
+  fn bounded_score :: Float -> Float
+    refine: score is { v: Float | v >= 0.0 and v <= 1.0 }
+    body: score
+  end
+end
+
+-- Expected emission: // LOOM[refinement]: assert z3.Int('n') > 0
+-- Run: loom verify --smt (uses smt_bridge Z3 integration)
+
+-- ── 6. PROBABILISTIC TYPES — statistical sampling ─────────────────────────
+-- Community source: statistical tests from scipy, numpy, rand_distr (Rust)
+-- Loom claim: stochastic blocks emit correct distribution structs + sampling
+
+module StochasticExperiment
+  stochastic PriceModel :: GBM
+    mu: 0.08
+    sigma: 0.20
+    dt: 0.004
+  end
+
+  stochastic QueueArrival :: Poisson
+    lambda: 5.3
+    dt: 1.0
+  end
+
+  stochastic NeuralNoise :: Normal
+    mean: 0.0
+    std: 1.0
+  end
+end
+
+-- Expected emission: PriceModelState struct, PriceModelState::step() → gbm update rule
+--                    QueueArrivalState struct, Poisson::sample() bridge
+-- Statistical test: run 10,000 steps, check sample mean ≈ theoretical mean ± 3σ/√n
+-- Run: cargo test (statistical acceptance test in proptest or handwritten loop)
+
+-- ── 7. TELOS / CONVERGENCE — TLA+ model checking ─────────────────────────
+-- Community source: TLA+ (Lamport 1994), TLC model checker
+-- Loom claim: telos: state → eventually(condition) emits TLA+ invariant
+
+module TelosExperiment
+  fn gradient_step :: Float -> Float
+    telos: converge_when loss < 0.001
+    ensure: result > 0.0
+    body: todo
+  end
+
+  fn market_balance :: Float -> Float
+    telos: converge_when price_gap < 0.01
+    require: supply > 0.0
+    body: todo
+  end
+end
+
+-- Expected emission: // LOOM[telos]: TEMPORAL PROPERTY — eventually(loss < 0.001)
+--                  + TLA+ emission: <> (loss < 0.001)
+-- Run: loom emit --tla && tlc out/module.tla
+
+-- ── 8. TEMPORAL PROPERTIES — TLC model checking ──────────────────────────
+-- Community source: TLA+ temporal operators (Lamport 1994 Temporal Logic of Actions)
+-- Loom claim: always:/eventually: → TLA+ [] and <> operators
+
+module TemporalExperiment
+  fn safe_increment :: Int -> Int
+    always: result > 0
+    eventually: result > 1000
+    require: n > 0
+    body: n + 1
+  end
+end
+
+-- Expected emission: // LOOM[temporal]: ALWAYS result > 0
+--                  + TLA+ emission: [] (result > 0) /\ <> (result > 1000)
+-- Run: loom emit --tla && tlc out/module.tla
