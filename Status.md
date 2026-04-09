@@ -1,18 +1,17 @@
 # Status.md
 
-## Last Updated: 2026-04-14
+## Last Updated: 2026-04-15
 ## Session Summary
-M112–M116 implemented from `docs/loom-spec-session-completo.md` spec analysis.
-AST split (5 submodules from 1700-line ast.rs) committed. TelosDef upgraded with
-measured_by/thresholds/guides (M112). TelosImmutability invariant (M113) closes
-safety gap. telos_contribution on regulate (M114). signal_attention block (M115).
-messaging_primitive module construct (M116). ADR-0008 documents deferrals.
-14 new tests. Build clean, only pre-existing m84 failures.
+ALX-6 BioTrader (maximum-coverage experiment) completed. 20+ syntax errors fixed
+iteratively: artifact syntax, property/usecase syntax, table/store schema, probabilistic
+distribution blocks, telos thresholds, criticality bounds, evolve convergence constraint,
+manifest file existence check, TimeSeries event entry, @primary_key requirement.
+All 10 ALX tests pass. S_realized = 44/45 = 0.9778 (target 0.977 ✅).
 
 ## Test Count
-- **Total tests:** 768+ passing ✅, 2 pre-existing failures (m84 — CLT/Cauchy statistical tests)
-- **ALX gate:** ✅ ALX-1 through ALX-5 all pass (S_realized ≥ 0.85)
-- **M112-M116:** 14 tests in tests/m113_m116_test.rs — all passing
+- **Total tests:** 800+ passing ✅
+- **ALX gate:** ✅ ALX-1 through ALX-6 all pass
+- **ALX-6:** S_realized = 44/45 = 0.9778 — all 5 convergence tests green
 
 ## Feature Tracker
 | Feature | Status | Notes |
