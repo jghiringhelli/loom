@@ -27,209 +27,371 @@ use crate::error::LoomError;
 #[logos(skip r"\{-[^-]*(-+[^}-][^-]*)*-+\}")]
 pub enum Token {
     // ── Keywords ─────────────────────────────────────────────────────────────
-    #[token("module")]   Module,
-    #[token("fn")]       Fn,
-    #[token("type")]     Type,
-    #[token("enum")]     Enum,
-    #[token("let")]      Let,
-    #[token("match")]    Match,
-    #[token("with")]     With,
-    #[token("require")]  Require,
-    #[token("ensure")]   Ensure,
-    #[token("import")]   Import,
-    #[token("spec")]     Spec,
-    #[token("provides")] Provides,
-    #[token("requires")] Requires,
-    #[token("effect")]   Effect,
-    #[token("where")]    Where,
-    #[token("end")]      End,
-    #[token("of")]       Of,
-    #[token("then")]     Then,
-    #[token("if")]       If,
-    #[token("else")]     Else,
-    #[token("and")]      And,
-    #[token("or")]       Or,
-    #[token("not")]      Not,
-    #[token("as")]       As,
-    #[token("for")]      For,
-    #[token("in")]       In,
-    #[token("invariant")] Invariant,
-    #[token("test")]     Test,
-    #[token("interface")] Interface,
-    #[token("implements")] Implements,
-    #[token("flow")]      Flow,
-    #[token("lifecycle")] Lifecycle,
-    #[token("being")]    Being,
-    #[token("telos")]    Telos,
-    #[token("form")]     Form,
-    #[token("matter")]   Matter,
-    #[token("regulate")] Regulate,
-    #[token("evolve")]   Evolve,
-    #[token("toward")]   Toward,
-    #[token("search")]   Search,
-    #[token("fitness")]  Fitness,
-    #[token("bounds")]   Bounds,
-    #[token("ecosystem")] Ecosystem,
-    #[token("members")]  Members,
-    #[token("signal")]   Signal,
-    #[token("from")]     From,
-    #[token("to")]       To,
-    #[token("payload")]  Payload,
-    #[token("autopoietic")] Autopoietic,
-    #[token("epigenetic")] Epigenetic,
-    #[token("modifies")]   Modifies,
-    #[token("reverts_when")] RevertsWhen,
-    #[token("morphogen")]  Morphogen,
-    #[token("threshold")]  Threshold,
-    #[token("produces")]   Produces,
-    #[token("telomere")]   Telomere,
-    #[token("on_exhaustion")] OnExhaustion,
-    #[token("limit")]      Limit,
-    #[token("crispr")]     Crispr,
-    #[token("replace")]    Replace,
-    #[token("guide")]      Guide,
-    #[token("quorum")]     Quorum,
-    #[token("action")]     Action,
-    #[token("plasticity")] Plasticity,
-    #[token("trigger")]    Trigger,
-    #[token("rule")]       Rule,
-    #[token("hebbian")]    Hebbian,
-    #[token("boltzmann")]  Boltzmann,
-    #[token("modifiable_by")] ModifiableBy,
-    #[token("bounded_by")]    BoundedBy,
-    #[token("temporal")]      Temporal,
-    #[token("always")]        Always,
-    #[token("eventually")]    Eventually,
-    #[token("never")]         Never,
-    #[token("precedes")]      Precedes,
-    #[token("reaches")]       Reaches,
-    #[token("transitions")]   Transitions,
-    #[token("before")]        Before,
+    #[token("module")]
+    Module,
+    #[token("fn")]
+    Fn,
+    #[token("type")]
+    Type,
+    #[token("enum")]
+    Enum,
+    #[token("let")]
+    Let,
+    #[token("match")]
+    Match,
+    #[token("with")]
+    With,
+    #[token("require")]
+    Require,
+    #[token("ensure")]
+    Ensure,
+    #[token("import")]
+    Import,
+    #[token("spec")]
+    Spec,
+    #[token("provides")]
+    Provides,
+    #[token("requires")]
+    Requires,
+    #[token("effect")]
+    Effect,
+    #[token("where")]
+    Where,
+    #[token("end")]
+    End,
+    #[token("of")]
+    Of,
+    #[token("then")]
+    Then,
+    #[token("if")]
+    If,
+    #[token("else")]
+    Else,
+    #[token("and")]
+    And,
+    #[token("or")]
+    Or,
+    #[token("not")]
+    Not,
+    #[token("as")]
+    As,
+    #[token("for")]
+    For,
+    #[token("in")]
+    In,
+    #[token("invariant")]
+    Invariant,
+    #[token("test")]
+    Test,
+    #[token("interface")]
+    Interface,
+    #[token("implements")]
+    Implements,
+    #[token("flow")]
+    Flow,
+    #[token("lifecycle")]
+    Lifecycle,
+    #[token("being")]
+    Being,
+    #[token("telos")]
+    Telos,
+    #[token("form")]
+    Form,
+    #[token("matter")]
+    Matter,
+    #[token("regulate")]
+    Regulate,
+    #[token("evolve")]
+    Evolve,
+    #[token("toward")]
+    Toward,
+    #[token("search")]
+    Search,
+    #[token("fitness")]
+    Fitness,
+    #[token("bounds")]
+    Bounds,
+    #[token("ecosystem")]
+    Ecosystem,
+    #[token("members")]
+    Members,
+    #[token("signal")]
+    Signal,
+    #[token("from")]
+    From,
+    #[token("to")]
+    To,
+    #[token("payload")]
+    Payload,
+    #[token("autopoietic")]
+    Autopoietic,
+    #[token("epigenetic")]
+    Epigenetic,
+    #[token("modifies")]
+    Modifies,
+    #[token("reverts_when")]
+    RevertsWhen,
+    #[token("morphogen")]
+    Morphogen,
+    #[token("threshold")]
+    Threshold,
+    #[token("produces")]
+    Produces,
+    #[token("telomere")]
+    Telomere,
+    #[token("on_exhaustion")]
+    OnExhaustion,
+    #[token("limit")]
+    Limit,
+    #[token("crispr")]
+    Crispr,
+    #[token("replace")]
+    Replace,
+    #[token("guide")]
+    Guide,
+    #[token("quorum")]
+    Quorum,
+    #[token("action")]
+    Action,
+    #[token("plasticity")]
+    Plasticity,
+    #[token("trigger")]
+    Trigger,
+    #[token("rule")]
+    Rule,
+    #[token("hebbian")]
+    Hebbian,
+    #[token("boltzmann")]
+    Boltzmann,
+    #[token("modifiable_by")]
+    ModifiableBy,
+    #[token("bounded_by")]
+    BoundedBy,
+    #[token("temporal")]
+    Temporal,
+    #[token("always")]
+    Always,
+    #[token("eventually")]
+    Eventually,
+    #[token("never")]
+    Never,
+    #[token("precedes")]
+    Precedes,
+    #[token("reaches")]
+    Reaches,
+    #[token("transitions")]
+    Transitions,
+    #[token("before")]
+    Before,
     // ── Separation logic keywords (M57) ─────────────────────────────────────
-    #[token("separation")]    Separation,
-    #[token("owns")]          Owns,
-    #[token("disjoint")]      Disjoint,
-    #[token("frame")]         Frame,
-    #[token("proof")]         Proof,
+    #[token("separation")]
+    Separation,
+    #[token("owns")]
+    Owns,
+    #[token("disjoint")]
+    Disjoint,
+    #[token("frame")]
+    Frame,
+    #[token("proof")]
+    Proof,
     // ── Gradual typing keywords (M59) ────────────────────────────────────────────
-    #[token("gradual")]      Gradual,
-    #[token("boundary")]     Boundary,
-    #[token("blame")]        Blame,
+    #[token("gradual")]
+    Gradual,
+    #[token("boundary")]
+    Boundary,
+    #[token("blame")]
+    Blame,
     // ── Probabilistic types keywords (M60) ───────────────────────────────────────
-    #[token("distribution")] Distribution,
+    #[token("distribution")]
+    Distribution,
     // ── Dependent types keywords (M61) ───────────────────────────────────────────
-    #[token("proposition")]  Proposition,
-    #[token("termination")]  Termination,
+    #[token("proposition")]
+    Proposition,
+    #[token("termination")]
+    Termination,
     // ── Side-channel keywords (M62) ──────────────────────────────────────────────
-    #[token("timing_safety")] TimingSafety,
+    #[token("timing_safety")]
+    TimingSafety,
     // ── Category theory keywords (M63) ───────────────────────────────────────────
-    #[token("functor")]      Functor,
-    #[token("monad")]        Monad,
-    #[token("law")]          Law,
+    #[token("functor")]
+    Functor,
+    #[token("monad")]
+    Monad,
+    #[token("law")]
+    Law,
     // ── Self-certifying compilation keywords (M65) ───────────────────────────────
-    #[token("certificate")]  Certificate,
+    #[token("certificate")]
+    Certificate,
     // ── AOP aspect keywords (M66) ────────────────────────────────────────────────
-    #[token("aspect")]       Aspect,
-    #[token("pointcut")]     Pointcut,
-    #[token("around")]       Around,
-    #[token("after")]        After,
+    #[token("aspect")]
+    Aspect,
+    #[token("pointcut")]
+    Pointcut,
+    #[token("around")]
+    Around,
+    #[token("after")]
+    After,
     // ── Annotation algebra keywords (M66b) ───────────────────────────────────────
-    #[token("annotation")]   Annotation,
+    #[token("annotation")]
+    Annotation,
 
     // ── Biological gap milestones (M68-M77) ──────────────────────────────────────
-    #[token("degenerate")]   Degenerate,
-    #[token("fallback")]     Fallback,
-    #[token("checkpoint")]   Checkpoint,
-    #[token("canalize")]     Canalize,
-    #[token("pathway")]      Pathway,
-    #[token("senescence")]   Senescence,
-    #[token("adopt")]        Adopt,
+    #[token("degenerate")]
+    Degenerate,
+    #[token("fallback")]
+    Fallback,
+    #[token("checkpoint")]
+    Checkpoint,
+    #[token("canalize")]
+    Canalize,
+    #[token("pathway")]
+    Pathway,
+    #[token("senescence")]
+    Senescence,
+    #[token("adopt")]
+    Adopt,
 
     // ── Biosemiotic signal infrastructure (M78-M82) ───────────────────────────────
-    #[token("umwelt")]       Umwelt,
-    #[token("sense")]        Sense,
-    #[token("resonance")]    Resonance,
+    #[token("umwelt")]
+    Umwelt,
+    #[token("sense")]
+    Sense,
+    #[token("resonance")]
+    Resonance,
 
     // ── Store declaration keywords (M92) ────────────────────────────────────────
-    #[token("store")]       Store,
-    #[token("table")]       Table,
-    #[token("node")]        GraphNode,
-    #[token("edge")]        Edge,
-    #[token("ttl")]         Ttl,
-    #[token("index")]       Index,
-    #[token("retention")]   Retention,
-    #[token("resolution")]  Resolution,
-    #[token("format")]      Format,
-    #[token("compression")] Compression,
-    #[token("capacity")]    Capacity,
-    #[token("eviction")]    Eviction,
-    #[token("fact")]        Fact,
-    #[token("dimension")]   Dimension,
-    #[token("embedding")]   Embedding,
+    #[token("store")]
+    Store,
+    #[token("table")]
+    Table,
+    #[token("node")]
+    GraphNode,
+    #[token("edge")]
+    Edge,
+    #[token("ttl")]
+    Ttl,
+    #[token("index")]
+    Index,
+    #[token("retention")]
+    Retention,
+    #[token("resolution")]
+    Resolution,
+    #[token("format")]
+    Format,
+    #[token("compression")]
+    Compression,
+    #[token("capacity")]
+    Capacity,
+    #[token("eviction")]
+    Eviction,
+    #[token("fact")]
+    Fact,
+    #[token("dimension")]
+    Dimension,
+    #[token("embedding")]
+    Embedding,
 
     // ── Distributed store keywords (M97) ────────────────────────────────────────
-    #[token("mapreduce")]   MapReduce,
-    #[token("consumer")]    Consumer,
-    #[token("offset")]      Offset,
-    #[token("partitions")]  Partitions,
-    #[token("replication")] Replication,
+    #[token("mapreduce")]
+    MapReduce,
+    #[token("consumer")]
+    Consumer,
+    #[token("offset")]
+    Offset,
+    #[token("partitions")]
+    Partitions,
+    #[token("replication")]
+    Replication,
 
     // ── Stochastic process types (M88) ──────────────────────────────────────────
-    #[token("process")]     Process,
+    #[token("process")]
+    Process,
 
     // ── Session types (M98) ──────────────────────────────────────────────────────
-    #[token("session")]   Session,
-    #[token("send")]      Send,
-    #[token("recv")]      Recv,
-    #[token("duality")]   Duality,
+    #[token("session")]
+    Session,
+    #[token("send")]
+    Send,
+    #[token("recv")]
+    Recv,
+    #[token("duality")]
+    Duality,
 
     // ── Algebraic effect handlers (M99) ─────────────────────────────────────────
     // NOTE: `effect` (Token::Effect) and `with` (Token::With) already exist.
-    #[token("handle")]    Handle,
-    #[token("operation")] Operation,
+    #[token("handle")]
+    Handle,
+    #[token("operation")]
+    Operation,
 
     // ── Documentation liveness manifest (M101) ──────────────────────────────────
-    #[token("manifest")]  Manifest,
-    #[token("artifact")]  Artifact,
-    #[token("reflects")]  Reflects,
+    #[token("manifest")]
+    Manifest,
+    #[token("artifact")]
+    Artifact,
+    #[token("reflects")]
+    Reflects,
 
     // ── Use-case triple-derivation (M103) ────────────────────────────────────────
-    #[token("usecase")]   UseCase,
-    #[token("within")]    Within,
-    #[token("actor")]     Actor,
-    #[token("acceptance")] Acceptance,
+    #[token("usecase")]
+    UseCase,
+    #[token("within")]
+    Within,
+    #[token("actor")]
+    Actor,
+    #[token("acceptance")]
+    Acceptance,
 
     // ── Episodic memory journal (M104) ────────────────────────────────────────────
-    #[token("journal")]   Journal,
+    #[token("journal")]
+    Journal,
 
     // ── Scenario blocks — BDD acceptance criteria (M105) ─────────────────────────
-    #[token("scenario")]  Scenario,
+    #[token("scenario")]
+    Scenario,
 
     // ── Migration evolution contract (M106) ──────────────────────────────────────
-    #[token("migration")] Migration,
+    #[token("migration")]
+    Migration,
 
     // ── Property-based testing (M109) ────────────────────────────────────────────
     // QuickCheck (Claessen & Hughes 2000) → fast-check (JS) → Hypothesis (Python) → Loom.
-    #[token("property")]  Property,
-    #[token("forall")]    Forall,
-    #[token("shrink")]    Shrink,
-    #[token("samples")]   Samples,
+    #[token("property")]
+    Property,
+    #[token("forall")]
+    Forall,
+    #[token("shrink")]
+    Shrink,
+    #[token("samples")]
+    Samples,
 
     // ── M112: Telos-as-function + M113-M115 (spec session April 2026) ────────────
-    #[token("measured_by")]        MeasuredBy,
-    #[token("thresholds")]         Thresholds,
-    #[token("convergence")]        Convergence,
-    #[token("divergence")]         Divergence,
-    #[token("propagation")]        Propagation,
-    #[token("guides")]             Guides,
-    #[token("signal_attention")]   SignalAttention,
-    #[token("prioritize")]         Prioritize,
-    #[token("attenuate")]          Attenuate,
-    #[token("telos_contribution")] TelosContribution,
+    #[token("measured_by")]
+    MeasuredBy,
+    #[token("thresholds")]
+    Thresholds,
+    #[token("convergence")]
+    Convergence,
+    #[token("divergence")]
+    Divergence,
+    #[token("propagation")]
+    Propagation,
+    #[token("guides")]
+    Guides,
+    #[token("signal_attention")]
+    SignalAttention,
+    #[token("prioritize")]
+    Prioritize,
+    #[token("attenuate")]
+    Attenuate,
+    #[token("telos_contribution")]
+    TelosContribution,
 
     // ── M116: Messaging primitives ───────────────────────────────────────────────
-    #[token("messaging_primitive")] MessagingPrimitive,
-    #[token("guarantees")]          Guarantees,
+    #[token("messaging_primitive")]
+    MessagingPrimitive,
+    #[token("guarantees")]
+    Guarantees,
 
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
@@ -263,43 +425,72 @@ pub enum Token {
     Ident(String),
 
     // ── Multi-character operators (must precede single-char prefixes) ─────
-    #[token("::")] ColonColon,
-    #[token("->")] Arrow,
-    #[token("|>")] Pipe,
-    #[token("!=")] Ne,
-    #[token(">=")] Ge,
-    #[token("<=")] Le,
+    #[token("::")]
+    ColonColon,
+    #[token("->")]
+    Arrow,
+    #[token("|>")]
+    Pipe,
+    #[token("!=")]
+    Ne,
+    #[token(">=")]
+    Ge,
+    #[token("<=")]
+    Le,
 
     // ── Single-character operators ────────────────────────────────────────
-    #[token("|")] Bar,
-    #[token("=")] Eq,
-    #[token("+")] Plus,
-    #[token("-")] Minus,
-    #[token("*")] Star,
-    #[token("/")] Slash,
+    #[token("|")]
+    Bar,
+    #[token("=")]
+    Eq,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("*")]
+    Star,
+    #[token("/")]
+    Slash,
 
     // ── Punctuation ───────────────────────────────────────────────────────
-    #[token(":")] Colon,
-    #[token(",")] Comma,
-    #[token(".")] Dot,
-    #[token("[")] LBracket,
-    #[token("]")] RBracket,
-    #[token("(")] LParen,
-    #[token(")")] RParen,
-    #[token("{")] LBrace,
-    #[token("}")] RBrace,
+    #[token(":")]
+    Colon,
+    #[token(",")]
+    Comma,
+    #[token(".")]
+    Dot,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
+    #[token("{")]
+    LBrace,
+    #[token("}")]
+    RBrace,
     /// `<` — used as both less-than operator and generic opening angle bracket.
-    #[token("<")] Lt,
+    #[token("<")]
+    Lt,
     /// `>` — used as both greater-than operator and generic closing angle bracket.
-    #[token(">")] Gt,
-    #[token("~")] Tilde,
-    #[token("?")] Question,
-    #[token("@")] At,
+    #[token(">")]
+    Gt,
+    #[token("~")]
+    Tilde,
+    #[token("?")]
+    Question,
+    #[token("@")]
+    At,
     // ── Provenance (M102) ─────────────────────────────────────────────────────
-    #[token("provenance")]  Provenance,
+    #[token("provenance")]
+    Provenance,
     // ── Boundary exports/seals (M103) ─────────────────────────────────────────
-    #[token("export")]  Export,
-    #[token("seal")]    Seal,
+    #[token("export")]
+    Export,
+    #[token("seal")]
+    Seal,
 }
 
 // Aliases for use in type-expression parsing contexts.
@@ -402,7 +593,10 @@ mod tests {
     fn tokenizes_keywords() {
         let tokens = Lexer::tokenize("module fn type enum").unwrap();
         let kinds: Vec<_> = tokens.iter().map(|(t, _)| t.clone()).collect();
-        assert_eq!(kinds, vec![Token::Module, Token::Fn, Token::Type, Token::Enum]);
+        assert_eq!(
+            kinds,
+            vec![Token::Module, Token::Fn, Token::Type, Token::Enum]
+        );
     }
 
     #[test]
@@ -412,6 +606,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn tokenizes_float_literal() {
         let tokens = Lexer::tokenize("3.14").unwrap();
         assert_eq!(tokens[0].0, Token::FloatLit(3.14));

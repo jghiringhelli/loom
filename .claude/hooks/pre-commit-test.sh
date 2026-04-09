@@ -1,5 +1,5 @@
 #!/bin/bash
-COVERAGE_MIN={{coverage_minimum | default: 80}}
+COVERAGE_MIN=80
 
 # Collect staged files once.
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)

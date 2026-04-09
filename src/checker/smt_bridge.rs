@@ -71,7 +71,9 @@ impl SmtBridgeChecker {
     /// are translated as `true` (sound but incomplete).
     pub fn translate_expr_node(expr: &Expr) -> String {
         match expr {
-            Expr::BinOp { op, left, right, .. } => {
+            Expr::BinOp {
+                op, left, right, ..
+            } => {
                 let l = Self::translate_expr_node(left);
                 let r = Self::translate_expr_node(right);
                 let smt_op = match op {
@@ -79,14 +81,14 @@ impl SmtBridgeChecker {
                     BinOpKind::Sub => "-",
                     BinOpKind::Mul => "*",
                     BinOpKind::Div => "/",
-                    BinOpKind::Eq  => "=",
-                    BinOpKind::Ne  => "distinct",
-                    BinOpKind::Lt  => "<",
-                    BinOpKind::Le  => "<=",
-                    BinOpKind::Gt  => ">",
-                    BinOpKind::Ge  => ">=",
+                    BinOpKind::Eq => "=",
+                    BinOpKind::Ne => "distinct",
+                    BinOpKind::Lt => "<",
+                    BinOpKind::Le => "<=",
+                    BinOpKind::Gt => ">",
+                    BinOpKind::Ge => ">=",
                     BinOpKind::And => "and",
-                    BinOpKind::Or  => "or",
+                    BinOpKind::Or => "or",
                 };
                 format!("({} {} {})", smt_op, l, r)
             }
@@ -116,13 +118,13 @@ impl SmtBridgeChecker {
                 "<=" => "<=",
                 "!=" => "distinct",
                 "==" => "=",
-                ">"  => ">",
-                "<"  => "<",
-                "+"  => "+",
-                "-"  => "-",
-                "*"  => "*",
-                "/"  => "/",
-                _    => op_str,
+                ">" => ">",
+                "<" => "<",
+                "+" => "+",
+                "-" => "-",
+                "*" => "*",
+                "/" => "/",
+                _ => op_str,
             };
             return format!("({} {} {})", smt_op, lhs.trim(), rhs.trim());
         }
@@ -146,7 +148,47 @@ impl SmtBridgeChecker {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /// Split `expr` into `(lhs, operator, rhs)` at the first binary operator.
+    /// Discharge `require:`/`ensure:` contracts to an SMT solver (Z3).
+    ///
+    /// Requires the `smt` feature and a Z3 installation.
+    /// When Z3 is not available the caller falls back to [`SmtStatus::Skipped`]
+    /// via the `#[cfg(not(feature = "smt"))]` branch in `check_fn`.
+    #[cfg(feature = "smt")]
+    fn discharge_smt(precondition: &str, postcondition: &str) -> SmtStatus {
+        // SMT-LIB2 query: assert precondition and negated postcondition.
+        // If UNSAT → the Hoare triple is valid. If SAT/Unknown → not proved.
+        let query = format!(
+            "(assert {precondition})\n\
+             (assert (not {postcondition}))\n\
+             (check-sat)\n"
+        );
+        // Attempt to invoke Z3. If the binary is absent, return Skipped.
+        let output = std::process::Command::new("z3")
+            .arg("-in")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(query.as_bytes());
+                }
+                child.wait_with_output()
+            });
+        match output {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                if stdout.trim() == "unsat" {
+                    SmtStatus::Proved
+                } else {
+                    SmtStatus::Unknown
+                }
+            }
+            Err(_) => SmtStatus::Skipped, // Z3 not installed
+        }
+    }
+
     fn split_binary(expr: &str) -> Option<(&str, &str, &str)> {
         let two = [">=", "<=", "!=", "==", "->", "|>"];
         for op in &two {

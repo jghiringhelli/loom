@@ -62,8 +62,8 @@ for file in $SOURCE_FILES; do
     fi
   fi
   LINE_COUNT=$(wc -l < "$file")
-  if [ "$LINE_COUNT" -gt {{max_file_length | default: 300}} ]; then
-    echo "  ⚠️  $file — $LINE_COUNT lines (max {{max_file_length | default: 300}})"
+  if [ "$LINE_COUNT" -gt 300 ]; then
+    echo "  ⚠️  $file — $LINE_COUNT lines (max 300)"
     WARNINGS=$((WARNINGS + 1))
   fi
   # Rust-specific anti-patterns
@@ -95,6 +95,7 @@ for file in $SOURCE_FILES; do
       fi
     fi
   fi
+done
 rm -f /tmp/violations
 if [ $VIOLATIONS -gt 0 ]; then
   echo "❌ $VIOLATIONS violation(s) found — commit blocked."
