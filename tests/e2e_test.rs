@@ -67,6 +67,41 @@ fn rustc_and_run(rust_src: &str, test_name: &str) -> String {
     String::from_utf8_lossy(&run.stdout).trim().to_string()
 }
 
+/// Compile `rust_src` with `rustc --test`, run the resulting test binary, and return
+/// its combined stdout+stderr.  Used for V3 property tests which emit `#[test]` fns.
+fn rustc_and_run_tests(rust_src: &str, test_name: &str) -> String {
+    let tmp_dir = std::env::temp_dir();
+    let rs_path: PathBuf = tmp_dir.join(format!("loom_e2e_{}.rs", test_name));
+    let exe_path: PathBuf = tmp_dir.join(format!("loom_e2e_{}.exe", test_name));
+
+    fs::write(&rs_path, rust_src).unwrap();
+
+    let compile = Command::new("rustc")
+        .args(["--edition", "2021", "--test", "-o", exe_path.to_str().unwrap()])
+        .arg(rs_path.to_str().unwrap())
+        .output()
+        .expect("failed to spawn rustc");
+
+    if !compile.status.success() {
+        let stderr = String::from_utf8_lossy(&compile.stderr);
+        panic!(
+            "rustc --test failed for test `{}`:\n{}\n\n--- Source ---\n{}",
+            test_name, stderr, rust_src
+        );
+    }
+
+    let run = Command::new(&exe_path)
+        .output()
+        .expect("failed to run test binary");
+
+    let _ = fs::remove_file(&rs_path);
+    let _ = fs::remove_file(&exe_path);
+
+    let stdout = String::from_utf8_lossy(&run.stdout);
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    format!("{}{}", stdout, stderr).trim().to_string()
+}
+
 // ── Test 1: Integer arithmetic ────────────────────────────────────────────────
 
 #[test]
@@ -442,4 +477,36 @@ end
     );
     let output = rustc_and_run(&full_src, "v1_ensure");
     assert_eq!(output, "6", "double(3) should return 6");
+}
+
+/// V3: property: blocks emit edge-case loops that compile and run cleanly.
+#[test]
+fn v3_property_test_runs_over_edge_cases() {
+    let loom_src = r#"
+module Trivial
+  property always_equal:
+    forall n: Int
+    invariant: n = n
+    samples: 100
+  end
+end
+"#;
+    let emitted = loom_compile(loom_src);
+
+    // The emitted code should contain an edge-case loop and an assertion.
+    assert!(
+        emitted.contains("assert!"),
+        "V3 emitted code must contain assert!:\n{}", emitted
+    );
+    assert!(
+        emitted.contains("edge_cases"),
+        "V3 emitted code must contain an edge_cases array:\n{}", emitted
+    );
+
+    // Compile with --test so #[test] fns are included in the binary.
+    let output = rustc_and_run_tests(&emitted, "v3_property");
+    assert!(
+        output.contains("test result: ok"),
+        "V3 property test binary should report 'test result: ok'; got:\n{}", output
+    );
 }

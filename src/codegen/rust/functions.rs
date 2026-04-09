@@ -4,6 +4,99 @@ use crate::ast::*;
 use super::{RustEmitter, to_snake_case};
 
 impl RustEmitter {
+    /// Emit a property-based test from a `property:` block.
+    ///
+    /// V3 implementation: instead of `todo!()`, emits a `#[test]` that runs the
+    /// invariant over a set of representative edge-case inputs.
+    ///
+    /// The invariant string is translated from Loom surface syntax to Rust:
+    /// - `x = y`  → `x == y`   (standalone `=` only; `<=`/`>=`/`!=` preserved)
+    /// - ` and `  → ` && `
+    /// - ` or `   → ` || `
+    /// - `not `   → `!`
+    ///
+    /// QuickCheck (Claessen & Hughes 2000) approach: test invariants over edge cases.
+    pub(super) fn emit_property_test(&self, pb: &PropertyBlock) -> String {
+        let fn_name = to_snake_case(&pb.name);
+        let invariant_rust = property_invariant_to_rust(&pb.invariant, &pb.var_name);
+        let (var_type_rust, edge_cases) = property_edge_cases(&pb.var_type);
+
+        let mut out = String::new();
+        out.push_str(&format!(
+            "/// Property test: {} — forall {}: {}\n",
+            pb.name, pb.var_name, pb.var_type
+        ));
+        out.push_str(&format!(
+            "/// invariant: {}\n",
+            pb.invariant
+        ));
+        out.push_str(&format!(
+            "/// samples (edge cases): {}, shrink: {}\n",
+            pb.samples, pb.shrink
+        ));
+        out.push_str("/// QuickCheck (Claessen & Hughes 2000): test invariants over edge cases.\n");
+        out.push_str("#[test]\n");
+        out.push_str(&format!("fn property_{}() {{\n", fn_name));
+        out.push_str(&format!(
+            "    let edge_cases: &[{vt}] = &[{cases}];\n",
+            vt = var_type_rust,
+            cases = edge_cases
+        ));
+        out.push_str(&format!("    for &{vn} in edge_cases {{\n", vn = pb.var_name));
+        out.push_str(&format!(
+            "        assert!({inv}, \"property '{name}' failed for {vn}={{}}\", {vn});\n",
+            inv = invariant_rust,
+            name = pb.name,
+            vn = pb.var_name,
+        ));
+        out.push_str("    }\n");
+        out.push_str("}\n");
+        out
+    }
+}
+
+/// Translate a Loom invariant string to a Rust boolean expression.
+fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
+    let mut result = String::with_capacity(invariant.len() + 8);
+    let chars: Vec<char> = invariant.chars().collect();
+    let n = chars.len();
+    let mut i = 0;
+    while i < n {
+        let c = chars[i];
+        if c == '=' {
+            let prev = if i > 0 { Some(chars[i - 1]) } else { None };
+            let next = if i + 1 < n { Some(chars[i + 1]) } else { None };
+            if matches!(prev, Some('<') | Some('>') | Some('!') | Some('='))
+                || matches!(next, Some('='))
+            {
+                result.push(c);
+            } else {
+                result.push_str("==");
+            }
+        } else {
+            result.push(c);
+        }
+        i += 1;
+    }
+    let result = result.replace(" and ", " && ");
+    let result = result.replace(" or ", " || ");
+    let result = result.replace("not ", "!");
+    let result = result.replace("implies", "|| !");
+    let _ = var_name;
+    result
+}
+
+/// Map a Loom type name to (rust_type, comma-separated edge case literals).
+fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
+    match loom_type {
+        "Int" | "Integer" => ("i64", "i64::MIN, -1000, -1, 0, 1, 1000, i64::MAX / 2"),
+        "Float"           => ("f64", "-1000.0, -1.0, 0.0, 1.0, 1000.0"),
+        "Bool"            => ("bool", "false, true"),
+        _                 => ("i64", "0, 1, -1"),
+    }
+}
+
+impl RustEmitter {
     /// Emit a `pub trait` for an `interface:` block.
     pub(super) fn emit_interface_trait(&self, iface: &InterfaceDef) -> String {
         let mut out = String::new();

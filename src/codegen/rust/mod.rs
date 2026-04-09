@@ -289,19 +289,7 @@ impl RustEmitter {
                     format!("// effect_def: {}\n", ed.name)
                 }
                 Item::UseCase(uc) => self.emit_usecase(uc),
-                Item::Property(pb) => {
-                    // M109: property-based test — QuickCheck (Claessen & Hughes 2000).
-                    // V3 target: replace todo!() with actual proptest! invocation.
-                    format!(
-                        "#[test]\n#[doc = \"Property: {} — forall {}: {}\"]\nfn property_{}() {{\n    // Property-based test: forall {}: {}\n    // invariant: {}\n    // samples: {}, shrink: {}\n    todo!(\"property: {} — implement with proptest or similar\")\n}}\n",
-                        pb.name, pb.var_name, pb.var_type,
-                        to_snake_case(&pb.name),
-                        pb.var_name, pb.var_type,
-                        pb.invariant,
-                        pb.samples, pb.shrink,
-                        pb.name
-                    )
-                }
+                Item::Property(pb) => self.emit_property_test(pb),
                 Item::BoundaryBlock(bb) => {
                     format!(
                         "// boundary: exports=[{}] private=[{}] sealed=[{}]\n",

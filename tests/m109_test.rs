@@ -158,8 +158,9 @@ end
         rust.contains("fn property_encode_decode_roundtrip"),
         "emitted Rust must contain fn property_encode_decode_roundtrip"
     );
+    // V3: emits edge-case loop rather than todo!()
     assert!(
-        rust.contains("todo!"),
-        "emitted test stub must contain todo!"
+        rust.contains("edge_cases") || rust.contains("for_all") || rust.contains("assert!"),
+        "emitted property test must contain an assertion or edge-case loop:\n{}", rust
     );
 }
