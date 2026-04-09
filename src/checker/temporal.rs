@@ -44,14 +44,31 @@ impl TemporalChecker {
         for temporal in &module.temporal_defs {
             for prop in &temporal.properties {
                 match prop {
-                    TemporalProperty::Never { from_state, to_state, span } => {
+                    TemporalProperty::Never {
+                        from_state,
+                        to_state,
+                        span,
+                    } => {
                         check_never_transition(
-                            from_state, to_state, &fn_transitions, span, &mut errors,
+                            from_state,
+                            to_state,
+                            &fn_transitions,
+                            span,
+                            &mut errors,
                         );
                     }
-                    TemporalProperty::Precedes { first, second, span } => {
+                    TemporalProperty::Precedes {
+                        first,
+                        second,
+                        span,
+                    } => {
                         check_precedes(
-                            first, second, &lifecycle_map, &fn_transitions, span, &mut errors,
+                            first,
+                            second,
+                            &lifecycle_map,
+                            &fn_transitions,
+                            span,
+                            &mut errors,
                         );
                     }
                     TemporalProperty::Always { .. } | TemporalProperty::Eventually { .. } => {
@@ -189,18 +206,15 @@ mod tests {
 
     #[test]
     fn empty_temporal_block_passes() {
-        let module = parse_module(
-            "module T\nlifecycle P :: A -> B -> C\ntemporal Rules\nend\nend",
-        );
+        let module = parse_module("module T\nlifecycle P :: A -> B -> C\ntemporal Rules\nend\nend");
         let checker = TemporalChecker::new();
         assert!(checker.check(&module).is_ok());
     }
 
     #[test]
     fn always_property_passes_structural() {
-        let module = parse_module(
-            "module T\nlifecycle P :: A -> B\ntemporal R\nalways: true\nend\nend",
-        );
+        let module =
+            parse_module("module T\nlifecycle P :: A -> B\ntemporal R\nalways: true\nend\nend");
         let checker = TemporalChecker::new();
         assert!(checker.check(&module).is_ok());
     }

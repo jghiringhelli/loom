@@ -9,10 +9,10 @@
 //! - `@pure` annotation on function calling effectful fn → EffectError
 //! - E2E: module with invariant compiles to valid Rust
 
+use loom::checker::effects::EffectChecker;
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
-use loom::checker::effects::EffectChecker;
 
 fn parse_emit(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -73,7 +73,10 @@ fn id :: Int -> Int
 end
 end"#;
     let out = parse_emit(src);
-    assert!(!out.contains("_check_invariants"), "unexpected invariant fn");
+    assert!(
+        !out.contains("_check_invariants"),
+        "unexpected invariant fn"
+    );
     assert!(out.contains("pub fn id"), "expected fn in output");
 }
 
@@ -138,11 +141,15 @@ fn compute
 end
 end"#;
     let result = effect_check(src);
-    assert!(result.is_err(), "expected error when @pure calls effectful fn");
+    assert!(
+        result.is_err(),
+        "expected error when @pure calls effectful fn"
+    );
     let errs = result.unwrap_err();
     assert!(
         errs.iter().any(|e| format!("{:?}", e).contains("pure")),
-        "expected a 'pure' error, got: {:?}", errs
+        "expected a 'pure' error, got: {:?}",
+        errs
     );
 }
 
@@ -167,7 +174,8 @@ end"#;
             let s = format!("{:?}", e);
             s.contains("irreversible") || s.contains("tier")
         }),
-        "expected tier error, got: {:?}", errs
+        "expected tier error, got: {:?}",
+        errs
     );
 }
 
@@ -183,7 +191,11 @@ fn notify :: Effect<[IO@irreversible], Int>
 end
 end"#;
     let result = effect_check(src);
-    assert!(result.is_ok(), "same-tier should be allowed, got: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "same-tier should be allowed, got: {:?}",
+        result
+    );
 }
 
 // ── E2E: module with invariant compiles to valid Rust ────────────────────────

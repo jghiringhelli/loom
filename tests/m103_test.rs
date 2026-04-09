@@ -18,7 +18,11 @@ boundary:
 end
 end"#;
     let result = loom::compile(src);
-    assert!(result.is_ok(), "boundary block should parse, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "boundary block should parse, got: {:?}",
+        result.err()
+    );
 }
 
 /// Test 2: private type in public fn signature → error
@@ -40,7 +44,9 @@ end"#;
         Err(e) => {
             let msg = format!("{:?}", e);
             assert!(
-                msg.contains("InternalHelper") || msg.contains("private") || msg.contains("boundary"),
+                msg.contains("InternalHelper")
+                    || msg.contains("private")
+                    || msg.contains("boundary"),
                 "expected boundary leak error, got: {msg}"
             );
         }
@@ -62,7 +68,9 @@ end"#;
         Err(e) => {
             let msg = format!("{:?}", e);
             assert!(
-                msg.contains("GhostFunction") || msg.contains("not declared") || msg.contains("boundary"),
+                msg.contains("GhostFunction")
+                    || msg.contains("not declared")
+                    || msg.contains("boundary"),
                 "expected ghost export error, got: {msg}"
             );
         }
@@ -81,7 +89,11 @@ boundary:
 end
 end"#;
     let result = loom::compile(src);
-    assert!(result.is_ok(), "seal: in boundary should parse, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "seal: in boundary should parse, got: {:?}",
+        result.err()
+    );
 }
 
 /// Test 5: boundary: inside being: block parses
@@ -98,7 +110,11 @@ being Agent
 end
 end"#;
     let result = loom::compile(src);
-    assert!(result.is_ok(), "boundary: in being block should parse, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "boundary: in being block should parse, got: {:?}",
+        result.err()
+    );
 }
 
 /// Test 6: boundary: is optional (no boundary = valid)
@@ -112,5 +128,9 @@ fn bar :: Int -> Int
 end
 end"#;
     let result = loom::compile(src);
-    assert!(result.is_ok(), "module without boundary: should be valid, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "module without boundary: should be valid, got: {:?}",
+        result.err()
+    );
 }

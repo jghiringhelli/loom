@@ -30,11 +30,23 @@ pub enum TemporalProperty {
     /// `always: <predicate>` — holds in every reachable state.
     Always { predicate: Expr, span: Span },
     /// `eventually: <type> reaches <state>` — some future state is reached.
-    Eventually { type_name: String, target_state: String, span: Span },
+    Eventually {
+        type_name: String,
+        target_state: String,
+        span: Span,
+    },
     /// `never: <state> transitions to <state>` — forbidden transition.
-    Never { from_state: String, to_state: String, span: Span },
+    Never {
+        from_state: String,
+        to_state: String,
+        span: Span,
+    },
     /// `precedes: <state> before <state>` — ordering constraint.
-    Precedes { first: String, second: String, span: Span },
+    Precedes {
+        first: String,
+        second: String,
+        span: Span,
+    },
 }
 
 /// An information-flow label declaration (`flow secret :: TypeA, TypeB`).
@@ -130,7 +142,6 @@ pub struct EffectHandler {
     pub span: Span,
 }
 
-
 // ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
 
 /// M80: Umwelt block — perceptual world declaration (Uexküll 1909).
@@ -189,7 +200,6 @@ pub struct SenseDef {
     pub derived: Option<String>,
     pub span: Span,
 }
-
 
 // ── M66: Aspect-Oriented Specification ───────────────────────────────────────
 
@@ -484,25 +494,55 @@ pub struct StoreDef {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StoreSchemaEntry {
     /// `table Name ... end` — relational table
-    Table { name: String, fields: Vec<FieldDef>, span: Span },
+    Table {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `node Name :: { ... }` — graph node type
-    Node { name: String, fields: Vec<FieldDef>, span: Span },
+    Node {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `edge Name :: Source -> Target { ... }` — graph edge type
-    Edge { name: String, source: String, target: String, fields: Vec<FieldDef>, span: Span },
+    Edge {
+        name: String,
+        source: String,
+        target: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `key: Type` — key-value key declaration
     KeyType { ty: TypeExpr, span: Span },
     /// `value: Type` — key-value value declaration
     ValueType { ty: TypeExpr, span: Span },
     /// `event Name :: { ... }` — time series event
-    Event { name: String, fields: Vec<FieldDef>, span: Span },
+    Event {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `embedding :: { ... }` — vector embedding
     EmbeddingEntry { fields: Vec<FieldDef>, span: Span },
     /// `fact Name :: { ... }` — OLAP fact table
-    Fact { name: String, fields: Vec<FieldDef>, span: Span },
+    Fact {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `dimension Name :: { ... }` — OLAP dimension
-    DimensionEntry { name: String, fields: Vec<FieldDef>, span: Span },
+    DimensionEntry {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `schema Name :: { ... }` — document collection schema
-    Collection { name: String, fields: Vec<FieldDef>, span: Span },
+    Collection {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `mapreduce Name ... end` — MapReduce job (M97)
     MapReduceJob(MapReduceDef),
     /// `consumer Name :: offset: value` — DistributedLog consumer (M97)
@@ -541,7 +581,6 @@ pub struct StoreConfigEntry {
     pub value: String,
     pub span: Span,
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Provides {
@@ -619,4 +658,3 @@ pub struct MessagingPrimitiveDef {
     pub timeout_mandatory: bool,
     pub span: Span,
 }
-

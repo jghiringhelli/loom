@@ -1,9 +1,9 @@
 // M98: Session Types — Honda (1993).
 // Tests for session type parsing and duality checking.
 
+use loom::ast::*;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::ast::*;
 
 fn parse(src: &str) -> Result<Module, loom::error::LoomError> {
     let tokens = Lexer::tokenize(src).map_err(|es| es.into_iter().next().unwrap())?;
@@ -28,10 +28,18 @@ module Auth
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "simple two-role session should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "simple two-role session should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let session = module.items.iter().find_map(|i| {
-        if let Item::Session(s) = i { Some(s) } else { None }
+        if let Item::Session(s) = i {
+            Some(s)
+        } else {
+            None
+        }
     });
     assert!(session.is_some(), "should have a Session item");
     let s = session.unwrap();
@@ -63,10 +71,18 @@ module Order
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "multi-step session should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "multi-step session should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let session = module.items.iter().find_map(|i| {
-        if let Item::Session(s) = i { Some(s) } else { None }
+        if let Item::Session(s) = i {
+            Some(s)
+        } else {
+            None
+        }
     });
     assert!(session.is_some());
     let s = session.unwrap();
@@ -93,14 +109,25 @@ module Protocol
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "session with duality should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "session with duality should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let session = module.items.iter().find_map(|i| {
-        if let Item::Session(s) = i { Some(s) } else { None }
+        if let Item::Session(s) = i {
+            Some(s)
+        } else {
+            None
+        }
     });
     assert!(session.is_some());
     let s = session.unwrap();
-    assert_eq!(s.duality, Some(("pinger".to_string(), "ponger".to_string())));
+    assert_eq!(
+        s.duality,
+        Some(("pinger".to_string(), "ponger".to_string()))
+    );
 }
 
 // 4. Duality violation (send Int but partner recv String) → checker error.
@@ -122,7 +149,10 @@ end
 "#;
     let module = parse(src).expect("should parse");
     let errors = SessionChecker::new().check(&module);
-    assert!(!errors.is_empty(), "duality violation should produce an error");
+    assert!(
+        !errors.is_empty(),
+        "duality violation should produce an error"
+    );
     let msgs: String = errors.iter().map(|e| format!("{}", e)).collect();
     assert!(
         msgs.contains("duality violation"),
@@ -152,7 +182,11 @@ module Server
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "fn with channel-like sig should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "fn with channel-like sig should parse: {:?}",
+        result.err()
+    );
 }
 
 // 6. session with @implements annotation parses.
@@ -177,5 +211,9 @@ module Impl
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "fn with @implements annotation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "fn with @implements annotation should parse: {:?}",
+        result.err()
+    );
 }

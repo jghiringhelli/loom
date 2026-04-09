@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct CategoryChecker;
 
 impl CategoryChecker {
-    pub fn new() -> Self { CategoryChecker }
+    pub fn new() -> Self {
+        CategoryChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -16,7 +18,11 @@ impl CategoryChecker {
                 _ => {}
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn check_functor(&self, f: &FunctorDef, errors: &mut Vec<LoomError>) {
@@ -25,7 +31,8 @@ impl CategoryChecker {
                 msg: format!(
                     "category: functor `{}` must declare at least 2 laws (identity, composition), \
                      but declares {}",
-                    f.name, f.laws.len()
+                    f.name,
+                    f.laws.len()
                 ),
                 span: f.span.clone(),
             });

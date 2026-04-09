@@ -60,11 +60,7 @@ impl RefinementChecker {
 
     /// SMT-based satisfiability check (requires `smt` feature).
     #[cfg(feature = "smt")]
-    fn check_predicate_satisfiable(
-        &self,
-        _rt: &RefinedType,
-        _errors: &mut Vec<LoomError>,
-    ) {
+    fn check_predicate_satisfiable(&self, _rt: &RefinedType, _errors: &mut Vec<LoomError>) {
         // TODO: Translate predicate to SMT-LIB2 format and call Z3.
         // For now, this is a placeholder for the Z3 integration.
     }
@@ -81,10 +77,7 @@ impl RefinementChecker {
             let primitives = ["Int", "Float", "String", "Bool"];
             if !primitives.contains(&name.as_str()) && !known_types.contains(name) {
                 errors.push(LoomError::TypeError {
-                    msg: format!(
-                        "refined type base `{}` is not a known type",
-                        name
-                    ),
+                    msg: format!("refined type base `{}` is not a known type", name),
                     span: span.clone(),
                 });
             }
@@ -129,9 +122,15 @@ fn collect_known_types(module: &Module) -> HashSet<String> {
     let mut types = HashSet::new();
     for item in &module.items {
         match item {
-            Item::Type(td) => { types.insert(td.name.clone()); }
-            Item::Enum(ed) => { types.insert(ed.name.clone()); }
-            Item::RefinedType(rt) => { types.insert(rt.name.clone()); }
+            Item::Type(td) => {
+                types.insert(td.name.clone());
+            }
+            Item::Enum(ed) => {
+                types.insert(ed.name.clone());
+            }
+            Item::RefinedType(rt) => {
+                types.insert(rt.name.clone());
+            }
             Item::Fn(_) => {}
             _ => {}
         }
@@ -143,9 +142,7 @@ fn collect_known_types(module: &Module) -> HashSet<String> {
 fn expr_contains_self(expr: &Expr) -> bool {
     match expr {
         Expr::Ident(name) => name == "self",
-        Expr::BinOp { left, right, .. } => {
-            expr_contains_self(left) || expr_contains_self(right)
-        }
+        Expr::BinOp { left, right, .. } => expr_contains_self(left) || expr_contains_self(right),
         Expr::Literal(_) => false,
         Expr::Call { func, args, .. } => {
             expr_contains_self(func) || args.iter().any(expr_contains_self)
@@ -161,15 +158,22 @@ fn expr_contains_self(expr: &Expr) -> bool {
 fn check_predicate_ops(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Ident(_) | Expr::Literal(_) => None,
-        Expr::BinOp { op, left, right, .. } => {
-            match op {
-                BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul | BinOpKind::Div
-                | BinOpKind::Eq | BinOpKind::Ne | BinOpKind::Lt | BinOpKind::Le
-                | BinOpKind::Gt | BinOpKind::Ge | BinOpKind::And | BinOpKind::Or => {
-                    check_predicate_ops(left).or_else(|| check_predicate_ops(right))
-                }
-            }
-        }
+        Expr::BinOp {
+            op, left, right, ..
+        } => match op {
+            BinOpKind::Add
+            | BinOpKind::Sub
+            | BinOpKind::Mul
+            | BinOpKind::Div
+            | BinOpKind::Eq
+            | BinOpKind::Ne
+            | BinOpKind::Lt
+            | BinOpKind::Le
+            | BinOpKind::Gt
+            | BinOpKind::Ge
+            | BinOpKind::And
+            | BinOpKind::Or => check_predicate_ops(left).or_else(|| check_predicate_ops(right)),
+        },
         Expr::Call { func, .. } => {
             if let Expr::Ident(name) = func.as_ref() {
                 Some(format!(
@@ -206,9 +210,8 @@ mod tests {
 
     #[test]
     fn compound_predicate_passes() {
-        let module = parse_module(
-            "module T\ntype Bounded = Int where self >= 0 and self <= 100\nend",
-        );
+        let module =
+            parse_module("module T\ntype Bounded = Int where self >= 0 and self <= 100\nend");
         let checker = RefinementChecker::new();
         assert!(checker.check(&module).is_ok());
     }

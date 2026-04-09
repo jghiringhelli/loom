@@ -35,7 +35,10 @@ end
     let module = parse_ok(src);
     assert_eq!(module.being_defs.len(), 1);
     let being = &module.being_defs[0];
-    let journal = being.journal.as_ref().expect("journal block should be present");
+    let journal = being
+        .journal
+        .as_ref()
+        .expect("journal block should be present");
     assert_eq!(journal.records.len(), 2);
     assert!(journal.records.contains(&JournalRecord::EvolveStep));
     assert!(journal.records.contains(&JournalRecord::TelosProgress));
@@ -58,14 +61,14 @@ module Agent
 end
 "#;
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "keep: last 0 must be a compile error"
-    );
+    assert!(result.is_err(), "keep: last 0 must be a compile error");
     let errors = result.unwrap_err();
     assert!(
-        errors.iter().any(|e| format!("{}", e).contains("zero-size ring buffer")),
-        "should mention zero-size ring buffer: {:?}", errors
+        errors
+            .iter()
+            .any(|e| format!("{}", e).contains("zero-size ring buffer")),
+        "should mention zero-size ring buffer: {:?}",
+        errors
     );
 }
 
@@ -90,8 +93,11 @@ end
     let checker = JournalChecker::new();
     let diagnostics = checker.check(&module);
     assert!(
-        diagnostics.iter().any(|e| format!("{}", e).contains("[warn]")),
-        "should warn about evolve_step without evolve block: {:?}", diagnostics
+        diagnostics
+            .iter()
+            .any(|e| format!("{}", e).contains("[warn]")),
+        "should warn about evolve_step without evolve block: {:?}",
+        diagnostics
     );
 }
 
@@ -175,5 +181,9 @@ end
         .into_iter()
         .filter(|e| !format!("{}", e).contains("[warn]"))
         .collect();
-    assert!(errors.is_empty(), "no hard errors for being without journal: {:?}", errors);
+    assert!(
+        errors.is_empty(),
+        "no hard errors for being without journal: {:?}",
+        errors
+    );
 }

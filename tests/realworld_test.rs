@@ -28,7 +28,11 @@ fn compile_ok(src: &str) -> String {
     loom::compile(src).unwrap_or_else(|errors| {
         panic!(
             "compilation failed:\n{}",
-            errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n")
+            errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
         )
     })
 }
@@ -57,9 +61,14 @@ end
     // Field access + arithmetic in the body
     assert!(
         out.contains("item.quantity") && out.contains("item.price"),
-        "expected field access in body:\n{}", out
+        "expected field access in body:\n{}",
+        out
     );
-    assert!(out.contains('*'), "expected multiplication in body:\n{}", out);
+    assert!(
+        out.contains('*'),
+        "expected multiplication in body:\n{}",
+        out
+    );
 }
 
 // ── 2. Enum + match with payload binding ─────────────────────────────────────
@@ -119,7 +128,11 @@ end
         .skip_while(|l| !l.contains("pub fn compute"))
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(fn_body.contains("tax\n"), "expected tax as final expression:\n{}", fn_body);
+    assert!(
+        fn_body.contains("tax\n"),
+        "expected tax as final expression:\n{}",
+        fn_body
+    );
 }
 
 // ── 4. Pipe operator ─────────────────────────────────────────────────────────
@@ -144,7 +157,10 @@ end
     let out = compile_ok(src);
     // Pipe chains expand to `{ let _pipe = ...; f(_pipe) }`
     assert!(out.contains("_pipe"), "expected pipe expansion:\n{}", out);
-    assert!(out.contains("double(_pipe)") || out.contains("double("), "expected double call");
+    assert!(
+        out.contains("double(_pipe)") || out.contains("double("),
+        "expected double call"
+    );
     assert!(out.contains("add_ten("), "expected add_ten call");
 }
 
@@ -164,15 +180,18 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("debug_assert!("),
-        "expected debug_assert! for require:\n{}", out
+        "expected debug_assert! for require:\n{}",
+        out
     );
     assert!(
         out.contains("debug_assert!") && out.contains("ensure:"),
-        "expected debug_assert! with ensure: label for ensure:\n{}", out
+        "expected debug_assert! with ensure: label for ensure:\n{}",
+        out
     );
     assert!(
         out.contains("divisor > 0"),
-        "expected divisor > 0 in assert:\n{}", out
+        "expected divisor > 0 in assert:\n{}",
+        out
     );
 }
 
@@ -190,11 +209,20 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("Result<String, Box<dyn std::error::Error>>"),
-        "expected Result return type:\n{}", out
+        "expected Result return type:\n{}",
+        out
     );
     // todo! should be emitted as macro, not bare identifier
-    assert!(out.contains("todo!()"), "expected todo!() in body:\n{}", out);
-    assert!(!out.contains("    todo\n"), "unexpected bare todo identifier:\n{}", out);
+    assert!(
+        out.contains("todo!()"),
+        "expected todo!() in body:\n{}",
+        out
+    );
+    assert!(
+        !out.contains("    todo\n"),
+        "unexpected bare todo identifier:\n{}",
+        out
+    );
 }
 
 // ── 7. Refined type → newtype + TryFrom ──────────────────────────────────────
@@ -207,14 +235,20 @@ type Score = Int where score_valid
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub struct Score(i64)"), "expected newtype:\n{}", out);
+    assert!(
+        out.contains("pub struct Score(i64)"),
+        "expected newtype:\n{}",
+        out
+    );
     assert!(
         out.contains("impl TryFrom<i64> for Score"),
-        "expected TryFrom impl:\n{}", out
+        "expected TryFrom impl:\n{}",
+        out
     );
     assert!(
         out.contains("if !(score_valid)") || out.contains("if !score_valid"),
-        "expected predicate validation check:\n{}", out
+        "expected predicate validation check:\n{}",
+        out
     );
 }
 
@@ -239,9 +273,21 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub trait Calculator"), "expected trait:\n{}", out);
-    assert!(out.contains("fn add("), "expected fn add in trait:\n{}", out);
-    assert!(out.contains("fn multiply("), "expected fn multiply in trait:\n{}", out);
+    assert!(
+        out.contains("pub trait Calculator"),
+        "expected trait:\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn add("),
+        "expected fn add in trait:\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn multiply("),
+        "expected fn multiply in trait:\n{}",
+        out
+    );
 }
 
 // ── 9. DI: requires + with injects ctx parameter ─────────────────────────────
@@ -275,20 +321,53 @@ end
     let out = compile_ok(src);
 
     // Context struct
-    assert!(out.contains("UserRepoContext"), "expected context struct:\n{}", out);
-    assert!(out.contains("pub db: Database"), "expected db field:\n{}", out);
-    assert!(out.contains("pub cache: Cache"), "expected cache field:\n{}", out);
+    assert!(
+        out.contains("UserRepoContext"),
+        "expected context struct:\n{}",
+        out
+    );
+    assert!(
+        out.contains("pub db: Database"),
+        "expected db field:\n{}",
+        out
+    );
+    assert!(
+        out.contains("pub cache: Cache"),
+        "expected cache field:\n{}",
+        out
+    );
 
     // ctx param on with-deps functions
-    let find_line = out.lines().find(|l| l.contains("pub fn find_user")).unwrap_or("");
-    assert!(find_line.contains("ctx: &UserRepoContext"), "expected ctx in find_user: {}", find_line);
+    let find_line = out
+        .lines()
+        .find(|l| l.contains("pub fn find_user"))
+        .unwrap_or("");
+    assert!(
+        find_line.contains("ctx: &UserRepoContext"),
+        "expected ctx in find_user: {}",
+        find_line
+    );
 
-    let get_line = out.lines().find(|l| l.contains("pub fn get_cached")).unwrap_or("");
-    assert!(get_line.contains("ctx: &UserRepoContext"), "expected ctx in get_cached: {}", get_line);
+    let get_line = out
+        .lines()
+        .find(|l| l.contains("pub fn get_cached"))
+        .unwrap_or("");
+    assert!(
+        get_line.contains("ctx: &UserRepoContext"),
+        "expected ctx in get_cached: {}",
+        get_line
+    );
 
     // Pure function — no ctx
-    let count_line = out.lines().find(|l| l.contains("pub fn count_users")).unwrap_or("");
-    assert!(!count_line.contains("ctx"), "unexpected ctx in count_users: {}", count_line);
+    let count_line = out
+        .lines()
+        .find(|l| l.contains("pub fn count_users"))
+        .unwrap_or("");
+    assert!(
+        !count_line.contains("ctx"),
+        "unexpected ctx in count_users: {}",
+        count_line
+    );
 }
 
 // ── 10. Generic function with collection return ───────────────────────────────
@@ -311,11 +390,31 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub fn identity<T>("), "expected generic identity:\n{}", out);
-    assert!(out.contains("pub fn wrap<T>("), "expected generic wrap:\n{}", out);
-    assert!(out.contains("-> Vec<T>"), "expected Vec<T> return:\n{}", out);
-    assert!(out.contains("pub fn first_key<K, V>("), "expected two-param generic:\n{}", out);
-    assert!(out.contains("HashMap<K, V>"), "expected HashMap<K,V>:\n{}", out);
+    assert!(
+        out.contains("pub fn identity<T>("),
+        "expected generic identity:\n{}",
+        out
+    );
+    assert!(
+        out.contains("pub fn wrap<T>("),
+        "expected generic wrap:\n{}",
+        out
+    );
+    assert!(
+        out.contains("-> Vec<T>"),
+        "expected Vec<T> return:\n{}",
+        out
+    );
+    assert!(
+        out.contains("pub fn first_key<K, V>("),
+        "expected two-param generic:\n{}",
+        out
+    );
+    assert!(
+        out.contains("HashMap<K, V>"),
+        "expected HashMap<K,V>:\n{}",
+        out
+    );
 }
 
 // ── 11. Wildcard match covers all variants ────────────────────────────────────
@@ -358,7 +457,11 @@ end
         .skip_while(|l| !l.contains("pub fn in_range"))
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(fn_body.contains("(lo < hi)"), "expected comparison in body:\n{}", fn_body);
+    assert!(
+        fn_body.contains("(lo < hi)"),
+        "expected comparison in body:\n{}",
+        fn_body
+    );
 }
 
 // ── 13. Match with guard condition ────────────────────────────────────────────
@@ -379,7 +482,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("if (n > 0)"), "expected guard in match arm:\n{}", out);
+    assert!(
+        out.contains("if (n > 0)"),
+        "expected guard in match arm:\n{}",
+        out
+    );
 }
 
 // ── 14. Stdlib HashMap import only injected when needed ──────────────────────
@@ -394,7 +501,11 @@ end
 end
 "#;
     let out = compile_ok(without_map);
-    assert!(!out.contains("HashMap"), "unexpected HashMap in pure module:\n{}", out);
+    assert!(
+        !out.contains("HashMap"),
+        "unexpected HashMap in pure module:\n{}",
+        out
+    );
 
     let with_map = r#"
 module Cache
@@ -404,8 +515,16 @@ end
 end
 "#;
     let out2 = compile_ok(with_map);
-    assert!(out2.contains("use std::collections::HashMap"), "expected HashMap import:\n{}", out2);
-    assert!(out2.contains("HashMap<String, i64>"), "expected HashMap type:\n{}", out2);
+    assert!(
+        out2.contains("use std::collections::HashMap"),
+        "expected HashMap import:\n{}",
+        out2
+    );
+    assert!(
+        out2.contains("HashMap<String, i64>"),
+        "expected HashMap type:\n{}",
+        out2
+    );
 }
 
 // ── 15. Full pricing_engine corpus with output assertions ─────────────────────
@@ -416,18 +535,36 @@ fn pricing_engine_emits_expected_rust_constructs() {
     let out = compile_ok(&src);
 
     // Structs
-    assert!(out.contains("pub struct OrderLine {"), "missing OrderLine struct");
-    assert!(out.contains("pub struct OrderTotal {"), "missing OrderTotal struct");
+    assert!(
+        out.contains("pub struct OrderLine {"),
+        "missing OrderLine struct"
+    );
+    assert!(
+        out.contains("pub struct OrderTotal {"),
+        "missing OrderTotal struct"
+    );
     assert!(out.contains("pub quantity: i64"), "missing quantity field");
-    assert!(out.contains("pub unit_price: f64"), "missing unit_price field");
+    assert!(
+        out.contains("pub unit_price: f64"),
+        "missing unit_price field"
+    );
     assert!(out.contains("pub discount: f64"), "missing discount field");
 
     // Function
-    assert!(out.contains("pub fn compute_total("), "missing compute_total fn");
+    assert!(
+        out.contains("pub fn compute_total("),
+        "missing compute_total fn"
+    );
 
     // Contracts
-    assert!(out.contains("debug_assert!("), "missing debug_assert from require:");
-    assert!(out.contains("debug_assert!") && out.contains("ensure:"), "missing ensure debug_assert");
+    assert!(
+        out.contains("debug_assert!("),
+        "missing debug_assert from require:"
+    );
+    assert!(
+        out.contains("debug_assert!") && out.contains("ensure:"),
+        "missing ensure debug_assert"
+    );
 
     // let bindings in body
     assert!(out.contains("let subtotal ="), "missing let subtotal");
@@ -436,8 +573,14 @@ fn pricing_engine_emits_expected_rust_constructs() {
     assert!(out.contains("let total ="), "missing let total");
 
     // Field access
-    assert!(out.contains("line.quantity"), "missing line.quantity field access");
-    assert!(out.contains("line.unit_price"), "missing line.unit_price field access");
+    assert!(
+        out.contains("line.quantity"),
+        "missing line.quantity field access"
+    );
+    assert!(
+        out.contains("line.unit_price"),
+        "missing line.unit_price field access"
+    );
 }
 
 // ── 16. user_service corpus with enums, effects, refined types ───────────────
@@ -450,12 +593,24 @@ fn user_service_emits_enum_and_refined_type() {
     // Enum with payloads
     assert!(out.contains("pub enum UserError"), "missing UserError enum");
     assert!(out.contains("NotFound(String)"), "missing NotFound variant");
-    assert!(out.contains("InvalidInput(String)"), "missing InvalidInput variant");
-    assert!(out.contains("PermissionDenied,"), "missing PermissionDenied variant");
+    assert!(
+        out.contains("InvalidInput(String)"),
+        "missing InvalidInput variant"
+    );
+    assert!(
+        out.contains("PermissionDenied,"),
+        "missing PermissionDenied variant"
+    );
 
     // Refined type
-    assert!(out.contains("pub struct Email(String)"), "missing Email newtype");
-    assert!(out.contains("impl TryFrom<String> for Email"), "missing TryFrom for Email");
+    assert!(
+        out.contains("pub struct Email(String)"),
+        "missing Email newtype"
+    );
+    assert!(
+        out.contains("impl TryFrom<String> for Email"),
+        "missing TryFrom for Email"
+    );
 
     // Effect function
     assert!(out.contains("pub fn find_user("), "missing find_user fn");
@@ -477,7 +632,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub mod pricing_engine"), "expected snake_case module:\n{}", out);
+    assert!(
+        out.contains("pub mod pricing_engine"),
+        "expected snake_case module:\n{}",
+        out
+    );
 }
 
 // ── 18. todo in function body emits macro not identifier ─────────────────────
@@ -501,6 +660,7 @@ end
         .join("\n");
     assert!(
         !fn_body.contains("    todo\n"),
-        "unexpected bare todo identifier in:\n{}", fn_body
+        "unexpected bare todo identifier in:\n{}",
+        fn_body
     );
 }

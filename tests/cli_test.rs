@@ -54,7 +54,11 @@ fn stderr(o: &Output) -> String {
 #[test]
 fn check_only_valid_file_exits_zero() {
     let out = run(&["compile", "corpus/pricing_engine.loom", "--check-only"]);
-    assert!(out.status.success(), "expected exit 0, stderr={}", stderr(&out));
+    assert!(
+        out.status.success(),
+        "expected exit 0, stderr={}",
+        stderr(&out)
+    );
     assert!(stdout(&out).contains("ok"), "expected 'ok' in output");
 }
 
@@ -63,9 +67,11 @@ fn check_only_does_not_write_output_file() {
     let tmp = std::env::temp_dir().join("loom_cli_check_test.rs");
     let _ = fs::remove_file(&tmp); // clean up first
     let out = run(&[
-        "compile", "corpus/pricing_engine.loom",
+        "compile",
+        "corpus/pricing_engine.loom",
         "--check-only",
-        "--output", tmp.to_str().unwrap(),
+        "--output",
+        tmp.to_str().unwrap(),
     ]);
     assert!(out.status.success());
     assert!(!tmp.exists(), "--check-only must not write output file");
@@ -78,13 +84,18 @@ fn compile_writes_rs_file() {
     let tmp = std::env::temp_dir().join("loom_cli_compile_out.rs");
     let _ = fs::remove_file(&tmp);
     let out = run(&[
-        "compile", "corpus/pricing_engine.loom",
-        "--output", tmp.to_str().unwrap(),
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--output",
+        tmp.to_str().unwrap(),
     ]);
     assert!(out.status.success(), "compile failed: {}", stderr(&out));
     assert!(tmp.exists(), "output .rs file was not created");
     let content = fs::read_to_string(&tmp).unwrap();
-    assert!(content.contains("pub fn compute_total"), "output missing expected fn");
+    assert!(
+        content.contains("pub fn compute_total"),
+        "output missing expected fn"
+    );
     let _ = fs::remove_file(&tmp);
 }
 
@@ -93,12 +104,18 @@ fn compile_prints_compiled_message() {
     let tmp = std::env::temp_dir().join("loom_cli_msg_test.rs");
     let _ = fs::remove_file(&tmp);
     let out = run(&[
-        "compile", "corpus/pricing_engine.loom",
-        "--output", tmp.to_str().unwrap(),
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--output",
+        tmp.to_str().unwrap(),
     ]);
     assert!(out.status.success());
     let msg = stdout(&out);
-    assert!(msg.contains("compiled"), "expected 'compiled' in stdout: {}", msg);
+    assert!(
+        msg.contains("compiled"),
+        "expected 'compiled' in stdout: {}",
+        msg
+    );
     let _ = fs::remove_file(&tmp);
 }
 
@@ -109,11 +126,18 @@ fn compile_wasm_target_writes_wat_file() {
     let tmp = std::env::temp_dir().join("loom_cli_wasm_out.wat");
     let _ = fs::remove_file(&tmp);
     let out = run(&[
-        "compile", "corpus/wasm_demo.loom",
-        "--target", "wasm",
-        "--output", tmp.to_str().unwrap(),
+        "compile",
+        "corpus/wasm_demo.loom",
+        "--target",
+        "wasm",
+        "--output",
+        tmp.to_str().unwrap(),
     ]);
-    assert!(out.status.success(), "wasm compile failed: {}", stderr(&out));
+    assert!(
+        out.status.success(),
+        "wasm compile failed: {}",
+        stderr(&out)
+    );
     assert!(tmp.exists(), "wasm output file not created");
     let content = fs::read_to_string(&tmp).unwrap();
     assert!(content.contains("(module"), "expected WAT module in output");
@@ -123,8 +147,10 @@ fn compile_wasm_target_writes_wat_file() {
 #[test]
 fn compile_wasm_check_only() {
     let out = run(&[
-        "compile", "corpus/wasm_demo.loom",
-        "--target", "wasm",
+        "compile",
+        "corpus/wasm_demo.loom",
+        "--target",
+        "wasm",
         "--check-only",
     ]);
     assert!(out.status.success(), "expected success: {}", stderr(&out));
@@ -135,8 +161,14 @@ fn compile_wasm_check_only() {
 #[test]
 fn compile_missing_file_exits_nonzero() {
     let out = run(&["compile", "does_not_exist.loom"]);
-    assert!(!out.status.success(), "expected non-zero exit for missing file");
-    assert!(stderr(&out).contains("error"), "expected error message in stderr");
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit for missing file"
+    );
+    assert!(
+        stderr(&out).contains("error"),
+        "expected error message in stderr"
+    );
 }
 
 #[test]
@@ -144,7 +176,10 @@ fn compile_invalid_loom_exits_nonzero_with_error() {
     let tmp = std::env::temp_dir().join("loom_cli_bad.loom");
     fs::write(&tmp, "this is not valid loom source !!!").unwrap();
     let out = run(&["compile", tmp.to_str().unwrap(), "--check-only"]);
-    assert!(!out.status.success(), "expected non-zero exit for bad source");
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit for bad source"
+    );
     assert!(!stderr(&out).is_empty(), "expected error message in stderr");
     let _ = fs::remove_file(&tmp);
 }
@@ -158,7 +193,8 @@ fn compile_error_message_contains_file_name() {
     let err = stderr(&out);
     assert!(
         err.contains("loom_cli_named.loom") || err.contains("loom_cli_named"),
-        "expected file name in error message: {}", err
+        "expected file name in error message: {}",
+        err
     );
     let _ = fs::remove_file(&tmp);
 }
@@ -170,16 +206,25 @@ fn build_project_with_valid_manifest() {
     // Use the existing loom.toml at the workspace root — paths in it are relative
     // to the manifest, so we pass the manifest path and let loom resolve from there.
     let out = run(&["build", "loom.toml"]);
-    assert!(out.status.success(), "build failed: {}\n{}", stdout(&out), stderr(&out));
+    assert!(
+        out.status.success(),
+        "build failed: {}\n{}",
+        stdout(&out),
+        stderr(&out)
+    );
     assert!(
         stdout(&out).contains("build ok"),
-        "expected 'build ok' in output: {}", stdout(&out)
+        "expected 'build ok' in output: {}",
+        stdout(&out)
     );
 }
 
 #[test]
 fn build_missing_manifest_exits_nonzero() {
     let out = run(&["build", "nonexistent_manifest.toml"]);
-    assert!(!out.status.success(), "expected non-zero exit for missing manifest");
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit for missing manifest"
+    );
     assert!(stderr(&out).contains("error"), "expected error message");
 }

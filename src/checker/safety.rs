@@ -25,9 +25,7 @@ impl SafetyChecker {
     }
 
     fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
-        let annotations: Vec<&str> = being.annotations.iter()
-            .map(|a| a.key.as_str())
-            .collect();
+        let annotations: Vec<&str> = being.annotations.iter().map(|a| a.key.as_str()).collect();
 
         let is_autopoietic = being.autopoietic;
 
@@ -73,7 +71,13 @@ impl SafetyChecker {
         // Rule 5 & 6: @bounded_telos checks
         if annotations.contains(&"bounded_telos") {
             if let Some(telos) = &being.telos {
-                let forbidden = ["maximize", "unlimited", "any goal", "all goals", "unbounded"];
+                let forbidden = [
+                    "maximize",
+                    "unlimited",
+                    "any goal",
+                    "all goals",
+                    "unbounded",
+                ];
                 for word in forbidden {
                     if telos.description.to_lowercase().contains(word) {
                         errors.push(LoomError::type_err(

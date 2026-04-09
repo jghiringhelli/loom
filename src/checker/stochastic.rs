@@ -25,7 +25,9 @@ impl StochasticChecker {
     }
 
     fn check_fn(fd: &FnDef, errors: &mut Vec<LoomError>) {
-        let Some(proc_block) = &fd.stochastic_process else { return };
+        let Some(proc_block) = &fd.stochastic_process else {
+            return;
+        };
 
         match &proc_block.kind {
             StochasticKind::GeometricBrownian => {

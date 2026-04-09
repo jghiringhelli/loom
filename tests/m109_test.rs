@@ -4,9 +4,9 @@
 // QuickCheck (Claessen & Hughes 2000) → fast-check → Hypothesis → Loom M109.
 
 use loom::ast::*;
+use loom::compile;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::compile;
 
 fn parse(src: &str) -> Result<Module, loom::error::LoomError> {
     let tokens = Lexer::tokenize(src).map_err(|es| es.into_iter().next().unwrap())?;
@@ -28,17 +28,28 @@ module Props
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "property: block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "property: block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let prop = module.items.iter().find_map(|i| {
-        if let Item::Property(pb) = i { Some(pb) } else { None }
+        if let Item::Property(pb) = i {
+            Some(pb)
+        } else {
+            None
+        }
     });
     assert!(prop.is_some(), "should have one Property item");
     let pb = prop.unwrap();
     assert_eq!(pb.name, "encode_decode_roundtrip");
     assert_eq!(pb.var_name, "x");
     assert_eq!(pb.var_type, "String");
-    assert!(pb.invariant.contains("decode"), "invariant should contain 'decode'");
+    assert!(
+        pb.invariant.contains("decode"),
+        "invariant should contain 'decode'"
+    );
     assert_eq!(pb.shrink, true);
     assert_eq!(pb.samples, 1000);
 }
@@ -58,13 +69,14 @@ end
 "#;
     // compile runs the full pipeline including PropertyChecker
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "samples: 0 must be a compile error"
-    );
+    assert!(result.is_err(), "samples: 0 must be a compile error");
     let errors = result.unwrap_err();
     let has_samples_error = errors.iter().any(|e| format!("{}", e).contains("samples"));
-    assert!(has_samples_error, "error must mention 'samples': {:?}", errors);
+    assert!(
+        has_samples_error,
+        "error must mention 'samples': {:?}",
+        errors
+    );
 }
 
 // ── 3. shrink defaults to true ───────────────────────────────────────────────
@@ -80,10 +92,21 @@ module Props
 end
 "#;
     let module = parse(src).expect("should parse without shrink:");
-    let prop = module.items.iter().find_map(|i| {
-        if let Item::Property(pb) = i { Some(pb) } else { None }
-    }).expect("should have a property");
-    assert_eq!(prop.shrink, true, "shrink must default to true when omitted");
+    let prop = module
+        .items
+        .iter()
+        .find_map(|i| {
+            if let Item::Property(pb) = i {
+                Some(pb)
+            } else {
+                None
+            }
+        })
+        .expect("should have a property");
+    assert_eq!(
+        prop.shrink, true,
+        "shrink must default to true when omitted"
+    );
 }
 
 // ── 4. samples defaults to 100 ───────────────────────────────────────────────
@@ -99,10 +122,21 @@ module Props
 end
 "#;
     let module = parse(src).expect("should parse without samples:");
-    let prop = module.items.iter().find_map(|i| {
-        if let Item::Property(pb) = i { Some(pb) } else { None }
-    }).expect("should have a property");
-    assert_eq!(prop.samples, 100, "samples must default to 100 when omitted");
+    let prop = module
+        .items
+        .iter()
+        .find_map(|i| {
+            if let Item::Property(pb) = i {
+                Some(pb)
+            } else {
+                None
+            }
+        })
+        .expect("should have a property");
+    assert_eq!(
+        prop.samples, 100,
+        "samples must default to 100 when omitted"
+    );
 }
 
 // ── 5. Multiple property: blocks parse ───────────────────────────────────────
@@ -124,9 +158,17 @@ module Props
 end
 "#;
     let module = parse(src).expect("two property blocks should parse");
-    let props: Vec<_> = module.items.iter().filter_map(|i| {
-        if let Item::Property(pb) = i { Some(pb) } else { None }
-    }).collect();
+    let props: Vec<_> = module
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let Item::Property(pb) = i {
+                Some(pb)
+            } else {
+                None
+            }
+        })
+        .collect();
     assert_eq!(props.len(), 2, "should have exactly 2 property items");
     assert_eq!(props[0].name, "prop_one");
     assert_eq!(props[1].name, "prop_two");
@@ -148,7 +190,11 @@ module Props
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "property: block should compile to Rust: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "property: block should compile to Rust: {:?}",
+        result.err()
+    );
     let rust = result.unwrap();
     assert!(
         rust.contains("#[test]"),
@@ -161,11 +207,13 @@ end
     // V3: emits edge-case loop rather than todo!()
     assert!(
         rust.contains("edge_cases") || rust.contains("proptest") || rust.contains("assert!"),
-        "emitted property test must contain an assertion or edge-case loop:\n{}", rust
+        "emitted property test must contain an assertion or edge-case loop:\n{}",
+        rust
     );
     // V3+: also emits proptest block
     assert!(
         rust.contains("proptest"),
-        "emitted property test must contain proptest block:\n{}", rust
+        "emitted property test must contain proptest block:\n{}",
+        rust
     );
 }

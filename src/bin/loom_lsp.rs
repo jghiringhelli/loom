@@ -3,8 +3,8 @@
 //! Reads JSON-RPC messages from stdin and writes responses to stdout,
 //! following the Language Server Protocol.
 
-use tower_lsp::{LspService, Server};
 use loom::lsp::LoomLspServer;
+use tower_lsp::{LspService, Server};
 
 #[tokio::main]
 async fn main() {

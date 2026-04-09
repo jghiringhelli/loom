@@ -75,10 +75,7 @@ impl InfoFlowChecker {
                     && !is_declassification_fn(&fn_name_lower)
                     && !has_eraser_annotation(fd)
                 {
-                    let param_name = param_type_name
-                        .as_deref()
-                        .unwrap_or("unknown")
-                        .to_string();
+                    let param_name = param_type_name.as_deref().unwrap_or("unknown").to_string();
                     let return_name = extract_base_name_str(&fd.type_sig.return_type);
                     errors.push(LoomError::type_err(
                         format!(
@@ -93,10 +90,7 @@ impl InfoFlowChecker {
 
             // Check: tainted param flowing to DB operation.
             if param_label == Some("tainted") && is_db_operation(&fn_name_lower) {
-                let param_name = param_type_name
-                    .as_deref()
-                    .unwrap_or("unknown")
-                    .to_string();
+                let param_name = param_type_name.as_deref().unwrap_or("unknown").to_string();
                 errors.push(LoomError::type_err(
                     format!(
                         "information flow violation: @tainted input '{}' flows to DB operation '{}' \
@@ -122,7 +116,10 @@ impl InfoFlowChecker {
         // @eraser: must have at least one flow-labeled param AND return type must
         // have a lower or equal sensitivity label (declassification direction).
         if has_eraser {
-            let labeled_params: Vec<_> = fd.type_sig.params.iter()
+            let labeled_params: Vec<_> = fd
+                .type_sig
+                .params
+                .iter()
                 .filter_map(|p| extract_base_name(p))
                 .filter(|n| label_map.contains_key(n))
                 .collect();
@@ -140,7 +137,10 @@ impl InfoFlowChecker {
 
         // @reader: must have at least one flow-labeled parameter.
         if has_reader {
-            let labeled_params: Vec<_> = fd.type_sig.params.iter()
+            let labeled_params: Vec<_> = fd
+                .type_sig
+                .params
+                .iter()
                 .filter_map(|p| extract_base_name(p))
                 .filter(|n| label_map.contains_key(n))
                 .collect();

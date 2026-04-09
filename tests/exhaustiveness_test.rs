@@ -216,7 +216,11 @@ module App
   end
 end
 "#;
-    assert!(loom::parse(src).is_ok(), "complete Option match should parse: {:?}", loom::parse(src).err());
+    assert!(
+        loom::parse(src).is_ok(),
+        "complete Option match should parse: {:?}",
+        loom::parse(src).err()
+    );
 }
 
 #[test]
@@ -234,6 +238,10 @@ module App
 end
 "#;
     let errors = exhaustiveness_errors(src);
-    assert_eq!(errors.len(), 1, "missing Blue should produce exactly one error");
+    assert_eq!(
+        errors.len(),
+        1,
+        "missing Blue should produce exactly one error"
+    );
     assert_eq!(missing_from_error(&errors[0]), vec!["Blue"]);
 }

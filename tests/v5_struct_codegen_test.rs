@@ -27,7 +27,11 @@ end
 #[test]
 fn v5_relational_emits_struct() {
     let out = compile(relational_src());
-    assert!(out.contains("pub struct Order"), "expected Order struct\n{}", out);
+    assert!(
+        out.contains("pub struct Order"),
+        "expected Order struct\n{}",
+        out
+    );
     assert!(out.contains("amount"), "expected amount field");
 }
 
@@ -35,7 +39,11 @@ fn v5_relational_emits_struct() {
 #[test]
 fn v5_relational_emits_repository_trait() {
     let out = compile(relational_src());
-    assert!(out.contains("pub trait OrderRepository"), "expected OrderRepository\n{}", out);
+    assert!(
+        out.contains("pub trait OrderRepository"),
+        "expected OrderRepository\n{}",
+        out
+    );
     assert!(out.contains("fn find_by_id"), "expected find_by_id");
     assert!(out.contains("fn save"), "expected save");
     assert!(out.contains("fn delete"), "expected delete");
@@ -45,15 +53,26 @@ fn v5_relational_emits_repository_trait() {
 #[test]
 fn v5_relational_emits_in_memory_fake() {
     let out = compile(relational_src());
-    assert!(out.contains("InMemoryOrderRepository"), "expected InMemoryOrderRepository\n{}", out);
-    assert!(out.contains("Mutex") || out.contains("HashMap"), "expected thread-safe backing store");
+    assert!(
+        out.contains("InMemoryOrderRepository"),
+        "expected InMemoryOrderRepository\n{}",
+        out
+    );
+    assert!(
+        out.contains("Mutex") || out.contains("HashMap"),
+        "expected thread-safe backing store"
+    );
 }
 
 /// Specification pattern (Evans 2003).
 #[test]
 fn v5_relational_emits_specification_pattern() {
     let out = compile(relational_src());
-    assert!(out.contains("Specification"), "expected Specification\n{}", out);
+    assert!(
+        out.contains("Specification"),
+        "expected Specification\n{}",
+        out
+    );
     assert!(out.contains("is_satisfied_by"), "expected is_satisfied_by");
 }
 
@@ -78,7 +97,11 @@ fn v5_relational_emits_unit_of_work() {
 #[test]
 fn v5_relational_emits_hateoas() {
     let out = compile(relational_src());
-    assert!(out.contains("ResourceLink"), "expected ResourceLink\n{}", out);
+    assert!(
+        out.contains("ResourceLink"),
+        "expected ResourceLink\n{}",
+        out
+    );
     assert!(out.contains("pub rel: String"), "expected rel field");
     assert!(out.contains("pub href: String"), "expected href field");
 }
@@ -96,7 +119,11 @@ fn v5_relational_emits_cqrs() {
 #[test]
 fn v5_relational_emits_openapi_hints() {
     let out = compile(relational_src());
-    assert!(out.contains("OpenAPI") || out.contains("utoipa"), "expected OpenAPI/utoipa\n{}", out);
+    assert!(
+        out.contains("OpenAPI") || out.contains("utoipa"),
+        "expected OpenAPI/utoipa\n{}",
+        out
+    );
 }
 
 // ── TimeSeries ────────────────────────────────────────────────────────────
@@ -117,7 +144,11 @@ end
 #[test]
 fn v5_timeseries_emits_event_struct() {
     let out = compile(timeseries_src());
-    assert!(out.contains("pub struct CpuReading"), "expected CpuReading\n{}", out);
+    assert!(
+        out.contains("pub struct CpuReading"),
+        "expected CpuReading\n{}",
+        out
+    );
     assert!(out.contains("timestamp"), "expected timestamp injection");
 }
 
@@ -136,15 +167,25 @@ fn v5_timeseries_emits_aggregate() {
     let out = compile(timeseries_src());
     assert!(out.contains("Aggregate"), "expected Aggregate\n{}", out);
     assert!(out.contains("fn apply"), "expected apply");
-    assert!(out.contains("load_from_events"), "expected load_from_events");
+    assert!(
+        out.contains("load_from_events"),
+        "expected load_from_events"
+    );
 }
 
 /// Domain Event Bus (Evans 2003).
 #[test]
 fn v5_timeseries_emits_event_bus() {
     let out = compile(timeseries_src());
-    assert!(out.contains("EventBus") || out.contains("EventHandler"), "expected EventBus\n{}", out);
-    assert!(out.contains("fn publish") || out.contains("fn subscribe"), "expected publish/subscribe");
+    assert!(
+        out.contains("EventBus") || out.contains("EventHandler"),
+        "expected EventBus\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn publish") || out.contains("fn subscribe"),
+        "expected publish/subscribe"
+    );
 }
 
 // ── KeyValue ──────────────────────────────────────────────────────────────
@@ -161,8 +202,15 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("trait") || out.contains("Store"), "expected Store trait\n{}", out);
-    assert!(out.contains("fn get") || out.contains("fn put") || out.contains("fn del"), "expected get/put/del");
+    assert!(
+        out.contains("trait") || out.contains("Store"),
+        "expected Store trait\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn get") || out.contains("fn put") || out.contains("fn del"),
+        "expected get/put/del"
+    );
 }
 
 // ── Graph ─────────────────────────────────────────────────────────────────
@@ -179,15 +227,24 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct Task"), "expected Task struct\n{}", out);
     assert!(
-        out.contains("DependsOn") || out.contains("weight"),
-        "expected edge type\n{}", out
+        out.contains("pub struct Task"),
+        "expected Task struct\n{}",
+        out
     );
     assert!(
-        out.contains("DAG") || out.contains("dag") || out.contains("petgraph")
-            || out.contains("Graph") || out.contains("graph"),
-        "expected DAG/graph structure\n{}", out
+        out.contains("DependsOn") || out.contains("weight"),
+        "expected edge type\n{}",
+        out
+    );
+    assert!(
+        out.contains("DAG")
+            || out.contains("dag")
+            || out.contains("petgraph")
+            || out.contains("Graph")
+            || out.contains("graph"),
+        "expected DAG/graph structure\n{}",
+        out
     );
 }
 
@@ -207,7 +264,10 @@ end
     let out = compile(src);
     assert!(out.contains("Embedding"), "expected Embedding\n{}", out);
     assert!(out.contains("vector"), "expected vector field");
-    assert!(out.contains("VectorSearch") || out.contains("nearest"), "expected similarity search");
+    assert!(
+        out.contains("VectorSearch") || out.contains("nearest"),
+        "expected similarity search"
+    );
 }
 
 // ── Document ─────────────────────────────────────────────────────────────
@@ -223,10 +283,18 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct Article"), "expected Article struct\n{}", out);
     assert!(
-        out.contains("serde") || out.contains("Document") || out.contains("mongo") || out.contains("document"),
-        "expected document store hint\n{}", out
+        out.contains("pub struct Article"),
+        "expected Article struct\n{}",
+        out
+    );
+    assert!(
+        out.contains("serde")
+            || out.contains("Document")
+            || out.contains("mongo")
+            || out.contains("document"),
+        "expected document store hint\n{}",
+        out
     );
 }
 
@@ -249,6 +317,7 @@ end
     // DistributedLog emits event sourcing + domain event bus + saga
     assert!(
         out.contains("Saga") || out.contains("EventStore") || out.contains("EventBus"),
-        "expected Saga/EventStore/EventBus\n{}", out
+        "expected Saga/EventStore/EventBus\n{}",
+        out
     );
 }

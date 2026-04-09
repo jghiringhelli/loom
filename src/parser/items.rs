@@ -222,7 +222,9 @@ impl<'src> crate::parser::Parser<'src> {
     ///   proof: assertion_name
     /// end
     /// ```
-    pub(in crate::parser) fn parse_separation_block(&mut self) -> Result<SeparationBlock, LoomError> {
+    pub(in crate::parser) fn parse_separation_block(
+        &mut self,
+    ) -> Result<SeparationBlock, LoomError> {
         let start = self.current_span();
         self.expect(Token::Separation)?;
         self.expect(Token::Colon)?;
@@ -296,11 +298,11 @@ impl<'src> crate::parser::Parser<'src> {
                         self.advance(); // colon
                         let val = self.parse_value_as_string()?;
                         match key.as_str() {
-                            "input_type"      => input_type = Some(val),
-                            "boundary"        => boundary = Some(val),
-                            "output_type"     => output_type = Some(val),
+                            "input_type" => input_type = Some(val),
+                            "boundary" => boundary = Some(val),
+                            "output_type" => output_type = Some(val),
                             "on_cast_failure" => on_cast_failure = Some(val),
-                            "blame"           => blame = Some(val),
+                            "blame" => blame = Some(val),
                             _ => {}
                         }
                         continue;
@@ -311,11 +313,20 @@ impl<'src> crate::parser::Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(GradualBlock { input_type, boundary, output_type, on_cast_failure, blame, span: Span::merge(&start, &end_span) })
+        Ok(GradualBlock {
+            input_type,
+            boundary,
+            output_type,
+            on_cast_failure,
+            blame,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `distribution:` block.
-    pub(in crate::parser) fn parse_distribution_block(&mut self) -> Result<DistributionBlock, LoomError> {
+    pub(in crate::parser) fn parse_distribution_block(
+        &mut self,
+    ) -> Result<DistributionBlock, LoomError> {
         let start = self.current_span();
         self.expect(Token::Distribution)?;
         self.expect(Token::Colon)?;
@@ -337,12 +348,12 @@ impl<'src> crate::parser::Parser<'src> {
                         } else {
                             let val = self.parse_value_as_string()?;
                             match key.as_str() {
-                                "model"       => model = val,
-                                "mean"        => mean = Some(val),
-                                "variance"    => variance = Some(val),
-                                "bounds"      => bounds = Some(val),
+                                "model" => model = val,
+                                "mean" => mean = Some(val),
+                                "variance" => variance = Some(val),
+                                "bounds" => bounds = Some(val),
                                 "convergence" => convergence = Some(val),
-                                "stability"   => stability = Some(val),
+                                "stability" => stability = Some(val),
                                 _ => {}
                             }
                         }
@@ -357,17 +368,32 @@ impl<'src> crate::parser::Parser<'src> {
         let family = explicit_family.unwrap_or_else(|| {
             Self::family_from_model_string(&model, mean.as_deref(), variance.as_deref())
         });
-        Ok(DistributionBlock { family, model, mean, variance, bounds, convergence, stability, span: Span::merge(&start, &end_span) })
+        Ok(DistributionBlock {
+            family,
+            model,
+            mean,
+            variance,
+            bounds,
+            convergence,
+            stability,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Derive a `DistributionFamily` from the legacy `model:` string.
-    pub(in crate::parser) fn family_from_model_string(model: &str, mean: Option<&str>, variance: Option<&str>) -> DistributionFamily {
+    pub(in crate::parser) fn family_from_model_string(
+        model: &str,
+        mean: Option<&str>,
+        variance: Option<&str>,
+    ) -> DistributionFamily {
         match model.to_lowercase().as_str() {
             "gaussian" | "normal" => DistributionFamily::Gaussian {
                 mean: mean.unwrap_or("0").to_string(),
                 std_dev: variance.unwrap_or("1").to_string(),
             },
-            "poisson" => DistributionFamily::Poisson { lambda: "1".to_string() },
+            "poisson" => DistributionFamily::Poisson {
+                lambda: "1".to_string(),
+            },
             "beta" => DistributionFamily::Beta {
                 alpha: "1".to_string(),
                 beta: "1".to_string(),
@@ -376,7 +402,9 @@ impl<'src> crate::parser::Parser<'src> {
                 shape: "1".to_string(),
                 scale: "1".to_string(),
             },
-            "exponential" => DistributionFamily::Exponential { lambda: "1".to_string() },
+            "exponential" => DistributionFamily::Exponential {
+                lambda: "1".to_string(),
+            },
             "binomial" => DistributionFamily::Binomial {
                 n: "1".to_string(),
                 p: "0.5".to_string(),
@@ -410,7 +438,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse a distribution family expression: `FamilyName(key: value, ...)`.
-    pub(in crate::parser) fn parse_distribution_family(&mut self) -> Result<DistributionFamily, LoomError> {
+    pub(in crate::parser) fn parse_distribution_family(
+        &mut self,
+    ) -> Result<DistributionFamily, LoomError> {
         let name = if let Some(n) = self.token_as_ident() {
             self.advance();
             n
@@ -420,7 +450,8 @@ impl<'src> crate::parser::Parser<'src> {
                 self.current_span(),
             ));
         };
-        let mut params: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut params: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         if self.at(&Token::LParen) {
             self.advance(); // (
             while !self.at(&Token::RParen) && self.peek().is_some() {
@@ -493,7 +524,9 @@ impl<'src> crate::parser::Parser<'src> {
             },
             "GeometricBrownian" => DistributionFamily::GeometricBrownian {
                 drift: params.remove("drift").unwrap_or_else(|| "0".to_string()),
-                volatility: params.remove("volatility").unwrap_or_else(|| "1".to_string()),
+                volatility: params
+                    .remove("volatility")
+                    .unwrap_or_else(|| "1".to_string()),
             },
             other => DistributionFamily::Unknown(other.to_string()),
         };
@@ -509,7 +542,9 @@ impl<'src> crate::parser::Parser<'src> {
     ///   martingale: false
     /// end
     /// ```
-    pub(in crate::parser) fn parse_stochastic_process_block(&mut self) -> Result<StochasticProcessBlock, LoomError> {
+    pub(in crate::parser) fn parse_stochastic_process_block(
+        &mut self,
+    ) -> Result<StochasticProcessBlock, LoomError> {
         let start = self.current_span();
         self.expect(Token::Process)?;
         self.expect(Token::Colon)?;
@@ -530,12 +565,12 @@ impl<'src> crate::parser::Parser<'src> {
                         "kind" => {
                             let val = self.parse_value_as_string()?;
                             kind = match val.as_str() {
-                                "Wiener"              => StochasticKind::Wiener,
-                                "GeometricBrownian"   => StochasticKind::GeometricBrownian,
-                                "OrnsteinUhlenbeck"   => StochasticKind::OrnsteinUhlenbeck,
-                                "PoissonProcess"      => StochasticKind::PoissonProcess,
-                                "MarkovChain"         => StochasticKind::MarkovChain,
-                                other                 => StochasticKind::Unknown(other.to_string()),
+                                "Wiener" => StochasticKind::Wiener,
+                                "GeometricBrownian" => StochasticKind::GeometricBrownian,
+                                "OrnsteinUhlenbeck" => StochasticKind::OrnsteinUhlenbeck,
+                                "PoissonProcess" => StochasticKind::PoissonProcess,
+                                "MarkovChain" => StochasticKind::MarkovChain,
+                                other => StochasticKind::Unknown(other.to_string()),
                             };
                         }
                         "always_positive" => {
@@ -563,7 +598,8 @@ impl<'src> crate::parser::Parser<'src> {
                         "states" => {
                             let raw = self.parse_value_as_string()?;
                             let trimmed = raw.trim_start_matches('[').trim_end_matches(']');
-                            states = trimmed.split(',')
+                            states = trimmed
+                                .split(',')
                                 .map(|s| s.trim().to_string())
                                 .filter(|s| !s.is_empty())
                                 .collect();
@@ -593,7 +629,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse `timing_safety:` block.
-    pub(in crate::parser) fn parse_timing_safety_block(&mut self) -> Result<TimingSafetyBlock, LoomError> {
+    pub(in crate::parser) fn parse_timing_safety_block(
+        &mut self,
+    ) -> Result<TimingSafetyBlock, LoomError> {
         let start = self.current_span();
         self.expect(Token::TimingSafety)?;
         self.expect(Token::Colon)?;
@@ -609,8 +647,8 @@ impl<'src> crate::parser::Parser<'src> {
                         let val = self.parse_value_as_string()?;
                         match key.as_str() {
                             "constant_time" => constant_time = val == "true",
-                            "leaks_bits"    => leaks_bits = Some(val),
-                            "method"        => method = Some(val),
+                            "leaks_bits" => leaks_bits = Some(val),
+                            "method" => method = Some(val),
                             _ => {}
                         }
                         continue;
@@ -621,7 +659,12 @@ impl<'src> crate::parser::Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(TimingSafetyBlock { constant_time, leaks_bits, method, span: Span::merge(&start, &end_span) })
+        Ok(TimingSafetyBlock {
+            constant_time,
+            leaks_bits,
+            method,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `proposition NAME = TypeExpr [where expr]`.
@@ -638,7 +681,12 @@ impl<'src> crate::parser::Parser<'src> {
             None
         };
         let end_span = self.current_span();
-        Ok(PropositionDef { name, base_type, predicate, span: Span::merge(&start, &end_span) })
+        Ok(PropositionDef {
+            name,
+            base_type,
+            predicate,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `functor NAME<TypeParams> [law: name]* end`.
@@ -654,14 +702,22 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Colon)?;
                 let law_span = self.current_span();
                 let (law_name, _) = self.expect_ident()?;
-                laws.push(LawDecl { name: law_name, span: law_span });
+                laws.push(LawDecl {
+                    name: law_name,
+                    span: law_span,
+                });
             } else {
                 break;
             }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(FunctorDef { name, type_params, laws, span: Span::merge(&start, &end_span) })
+        Ok(FunctorDef {
+            name,
+            type_params,
+            laws,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `monad NAME<TypeParams> [law: name]* end`.
@@ -677,14 +733,22 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Colon)?;
                 let law_span = self.current_span();
                 let (law_name, _) = self.expect_ident()?;
-                laws.push(LawDecl { name: law_name, span: law_span });
+                laws.push(LawDecl {
+                    name: law_name,
+                    span: law_span,
+                });
             } else {
                 break;
             }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(MonadDef { name, type_params, laws, span: Span::merge(&start, &end_span) })
+        Ok(MonadDef {
+            name,
+            type_params,
+            laws,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `certificate: field = value ... end`.
@@ -701,7 +765,11 @@ impl<'src> crate::parser::Parser<'src> {
                         self.advance(); // key
                         self.advance(); // =
                         let val = self.parse_value_as_string()?;
-                        fields.push(CertificateField { name: key, value: val, span: field_span });
+                        fields.push(CertificateField {
+                            name: key,
+                            value: val,
+                            span: field_span,
+                        });
                         continue;
                     }
                 }
@@ -710,7 +778,10 @@ impl<'src> crate::parser::Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(CertificateDef { fields, span: Span::merge(&start, &end_span) })
+        Ok(CertificateDef {
+            fields,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     // ── M66: Aspect-Oriented Specification ───────────────────────────────────
@@ -830,7 +901,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse the condition part of a pointcut expression (after `fn where`).
-    pub(in crate::parser) fn parse_pointcut_condition(&mut self) -> Result<PointcutExpr, LoomError> {
+    pub(in crate::parser) fn parse_pointcut_condition(
+        &mut self,
+    ) -> Result<PointcutExpr, LoomError> {
         let left = self.parse_pointcut_atom()?;
         if self.at(&Token::And) {
             self.advance();
@@ -944,10 +1017,12 @@ impl<'src> crate::parser::Parser<'src> {
                         telos = Some(s.clone());
                         self.pos += 1;
                     }
-                    _ => return Err(LoomError::parse(
-                        "expected string literal after telos:",
-                        self.current_span(),
-                    )),
+                    _ => {
+                        return Err(LoomError::parse(
+                            "expected string literal after telos:",
+                            self.current_span(),
+                        ))
+                    }
                 }
             } else if self.at(&Token::Quorum) {
                 let sec_start = self.current_span();
@@ -976,7 +1051,9 @@ impl<'src> crate::parser::Parser<'src> {
                                 threshold = format!("{}", i);
                                 self.pos += 1;
                             }
-                            _ => { self.advance(); }
+                            _ => {
+                                self.advance();
+                            }
                         }
                     } else if self.at(&Token::Action) {
                         self.advance();
@@ -1081,7 +1158,10 @@ impl<'src> crate::parser::Parser<'src> {
             } else if self.at(&Token::Distribution) {
                 distribution = Some(self.parse_distribution_block()?);
             } else if self.at(&Token::Process)
-                && matches!(self.tokens.get(self.pos + 1), Some((crate::lexer::Token::Colon, _)))
+                && matches!(
+                    self.tokens.get(self.pos + 1),
+                    Some((crate::lexer::Token::Colon, _))
+                )
             {
                 stochastic_process = Some(self.parse_stochastic_process_block()?);
             } else if self.at(&Token::TimingSafety) {
@@ -1096,7 +1176,10 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Colon)?;
                 let start_proof = self.current_span();
                 let (strategy, _) = self.expect_ident()?;
-                proofs.push(ProofAnnotation { strategy, span: start_proof });
+                proofs.push(ProofAnnotation {
+                    strategy,
+                    span: start_proof,
+                });
             } else {
                 break;
             }
@@ -1183,14 +1266,24 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::RBracket)?;
                 self.expect(Token::Arrow)?;
                 let (to, _) = self.expect_ident()?;
-                steps.push(PathwayStep { from, via, to, span: step_start });
+                steps.push(PathwayStep {
+                    from,
+                    via,
+                    to,
+                    span: step_start,
+                });
             } else {
                 self.advance();
             }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(PathwayDef { name, steps, compensate, span: Span::merge(&start, &end_span) })
+        Ok(PathwayDef {
+            name,
+            steps,
+            compensate,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     // ── M72: Symbiotic import ─────────────────────────────────────────────
@@ -1219,7 +1312,11 @@ impl<'src> crate::parser::Parser<'src> {
             break;
         }
         let end_span = self.current_span();
-        Ok(Item::SymbioticImport { module, kind, span: Span::merge(&start, &end_span) })
+        Ok(Item::SymbioticImport {
+            module,
+            kind,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     // ── M92: Store declarations ───────────────────────────────────────────────
@@ -1252,51 +1349,80 @@ impl<'src> crate::parser::Parser<'src> {
                 schema.push(self.parse_store_mapreduce_entry()?);
             } else if self.at(&Token::Consumer) {
                 schema.push(self.parse_store_consumer_entry()?);
-            } else if self.at(&Token::Ttl) || self.at(&Token::Retention) || self.at(&Token::Resolution)
-                || self.at(&Token::Format) || self.at(&Token::Compression) || self.at(&Token::Capacity)
-                || self.at(&Token::Eviction) || self.at(&Token::Index)
-                || self.at(&Token::Partitions) || self.at(&Token::Replication)
+            } else if self.at(&Token::Ttl)
+                || self.at(&Token::Retention)
+                || self.at(&Token::Resolution)
+                || self.at(&Token::Format)
+                || self.at(&Token::Compression)
+                || self.at(&Token::Capacity)
+                || self.at(&Token::Eviction)
+                || self.at(&Token::Index)
+                || self.at(&Token::Partitions)
+                || self.at(&Token::Replication)
             {
                 let entry_span = self.current_span();
                 let key = self.token_as_ident().unwrap_or_default();
                 self.advance();
                 self.expect(Token::Colon)?;
                 let value = self.parse_store_config_value()?;
-                config.push(StoreConfigEntry { key, value, span: entry_span });
+                config.push(StoreConfigEntry {
+                    key,
+                    value,
+                    span: entry_span,
+                });
             } else if let Some(kw) = self.token_as_ident() {
-                let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                let next_is_colon =
+                    matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
                 if kw == "key" && next_is_colon {
                     let entry_span = self.current_span();
                     self.advance(); // "key"
                     self.advance(); // ":"
                     let ty = self.parse_type_expr()?;
-                    schema.push(StoreSchemaEntry::KeyType { ty, span: entry_span });
+                    schema.push(StoreSchemaEntry::KeyType {
+                        ty,
+                        span: entry_span,
+                    });
                 } else if kw == "value" && next_is_colon {
                     let entry_span = self.current_span();
                     self.advance(); // "value"
                     self.advance(); // ":"
                     let ty = self.parse_type_expr()?;
-                    schema.push(StoreSchemaEntry::ValueType { ty, span: entry_span });
+                    schema.push(StoreSchemaEntry::ValueType {
+                        ty,
+                        span: entry_span,
+                    });
                 } else if kw == "event" {
                     let entry_span = self.current_span();
                     self.advance(); // "event"
                     let (ev_name, _) = self.expect_ident()?;
                     self.expect(Token::ColonColon)?;
                     let fields = self.parse_inline_fields()?;
-                    schema.push(StoreSchemaEntry::Event { name: ev_name, fields, span: entry_span });
+                    schema.push(StoreSchemaEntry::Event {
+                        name: ev_name,
+                        fields,
+                        span: entry_span,
+                    });
                 } else if kw == "schema" {
                     let entry_span = self.current_span();
                     self.advance(); // "schema"
                     let (col_name, _) = self.expect_ident()?;
                     self.expect(Token::ColonColon)?;
                     let fields = self.parse_inline_fields()?;
-                    schema.push(StoreSchemaEntry::Collection { name: col_name, fields, span: entry_span });
+                    schema.push(StoreSchemaEntry::Collection {
+                        name: col_name,
+                        fields,
+                        span: entry_span,
+                    });
                 } else if next_is_colon {
                     let entry_span = self.current_span();
                     self.advance(); // key
                     self.advance(); // ":"
                     let value = self.parse_store_config_value()?;
-                    config.push(StoreConfigEntry { key: kw, value, span: entry_span });
+                    config.push(StoreConfigEntry {
+                        key: kw,
+                        value,
+                        span: entry_span,
+                    });
                 } else {
                     self.advance();
                 }
@@ -1307,7 +1433,13 @@ impl<'src> crate::parser::Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(StoreDef { name, kind, schema, config, span: Span::merge(&start, &end_span) })
+        Ok(StoreDef {
+            name,
+            kind,
+            schema,
+            config,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse a store kind identifier (e.g. `Relational`, `KeyValue`, `InMemory(Relational)`).
@@ -1320,19 +1452,19 @@ impl<'src> crate::parser::Parser<'src> {
             n
         };
         let kind = match kind_name.as_str() {
-            "Relational"     => StoreKind::Relational,
-            "KeyValue"       => StoreKind::KeyValue,
-            "Graph"          => StoreKind::Graph,
-            "Document"       => StoreKind::Document,
-            "Columnar"       => StoreKind::Columnar,
-            "Snowflake"      => StoreKind::Snowflake,
-            "Hypercube"      => StoreKind::Hypercube,
-            "TimeSeries"     => StoreKind::TimeSeries,
-            "Vector"         => StoreKind::Vector,
-            "FlatFile"       => StoreKind::FlatFile,
-            "Distributed"    => StoreKind::Distributed,
+            "Relational" => StoreKind::Relational,
+            "KeyValue" => StoreKind::KeyValue,
+            "Graph" => StoreKind::Graph,
+            "Document" => StoreKind::Document,
+            "Columnar" => StoreKind::Columnar,
+            "Snowflake" => StoreKind::Snowflake,
+            "Hypercube" => StoreKind::Hypercube,
+            "TimeSeries" => StoreKind::TimeSeries,
+            "Vector" => StoreKind::Vector,
+            "FlatFile" => StoreKind::FlatFile,
+            "Distributed" => StoreKind::Distributed,
             "DistributedLog" => StoreKind::DistributedLog,
-            "InMemory"   => {
+            "InMemory" => {
                 if self.at(&Token::LParen) {
                     self.advance();
                     let inner = self.parse_store_kind()?;
@@ -1348,7 +1480,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse a `table Name ... end` block inside a store.
-    pub(in crate::parser) fn parse_store_table_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_table_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::Table)?;
         let (name, _) = self.expect_ident()?;
@@ -1356,34 +1490,59 @@ impl<'src> crate::parser::Parser<'src> {
         while !self.at(&Token::End) && self.peek().is_some() {
             let field_start = self.current_span();
             let field_name = match self.tokens.get(self.pos) {
-                Some((Token::Ident(n), _)) => { let n = n.clone(); self.pos += 1; n }
+                Some((Token::Ident(n), _)) => {
+                    let n = n.clone();
+                    self.pos += 1;
+                    n
+                }
                 _ => break,
             };
-            if !self.at(&Token::Colon) { break; }
+            if !self.at(&Token::Colon) {
+                break;
+            }
             self.advance();
             let ty = self.parse_type_expr()?;
             let annotations = self.parse_annotations();
             let field_end = self.current_span();
-            fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
-            if self.at(&Token::Comma) { self.advance(); }
+            fields.push(FieldDef {
+                name: field_name,
+                ty,
+                annotations,
+                span: Span::merge(&field_start, &field_end),
+            });
+            if self.at(&Token::Comma) {
+                self.advance();
+            }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(StoreSchemaEntry::Table { name, fields, span: Span::merge(&start, &end_span) })
+        Ok(StoreSchemaEntry::Table {
+            name,
+            fields,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse a `node Name :: { field: Type, ... }` entry.
-    pub(in crate::parser) fn parse_store_node_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_node_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::GraphNode)?;
         let (name, _) = self.expect_ident()?;
         self.expect(Token::ColonColon)?;
         let fields = self.parse_inline_fields()?;
-        Ok(StoreSchemaEntry::Node { name, fields, span: Span::merge(&start, &self.current_span()) })
+        Ok(StoreSchemaEntry::Node {
+            name,
+            fields,
+            span: Span::merge(&start, &self.current_span()),
+        })
     }
 
     /// Parse an `edge Name :: Source -> Target [{ fields }]` entry.
-    pub(in crate::parser) fn parse_store_edge_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_edge_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::Edge)?;
         let (name, _) = self.expect_ident()?;
@@ -1396,40 +1555,65 @@ impl<'src> crate::parser::Parser<'src> {
         } else {
             Vec::new()
         };
-        Ok(StoreSchemaEntry::Edge { name, source, target, fields, span: Span::merge(&start, &self.current_span()) })
+        Ok(StoreSchemaEntry::Edge {
+            name,
+            source,
+            target,
+            fields,
+            span: Span::merge(&start, &self.current_span()),
+        })
     }
 
     /// Parse a `fact Name :: { field: Type, ... }` entry.
-    pub(in crate::parser) fn parse_store_fact_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_fact_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::Fact)?;
         let (name, _) = self.expect_ident()?;
         self.expect(Token::ColonColon)?;
         let fields = self.parse_inline_fields()?;
-        Ok(StoreSchemaEntry::Fact { name, fields, span: Span::merge(&start, &self.current_span()) })
+        Ok(StoreSchemaEntry::Fact {
+            name,
+            fields,
+            span: Span::merge(&start, &self.current_span()),
+        })
     }
 
     /// Parse a `dimension Name :: { field: Type, ... }` entry.
-    pub(in crate::parser) fn parse_store_dimension_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_dimension_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::Dimension)?;
         let (name, _) = self.expect_ident()?;
         self.expect(Token::ColonColon)?;
         let fields = self.parse_inline_fields()?;
-        Ok(StoreSchemaEntry::DimensionEntry { name, fields, span: Span::merge(&start, &self.current_span()) })
+        Ok(StoreSchemaEntry::DimensionEntry {
+            name,
+            fields,
+            span: Span::merge(&start, &self.current_span()),
+        })
     }
 
     /// Parse an `embedding :: { field: Type, ... }` entry.
-    pub(in crate::parser) fn parse_store_embedding_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_embedding_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.expect(Token::Embedding)?;
         self.expect(Token::ColonColon)?;
         let fields = self.parse_inline_fields()?;
-        Ok(StoreSchemaEntry::EmbeddingEntry { fields, span: Span::merge(&start, &self.current_span()) })
+        Ok(StoreSchemaEntry::EmbeddingEntry {
+            fields,
+            span: Span::merge(&start, &self.current_span()),
+        })
     }
 
     /// Parse a `mapreduce Name ... end` block inside a Distributed store.
-    pub(in crate::parser) fn parse_store_mapreduce_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_mapreduce_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.advance(); // consume `mapreduce`
         let (name, _) = self.expect_ident()?;
@@ -1440,16 +1624,17 @@ impl<'src> crate::parser::Parser<'src> {
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if let Some(kw) = self.token_as_ident() {
-                let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                let next_is_colon =
+                    matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
                 if next_is_colon {
                     self.advance(); // consume key
                     self.advance(); // consume ':'
                     let sig = self.parse_mapreduce_sig_as_string();
                     match kw.as_str() {
-                        "map"     => map_sig = sig,
-                        "reduce"  => reduce_sig = sig,
+                        "map" => map_sig = sig,
+                        "reduce" => reduce_sig = sig,
                         "combine" => combine_sig = Some(sig),
-                        _         => {}
+                        _ => {}
                     }
                     continue;
                 }
@@ -1469,7 +1654,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse a `consumer Name :: offset: value` entry inside a DistributedLog store.
-    pub(in crate::parser) fn parse_store_consumer_entry(&mut self) -> Result<StoreSchemaEntry, LoomError> {
+    pub(in crate::parser) fn parse_store_consumer_entry(
+        &mut self,
+    ) -> Result<StoreSchemaEntry, LoomError> {
         let start = self.current_span();
         self.advance(); // consume `consumer`
         let (name, _) = self.expect_ident()?;
@@ -1490,7 +1677,9 @@ impl<'src> crate::parser::Parser<'src> {
     pub(in crate::parser) fn parse_mapreduce_sig_as_string(&mut self) -> String {
         let mut parts = Vec::new();
         loop {
-            if self.at(&Token::End) { break; }
+            if self.at(&Token::End) {
+                break;
+            }
             // Stop when we see map:/reduce:/combine: starting the next entry
             if let Some(kw) = self.token_as_ident() {
                 if matches!(kw.as_str(), "map" | "reduce" | "combine") {
@@ -1509,16 +1698,16 @@ impl<'src> crate::parser::Parser<'src> {
     /// Return the current token as a display string for signature capture.
     pub(in crate::parser) fn token_as_display_string(&self) -> String {
         match self.tokens.get(self.pos) {
-            Some((Token::Arrow, _))      => "->".to_string(),
-            Some((Token::LBracket, _))   => "[".to_string(),
-            Some((Token::RBracket, _))   => "]".to_string(),
-            Some((Token::LParen, _))     => "(".to_string(),
-            Some((Token::RParen, _))     => ")".to_string(),
-            Some((Token::Comma, _))      => ",".to_string(),
-            Some((Token::Star, _))       => "*".to_string(),
+            Some((Token::Arrow, _)) => "->".to_string(),
+            Some((Token::LBracket, _)) => "[".to_string(),
+            Some((Token::RBracket, _)) => "]".to_string(),
+            Some((Token::LParen, _)) => "(".to_string(),
+            Some((Token::RParen, _)) => ")".to_string(),
+            Some((Token::Comma, _)) => ",".to_string(),
+            Some((Token::Star, _)) => "*".to_string(),
             Some((Token::ColonColon, _)) => "::".to_string(),
-            Some((Token::Colon, _))      => ":".to_string(),
-            Some((Token::IntLit(n), _))  => n.to_string(),
+            Some((Token::Colon, _)) => ":".to_string(),
+            Some((Token::IntLit(n), _)) => n.to_string(),
             Some((Token::FloatLit(f), _)) => f.to_string(),
             _ => self.token_as_ident().unwrap_or_else(|| "_".to_string()),
         }
@@ -1741,7 +1930,9 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse a single `operation name :: InputType -> OutputType` line.
-    pub(in crate::parser) fn parse_effect_operation(&mut self) -> Result<EffectOperation, LoomError> {
+    pub(in crate::parser) fn parse_effect_operation(
+        &mut self,
+    ) -> Result<EffectOperation, LoomError> {
         let start = self.current_span();
         // Consume `operation` keyword (may be Token::Operation or an ident).
         self.advance();
@@ -1806,13 +1997,11 @@ impl<'src> crate::parser::Parser<'src> {
     /// unqualified operation name followed by a parameter list.
     pub(in crate::parser) fn is_handler_case_start(&self) -> bool {
         match self.tokens.get(self.pos) {
-            Some((Token::Ident(_), _)) => {
-                match self.tokens.get(self.pos + 1) {
-                    Some((Token::Dot, _)) => true,
-                    Some((Token::LParen, _)) => true,
-                    _ => false,
-                }
-            }
+            Some((Token::Ident(_), _)) => match self.tokens.get(self.pos + 1) {
+                Some((Token::Dot, _)) => true,
+                Some((Token::LParen, _)) => true,
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -1869,12 +2058,17 @@ impl<'src> crate::parser::Parser<'src> {
         while self.peek().is_some() {
             match self.peek() {
                 Some(Token::End) if depth == 0 => break,
-                Some(Token::End) => { depth -= 1; self.advance(); }
+                Some(Token::End) => {
+                    depth -= 1;
+                    self.advance();
+                }
                 Some(Token::Fn) | Some(Token::Being) | Some(Token::Ecosystem) => {
                     depth += 1;
                     self.advance();
                 }
-                _ => { self.advance(); }
+                _ => {
+                    self.advance();
+                }
             }
         }
         let end_span = self.current_span();
@@ -1896,10 +2090,14 @@ impl<'src> crate::parser::Parser<'src> {
         let start = self.current_span();
         self.expect(Token::Property)?;
         // Accept `property:` (colon before name) OR `property NAME` (name first).
-        if self.at(&Token::Colon) { self.advance(); }
+        if self.at(&Token::Colon) {
+            self.advance();
+        }
         let (name, _) = self.expect_any_name()?;
         // Accept optional colon after name: `property NAME:`.
-        if self.at(&Token::Colon) { self.advance(); }
+        if self.at(&Token::Colon) {
+            self.advance();
+        }
         self.expect(Token::Forall)?;
         let (var_name, _) = self.expect_ident()?;
         self.expect(Token::Colon)?;
@@ -1914,21 +2112,47 @@ impl<'src> crate::parser::Parser<'src> {
                 self.advance();
                 self.expect(Token::Colon)?;
                 match self.tokens.get(self.pos) {
-                    Some((Token::BoolLit(b), _)) => { shrink = *b; self.pos += 1; }
-                    _ => return Err(LoomError::parse("expected bool after shrink:", self.current_span())),
+                    Some((Token::BoolLit(b), _)) => {
+                        shrink = *b;
+                        self.pos += 1;
+                    }
+                    _ => {
+                        return Err(LoomError::parse(
+                            "expected bool after shrink:",
+                            self.current_span(),
+                        ))
+                    }
                 }
             } else if self.at(&Token::Samples) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 match self.tokens.get(self.pos) {
-                    Some((Token::IntLit(n), _)) => { samples = *n as u64; self.pos += 1; }
-                    _ => return Err(LoomError::parse("expected int after samples:", self.current_span())),
+                    Some((Token::IntLit(n), _)) => {
+                        samples = *n as u64;
+                        self.pos += 1;
+                    }
+                    _ => {
+                        return Err(LoomError::parse(
+                            "expected int after samples:",
+                            self.current_span(),
+                        ))
+                    }
                 }
-            } else { break; }
+            } else {
+                break;
+            }
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(PropertyBlock { name, var_name, var_type, invariant, shrink, samples, span: Span::merge(&start, &end_span) })
+        Ok(PropertyBlock {
+            name,
+            var_name,
+            var_type,
+            invariant,
+            shrink,
+            samples,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Collect invariant expression tokens as a string until a keyword boundary.
@@ -1936,11 +2160,16 @@ impl<'src> crate::parser::Parser<'src> {
         let mut parts: Vec<String> = Vec::new();
         loop {
             match self.tokens.get(self.pos) {
-                Some((Token::Shrink, _)) | Some((Token::Samples, _)) | Some((Token::End, _)) | None => break,
-                Some((tok, _)) => { parts.push(super::token_to_source(tok)); self.pos += 1; }
+                Some((Token::Shrink, _))
+                | Some((Token::Samples, _))
+                | Some((Token::End, _))
+                | None => break,
+                Some((tok, _)) => {
+                    parts.push(super::token_to_source(tok));
+                    self.pos += 1;
+                }
             }
         }
         parts.join(" ").trim().to_string()
     }
-
 }

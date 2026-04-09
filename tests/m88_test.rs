@@ -27,10 +27,17 @@ module Finance
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "GeometricBrownian process block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "GeometricBrownian process block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
-        let proc = fd.stochastic_process.as_ref().expect("stochastic_process should be Some");
+        let proc = fd
+            .stochastic_process
+            .as_ref()
+            .expect("stochastic_process should be Some");
         assert_eq!(proc.kind, loom::ast::StochasticKind::GeometricBrownian);
         assert_eq!(proc.always_positive, Some(true));
         assert_eq!(proc.martingale, Some(false));
@@ -54,10 +61,17 @@ module Rates
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "OrnsteinUhlenbeck process block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "OrnsteinUhlenbeck process block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
-        let proc = fd.stochastic_process.as_ref().expect("stochastic_process should be Some");
+        let proc = fd
+            .stochastic_process
+            .as_ref()
+            .expect("stochastic_process should be Some");
         assert_eq!(proc.kind, loom::ast::StochasticKind::OrnsteinUhlenbeck);
         assert_eq!(proc.mean_reverting, Some(true));
         assert_eq!(proc.long_run_mean.as_deref(), Some("0"));
@@ -81,10 +95,17 @@ module Arrivals
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "PoissonProcess block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "PoissonProcess block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
-        let proc = fd.stochastic_process.as_ref().expect("stochastic_process should be Some");
+        let proc = fd
+            .stochastic_process
+            .as_ref()
+            .expect("stochastic_process should be Some");
         assert_eq!(proc.kind, loom::ast::StochasticKind::PoissonProcess);
         assert_eq!(proc.integer_valued, Some(true));
     }
@@ -103,10 +124,17 @@ module Weather
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "MarkovChain process block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "MarkovChain process block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
-        let proc = fd.stochastic_process.as_ref().expect("stochastic_process should be Some");
+        let proc = fd
+            .stochastic_process
+            .as_ref()
+            .expect("stochastic_process should be Some");
         assert_eq!(proc.kind, loom::ast::StochasticKind::MarkovChain);
         assert_eq!(proc.states, vec!["Sunny", "Cloudy", "Rainy"]);
     }
@@ -131,7 +159,10 @@ module Finance
 end
 "#;
     let result = compile(src);
-    assert!(result.is_err(), "GBM + Gaussian should be rejected by checker");
+    assert!(
+        result.is_err(),
+        "GBM + Gaussian should be rejected by checker"
+    );
     let err_msg = format!("{:?}", result.err());
     assert!(
         err_msg.contains("GeometricBrownian") || err_msg.contains("log-normal"),
@@ -165,7 +196,13 @@ end
     );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
-        assert!(fd.distribution.is_some(), "distribution block should be parsed");
-        assert!(fd.stochastic_process.is_some(), "stochastic_process block should be parsed");
+        assert!(
+            fd.distribution.is_some(),
+            "distribution block should be parsed"
+        );
+        assert!(
+            fd.stochastic_process.is_some(),
+            "stochastic_process block should be parsed"
+        );
     }
 }

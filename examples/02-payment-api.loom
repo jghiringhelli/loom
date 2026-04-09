@@ -1,0 +1,73 @@
+-- examples/02-payment-api.loom
+-- ══════════════════════════════════════════════════════════════════
+-- A payment service with:
+--   - Privacy-labelled types (@pii @gdpr @pci)
+--   - Unit-typed money (Float<usd> prevents cent/dollar confusion)
+--   - Algebraic operation properties (@exactly-once, @idempotent)
+--   - Effect tracking (DB writes, irreversible IO)
+--   - OpenAPI 3.0 inference from type signatures
+--
+-- Run:  loom compile examples/02-payment-api.loom
+-- Run:  loom compile examples/02-payment-api.loom --target openapi
+-- ══════════════════════════════════════════════════════════════════
+
+module PaymentAPI
+describe: "Stripe-style payment processing — privacy + correctness enforced at compile time"
+
+-- Privacy labels are checked: @pci requires @encrypt-at-rest.
+-- The compiler emits an error if you forget either annotation.
+type Card =
+  number:   String @pci @encrypt-at-rest @never-log
+  holder:   String @pii @gdpr
+  expiry:   String
+  cvv:      String @pci @encrypt-at-rest @never-log
+end
+
+type Account =
+  id:       Int
+  owner:    String @pii @gdpr
+  balance:  Float<usd>
+end
+
+-- Sum type: every outcome is exhaustive-checked.
+enum PaymentResult =
+  | Success of Float<usd>
+  | InsufficientFunds
+  | CardDeclined of String
+  | InvalidAmount
+end
+
+-- Float<usd> prevents mixing with Float<eur> or plain Float.
+-- @exactly-once means: if this function is retried, it must not
+-- duplicate the charge — the compiler emits the retry-policy header
+-- in the OpenAPI output.
+fn charge @exactly-once :: Float<usd> -> Account -> Effect<[DB, IO@irreversible], PaymentResult]
+  require: amount > 0.0
+  require: amount <= 10000.0
+  ensure:  result != InvalidAmount
+  PaymentResult
+end
+
+-- @idempotent: safe to retry. GET semantics in OpenAPI output.
+fn get_balance @idempotent :: Int -> Effect<[DB], Account]
+  require: account_id > 0
+  ensure:  result.balance >= 0.0
+  Account
+end
+
+-- DELETE /accounts/{id} in OpenAPI output.
+fn close_account :: Int -> Effect<[DB, IO@irreversible], Unit]
+  require: account_id > 0
+  Unit
+end
+
+-- Invariant: the module guarantees balances never go negative.
+invariant non_negative_balance :: balance >= 0.0
+
+test charge_rejects_zero ::
+  charge(0.0, account) == InvalidAmount
+end
+
+test charge_rejects_over_limit ::
+  charge(99999.0, account) == InvalidAmount
+end

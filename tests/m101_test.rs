@@ -33,7 +33,10 @@ end
     let module = parse_ok(src);
     assert_eq!(module.being_defs.len(), 1);
     let being = &module.being_defs[0];
-    let manifest = being.manifest.as_ref().expect("manifest block should be present");
+    let manifest = being
+        .manifest
+        .as_ref()
+        .expect("manifest block should be present");
     assert_eq!(manifest.artifacts.len(), 1);
     assert_eq!(manifest.artifacts[0].path, "README.md");
     assert_eq!(manifest.artifacts[0].reflects, vec!["Agent".to_string()]);
@@ -77,7 +80,7 @@ fn test_m101_missing_file_is_error() {
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
         span: Span::synthetic(),
     };
@@ -105,7 +108,10 @@ fn test_m101_missing_file_is_error() {
     };
 
     let errors = ManifestChecker::new().check(&module);
-    assert!(!errors.is_empty(), "missing artifact file should produce an error");
+    assert!(
+        !errors.is_empty(),
+        "missing artifact file should produce an error"
+    );
     let msgs: String = errors.iter().map(|e| format!("{}", e)).collect();
     assert!(
         msgs.contains("does not exist on disk"),
@@ -151,7 +157,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
         span: Span::synthetic(),
     };
@@ -194,7 +200,10 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         .iter()
         .filter(|e| format!("{}", e).contains("[warn]"))
         .collect();
-    assert!(!warnings.is_empty(), "should have at least one [warn] for unknown symbol");
+    assert!(
+        !warnings.is_empty(),
+        "should have at least one [warn] for unknown symbol"
+    );
 }
 
 // 4. Empty manifest: block (no artifacts) is valid.
@@ -212,8 +221,14 @@ end
 "#;
     let module = parse_ok(src);
     let being = &module.being_defs[0];
-    let manifest = being.manifest.as_ref().expect("manifest block should be present");
-    assert!(manifest.artifacts.is_empty(), "empty manifest: should have no artifacts");
+    let manifest = being
+        .manifest
+        .as_ref()
+        .expect("manifest block should be present");
+    assert!(
+        manifest.artifacts.is_empty(),
+        "empty manifest: should have no artifacts"
+    );
 }
 
 // 5. Two artifacts in one manifest: block parse correctly.
@@ -233,7 +248,10 @@ end
 "#;
     let module = parse_ok(src);
     let being = &module.being_defs[0];
-    let manifest = being.manifest.as_ref().expect("manifest block should be present");
+    let manifest = being
+        .manifest
+        .as_ref()
+        .expect("manifest block should be present");
     assert_eq!(
         manifest.artifacts.len(),
         2,
@@ -286,5 +304,8 @@ end
         span: Span::synthetic(),
     };
     let errors = ManifestChecker::new().check(&module_struct);
-    assert!(errors.is_empty(), "being without manifest: should produce no errors");
+    assert!(
+        errors.is_empty(),
+        "being without manifest: should produce no errors"
+    );
 }

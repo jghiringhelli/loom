@@ -92,7 +92,11 @@ end
 "#;
     let module = parse(src);
     let result = InfoFlowChecker::new().check(&module);
-    assert!(result.is_ok(), "hash_password should be allowed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "hash_password should be allowed: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -166,12 +170,21 @@ end
 "#;
     let module = parse(src);
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("_sensitivity"), "should contain _sensitivity brand");
+    assert!(
+        out.contains("_sensitivity"),
+        "should contain _sensitivity brand"
+    );
     assert!(out.contains("Password"), "should contain Password type");
     assert!(out.contains("Token"), "should contain Token type");
     assert!(out.contains("UserInput"), "should contain UserInput type");
-    assert!(out.contains("\"secret\""), "should contain secret sensitivity");
-    assert!(out.contains("\"tainted\""), "should contain tainted sensitivity");
+    assert!(
+        out.contains("\"secret\""),
+        "should contain secret sensitivity"
+    );
+    assert!(
+        out.contains("\"tainted\""),
+        "should contain tainted sensitivity"
+    );
 }
 
 // ── 5. OpenAPI codegen ────────────────────────────────────────────────────────
@@ -187,7 +200,10 @@ end
 "#;
     let module = parse(src);
     let out = OpenApiEmitter::new().emit(&module);
-    assert!(out.contains("x-security-labels"), "should contain x-security-labels");
+    assert!(
+        out.contains("x-security-labels"),
+        "should contain x-security-labels"
+    );
     assert!(out.contains("\"secret\""), "should list secret label");
     assert!(out.contains("Password"), "should list Password type");
     assert!(out.contains("\"tainted\""), "should list tainted label");

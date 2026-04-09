@@ -22,14 +22,19 @@ pub struct Parser<'src> {
 }
 
 mod being;
-mod types_parser;
 mod expressions;
 mod items;
+mod types_parser;
 
 impl<'src> Parser<'src> {
     /// Create a new parser for the given token slice.
     pub fn new(tokens: &'src [(Token, Span)]) -> Self {
-        Parser { tokens, pos: 0, pending_effect_tiers: Vec::new(), pending_annotations: Vec::new() }
+        Parser {
+            tokens,
+            pos: 0,
+            pending_effect_tiers: Vec::new(),
+            pending_annotations: Vec::new(),
+        }
     }
 
     // ── Token navigation ──────────────────────────────────────────────────
@@ -122,10 +127,12 @@ impl<'src> Parser<'src> {
                     return self.expect_ident();
                 }
             }
-            None => return Err(LoomError::parse(
-                "expected identifier, found end of input",
-                Span::synthetic(),
-            )),
+            None => {
+                return Err(LoomError::parse(
+                    "expected identifier, found end of input",
+                    Span::synthetic(),
+                ))
+            }
         };
         let span = self.tokens[self.pos].1.clone();
         self.pos += 1;
@@ -157,8 +164,8 @@ impl<'src> Parser<'src> {
         let mut annotations = Vec::new();
         while self.at(&Token::At) {
             self.advance(); // consume `@`
-            // The key starts with an identifier (or keyword used as identifier)
-            // and may continue with `-ident` segments.
+                            // The key starts with an identifier (or keyword used as identifier)
+                            // and may continue with `-ident` segments.
             if let Some(first) = self.token_as_ident() {
                 let mut key = first;
                 self.advance();
@@ -207,9 +214,7 @@ impl<'src> Parser<'src> {
                                 if let Some(s) = self.token_as_ident() {
                                     parts.push(s);
                                 } else {
-                                    parts.push(token_to_source(
-                                        &self.tokens[self.pos].0
-                                    ));
+                                    parts.push(token_to_source(&self.tokens[self.pos].0));
                                 }
                                 self.advance();
                             }
@@ -274,40 +279,40 @@ impl<'src> Parser<'src> {
             Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
             Some((Token::Sense, _)) => Some("sense".to_string()),
             Some((Token::Resonance, _)) => Some("resonance".to_string()),
-            Some((Token::Store, _))       => Some("store".to_string()),
-            Some((Token::Table, _))       => Some("table".to_string()),
-            Some((Token::GraphNode, _))   => Some("node".to_string()),
-            Some((Token::Edge, _))        => Some("edge".to_string()),
-            Some((Token::Ttl, _))         => Some("ttl".to_string()),
-            Some((Token::Index, _))       => Some("index".to_string()),
-            Some((Token::Retention, _))   => Some("retention".to_string()),
-            Some((Token::Resolution, _))  => Some("resolution".to_string()),
-            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Store, _)) => Some("store".to_string()),
+            Some((Token::Table, _)) => Some("table".to_string()),
+            Some((Token::GraphNode, _)) => Some("node".to_string()),
+            Some((Token::Edge, _)) => Some("edge".to_string()),
+            Some((Token::Ttl, _)) => Some("ttl".to_string()),
+            Some((Token::Index, _)) => Some("index".to_string()),
+            Some((Token::Retention, _)) => Some("retention".to_string()),
+            Some((Token::Resolution, _)) => Some("resolution".to_string()),
+            Some((Token::Format, _)) => Some("format".to_string()),
             Some((Token::Compression, _)) => Some("compression".to_string()),
-            Some((Token::Capacity, _))    => Some("capacity".to_string()),
-            Some((Token::Eviction, _))    => Some("eviction".to_string()),
-            Some((Token::Fact, _))        => Some("fact".to_string()),
-            Some((Token::Dimension, _))   => Some("dimension".to_string()),
-            Some((Token::Embedding, _))   => Some("embedding".to_string()),
-            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
-            Some((Token::Consumer, _))    => Some("consumer".to_string()),
-            Some((Token::Offset, _))      => Some("offset".to_string()),
-            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Capacity, _)) => Some("capacity".to_string()),
+            Some((Token::Eviction, _)) => Some("eviction".to_string()),
+            Some((Token::Fact, _)) => Some("fact".to_string()),
+            Some((Token::Dimension, _)) => Some("dimension".to_string()),
+            Some((Token::Embedding, _)) => Some("embedding".to_string()),
+            Some((Token::MapReduce, _)) => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _)) => Some("consumer".to_string()),
+            Some((Token::Offset, _)) => Some("offset".to_string()),
+            Some((Token::Partitions, _)) => Some("partitions".to_string()),
             Some((Token::Replication, _)) => Some("replication".to_string()),
-            Some((Token::Bounds, _))      => Some("bounds".to_string()),
-            Some((Token::Process, _))     => Some("process".to_string()),
-            Some((Token::Session, _))     => Some("session".to_string()),
-            Some((Token::Send, _))        => Some("send".to_string()),
-            Some((Token::Recv, _))        => Some("recv".to_string()),
-            Some((Token::Duality, _))     => Some("duality".to_string()),
-            Some((Token::Handle, _))      => Some("handle".to_string()),
-            Some((Token::Operation, _))   => Some("operation".to_string()),
-            Some((Token::Implements, _))  => Some("implements".to_string()),
-            Some((Token::Export, _))      => Some("export".to_string()),
-            Some((Token::Seal, _))        => Some("seal".to_string()),
-            Some((Token::Provenance, _))   => Some("provenance".to_string()),
-            Some((Token::Convergence, _))  => Some("convergence".to_string()),
-            Some((Token::Divergence, _))   => Some("divergence".to_string()),
+            Some((Token::Bounds, _)) => Some("bounds".to_string()),
+            Some((Token::Process, _)) => Some("process".to_string()),
+            Some((Token::Session, _)) => Some("session".to_string()),
+            Some((Token::Send, _)) => Some("send".to_string()),
+            Some((Token::Recv, _)) => Some("recv".to_string()),
+            Some((Token::Duality, _)) => Some("duality".to_string()),
+            Some((Token::Handle, _)) => Some("handle".to_string()),
+            Some((Token::Operation, _)) => Some("operation".to_string()),
+            Some((Token::Implements, _)) => Some("implements".to_string()),
+            Some((Token::Export, _)) => Some("export".to_string()),
+            Some((Token::Seal, _)) => Some("seal".to_string()),
+            Some((Token::Provenance, _)) => Some("provenance".to_string()),
+            Some((Token::Convergence, _)) => Some("convergence".to_string()),
+            Some((Token::Divergence, _)) => Some("divergence".to_string()),
             _ => None,
         }
     }
@@ -350,38 +355,38 @@ impl<'src> Parser<'src> {
             Some((Token::Umwelt, _)) => Some("umwelt".to_string()),
             Some((Token::Sense, _)) => Some("sense".to_string()),
             Some((Token::Resonance, _)) => Some("resonance".to_string()),
-            Some((Token::Store, _))       => Some("store".to_string()),
-            Some((Token::Table, _))       => Some("table".to_string()),
-            Some((Token::GraphNode, _))   => Some("node".to_string()),
-            Some((Token::Edge, _))        => Some("edge".to_string()),
-            Some((Token::Ttl, _))         => Some("ttl".to_string()),
-            Some((Token::Index, _))       => Some("index".to_string()),
-            Some((Token::Retention, _))   => Some("retention".to_string()),
-            Some((Token::Resolution, _))  => Some("resolution".to_string()),
-            Some((Token::Format, _))      => Some("format".to_string()),
+            Some((Token::Store, _)) => Some("store".to_string()),
+            Some((Token::Table, _)) => Some("table".to_string()),
+            Some((Token::GraphNode, _)) => Some("node".to_string()),
+            Some((Token::Edge, _)) => Some("edge".to_string()),
+            Some((Token::Ttl, _)) => Some("ttl".to_string()),
+            Some((Token::Index, _)) => Some("index".to_string()),
+            Some((Token::Retention, _)) => Some("retention".to_string()),
+            Some((Token::Resolution, _)) => Some("resolution".to_string()),
+            Some((Token::Format, _)) => Some("format".to_string()),
             Some((Token::Compression, _)) => Some("compression".to_string()),
-            Some((Token::Capacity, _))    => Some("capacity".to_string()),
-            Some((Token::Eviction, _))    => Some("eviction".to_string()),
-            Some((Token::Fact, _))        => Some("fact".to_string()),
-            Some((Token::Dimension, _))   => Some("dimension".to_string()),
-            Some((Token::Embedding, _))   => Some("embedding".to_string()),
-            Some((Token::MapReduce, _))   => Some("mapreduce".to_string()),
-            Some((Token::Consumer, _))    => Some("consumer".to_string()),
-            Some((Token::Offset, _))      => Some("offset".to_string()),
-            Some((Token::Partitions, _))  => Some("partitions".to_string()),
+            Some((Token::Capacity, _)) => Some("capacity".to_string()),
+            Some((Token::Eviction, _)) => Some("eviction".to_string()),
+            Some((Token::Fact, _)) => Some("fact".to_string()),
+            Some((Token::Dimension, _)) => Some("dimension".to_string()),
+            Some((Token::Embedding, _)) => Some("embedding".to_string()),
+            Some((Token::MapReduce, _)) => Some("mapreduce".to_string()),
+            Some((Token::Consumer, _)) => Some("consumer".to_string()),
+            Some((Token::Offset, _)) => Some("offset".to_string()),
+            Some((Token::Partitions, _)) => Some("partitions".to_string()),
             Some((Token::Replication, _)) => Some("replication".to_string()),
-            Some((Token::Session, _))     => Some("session".to_string()),
-            Some((Token::Process, _))     => Some("process".to_string()),
-            Some((Token::Send, _))        => Some("send".to_string()),
-            Some((Token::Recv, _))        => Some("recv".to_string()),
-            Some((Token::Duality, _))     => Some("duality".to_string()),
-            Some((Token::Handle, _))      => Some("handle".to_string()),
-            Some((Token::Operation, _))   => Some("operation".to_string()),
-            Some((Token::Export, _))      => Some("export".to_string()),
-            Some((Token::Seal, _))        => Some("seal".to_string()),
-            Some((Token::Provenance, _))   => Some("provenance".to_string()),
-            Some((Token::Convergence, _))  => Some("convergence".to_string()),
-            Some((Token::Divergence, _))   => Some("divergence".to_string()),
+            Some((Token::Session, _)) => Some("session".to_string()),
+            Some((Token::Process, _)) => Some("process".to_string()),
+            Some((Token::Send, _)) => Some("send".to_string()),
+            Some((Token::Recv, _)) => Some("recv".to_string()),
+            Some((Token::Duality, _)) => Some("duality".to_string()),
+            Some((Token::Handle, _)) => Some("handle".to_string()),
+            Some((Token::Operation, _)) => Some("operation".to_string()),
+            Some((Token::Export, _)) => Some("export".to_string()),
+            Some((Token::Seal, _)) => Some("seal".to_string()),
+            Some((Token::Provenance, _)) => Some("provenance".to_string()),
+            Some((Token::Convergence, _)) => Some("convergence".to_string()),
+            Some((Token::Divergence, _)) => Some("divergence".to_string()),
             _ => None,
         }
     }
@@ -483,9 +488,11 @@ impl<'src> Parser<'src> {
                 items.push(Item::Pathway(self.parse_pathway_def()?));
             } else if self.at(&Token::UseCase) {
                 items.push(Item::UseCase(self.parse_usecase_block()?));
-            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "symbiotic") {
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "symbiotic")
+            {
                 items.push(self.parse_symbiotic_import()?);
-            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "niche_construction") {
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "niche_construction")
+            {
                 items.push(Item::NicheConstruction(self.parse_niche_construction()?));
             } else if self.at(&Token::MessagingPrimitive) {
                 items.push(Item::MessagingPrimitive(self.parse_messaging_primitive()?));
@@ -591,7 +598,10 @@ impl<'src> Parser<'src> {
                     Ok(name)
                 } else {
                     Err(LoomError::parse(
-                        format!("expected value, got {:?}", self.tokens.get(self.pos).map(|(t,_)| t)),
+                        format!(
+                            "expected value, got {:?}",
+                            self.tokens.get(self.pos).map(|(t, _)| t)
+                        ),
                         self.current_span(),
                     ))
                 }
@@ -653,9 +663,7 @@ impl<'src> Parser<'src> {
     fn parse_item(&mut self) -> Result<Item, LoomError> {
         match self.peek() {
             Some(Token::Fn) => Ok(Item::Fn(self.parse_fn_def()?)),
-            Some(Token::Type) => {
-                Ok(self.parse_type_or_refined()?)
-            }
+            Some(Token::Type) => Ok(self.parse_type_or_refined()?),
             Some(Token::Enum) => Ok(Item::Enum(self.parse_enum_def()?)),
             Some(Token::Proposition) => Ok(Item::Proposition(self.parse_proposition_def()?)),
             Some(Token::Functor) => Ok(Item::Functor(self.parse_functor_def()?)),
@@ -680,7 +688,9 @@ impl<'src> Parser<'src> {
             Some(Token::UseCase) => Ok(Item::UseCase(self.parse_usecase_block()?)),
             Some(Token::Property) => Ok(Item::Property(self.parse_property_block()?)),
             Some(Token::Boundary) => Ok(Item::BoundaryBlock(self.parse_boundary_block()?)),
-            Some(Token::MessagingPrimitive) => Ok(Item::MessagingPrimitive(self.parse_messaging_primitive()?)),
+            Some(Token::MessagingPrimitive) => {
+                Ok(Item::MessagingPrimitive(self.parse_messaging_primitive()?))
+            }
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -709,14 +719,23 @@ impl<'src> Parser<'src> {
             } else {
                 break;
             };
-            if !self.at(&Token::Colon) { break; }
+            if !self.at(&Token::Colon) {
+                break;
+            }
             self.advance();
             let ty = self.parse_type_expr()?;
             let mut annotations = pre_annotations;
             annotations.extend(self.parse_annotations());
             let field_end = self.current_span();
-            fields.push(FieldDef { name: field_name, ty, annotations, span: Span::merge(&field_start, &field_end) });
-            if self.at(&Token::Comma) { self.advance(); }
+            fields.push(FieldDef {
+                name: field_name,
+                ty,
+                annotations,
+                span: Span::merge(&field_start, &field_end),
+            });
+            if self.at(&Token::Comma) {
+                self.advance();
+            }
         }
         self.expect(Token::RBrace)?;
         Ok(fields)
@@ -746,12 +765,12 @@ impl<'src> Parser<'src> {
                 self.expect(Token::Colon)?;
                 if let Some((Token::Ident(p), _)) = self.tokens.get(self.pos) {
                     pattern = Some(match p.as_str() {
-                        "request_response"  => MessagingPattern::RequestResponse,
+                        "request_response" => MessagingPattern::RequestResponse,
                         "publish_subscribe" => MessagingPattern::PublishSubscribe,
-                        "point_to_point"    => MessagingPattern::PointToPoint,
+                        "point_to_point" => MessagingPattern::PointToPoint,
                         "producer_consumer" => MessagingPattern::ProducerConsumer,
-                        "bidirectional"     => MessagingPattern::Bidirectional,
-                        _                   => MessagingPattern::RequestResponse,
+                        "bidirectional" => MessagingPattern::Bidirectional,
+                        _ => MessagingPattern::RequestResponse,
                     });
                     self.pos += 1;
                 }
@@ -763,14 +782,19 @@ impl<'src> Parser<'src> {
                     let at_field = matches!(self.tokens.get(self.pos),
                         Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
                         || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _)));
-                    if at_field { break; }
+                    if at_field {
+                        break;
+                    }
                     if let Some((tok, _)) = self.tokens.get(self.pos) {
                         let s = format!("{:?}", tok);
-                        if !s.is_empty() { guarantees.push(s); }
+                        if !s.is_empty() {
+                            guarantees.push(s);
+                        }
                         self.pos += 1;
                     }
                 }
-            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout") {
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout")
+            {
                 self.advance();
                 self.expect(Token::Colon)?;
                 if let Some((Token::Ident(v), _)) = self.tokens.get(self.pos) {
@@ -784,7 +808,13 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(MessagingPrimitiveDef { name, pattern, guarantees, timeout_mandatory, span: Span::merge(&start, &end_span) })
+        Ok(MessagingPrimitiveDef {
+            name,
+            pattern,
+            guarantees,
+            timeout_mandatory,
+            span: Span::merge(&start, &end_span),
+        })
     }
 }
 
@@ -840,26 +870,26 @@ fn token_to_source(tok: &Token) -> String {
         Token::IntLit(n) => n.to_string(),
         Token::FloatLit(f) => f.to_string(),
         Token::BoolLit(b) => b.to_string(),
-        Token::Lt    => "<".to_string(),
-        Token::Gt    => ">".to_string(),
-        Token::Eq    => "=".to_string(),
-        Token::Ge    => ">=".to_string(),
-        Token::Le    => "<=".to_string(),
-        Token::Ne    => "!=".to_string(),
-        Token::And   => "and".to_string(),
-        Token::Or    => "or".to_string(),
-        Token::Not   => "not".to_string(),
-        Token::Plus  => "+".to_string(),
+        Token::Lt => "<".to_string(),
+        Token::Gt => ">".to_string(),
+        Token::Eq => "=".to_string(),
+        Token::Ge => ">=".to_string(),
+        Token::Le => "<=".to_string(),
+        Token::Ne => "!=".to_string(),
+        Token::And => "and".to_string(),
+        Token::Or => "or".to_string(),
+        Token::Not => "not".to_string(),
+        Token::Plus => "+".to_string(),
         Token::Minus => "-".to_string(),
         Token::Slash => "/".to_string(),
-        Token::Comma    => ", ".to_string(),
-        Token::LParen   => "(".to_string(),
-        Token::RParen   => ")".to_string(),
+        Token::Comma => ", ".to_string(),
+        Token::LParen => "(".to_string(),
+        Token::RParen => ")".to_string(),
         Token::LBracket => "[".to_string(),
         Token::RBracket => "]".to_string(),
-        Token::Star     => "*".to_string(),
+        Token::Star => "*".to_string(),
         Token::Question => "?".to_string(),
-        Token::Dot      => ".".to_string(),
+        Token::Dot => ".".to_string(),
         _ => format!("{:?}", tok),
     }
 }
@@ -868,48 +898,48 @@ fn token_to_source(tok: &Token) -> String {
 /// return its source spelling; otherwise return `None`.
 fn token_keyword_str(tok: &Token) -> Option<&'static str> {
     match tok {
-        Token::Threshold    => Some("threshold"),
-        Token::Limit        => Some("limit"),
-        Token::Produces     => Some("produces"),
-        Token::Modifies     => Some("modifies"),
-        Token::RevertsWhen  => Some("reverts_when"),
+        Token::Threshold => Some("threshold"),
+        Token::Limit => Some("limit"),
+        Token::Produces => Some("produces"),
+        Token::Modifies => Some("modifies"),
+        Token::RevertsWhen => Some("reverts_when"),
         Token::OnExhaustion => Some("on_exhaustion"),
-        Token::Signal       => Some("signal"),
-        Token::Payload      => Some("payload"),
-        Token::From         => Some("from"),
-        Token::To           => Some("to"),
-        Token::Toward       => Some("toward"),
-        Token::Bounds       => Some("bounds"),
-        Token::Members      => Some("members"),
-        Token::Fitness      => Some("fitness"),
-        Token::Telos        => Some("telos"),
-        Token::Form         => Some("form"),
-        Token::Matter       => Some("matter"),
-        Token::Regulate     => Some("regulate"),
-        Token::Evolve       => Some("evolve"),
-        Token::Degenerate   => Some("degenerate"),
-        Token::Fallback     => Some("fallback"),
-        Token::Checkpoint   => Some("checkpoint"),
-        Token::Canalize     => Some("canalize"),
-        Token::Pathway      => Some("pathway"),
-        Token::Senescence   => Some("senescence"),
-        Token::Store       => Some("store"),
-        Token::Table       => Some("table"),
-        Token::GraphNode   => Some("node"),
-        Token::Edge        => Some("edge"),
-        Token::Ttl         => Some("ttl"),
-        Token::Index       => Some("index"),
-        Token::Retention   => Some("retention"),
-        Token::Resolution  => Some("resolution"),
-        Token::Format      => Some("format"),
+        Token::Signal => Some("signal"),
+        Token::Payload => Some("payload"),
+        Token::From => Some("from"),
+        Token::To => Some("to"),
+        Token::Toward => Some("toward"),
+        Token::Bounds => Some("bounds"),
+        Token::Members => Some("members"),
+        Token::Fitness => Some("fitness"),
+        Token::Telos => Some("telos"),
+        Token::Form => Some("form"),
+        Token::Matter => Some("matter"),
+        Token::Regulate => Some("regulate"),
+        Token::Evolve => Some("evolve"),
+        Token::Degenerate => Some("degenerate"),
+        Token::Fallback => Some("fallback"),
+        Token::Checkpoint => Some("checkpoint"),
+        Token::Canalize => Some("canalize"),
+        Token::Pathway => Some("pathway"),
+        Token::Senescence => Some("senescence"),
+        Token::Store => Some("store"),
+        Token::Table => Some("table"),
+        Token::GraphNode => Some("node"),
+        Token::Edge => Some("edge"),
+        Token::Ttl => Some("ttl"),
+        Token::Index => Some("index"),
+        Token::Retention => Some("retention"),
+        Token::Resolution => Some("resolution"),
+        Token::Format => Some("format"),
         Token::Compression => Some("compression"),
-        Token::Capacity    => Some("capacity"),
-        Token::Eviction    => Some("eviction"),
-        Token::Fact        => Some("fact"),
-        Token::Dimension   => Some("dimension"),
-        Token::Embedding   => Some("embedding"),
-        Token::Adopt        => Some("adopt"),
-        Token::Process      => Some("process"),
-        _                   => None,
+        Token::Capacity => Some("capacity"),
+        Token::Eviction => Some("eviction"),
+        Token::Fact => Some("fact"),
+        Token::Dimension => Some("dimension"),
+        Token::Embedding => Some("embedding"),
+        Token::Adopt => Some("adopt"),
+        Token::Process => Some("process"),
+        _ => None,
     }
 }

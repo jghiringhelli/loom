@@ -36,19 +36,19 @@ impl StoreChecker {
 
     fn check_store(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
         match &store.kind {
-            StoreKind::KeyValue        => self.check_keyvalue(store, errors),
-            StoreKind::Relational      => self.check_relational(store, errors),
-            StoreKind::Document        => self.check_document(store, errors),
-            StoreKind::Columnar        => self.check_columnar(store, errors),
-            StoreKind::Graph           => self.check_graph(store, errors),
-            StoreKind::TimeSeries      => self.check_timeseries(store, errors),
-            StoreKind::Vector          => self.check_vector(store, errors),
-            StoreKind::Snowflake       => self.check_snowflake(store, errors),
-            StoreKind::Hypercube       => self.check_hypercube(store, errors),
-            StoreKind::FlatFile        => self.check_flatfile(store, errors),
-            StoreKind::InMemory(_)     => self.check_inmemory(store, errors),
-            StoreKind::Distributed     => self.check_distributed(store, errors),
-            StoreKind::DistributedLog  => self.check_distributed_log(store, errors),
+            StoreKind::KeyValue => self.check_keyvalue(store, errors),
+            StoreKind::Relational => self.check_relational(store, errors),
+            StoreKind::Document => self.check_document(store, errors),
+            StoreKind::Columnar => self.check_columnar(store, errors),
+            StoreKind::Graph => self.check_graph(store, errors),
+            StoreKind::TimeSeries => self.check_timeseries(store, errors),
+            StoreKind::Vector => self.check_vector(store, errors),
+            StoreKind::Snowflake => self.check_snowflake(store, errors),
+            StoreKind::Hypercube => self.check_hypercube(store, errors),
+            StoreKind::FlatFile => self.check_flatfile(store, errors),
+            StoreKind::InMemory(_) => self.check_inmemory(store, errors),
+            StoreKind::Distributed => self.check_distributed(store, errors),
+            StoreKind::DistributedLog => self.check_distributed_log(store, errors),
         }
     }
 
@@ -63,15 +63,22 @@ impl StoreChecker {
     ///   table in this store (warning when unresolvable — cross-store FKs
     ///   are allowed but unverifiable at compile time).
     fn check_relational(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let table_names: HashSet<String> = store.schema.iter()
+        let table_names: HashSet<String> = store
+            .schema
+            .iter()
             .filter_map(|e| {
-                if let StoreSchemaEntry::Table { name, .. } = e { Some(name.clone()) } else { None }
+                if let StoreSchemaEntry::Table { name, .. } = e {
+                    Some(name.clone())
+                } else {
+                    None
+                }
             })
             .collect();
 
         for entry in &store.schema {
             if let StoreSchemaEntry::Table { name, fields, span } = entry {
-                let pk_count = fields.iter()
+                let pk_count = fields
+                    .iter()
                     .filter(|f| f.annotations.iter().any(|a| a.key == "primary_key"))
                     .count();
 
@@ -114,7 +121,8 @@ impl StoreChecker {
                 for field in fields {
                     for ann in &field.annotations {
                         if ann.key == "foreign_key" {
-                            let target_table = ann.value
+                            let target_table = ann
+                                .value
                                 .split('.')
                                 .next()
                                 .unwrap_or("")
@@ -148,16 +156,23 @@ impl StoreChecker {
     /// - Hint emitted when key type is `String` — raw string keys bypass
     ///   Bloom filter optimisation.
     fn check_keyvalue(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let key_count = store.schema.iter()
+        let key_count = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::KeyType { .. }))
             .count();
-        let value_count = store.schema.iter()
+        let value_count = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::ValueType { .. }))
             .count();
 
         if key_count == 0 {
             errors.push(LoomError::type_err(
-                format!("store '{}': KeyValue store must declare 'key: Type'", store.name),
+                format!(
+                    "store '{}': KeyValue store must declare 'key: Type'",
+                    store.name
+                ),
                 store.span.clone(),
             ));
         } else if key_count > 1 {
@@ -173,7 +188,10 @@ impl StoreChecker {
 
         if value_count == 0 {
             errors.push(LoomError::type_err(
-                format!("store '{}': KeyValue store must declare 'value: Type'", store.name),
+                format!(
+                    "store '{}': KeyValue store must declare 'value: Type'",
+                    store.name
+                ),
                 store.span.clone(),
             ));
         } else if value_count > 1 {
@@ -247,21 +265,37 @@ impl StoreChecker {
     }
 
     fn check_graph(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let node_names: HashSet<String> = store.schema.iter()
+        let node_names: HashSet<String> = store
+            .schema
+            .iter()
             .filter_map(|e| {
-                if let StoreSchemaEntry::Node { name, .. } = e { Some(name.clone()) } else { None }
+                if let StoreSchemaEntry::Node { name, .. } = e {
+                    Some(name.clone())
+                } else {
+                    None
+                }
             })
             .collect();
 
         if node_names.is_empty() {
             errors.push(LoomError::type_err(
-                format!("store '{}': Graph store must declare at least one 'node' entry", store.name),
+                format!(
+                    "store '{}': Graph store must declare at least one 'node' entry",
+                    store.name
+                ),
                 store.span.clone(),
             ));
         }
 
         for entry in &store.schema {
-            if let StoreSchemaEntry::Edge { name, source, target, span, .. } = entry {
+            if let StoreSchemaEntry::Edge {
+                name,
+                source,
+                target,
+                span,
+                ..
+            } = entry
+            {
                 if !node_names.contains(source) {
                     errors.push(LoomError::type_err(
                         format!(
@@ -285,10 +319,16 @@ impl StoreChecker {
     }
 
     fn check_timeseries(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let has_event = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::Event { .. }));
+        let has_event = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::Event { .. }));
         if !has_event {
             errors.push(LoomError::type_err(
-                format!("store '{}': TimeSeries store must declare at least one 'event' entry", store.name),
+                format!(
+                    "store '{}': TimeSeries store must declare at least one 'event' entry",
+                    store.name
+                ),
                 store.span.clone(),
             ));
             return;
@@ -348,10 +388,16 @@ impl StoreChecker {
     }
 
     fn check_vector(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let has_embedding = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::EmbeddingEntry { .. }));
+        let has_embedding = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::EmbeddingEntry { .. }));
         if !has_embedding {
             errors.push(LoomError::type_err(
-                format!("store '{}': Vector store must declare at least one 'embedding' entry", store.name),
+                format!(
+                    "store '{}': Vector store must declare at least one 'embedding' entry",
+                    store.name
+                ),
                 store.span.clone(),
             ));
             return;
@@ -410,7 +456,9 @@ impl StoreChecker {
     /// - Hint emitted when no numeric fields are declared — a columnar store
     ///   without aggregatable fields is unusual.
     fn check_columnar(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let schema_entries: Vec<&StoreSchemaEntry> = store.schema.iter()
+        let schema_entries: Vec<&StoreSchemaEntry> = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::Collection { .. }))
             .collect();
 
@@ -465,10 +513,14 @@ impl StoreChecker {
     ///   dimension (hint when unresolvable).
     /// - `@measure` and `@degenerate_dimension` are valid fact field annotations.
     fn check_snowflake(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let fact_count = store.schema.iter()
+        let fact_count = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::Fact { .. }))
             .count();
-        let dimension_count = store.schema.iter()
+        let dimension_count = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::DimensionEntry { .. }))
             .count();
 
@@ -502,7 +554,9 @@ impl StoreChecker {
         }
 
         // Check that _id-suffixed fact fields reference a declared dimension.
-        let dimension_names: HashSet<String> = store.schema.iter()
+        let dimension_names: HashSet<String> = store
+            .schema
+            .iter()
             .filter_map(|e| {
                 if let StoreSchemaEntry::DimensionEntry { name, .. } = e {
                     Some(name.clone())
@@ -513,10 +567,16 @@ impl StoreChecker {
             .collect();
 
         for entry in &store.schema {
-            if let StoreSchemaEntry::Fact { name: fact_name, fields, span: _ } = entry {
+            if let StoreSchemaEntry::Fact {
+                name: fact_name,
+                fields,
+                span: _,
+            } = entry
+            {
                 for field in fields {
                     if field.name.ends_with("_id") {
-                        let dim_hint = field.name
+                        let dim_hint = field
+                            .name
                             .trim_end_matches("_id")
                             .split('_')
                             .map(|w| {
@@ -554,8 +614,13 @@ impl StoreChecker {
     ///   cuboids; materialising all is generally impractical).
     /// - `@sparse` via a config entry acknowledges a sparse cube.
     fn check_hypercube(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let has_fact = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::Fact { .. }));
-        let dimension_count = store.schema.iter()
+        let has_fact = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::Fact { .. }));
+        let dimension_count = store
+            .schema
+            .iter()
             .filter(|e| matches!(e, StoreSchemaEntry::DimensionEntry { .. }))
             .count();
 
@@ -680,8 +745,14 @@ impl StoreChecker {
     ///   key-value output.
     /// - Warn if `replication` config is absent.
     fn check_distributed(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let has_schema = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::Collection { .. }));
-        let has_mapreduce = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::MapReduceJob(_)));
+        let has_schema = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::Collection { .. }));
+        let has_mapreduce = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::MapReduceJob(_)));
 
         if !has_schema {
             errors.push(LoomError::type_err(
@@ -738,7 +809,10 @@ impl StoreChecker {
     /// - Warn if no consumers declared.
     /// - Warn if `partitions` config is absent.
     fn check_distributed_log(&self, store: &StoreDef, errors: &mut Vec<LoomError>) {
-        let has_event = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::Event { .. }));
+        let has_event = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::Event { .. }));
         if !has_event {
             errors.push(LoomError::type_err(
                 format!(
@@ -751,7 +825,10 @@ impl StoreChecker {
 
         for entry in &store.schema {
             if let StoreSchemaEntry::LogConsumer(c) = entry {
-                if c.offset != "earliest" && c.offset != "latest" && !looks_like_timestamp(&c.offset) {
+                if c.offset != "earliest"
+                    && c.offset != "latest"
+                    && !looks_like_timestamp(&c.offset)
+                {
                     errors.push(LoomError::type_err(
                         format!(
                             "[warn] consumer '{}': offset '{}' is not 'earliest', 'latest', \
@@ -764,7 +841,10 @@ impl StoreChecker {
             }
         }
 
-        let has_consumer = store.schema.iter().any(|e| matches!(e, StoreSchemaEntry::LogConsumer(_)));
+        let has_consumer = store
+            .schema
+            .iter()
+            .any(|e| matches!(e, StoreSchemaEntry::LogConsumer(_)));
         if !has_consumer {
             errors.push(LoomError::type_err(
                 format!(
@@ -818,8 +898,11 @@ fn is_valid_ttl(value: &str) -> bool {
 fn is_container_type(ty: &TypeExpr) -> bool {
     matches!(
         ty,
-        TypeExpr::Generic(_, _) | TypeExpr::Effect(_, _) | TypeExpr::Option(_)
-            | TypeExpr::Result(_, _) | TypeExpr::Tuple(_)
+        TypeExpr::Generic(_, _)
+            | TypeExpr::Effect(_, _)
+            | TypeExpr::Option(_)
+            | TypeExpr::Result(_, _)
+            | TypeExpr::Tuple(_)
     )
 }
 
@@ -829,8 +912,20 @@ fn is_numeric_type(ty: &TypeExpr) -> bool {
     match ty {
         TypeExpr::Base(name) => matches!(
             name.as_str(),
-            "Float" | "Int" | "Int32" | "Int64" | "UInt" | "UInt32" | "UInt64"
-                | "f64" | "f32" | "i64" | "i32" | "Double" | "Decimal" | "Number"
+            "Float"
+                | "Int"
+                | "Int32"
+                | "Int64"
+                | "UInt"
+                | "UInt32"
+                | "UInt64"
+                | "f64"
+                | "f32"
+                | "i64"
+                | "i32"
+                | "Double"
+                | "Decimal"
+                | "Number"
         ),
         _ => false,
     }
@@ -838,15 +933,19 @@ fn is_numeric_type(ty: &TypeExpr) -> bool {
 
 /// Validate a retention string (e.g. `90days`, `1year`, `forever`, `24hours`).
 fn is_valid_retention(s: &str) -> bool {
-    if s == "forever" { return true; }
+    if s == "forever" {
+        return true;
+    }
     let suffixes = [
-        "days", "day", "hours", "hour", "minutes", "minute",
-        "weeks", "week", "months", "month", "years", "year",
+        "days", "day", "hours", "hour", "minutes", "minute", "weeks", "week", "months", "month",
+        "years", "year",
     ];
     for suffix in &suffixes {
         if s.ends_with(suffix) {
             let prefix = &s[..s.len() - suffix.len()];
-            if prefix.parse::<u64>().is_ok() { return true; }
+            if prefix.parse::<u64>().is_ok() {
+                return true;
+            }
         }
     }
     false
@@ -854,11 +953,15 @@ fn is_valid_retention(s: &str) -> bool {
 
 /// Validate a resolution string (e.g. `1second`, `1minute`, `1hour`, `1day`).
 fn is_valid_resolution(s: &str) -> bool {
-    let suffixes = ["second", "seconds", "minute", "minutes", "hour", "hours", "day", "days"];
+    let suffixes = [
+        "second", "seconds", "minute", "minutes", "hour", "hours", "day", "days",
+    ];
     for suffix in &suffixes {
         if s.ends_with(suffix) {
             let prefix = &s[..s.len() - suffix.len()];
-            if prefix.parse::<u64>().is_ok() { return true; }
+            if prefix.parse::<u64>().is_ok() {
+                return true;
+            }
         }
     }
     false
@@ -866,5 +969,10 @@ fn is_valid_resolution(s: &str) -> bool {
 
 /// Heuristic: does this string look like a timestamp offset (not earliest/latest)?
 fn looks_like_timestamp(s: &str) -> bool {
-    s.contains('-') || s.contains('T') || s.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+    s.contains('-')
+        || s.contains('T')
+        || s.chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
 }

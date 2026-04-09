@@ -36,7 +36,10 @@ end
     assert!(wat.contains("(module"), "WAT must start with (module");
     assert!(wat.contains("(func $add"), "WAT must declare func $add");
     assert!(wat.contains("(export \"add\")"), "func must be exported");
-    assert!(wat.contains("i64.add"), "must emit i64.add for Int addition");
+    assert!(
+        wat.contains("i64.add"),
+        "must emit i64.add for Int addition"
+    );
 }
 
 #[test]
@@ -50,9 +53,18 @@ end
 end
 "#;
     let wat = compile_wasm(src).expect("let-binding function should compile");
-    assert!(wat.contains("(local $result i64)"), "must declare local for let binding");
-    assert!(wat.contains("local.set $result"), "must set the local after computation");
-    assert!(wat.contains("local.get $result"), "must get the local for return");
+    assert!(
+        wat.contains("(local $result i64)"),
+        "must declare local for let binding"
+    );
+    assert!(
+        wat.contains("local.set $result"),
+        "must set the local after computation"
+    );
+    assert!(
+        wat.contains("local.get $result"),
+        "must get the local for return"
+    );
 }
 
 #[test]
@@ -65,14 +77,20 @@ end
 end
 "#;
     let wat = compile_wasm(src).expect("bool-returning function should compile");
-    assert!(wat.contains("(result i32)"), "Bool return type must map to i32");
-    assert!(wat.contains("i64.gt_s"), "greater-than on Int must use i64.gt_s");
+    assert!(
+        wat.contains("(result i32)"),
+        "Bool return type must map to i32"
+    );
+    assert!(
+        wat.contains("i64.gt_s"),
+        "greater-than on Int must use i64.gt_s"
+    );
 }
 
 #[test]
 fn wasm_demo_corpus_compiles_successfully() {
-    let source = std::fs::read_to_string("corpus/wasm_demo.loom")
-        .expect("corpus/wasm_demo.loom must exist");
+    let source =
+        std::fs::read_to_string("corpus/wasm_demo.loom").expect("corpus/wasm_demo.loom must exist");
     let wat = compile_wasm(&source).expect("wasm_demo.loom should compile to WASM without errors");
     assert!(wat.starts_with("(module"), "output must be a WAT module");
     assert!(wat.ends_with(")\n"), "module must be properly closed");
@@ -90,7 +108,10 @@ end
 end
 "#;
     let errors = wasm_errors(src);
-    assert!(!errors.is_empty(), "effectful function must produce WasmUnsupported error");
+    assert!(
+        !errors.is_empty(),
+        "effectful function must produce WasmUnsupported error"
+    );
     assert!(
         errors.iter().any(|e| match e {
             LoomError::WasmUnsupported { feature, .. } => feature.contains("effectful"),
@@ -111,7 +132,10 @@ end
 end
 "#;
     let errors = wasm_errors(src);
-    assert!(!errors.is_empty(), "refined type must produce WasmUnsupported error");
+    assert!(
+        !errors.is_empty(),
+        "refined type must produce WasmUnsupported error"
+    );
     assert!(
         errors.iter().any(|e| match e {
             LoomError::WasmUnsupported { feature, .. } => feature.contains("Email"),

@@ -58,7 +58,8 @@ end
     let combined = warnings.join("\n");
     assert!(
         combined.contains("duplicate") || combined.contains("shared"),
-        "warning should mention duplicate or shared adapter: {}", combined
+        "warning should mention duplicate or shared adapter: {}",
+        combined
     );
 }
 
@@ -99,7 +100,8 @@ end
     let combined = warnings.join("\n");
     assert!(
         !combined.contains("duplicate"),
-        "Float→Double and String→Bytes should not trigger a duplicate warning: {}", combined
+        "Float→Double and String→Bytes should not trigger a duplicate warning: {}",
+        combined
     );
 }
 
@@ -185,7 +187,8 @@ end
     let combined = warnings.join("\n");
     assert!(
         !combined.contains("duplicate"),
-        "migrations within a single being should not trigger cross-being duplicate warning: {}", combined
+        "migrations within a single being should not trigger cross-being duplicate warning: {}",
+        combined
     );
 }
 
@@ -208,7 +211,8 @@ end
     let warnings = check(src);
     assert!(
         warnings.is_empty(),
-        "module with no migrations should produce no warnings: {:?}", warnings
+        "module with no migrations should produce no warnings: {:?}",
+        warnings
     );
 }
 

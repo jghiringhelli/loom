@@ -23,7 +23,7 @@ impl<'src> crate::parser::Parser<'src> {
 
         let is_field_list = match (self.peek(), self.peek2()) {
             (Some(Token::Ident(_)), Some(Token::Colon)) => true,
-            (Some(Token::End), _) => true,   // empty product type
+            (Some(Token::End), _) => true, // empty product type
             _ => false,
         };
 
@@ -84,13 +84,19 @@ impl<'src> crate::parser::Parser<'src> {
     }
 
     /// Parse the field list body of a product type (already past `type N =`).
-    pub(in crate::parser) fn parse_type_fields(&mut self, name: String, start: Span) -> Result<TypeDef, LoomError> {
+    pub(in crate::parser) fn parse_type_fields(
+        &mut self,
+        name: String,
+        start: Span,
+    ) -> Result<TypeDef, LoomError> {
         let mut fields = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             let field_start = self.current_span();
             // Parse optional field-level annotations before the field name (@pii, @gdpr, etc.)
             let leading_annotations = self.parse_annotations();
-            if self.at(&Token::End) { break; }
+            if self.at(&Token::End) {
+                break;
+            }
             let (field_name, _) = self.expect_ident()?;
             self.expect(Token::Colon)?;
             let ty = self.parse_type_expr()?;
@@ -244,7 +250,10 @@ impl<'src> crate::parser::Parser<'src> {
     ///
     /// Handles the special forms `Effect<[E...], T>`, `Option<T>`,
     /// `Result<T, E>`, `Tensor<rank, [shape], unit>`, and arbitrary generics `Name<T...>`.
-    pub(in crate::parser) fn parse_generic_tail(&mut self, name: String) -> Result<TypeExpr, LoomError> {
+    pub(in crate::parser) fn parse_generic_tail(
+        &mut self,
+        name: String,
+    ) -> Result<TypeExpr, LoomError> {
         match name.as_str() {
             "Effect" => {
                 // `Effect<[E1@tier, E2, ...], ReturnType>`
@@ -258,10 +267,10 @@ impl<'src> crate::parser::Parser<'src> {
                         self.advance();
                         if let Some((Token::Ident(tier_name), _)) = self.tokens.get(self.pos) {
                             let tier = match tier_name.as_str() {
-                                "pure"         => ConsequenceTier::Pure,
-                                "reversible"   => ConsequenceTier::Reversible,
+                                "pure" => ConsequenceTier::Pure,
+                                "reversible" => ConsequenceTier::Reversible,
                                 "irreversible" => ConsequenceTier::Irreversible,
-                                _              => ConsequenceTier::Irreversible,
+                                _ => ConsequenceTier::Irreversible,
                             };
                             self.advance();
                             effect_tiers_local.push((eff.clone(), tier));
@@ -305,7 +314,12 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Comma)?;
                 let unit = self.parse_type_expr()?;
                 self.expect(Token::Gt)?;
-                Ok(TypeExpr::Tensor { rank, shape, unit: Box::new(unit), span })
+                Ok(TypeExpr::Tensor {
+                    rank,
+                    shape,
+                    unit: Box::new(unit),
+                    span,
+                })
             }
             _ => {
                 // Arbitrary generic: `Name<T1, T2, ...>`
@@ -352,5 +366,4 @@ impl<'src> crate::parser::Parser<'src> {
             span: Span::merge(&start, &end_span),
         })
     }
-
 }

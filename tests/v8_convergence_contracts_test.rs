@@ -30,7 +30,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("FINDITEM_TERMINATION_BOUND"),
-        "Expected termination bound const, got:\n{}", rust
+        "Expected termination bound const, got:\n{}",
+        rust
     );
 }
 
@@ -46,7 +47,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("GcdTerminationGuard"),
-        "Expected TerminationGuard struct, got:\n{}", rust
+        "Expected TerminationGuard struct, got:\n{}",
+        rust
     );
 }
 
@@ -62,7 +64,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("pub fn tick(&mut self)"),
-        "Expected tick() method on guard, got:\n{}", rust
+        "Expected tick() method on guard, got:\n{}",
+        rust
     );
 }
 
@@ -78,7 +81,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("LOOM termination violation"),
-        "Expected panic message in guard, got:\n{}", rust
+        "Expected panic message in guard, got:\n{}",
+        rust
     );
 }
 
@@ -94,7 +98,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("pub fn iterations(&self) -> usize"),
-        "Expected iterations() method, got:\n{}", rust
+        "Expected iterations() method, got:\n{}",
+        rust
     );
 }
 
@@ -110,11 +115,13 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("LOOM[contract:Termination]"),
-        "Expected termination audit comment, got:\n{}", rust
+        "Expected termination audit comment, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("unsorted_pairs"),
-        "Expected metric name in audit, got:\n{}", rust
+        "Expected metric name in audit, got:\n{}",
+        rust
     );
 }
 
@@ -136,7 +143,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("ct_eq") && rust.contains("subtle"),
-        "Expected subtle ConstantTimeEq wrapper, got:\n{}", rust
+        "Expected subtle ConstantTimeEq wrapper, got:\n{}",
+        rust
     );
 }
 
@@ -154,7 +162,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("#[cfg(feature = \"subtle\")]"),
-        "Expected #[cfg(feature = \"subtle\")] guard, got:\n{}", rust
+        "Expected #[cfg(feature = \"subtle\")] guard, got:\n{}",
+        rust
     );
 }
 
@@ -172,7 +181,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("LOOM[contract:TimingSafety]") && rust.contains("declared_only"),
-        "Expected timing safety audit comment for declared_only, got:\n{}", rust
+        "Expected timing safety audit comment for declared_only, got:\n{}",
+        rust
     );
 }
 
@@ -198,15 +208,18 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("AGENT_CONVERGENCE_THRESHOLD"),
-        "Expected convergence threshold const, got:\n{}", rust
+        "Expected convergence threshold const, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("AGENT_WARNING_THRESHOLD"),
-        "Expected warning threshold const, got:\n{}", rust
+        "Expected warning threshold const, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("AGENT_DIVERGENCE_THRESHOLD"),
-        "Expected divergence threshold const, got:\n{}", rust
+        "Expected divergence threshold const, got:\n{}",
+        rust
     );
 }
 
@@ -227,11 +240,13 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("enum RobotConvergenceState"),
-        "Expected ConvergenceState enum, got:\n{}", rust
+        "Expected ConvergenceState enum, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("Converging") && rust.contains("Warning") && rust.contains("Diverging"),
-        "Expected all convergence state variants, got:\n{}", rust
+        "Expected all convergence state variants, got:\n{}",
+        rust
     );
 }
 
@@ -252,7 +267,8 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("pub fn convergence_state"),
-        "Expected convergence_state() method, got:\n{}", rust
+        "Expected convergence_state() method, got:\n{}",
+        rust
     );
 }
 
@@ -273,15 +289,18 @@ end
     let rust = compile(src);
     assert!(
         rust.contains("LEARNER_TLA_SPEC"),
-        "Expected TLA+ spec const, got:\n{}", rust
+        "Expected TLA+ spec const, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("ConvergenceProperty"),
-        "Expected TLA+ ConvergenceProperty liveness property, got:\n{}", rust
+        "Expected TLA+ ConvergenceProperty liveness property, got:\n{}",
+        rust
     );
     assert!(
         rust.contains("TelosConverged"),
-        "Expected TLA+ TelosConverged predicate, got:\n{}", rust
+        "Expected TLA+ TelosConverged predicate, got:\n{}",
+        rust
     );
 }
 

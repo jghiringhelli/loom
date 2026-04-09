@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct SideChannelChecker;
 
 impl SideChannelChecker {
-    pub fn new() -> Self { SideChannelChecker }
+    pub fn new() -> Self {
+        SideChannelChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -14,11 +16,18 @@ impl SideChannelChecker {
                 self.check_fn(fd, &mut errors);
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn check_fn(&self, fd: &FnDef, errors: &mut Vec<LoomError>) {
-        let has_timing_safe = fd.annotations.iter().any(|a| a.key == "timing-safe" || a.key == "timing_safe");
+        let has_timing_safe = fd
+            .annotations
+            .iter()
+            .any(|a| a.key == "timing-safe" || a.key == "timing_safe");
         if has_timing_safe && fd.timing_safety.is_none() {
             errors.push(LoomError::TypeError {
                 msg: format!(
@@ -32,7 +41,10 @@ impl SideChannelChecker {
             if ts.constant_time {
                 if let Some(leaks) = &ts.leaks_bits {
                     let leaks_norm = leaks.trim();
-                    let is_zero = leaks_norm == "0" || leaks_norm == "0.0" || leaks_norm == "0.0 bits" || leaks_norm == "0 bits";
+                    let is_zero = leaks_norm == "0"
+                        || leaks_norm == "0.0"
+                        || leaks_norm == "0.0 bits"
+                        || leaks_norm == "0 bits";
                     if !is_zero {
                         errors.push(LoomError::TypeError {
                             msg: format!(

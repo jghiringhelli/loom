@@ -37,7 +37,9 @@ impl CognitiveMemoryChecker {
     pub fn check(&self, module: &Module) -> Vec<LoomError> {
         let mut errors = Vec::new();
         for being in &module.being_defs {
-            let Some(ref mem) = being.cognitive_memory else { continue };
+            let Some(ref mem) = being.cognitive_memory else {
+                continue;
+            };
 
             // Rule 5: decay_rate range check.
             if let Some(dr) = mem.decay_rate {

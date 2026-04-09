@@ -63,11 +63,8 @@ impl AspectChecker {
         let mut seen_orders: HashSet<u32> = HashSet::new();
 
         // Collect all aspect names for @requires_aspect validation.
-        let aspect_names: HashSet<&str> = module
-            .aspect_defs
-            .iter()
-            .map(|a| a.name.as_str())
-            .collect();
+        let aspect_names: HashSet<&str> =
+            module.aspect_defs.iter().map(|a| a.name.as_str()).collect();
 
         for aspect in &module.aspect_defs {
             // Validate order uniqueness.
@@ -216,4 +213,3 @@ impl AspectChecker {
         }
     }
 }
-

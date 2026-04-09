@@ -44,7 +44,8 @@ impl EnumRegistry {
         ] {
             let names: Vec<String> = vs.iter().map(|s| s.to_string()).collect();
             for name in &names {
-                reg.enum_of_variant.insert(name.clone(), enum_name.to_string());
+                reg.enum_of_variant
+                    .insert(name.clone(), enum_name.to_string());
             }
             reg.variants_of.insert(enum_name.to_string(), names);
         }
@@ -107,7 +108,11 @@ impl ExhaustivenessChecker {
 
     fn check_expr(&self, expr: &Expr, reg: &EnumRegistry, errors: &mut Vec<LoomError>) {
         match expr {
-            Expr::Match { subject, arms, span } => {
+            Expr::Match {
+                subject,
+                arms,
+                span,
+            } => {
                 self.check_match(arms, span, reg, errors);
                 self.check_expr(subject, reg, errors);
                 for arm in arms {
@@ -142,7 +147,9 @@ impl ExhaustivenessChecker {
                 self.check_expr(body, reg, errors);
             }
             Expr::Tuple(elems, _) => {
-                for e in elems { self.check_expr(e, reg, errors); }
+                for e in elems {
+                    self.check_expr(e, reg, errors);
+                }
             }
             Expr::Try(inner, _) => self.check_expr(inner, reg, errors),
         }
@@ -172,7 +179,10 @@ impl ExhaustivenessChecker {
 
         // A guard-free Wildcard or Ident arm is a total cover — no further
         // variant analysis is needed.
-        if arms.iter().any(|arm| arm.guard.is_none() && is_total_pattern(&arm.pattern)) {
+        if arms
+            .iter()
+            .any(|arm| arm.guard.is_none() && is_total_pattern(&arm.pattern))
+        {
             return;
         }
 
@@ -199,15 +209,9 @@ impl ExhaustivenessChecker {
     }
 
     /// Find the first arm that uses a known variant, return the owning enum name.
-    fn resolve_enum<'reg>(
-        &self,
-        arms: &[MatchArm],
-        reg: &'reg EnumRegistry,
-    ) -> Option<&'reg str> {
-        arms.iter().find_map(|arm| {
-            top_level_variant_name(&arm.pattern)
-                .and_then(|v| reg.enum_of(v))
-        })
+    fn resolve_enum<'reg>(&self, arms: &[MatchArm], reg: &'reg EnumRegistry) -> Option<&'reg str> {
+        arms.iter()
+            .find_map(|arm| top_level_variant_name(&arm.pattern).and_then(|v| reg.enum_of(v)))
     }
 }
 

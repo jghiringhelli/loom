@@ -7,21 +7,44 @@ use loom::compile;
 
 fn ok(src: &str) {
     let r = compile(src);
-    assert!(r.is_ok(), "expected ok:\n{}", r.unwrap_err().iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n"));
+    assert!(
+        r.is_ok(),
+        "expected ok:\n{}",
+        r.unwrap_err()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
 
 fn err_contains(src: &str, fragment: &str) {
     let r = compile(src);
-    assert!(r.is_err(), "expected error containing '{}' but compiled ok", fragment);
-    let msg = r.unwrap_err().iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
-    assert!(msg.contains(fragment), "expected error containing '{}'\nGot:\n{}", fragment, msg);
+    assert!(
+        r.is_err(),
+        "expected error containing '{}' but compiled ok",
+        fragment
+    );
+    let msg = r
+        .unwrap_err()
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        msg.contains(fragment),
+        "expected error containing '{}'\nGot:\n{}",
+        fragment,
+        msg
+    );
 }
 
 // ── 1. Episodic without journal: → error ─────────────────────────────────────
 
 #[test]
 fn test_m112_episodic_without_journal_errors() {
-    err_contains(r#"
+    err_contains(
+        r#"
 module M
   being Agent
     telos: "agent"
@@ -31,7 +54,9 @@ module M
     end
   end
 end
-"#, "episodic");
+"#,
+        "episodic",
+    );
 }
 
 // ── 2. Episodic WITH journal: → ok ────────────────────────────────────────────
@@ -59,7 +84,8 @@ end
 
 #[test]
 fn test_m112_procedural_without_migration_errors() {
-    err_contains(r#"
+    err_contains(
+        r#"
 module M
   being Agent
     telos: "agent"
@@ -69,7 +95,9 @@ module M
     end
   end
 end
-"#, "procedural");
+"#,
+        "procedural",
+    );
 }
 
 // ── 4. Procedural WITH migration: → ok ───────────────────────────────────────
@@ -101,7 +129,8 @@ end
 
 #[test]
 fn test_m112_architectural_without_manifest_errors() {
-    err_contains(r#"
+    err_contains(
+        r#"
 module M
   being Agent
     telos: "agent"
@@ -111,7 +140,9 @@ module M
     end
   end
 end
-"#, "architectural");
+"#,
+        "architectural",
+    );
 }
 
 // ── 6. Multiple types: episodic + procedural, both satisfied ─────────────────
@@ -147,7 +178,8 @@ end
 
 #[test]
 fn test_m112_decay_rate_out_of_range_errors() {
-    err_contains(r#"
+    err_contains(
+        r#"
 module M
   being Agent
     telos: "agent"
@@ -162,7 +194,9 @@ module M
     end
   end
 end
-"#, "decay_rate");
+"#,
+        "decay_rate",
+    );
 }
 
 // ── 8. decay_rate in range → ok ──────────────────────────────────────────────

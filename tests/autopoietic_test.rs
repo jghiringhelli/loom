@@ -37,9 +37,16 @@ end
 "#;
     let module = parse(src);
     assert_eq!(module.being_defs.len(), 1);
-    assert!(module.being_defs[0].autopoietic, "expected autopoietic=true");
+    assert!(
+        module.being_defs[0].autopoietic,
+        "expected autopoietic=true"
+    );
     let result = check_teleos(&module);
-    assert!(result.is_ok(), "expected autopoietic being with all requirements to pass: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "expected autopoietic being with all requirements to pass: {:?}",
+        result
+    );
 }
 
 // 2. autopoietic_missing_regulate_fails

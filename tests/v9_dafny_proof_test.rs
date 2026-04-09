@@ -27,7 +27,10 @@ factorial(1)
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("FACTORIAL_DAFNY_PROOF"), "expected FACTORIAL_DAFNY_PROOF const");
+    assert!(
+        out.contains("FACTORIAL_DAFNY_PROOF"),
+        "expected FACTORIAL_DAFNY_PROOF const"
+    );
 }
 
 #[test]
@@ -41,7 +44,10 @@ end
 end"#;
     let out = emit(src);
     // Dafny uses `decreases` to prove well-founded recursion.
-    assert!(out.contains("decreases"), "expected `decreases` clause in Dafny scaffold");
+    assert!(
+        out.contains("decreases"),
+        "expected `decreases` clause in Dafny scaffold"
+    );
 }
 
 #[test]
@@ -55,7 +61,10 @@ end
 end"#;
     let out = emit(src);
     // The scaffold method name must reference the original fn.
-    assert!(out.contains("fib_structural"), "expected `fib_structural` method in Dafny scaffold");
+    assert!(
+        out.contains("fib_structural"),
+        "expected `fib_structural` method in Dafny scaffold"
+    );
 }
 
 // ── totality strategy ─────────────────────────────────────────────────────────
@@ -73,7 +82,10 @@ end
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("DESCRIBE_DAFNY_PROOF"), "expected DESCRIBE_DAFNY_PROOF const");
+    assert!(
+        out.contains("DESCRIBE_DAFNY_PROOF"),
+        "expected DESCRIBE_DAFNY_PROOF const"
+    );
 }
 
 #[test]
@@ -89,7 +101,10 @@ end
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("function method"), "expected `function method` in Dafny totality scaffold");
+    assert!(
+        out.contains("function method"),
+        "expected `function method` in Dafny totality scaffold"
+    );
 }
 
 // ── induction strategy ────────────────────────────────────────────────────────
@@ -104,8 +119,14 @@ proof: induction
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("SUMN_DAFNY_PROOF"), "expected SUMN_DAFNY_PROOF const");
-    assert!(out.contains("lemma"), "expected `lemma` keyword in Dafny induction scaffold");
+    assert!(
+        out.contains("SUMN_DAFNY_PROOF"),
+        "expected SUMN_DAFNY_PROOF const"
+    );
+    assert!(
+        out.contains("lemma"),
+        "expected `lemma` keyword in Dafny induction scaffold"
+    );
 }
 
 #[test]
@@ -118,8 +139,14 @@ proof: induction
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("Base case"), "expected base case comment in induction scaffold");
-    assert!(out.contains("Inductive"), "expected inductive step comment in induction scaffold");
+    assert!(
+        out.contains("Base case"),
+        "expected base case comment in induction scaffold"
+    );
+    assert!(
+        out.contains("Inductive"),
+        "expected inductive step comment in induction scaffold"
+    );
 }
 
 // ── contradiction strategy ────────────────────────────────────────────────────
@@ -134,9 +161,14 @@ proof: contradiction
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("UNIQUE_DAFNY_PROOF"), "expected UNIQUE_DAFNY_PROOF const");
-    assert!(out.contains("contradiction") || out.contains("False") || out.contains("assume"),
-            "expected contradiction language in Dafny scaffold");
+    assert!(
+        out.contains("UNIQUE_DAFNY_PROOF"),
+        "expected UNIQUE_DAFNY_PROOF const"
+    );
+    assert!(
+        out.contains("contradiction") || out.contains("False") || out.contains("assume"),
+        "expected contradiction language in Dafny scaffold"
+    );
 }
 
 // ── unknown strategy gracefully handled ──────────────────────────────────────
@@ -151,9 +183,15 @@ proof: wellFounded
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("COMPUTE_DAFNY_PROOF"), "expected COMPUTE_DAFNY_PROOF const");
+    assert!(
+        out.contains("COMPUTE_DAFNY_PROOF"),
+        "expected COMPUTE_DAFNY_PROOF const"
+    );
     // The generic scaffold still emits something mentioning the strategy.
-    assert!(out.contains("wellFounded"), "expected strategy name in generic scaffold");
+    assert!(
+        out.contains("wellFounded"),
+        "expected strategy name in generic scaffold"
+    );
 }
 
 // ── multiple proof strategies ─────────────────────────────────────────────────
@@ -169,9 +207,15 @@ sorted(1)
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("SORTED_DAFNY_PROOF"), "expected SORTED_DAFNY_PROOF const");
+    assert!(
+        out.contains("SORTED_DAFNY_PROOF"),
+        "expected SORTED_DAFNY_PROOF const"
+    );
     // Both strategies must appear in the scaffold body.
-    assert!(out.contains("sorted_structural"), "expected structural method");
+    assert!(
+        out.contains("sorted_structural"),
+        "expected structural method"
+    );
     assert!(out.contains("sorted_induction"), "expected induction lemma");
 }
 
@@ -187,7 +231,10 @@ reduce(1)
 end
 end"#;
     let out = emit(src);
-    assert!(out.contains("LOOM[V9:Dafny]"), "expected LOOM[V9:Dafny] audit comment");
+    assert!(
+        out.contains("LOOM[V9:Dafny]"),
+        "expected LOOM[V9:Dafny] audit comment"
+    );
 }
 
 #[test]
@@ -201,6 +248,8 @@ end
 end"#;
     let out = emit(src);
     // The scaffold must tell the developer how to run Dafny.
-    assert!(out.contains("dafny verify") || out.contains("dafny"),
-            "expected dafny usage instruction in scaffold");
+    assert!(
+        out.contains("dafny verify") || out.contains("dafny"),
+        "expected dafny usage instruction in scaffold"
+    );
 }

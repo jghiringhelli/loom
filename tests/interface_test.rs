@@ -9,10 +9,10 @@
 //! - Existing `provides`-based tests still pass
 //! - E2E: interface + implements compiles to valid Rust
 
+use loom::checker::types::TypeChecker;
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
-use loom::checker::types::TypeChecker;
 
 fn compile(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -53,8 +53,14 @@ fn run :: Int
 end
 end"#;
     let out = compile(src);
-    assert!(out.contains("use super::user_service::*;"), "missing user_service import");
-    assert!(out.contains("use super::payment_service::*;"), "missing payment_service import");
+    assert!(
+        out.contains("use super::user_service::*;"),
+        "missing user_service import"
+    );
+    assert!(
+        out.contains("use super::payment_service::*;"),
+        "missing payment_service import"
+    );
 }
 
 #[test]
@@ -67,7 +73,10 @@ end"#;
     let out = compile(src);
     // Only `use super::*;` from the module wrapper, no extra use statements
     let use_count = out.matches("use super::").count();
-    assert_eq!(use_count, 1, "expected only the module use super::*, got:\n{out}");
+    assert_eq!(
+        use_count, 1,
+        "expected only the module use super::*, got:\n{out}"
+    );
 }
 
 // ── interface definitions ──────────────────────────────────────────────────────
@@ -127,7 +136,11 @@ fn greet :: String -> String
 end
 end"#;
     let result = type_check(src);
-    assert!(result.is_ok(), "expected OK for conforming implements, got: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "expected OK for conforming implements, got: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -146,7 +159,8 @@ end"#;
     let errs = result.unwrap_err();
     assert!(
         errs.iter().any(|e| format!("{:?}", e).contains("greet")),
-        "expected 'greet' in error message, got: {:?}", errs
+        "expected 'greet' in error message, got: {:?}",
+        errs
     );
 }
 

@@ -279,10 +279,7 @@ fn compile_neuroml_returns_xml_string() {
         result
     );
     let out = result.unwrap();
-    assert!(
-        out.contains("<?xml"),
-        "expected XML declaration in:\n{out}"
-    );
+    assert!(out.contains("<?xml"), "expected XML declaration in:\n{out}");
     assert!(
         out.contains("<neuroml"),
         "expected <neuroml root in:\n{out}"

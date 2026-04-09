@@ -57,7 +57,12 @@ impl TensorChecker {
 
     fn check_type_expr(&self, ty: &TypeExpr, span: &Span, errors: &mut Vec<LoomError>) {
         match ty {
-            TypeExpr::Tensor { rank, shape, unit, span: tensor_span } => {
+            TypeExpr::Tensor {
+                rank,
+                shape,
+                unit,
+                span: tensor_span,
+            } => {
                 // Rule 1: rank must match shape length.
                 if *rank != shape.len() {
                     errors.push(LoomError::type_err(

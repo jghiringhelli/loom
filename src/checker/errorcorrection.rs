@@ -27,7 +27,10 @@ impl ErrorCorrectionChecker {
                 if let Some(ov) = &rt.on_violation {
                     if ov.is_empty() {
                         errors.push(LoomError::parse(
-                            format!("type '{}': on_violation must be non-empty if present", rt.name),
+                            format!(
+                                "type '{}': on_violation must be non-empty if present",
+                                rt.name
+                            ),
                             rt.span.clone(),
                         ));
                     }
@@ -42,6 +45,10 @@ impl ErrorCorrectionChecker {
                 }
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }

@@ -185,7 +185,12 @@ impl UnitsChecker {
                 None
             }
 
-            Expr::BinOp { op, left, right, span } => {
+            Expr::BinOp {
+                op,
+                left,
+                right,
+                span,
+            } => {
                 let lu = self.check_expr(left, env, errors);
                 let ru = self.check_expr(right, env, errors);
                 match op {
@@ -300,7 +305,12 @@ fn collect_param_names(fd: &FnDef) -> Vec<String> {
     }
 
     (0..n)
-        .map(|i| ordered.get(i).cloned().unwrap_or_else(|| format!("arg{}", i)))
+        .map(|i| {
+            ordered
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("arg{}", i))
+        })
         .collect()
 }
 

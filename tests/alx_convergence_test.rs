@@ -13,8 +13,7 @@ const ALX_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/experiments/alx");
 
 fn read_alx(filename: &str) -> String {
     let path = format!("{}/{}", ALX_DIR, filename);
-    fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("Cannot read ALX file {}: {}", path, e))
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("Cannot read ALX file {}: {}", path, e))
 }
 
 // ── ALX-1: feature matrix convergence ────────────────────────────────────────
@@ -169,7 +168,10 @@ fn alx6_convergence_meets_0_90_gate() {
     assert!(
         trace.final_s >= 0.90,
         "ALX-6 final S_realized {:.4} < 0.90 gate. Proved: {}/{}\nSparkline: {}",
-        trace.final_s, trace.total_proved, trace.total_claims, trace.sparkline()
+        trace.final_s,
+        trace.total_proved,
+        trace.total_claims,
+        trace.sparkline()
     );
 }
 

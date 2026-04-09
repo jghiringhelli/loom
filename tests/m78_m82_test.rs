@@ -20,7 +20,11 @@ module Auth
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "eraser annotation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "eraser annotation should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -36,7 +40,11 @@ module Optimizer
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "telos sign field should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "telos sign field should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -54,7 +62,11 @@ module SensorAgent
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "umwelt block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "umwelt block should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -69,7 +81,11 @@ module OmniAgent
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "being without umwelt should parse (omnisensory default): {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "being without umwelt should parse (omnisensory default): {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -98,7 +114,11 @@ module SignalOntology
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "sense declarations should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "sense declarations should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -116,7 +136,11 @@ module SynapticAgent
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "resonance block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "resonance block should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -134,7 +158,11 @@ module CorrelationAgent
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "resonance without via should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "resonance without via should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -147,7 +175,11 @@ module Security
   end
 end
 "#;
-    assert!(loom::compile(src).is_ok(), "eraser annotation on fn should compile: {:?}", loom::compile(src).err());
+    assert!(
+        loom::compile(src).is_ok(),
+        "eraser annotation on fn should compile: {:?}",
+        loom::compile(src).err()
+    );
 }
 
 #[test]
@@ -163,5 +195,9 @@ module Robot
   end
 end
 "#;
-    assert!(loom::parse(src).is_ok(), "empty umwelt detects list should parse: {:?}", loom::parse(src).err());
+    assert!(
+        loom::parse(src).is_ok(),
+        "empty umwelt detects list should parse: {:?}",
+        loom::parse(src).err()
+    );
 }

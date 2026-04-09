@@ -99,10 +99,7 @@ impl LanguageServer for LoomLspServer {
     }
 
     async fn hover(&self, params: HoverParams) -> LspResult<Option<Hover>> {
-        let uri = &params
-            .text_document_position_params
-            .text_document
-            .uri;
+        let uri = &params.text_document_position_params.text_document.uri;
         let pos = &params.text_document_position_params.position;
 
         let docs = self.documents.read().await;

@@ -25,7 +25,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("functor") || msg.contains("law"), "expected functor error in: {}", msg);
+    assert!(
+        msg.contains("functor") || msg.contains("law"),
+        "expected functor error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -53,7 +57,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("monad") || msg.contains("law") || msg.contains("associativity"), "expected monad error in: {}", msg);
+    assert!(
+        msg.contains("monad") || msg.contains("law") || msg.contains("associativity"),
+        "expected monad error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -68,7 +76,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("Functor") || rust_src.contains("functor"), "Expected Functor trait in codegen: {}", &rust_src[..rust_src.len().min(500)]);
+    assert!(
+        rust_src.contains("Functor") || rust_src.contains("functor"),
+        "Expected Functor trait in codegen: {}",
+        &rust_src[..rust_src.len().min(500)]
+    );
 }
 
 #[test]
@@ -84,5 +96,8 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("Monad") || rust_src.contains("monad"), "Expected Monad trait in codegen");
+    assert!(
+        rust_src.contains("Monad") || rust_src.contains("monad"),
+        "Expected Monad trait in codegen"
+    );
 }

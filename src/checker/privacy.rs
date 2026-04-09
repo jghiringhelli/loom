@@ -23,9 +23,8 @@ impl PrivacyChecker {
         for item in &module.items {
             if let Item::Type(td) = item {
                 for field in &td.fields {
-                    let has = |key: &str| -> bool {
-                        field.annotations.iter().any(|a| a.key == key)
-                    };
+                    let has =
+                        |key: &str| -> bool { field.annotations.iter().any(|a| a.key == key) };
 
                     // @pci requires @encrypt-at-rest AND @never-log
                     if has("pci") {

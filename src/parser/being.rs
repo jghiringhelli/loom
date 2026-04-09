@@ -298,7 +298,10 @@ impl<'src> crate::parser::Parser<'src> {
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(MatterBlock { fields, span: Span::merge(&sec_start, &sec_end) })
+        Ok(MatterBlock {
+            fields,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_form_section(&mut self) -> Result<FormBlock, LoomError> {
@@ -310,17 +313,25 @@ impl<'src> crate::parser::Parser<'src> {
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Type) {
                 if let Ok(item) = self.parse_type_or_refined() {
-                    if let Item::Type(td) = item { types.push(td); }
+                    if let Item::Type(td) = item {
+                        types.push(td);
+                    }
                 }
             } else if self.at(&Token::Enum) {
-                if let Ok(ed) = self.parse_enum_def() { enums.push(ed); }
+                if let Ok(ed) = self.parse_enum_def() {
+                    enums.push(ed);
+                }
             } else {
                 break;
             }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(FormBlock { types, enums, span: Span::merge(&sec_start, &sec_end) })
+        Ok(FormBlock {
+            types,
+            enums,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_function_section(&mut self) -> Result<FunctionBlock, LoomError> {
@@ -332,7 +343,10 @@ impl<'src> crate::parser::Parser<'src> {
             fns.push(self.parse_fn_def()?);
         }
         let sec_end = self.current_span();
-        Ok(FunctionBlock { fns, span: Span::merge(&sec_start, &sec_end) })
+        Ok(FunctionBlock {
+            fns,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_telos_section(&mut self) -> Result<TelosDef, LoomError> {
@@ -340,8 +354,17 @@ impl<'src> crate::parser::Parser<'src> {
         self.advance(); // consume `telos`
         self.expect(Token::Colon)?;
         let description = match self.tokens.get(self.pos) {
-            Some((Token::StrLit(s), _)) => { let s = s.clone(); self.pos += 1; s }
-            _ => return Err(LoomError::parse("expected string literal after telos:", self.current_span())),
+            Some((Token::StrLit(s), _)) => {
+                let s = s.clone();
+                self.pos += 1;
+                s
+            }
+            _ => {
+                return Err(LoomError::parse(
+                    "expected string literal after telos:",
+                    self.current_span(),
+                ))
+            }
         };
         let mut fitness_fn = None;
         let mut modifiable_by = None;
@@ -365,7 +388,9 @@ impl<'src> crate::parser::Parser<'src> {
                             | Some((Token::Guides, _))
                     ) || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                             if n == "sign");
-                    if is_field { break; }
+                    if is_field {
+                        break;
+                    }
                     if let Some((tok, _)) = self.tokens.get(self.pos) {
                         parts.push(format!("{:?}", tok));
                         self.pos += 1;
@@ -376,37 +401,50 @@ impl<'src> crate::parser::Parser<'src> {
                 self.advance();
                 self.expect(Token::Colon)?;
                 if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                    let val = val.clone(); self.pos += 1; modifiable_by = Some(val);
+                    let val = val.clone();
+                    self.pos += 1;
+                    modifiable_by = Some(val);
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::BoundedBy, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                    let val = val.clone(); self.pos += 1; bounded_by = Some(val);
+                    let val = val.clone();
+                    self.pos += 1;
+                    bounded_by = Some(val);
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "sign")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                    let val = val.clone(); self.pos += 1; sign = Some(val);
+                    let val = val.clone();
+                    self.pos += 1;
+                    sign = Some(val);
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::MeasuredBy, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 if let Some((Token::StrLit(sig), _)) = self.tokens.get(self.pos) {
-                    metric = Some(sig.clone()); self.pos += 1;
+                    metric = Some(sig.clone());
+                    self.pos += 1;
                 } else {
                     let mut parts = Vec::new();
                     while !self.at(&Token::End) && self.peek().is_some() {
                         let at_field = matches!(
                             self.tokens.get(self.pos),
-                            Some((Token::Thresholds, _)) | Some((Token::Guides, _))
-                                | Some((Token::ModifiableBy, _)) | Some((Token::BoundedBy, _))
+                            Some((Token::Thresholds, _))
+                                | Some((Token::Guides, _))
+                                | Some((Token::ModifiableBy, _))
+                                | Some((Token::BoundedBy, _))
                         );
-                        if at_field { break; }
+                        if at_field {
+                            break;
+                        }
                         if let Some((tok, _)) = self.tokens.get(self.pos) {
-                            parts.push(format!("{:?}", tok)); self.pos += 1;
+                            parts.push(format!("{:?}", tok));
+                            self.pos += 1;
                         }
                     }
                     metric = Some(parts.join(" "));
@@ -421,41 +459,72 @@ impl<'src> crate::parser::Parser<'src> {
                 while !self.at(&Token::End) && self.peek().is_some() {
                     let at_outer_field = matches!(
                         self.tokens.get(self.pos),
-                        Some((Token::Guides, _)) | Some((Token::ModifiableBy, _))
-                            | Some((Token::BoundedBy, _)) | Some((Token::MeasuredBy, _))
+                        Some((Token::Guides, _))
+                            | Some((Token::ModifiableBy, _))
+                            | Some((Token::BoundedBy, _))
+                            | Some((Token::MeasuredBy, _))
                     );
-                    if at_outer_field { break; }
+                    if at_outer_field {
+                        break;
+                    }
                     if matches!(self.tokens.get(self.pos), Some((Token::Convergence, _))) {
-                        self.advance(); self.expect(Token::Colon)?;
-                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) { convergence = *v; self.pos += 1; }
-                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "warning") {
-                        self.advance(); self.expect(Token::Colon)?;
-                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) { warning = Some(*v); self.pos += 1; }
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                            convergence = *v;
+                            self.pos += 1;
+                        }
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "warning")
+                    {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                            warning = Some(*v);
+                            self.pos += 1;
+                        }
                     } else if matches!(self.tokens.get(self.pos), Some((Token::Divergence, _))) {
-                        self.advance(); self.expect(Token::Colon)?;
-                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) { divergence = *v; self.pos += 1; }
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                            divergence = *v;
+                            self.pos += 1;
+                        }
                     } else if matches!(self.tokens.get(self.pos), Some((Token::Propagation, _))) {
-                        self.advance(); self.expect(Token::Colon)?;
-                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) { propagation = Some(*v); self.pos += 1; }
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
+                            propagation = Some(*v);
+                            self.pos += 1;
+                        }
                     } else {
                         self.advance();
                     }
                 }
-                thresholds = Some(TelosThresholds { convergence, warning, divergence, propagation });
+                thresholds = Some(TelosThresholds {
+                    convergence,
+                    warning,
+                    divergence,
+                    propagation,
+                });
             } else if matches!(self.tokens.get(self.pos), Some((Token::Guides, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 while !self.at(&Token::End) && self.peek().is_some() {
                     let at_outer = matches!(
                         self.tokens.get(self.pos),
-                        Some((Token::Thresholds, _)) | Some((Token::ModifiableBy, _))
-                            | Some((Token::BoundedBy, _)) | Some((Token::MeasuredBy, _))
+                        Some((Token::Thresholds, _))
+                            | Some((Token::ModifiableBy, _))
+                            | Some((Token::BoundedBy, _))
+                            | Some((Token::MeasuredBy, _))
                     );
-                    if at_outer { break; }
+                    if at_outer {
+                        break;
+                    }
                     if let Some((Token::Ident(g), _)) = self.tokens.get(self.pos) {
                         guides.push(g.clone());
                         self.pos += 1;
-                    } else if matches!(self.tokens.get(self.pos), Some((Token::SignalAttention, _))) {
+                    } else if matches!(self.tokens.get(self.pos), Some((Token::SignalAttention, _)))
+                    {
                         guides.push("signal_attention".to_string());
                         self.pos += 1;
                     } else {
@@ -468,7 +537,17 @@ impl<'src> crate::parser::Parser<'src> {
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(TelosDef { description, fitness_fn, modifiable_by, bounded_by, sign, metric, thresholds, guides, span: Span::merge(&sec_start, &sec_end) })
+        Ok(TelosDef {
+            description,
+            fitness_fn,
+            modifiable_by,
+            bounded_by,
+            sign,
+            metric,
+            thresholds,
+            guides,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_regulate_section(&mut self) -> Result<RegulateBlock, LoomError> {
@@ -481,32 +560,54 @@ impl<'src> crate::parser::Parser<'src> {
         let mut telos_contribution: Option<f64> = None;
         while !self.at(&Token::End) && self.peek().is_some() {
             if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "target") {
-                self.advance(); self.expect(Token::Colon)?;
-                let (val, _) = self.expect_ident()?; target = val;
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_ident()?;
+                target = val;
             } else if self.at(&Token::Bounds) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 self.expect(Token::LParen)?;
-                let (low, _) = self.expect_ident()?; self.expect(Token::Comma)?;
-                let (high, _) = self.expect_ident()?; self.expect(Token::RParen)?;
+                let (low, _) = self.expect_ident()?;
+                self.expect(Token::Comma)?;
+                let (high, _) = self.expect_ident()?;
+                self.expect(Token::RParen)?;
                 bounds = Some((low, high));
-            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "response") {
-                self.advance(); self.expect(Token::Colon)?;
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "response")
+            {
+                self.advance();
+                self.expect(Token::Colon)?;
                 while self.at(&Token::Bar) {
                     self.advance();
-                    let (condition, _) = self.expect_ident()?; self.expect(Token::Arrow)?;
+                    let (condition, _) = self.expect_ident()?;
+                    self.expect(Token::Arrow)?;
                     let (action, _) = self.expect_ident()?;
                     response.push((condition, action));
                 }
-            } else if matches!(self.tokens.get(self.pos), Some((Token::TelosContribution, _))) {
-                self.advance(); self.expect(Token::Colon)?;
+            } else if matches!(
+                self.tokens.get(self.pos),
+                Some((Token::TelosContribution, _))
+            ) {
+                self.advance();
+                self.expect(Token::Colon)?;
                 if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
-                    telos_contribution = Some(*v); self.pos += 1;
+                    telos_contribution = Some(*v);
+                    self.pos += 1;
                 }
-            } else { self.advance(); }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(RegulateBlock { variable, target, bounds, response, telos_contribution, span: Span::merge(&sec_start, &sec_end) })
+        Ok(RegulateBlock {
+            variable,
+            target,
+            bounds,
+            response,
+            telos_contribution,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_evolve_section(&mut self) -> Result<EvolveBlock, LoomError> {
@@ -516,9 +617,12 @@ impl<'src> crate::parser::Parser<'src> {
         let mut constraint = String::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Toward) {
-                self.advance(); self.expect(Token::Colon)?; self.advance();
+                self.advance();
+                self.expect(Token::Colon)?;
+                self.advance();
             } else if self.at(&Token::Search) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 while self.at(&Token::Bar) {
                     self.advance();
                     let (strategy_name, _) = self.expect_ident()?;
@@ -530,27 +634,47 @@ impl<'src> crate::parser::Parser<'src> {
                         _ => SearchStrategy::DerivativeFree,
                     };
                     let when_present = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "when");
-                    if when_present { self.advance(); }
+                    if when_present {
+                        self.advance();
+                    }
                     let when = if when_present {
-                        let next_is_colon = matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
+                        let next_is_colon =
+                            matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)));
                         if !next_is_colon {
                             if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
-                                let w = n.clone(); self.pos += 1; w
-                            } else { String::new() }
-                        } else { String::new() }
-                    } else { String::new() };
+                                let w = n.clone();
+                                self.pos += 1;
+                                w
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
                     search_cases.push(SearchCase { strategy, when });
                 }
-            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "constraint") {
-                self.advance(); self.expect(Token::Colon)?;
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "constraint")
+            {
+                self.advance();
+                self.expect(Token::Colon)?;
                 if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
-                    constraint = s.clone(); self.pos += 1;
+                    constraint = s.clone();
+                    self.pos += 1;
                 }
-            } else { self.advance(); }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(EvolveBlock { search_cases, constraint, span: Span::merge(&sec_start, &sec_end) })
+        Ok(EvolveBlock {
+            search_cases,
+            constraint,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_epigenetic_section(&mut self) -> Result<EpigeneticBlock, LoomError> {
@@ -562,25 +686,43 @@ impl<'src> crate::parser::Parser<'src> {
         let mut reverts_when = None;
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Signal) {
-                self.advance(); self.expect(Token::Colon)?;
-                let (val, _) = self.expect_ident()?; signal = val;
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_ident()?;
+                signal = val;
             } else if self.at(&Token::Modifies) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 let mut parts = Vec::new();
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    parts.push(n.clone());
+                    self.pos += 1;
+                }
                 while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
                     self.pos += 1;
-                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                        parts.push(n.clone());
+                        self.pos += 1;
+                    }
                 }
                 modifies = parts.join(".");
             } else if self.at(&Token::RevertsWhen) {
-                self.advance(); self.expect(Token::Colon)?;
-                let (val, _) = self.expect_ident()?; reverts_when = Some(val);
-            } else { self.advance(); }
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_ident()?;
+                reverts_when = Some(val);
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(EpigeneticBlock { signal, modifies, reverts_when, span: Span::merge(&sec_start, &sec_end) })
+        Ok(EpigeneticBlock {
+            signal,
+            modifies,
+            reverts_when,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_morphogen_section(&mut self) -> Result<MorphogenBlock, LoomError> {
@@ -592,30 +734,59 @@ impl<'src> crate::parser::Parser<'src> {
         let mut produces = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Signal) {
-                self.advance(); self.expect(Token::Colon)?;
-                let (val, _) = self.expect_ident()?; signal = val;
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_ident()?;
+                signal = val;
             } else if self.at(&Token::Threshold) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 match self.tokens.get(self.pos) {
-                    Some((Token::FloatLit(f), _)) => { threshold = f.to_string(); self.pos += 1; }
-                    Some((Token::IntLit(i), _)) => { threshold = i.to_string(); self.pos += 1; }
-                    _ => { if let Ok((val, _)) = self.expect_ident() { threshold = val; } }
+                    Some((Token::FloatLit(f), _)) => {
+                        threshold = f.to_string();
+                        self.pos += 1;
+                    }
+                    Some((Token::IntLit(i), _)) => {
+                        threshold = i.to_string();
+                        self.pos += 1;
+                    }
+                    _ => {
+                        if let Ok((val, _)) = self.expect_ident() {
+                            threshold = val;
+                        }
+                    }
                 }
             } else if self.at(&Token::Produces) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 self.expect(Token::LBracket)?;
                 loop {
-                    if self.at(&Token::RBracket) { break; }
-                    if let Ok((val, _)) = self.expect_ident() { produces.push(val); }
-                    if self.at(&Token::Comma) { self.advance(); }
-                    if self.at(&Token::RBracket) { break; }
+                    if self.at(&Token::RBracket) {
+                        break;
+                    }
+                    if let Ok((val, _)) = self.expect_ident() {
+                        produces.push(val);
+                    }
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
+                    if self.at(&Token::RBracket) {
+                        break;
+                    }
                 }
                 self.expect(Token::RBracket)?;
-            } else { self.advance(); }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(MorphogenBlock { signal, threshold, produces, span: Span::merge(&sec_start, &sec_end) })
+        Ok(MorphogenBlock {
+            signal,
+            threshold,
+            produces,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_telomere_section(&mut self) -> Result<TelomereBlock, LoomError> {
@@ -626,16 +797,28 @@ impl<'src> crate::parser::Parser<'src> {
         let mut on_exhaustion = String::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Limit) {
-                self.advance(); self.expect(Token::Colon)?;
-                if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) { limit = *n as u64; self.pos += 1; }
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                    limit = *n as u64;
+                    self.pos += 1;
+                }
             } else if self.at(&Token::OnExhaustion) {
-                self.advance(); self.expect(Token::Colon)?;
-                let (val, _) = self.expect_any_name()?; on_exhaustion = val;
-            } else { self.advance(); }
+                self.advance();
+                self.expect(Token::Colon)?;
+                let (val, _) = self.expect_any_name()?;
+                on_exhaustion = val;
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(TelomereBlock { limit, on_exhaustion, span: Span::merge(&sec_start, &sec_end) })
+        Ok(TelomereBlock {
+            limit,
+            on_exhaustion,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_crispr_section(&mut self) -> Result<CrisprBlock, LoomError> {
@@ -647,31 +830,56 @@ impl<'src> crate::parser::Parser<'src> {
         let mut guide = String::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "target") {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 let mut parts = Vec::new();
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    parts.push(n.clone());
+                    self.pos += 1;
+                }
                 while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
                     self.pos += 1;
-                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                        parts.push(n.clone());
+                        self.pos += 1;
+                    }
                 }
                 target = parts.join(".");
             } else if self.at(&Token::Replace) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 let mut parts = Vec::new();
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    parts.push(n.clone());
+                    self.pos += 1;
+                }
                 while matches!(self.tokens.get(self.pos), Some((Token::Dot, _))) {
                     self.pos += 1;
-                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { parts.push(n.clone()); self.pos += 1; }
+                    if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                        parts.push(n.clone());
+                        self.pos += 1;
+                    }
                 }
                 replace = parts.join(".");
             } else if self.at(&Token::Guide) {
-                self.advance(); self.expect(Token::Colon)?;
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { guide = n.clone(); self.pos += 1; }
-            } else { self.advance(); }
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    guide = n.clone();
+                    self.pos += 1;
+                }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(CrisprBlock { target, replace, guide, span: Span::merge(&sec_start, &sec_end) })
+        Ok(CrisprBlock {
+            target,
+            replace,
+            guide,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_plasticity_section(&mut self) -> Result<PlasticityBlock, LoomError> {
@@ -683,13 +891,22 @@ impl<'src> crate::parser::Parser<'src> {
         let mut rule = PlasticityRule::Hebbian;
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Trigger) {
-                self.advance(); self.expect(Token::Colon)?;
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { trigger = n.clone(); self.pos += 1; }
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    trigger = n.clone();
+                    self.pos += 1;
+                }
             } else if self.at(&Token::Modifies) {
-                self.advance(); self.expect(Token::Colon)?;
-                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) { modifies = n.clone(); self.pos += 1; }
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    modifies = n.clone();
+                    self.pos += 1;
+                }
             } else if self.at(&Token::Rule) {
-                self.advance(); self.expect(Token::Colon)?;
+                self.advance();
+                self.expect(Token::Colon)?;
                 match self.tokens.get(self.pos) {
                     Some((Token::Hebbian, _)) => { rule = PlasticityRule::Hebbian; self.pos += 1; }
                     Some((Token::Boltzmann, _)) => { rule = PlasticityRule::Boltzmann; self.pos += 1; }
@@ -699,11 +916,18 @@ impl<'src> crate::parser::Parser<'src> {
                         self.current_span(),
                     )),
                 }
-            } else { self.advance(); }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(PlasticityBlock { trigger, modifies, rule, span: Span::merge(&sec_start, &sec_end) })
+        Ok(PlasticityBlock {
+            trigger,
+            modifies,
+            rule,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_umwelt_section(&mut self) -> Result<UmweltBlock, LoomError> {
@@ -716,28 +940,44 @@ impl<'src> crate::parser::Parser<'src> {
             if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "detects")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 self.expect(Token::LBracket)?;
                 while !self.at(&Token::RBracket) && self.peek().is_some() {
-                    if let Ok((val, _)) = self.expect_ident() { detects.push(val); }
-                    if self.at(&Token::Comma) { self.advance(); }
+                    if let Ok((val, _)) = self.expect_ident() {
+                        detects.push(val);
+                    }
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
                 }
                 self.expect(Token::RBracket)?;
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "blind_to")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 self.expect(Token::LBracket)?;
                 while !self.at(&Token::RBracket) && self.peek().is_some() {
-                    if let Ok((val, _)) = self.expect_ident() { blind_to.push(val); }
-                    if self.at(&Token::Comma) { self.advance(); }
+                    if let Ok((val, _)) = self.expect_ident() {
+                        blind_to.push(val);
+                    }
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
                 }
                 self.expect(Token::RBracket)?;
-            } else { self.advance(); }
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(UmweltBlock { detects, blind_to, span: Span::merge(&sec_start, &sec_end) })
+        Ok(UmweltBlock {
+            detects,
+            blind_to,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_resonance_section(&mut self) -> Result<ResonanceBlock, LoomError> {
@@ -750,23 +990,43 @@ impl<'src> crate::parser::Parser<'src> {
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
                 let pair_start = self.current_span();
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 let (signal_a, _) = self.expect_ident()?;
-                if self.at(&Token::With) { self.advance(); }
+                if self.at(&Token::With) {
+                    self.advance();
+                }
                 let (signal_b, _) = self.expect_ident()?;
-                let via = if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "via") {
+                let via = if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "via")
+                {
                     self.advance();
                     if let Some((Token::Ident(fn_name), _)) = self.tokens.get(self.pos) {
-                        let fn_name = fn_name.clone(); self.pos += 1; Some(fn_name)
-                    } else { None }
-                } else { None };
+                        let fn_name = fn_name.clone();
+                        self.pos += 1;
+                        Some(fn_name)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
                 let pair_end = self.current_span();
-                correlations.push(CorrelationPair { signal_a, signal_b, via, span: Span::merge(&pair_start, &pair_end) });
-            } else { self.advance(); }
+                correlations.push(CorrelationPair {
+                    signal_a,
+                    signal_b,
+                    via,
+                    span: Span::merge(&pair_start, &pair_end),
+                });
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(ResonanceBlock { correlations, span: Span::merge(&sec_start, &sec_end) })
+        Ok(ResonanceBlock {
+            correlations,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     fn parse_being_manifest_section(&mut self) -> Result<ManifestBlock, LoomError> {
@@ -778,7 +1038,11 @@ impl<'src> crate::parser::Parser<'src> {
             if self.at(&Token::Artifact) {
                 self.advance();
                 let path = match self.tokens.get(self.pos) {
-                    Some((Token::StrLit(s), _)) => { let s = s.clone(); self.pos += 1; s }
+                    Some((Token::StrLit(s), _)) => {
+                        let s = s.clone();
+                        self.pos += 1;
+                        s
+                    }
                     _ => break,
                 };
                 let mut reflects = Vec::new();
@@ -786,42 +1050,67 @@ impl<'src> crate::parser::Parser<'src> {
                 let mut required_when = None;
                 while !self.at(&Token::End) && self.peek().is_some() {
                     if self.at(&Token::Reflects) {
-                        self.advance(); self.expect(Token::Colon)?;
+                        self.advance();
+                        self.expect(Token::Colon)?;
                         self.expect(Token::LBracket)?;
                         while !self.at(&Token::RBracket) && self.peek().is_some() {
-                            let (sym, _) = self.expect_any_name()?; reflects.push(sym);
-                            if self.at(&Token::Comma) { self.advance(); }
+                            let (sym, _) = self.expect_any_name()?;
+                            reflects.push(sym);
+                            if self.at(&Token::Comma) {
+                                self.advance();
+                            }
                         }
                         self.expect(Token::RBracket)?;
                     } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "freshness")
                         && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
                     {
-                        self.advance(); self.advance();
+                        self.advance();
+                        self.advance();
                         let mut parts = Vec::new();
                         while !self.at(&Token::End) && self.peek().is_some() {
                             let is_known = self.at(&Token::Reflects)
                                 || matches!(self.tokens.get(self.pos),
                                     Some((Token::Ident(n), _)) if n == "required_when");
-                            if is_known { break; }
-                            if let Some((tok, _)) = self.tokens.get(self.pos) { parts.push(format!("{:?}", tok)); self.pos += 1; }
+                            if is_known {
+                                break;
+                            }
+                            if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                parts.push(format!("{:?}", tok));
+                                self.pos += 1;
+                            }
                         }
                         freshness = Some(parts.join(" "));
                     } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "required_when")
                         && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
                     {
-                        self.advance(); self.advance();
+                        self.advance();
+                        self.advance();
                         if let Some((Token::Ident(val), _)) = self.tokens.get(self.pos) {
-                            let val = val.clone(); self.pos += 1; required_when = Some(val);
+                            let val = val.clone();
+                            self.pos += 1;
+                            required_when = Some(val);
                         }
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
                 self.expect(Token::End)?;
-                artifacts.push(ManifestArtifact { path, reflects, freshness, required_when });
-            } else { self.advance(); }
+                artifacts.push(ManifestArtifact {
+                    path,
+                    reflects,
+                    freshness,
+                    required_when,
+                });
+            } else {
+                self.advance();
+            }
         }
         let sec_end = self.current_span();
         self.expect(Token::End)?;
-        Ok(ManifestBlock { artifacts, span: Span::merge(&sec_start, &sec_end) })
+        Ok(ManifestBlock {
+            artifacts,
+            span: Span::merge(&sec_start, &sec_end),
+        })
     }
 
     /// Parse a `migration name: … end` block inside a being.

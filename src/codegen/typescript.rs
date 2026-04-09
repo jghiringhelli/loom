@@ -74,11 +74,11 @@ impl TypeScriptEmitter {
             for fl in &module.flow_labels {
                 for type_name in &fl.types {
                     let jsdoc = match fl.label.as_str() {
-                        "secret"  => format!("/** @secret — handle as sensitive data */\n"),
-                        "public"  => format!("/** @public — safe for any output */\n"),
+                        "secret" => format!("/** @secret — handle as sensitive data */\n"),
+                        "public" => format!("/** @public — safe for any output */\n"),
                         "tainted" => format!("/** @tainted — must be sanitized before use */\n"),
                         "trusted" => format!("/** @trusted — validated/sanitized data */\n"),
-                        other     => format!("/** @{} */\n", other),
+                        other => format!("/** @{} */\n", other),
                     };
                     out.push_str(&jsdoc);
                     out.push_str(&format!(
@@ -135,7 +135,12 @@ impl TypeScriptEmitter {
         for iface_name in &module.implements {
             if let Some(iface) = module.interface_defs.iter().find(|i| &i.name == iface_name) {
                 body.push('\n');
-                body.push_str(&self.emit_implements_class(&module.name, iface_name, iface, &module.items));
+                body.push_str(&self.emit_implements_class(
+                    &module.name,
+                    iface_name,
+                    iface,
+                    &module.items,
+                ));
             }
         }
 
@@ -200,12 +205,21 @@ impl TypeScriptEmitter {
     // ── Type definitions ──────────────────────────────────────────────────
 
     fn emit_type_def(&self, td: &TypeDef) -> String {
-        let fields: Vec<String> = td.fields.iter()
+        let fields: Vec<String> = td
+            .fields
+            .iter()
             .map(|f| {
                 let mut field_out = String::new();
                 if !f.annotations.is_empty() {
-                    let labels: Vec<String> = f.annotations.iter().map(|a| format!("@{}", a.key)).collect();
-                    field_out.push_str(&format!("  /** {} — handle per data protection policy */\n", labels.join(" ")));
+                    let labels: Vec<String> = f
+                        .annotations
+                        .iter()
+                        .map(|a| format!("@{}", a.key))
+                        .collect();
+                    field_out.push_str(&format!(
+                        "  /** {} — handle per data protection policy */\n",
+                        labels.join(" ")
+                    ));
                 }
                 field_out.push_str(&format!("  {}: {};", f.name, self.emit_type_expr(&f.ty)));
                 field_out
@@ -215,13 +229,23 @@ impl TypeScriptEmitter {
     }
 
     fn emit_enum_def(&self, ed: &EnumDef) -> String {
-        let variants: Vec<String> = ed.variants.iter().map(|v| {
-            match &v.payload {
+        let variants: Vec<String> = ed
+            .variants
+            .iter()
+            .map(|v| match &v.payload {
                 None => format!("\"{}\"", v.name),
-                Some(ty) => format!("{{ tag: \"{}\"; value: {} }}", v.name, self.emit_type_expr(ty)),
-            }
-        }).collect();
-        format!("export type {} =\n  | {};", ed.name, variants.join("\n  | "))
+                Some(ty) => format!(
+                    "{{ tag: \"{}\"; value: {} }}",
+                    v.name,
+                    self.emit_type_expr(ty)
+                ),
+            })
+            .collect();
+        format!(
+            "export type {} =\n  | {};",
+            ed.name,
+            variants.join("\n  | ")
+        )
     }
 
     fn emit_refined_type(&self, rt: &RefinedType) -> String {
@@ -231,8 +255,12 @@ impl TypeScriptEmitter {
              export function make{}(value: {}): {} {{\n  \
              if (!({condition})) throw new Error(`Refined type {name} precondition failed`);\n  \
              return value as {};\n}}",
-            rt.name, inner, rt.name,
-            rt.name, inner, rt.name,
+            rt.name,
+            inner,
+            rt.name,
+            rt.name,
+            inner,
+            rt.name,
             inner,
             condition = self.emit_expr(&rt.predicate),
             name = rt.name,
@@ -245,11 +273,19 @@ impl TypeScriptEmitter {
         let mut out = String::new();
         out.push_str(&format!("export interface {} {{\n", iface.name));
         for (method_name, sig) in &iface.methods {
-            let params: Vec<String> = sig.params.iter().enumerate()
+            let params: Vec<String> = sig
+                .params
+                .iter()
+                .enumerate()
                 .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
                 .collect();
             let ret = self.emit_type_expr(&sig.return_type);
-            out.push_str(&format!("  {}({}): {};\n", method_name, params.join(", "), ret));
+            out.push_str(&format!(
+                "  {}({}): {};\n",
+                method_name,
+                params.join(", "),
+                ret
+            ));
         }
         out.push('}');
         out
@@ -264,23 +300,44 @@ impl TypeScriptEmitter {
     ) -> String {
         let mut out = String::new();
         let class_name = format!("{}Impl", module_name);
-        out.push_str(&format!("export class {} implements {} {{\n", class_name, iface_name));
+        out.push_str(&format!(
+            "export class {} implements {} {{\n",
+            class_name, iface_name
+        ));
         for (method_name, sig) in &iface.methods {
             let ret = self.emit_type_expr(&sig.return_type);
-            if let Some(Item::Fn(fd)) = items.iter().find(|i| matches!(i, Item::Fn(fd) if fd.name == *method_name)) {
-                let params: Vec<String> = fd.type_sig.params.iter()
+            if let Some(Item::Fn(fd)) = items
+                .iter()
+                .find(|i| matches!(i, Item::Fn(fd) if fd.name == *method_name))
+            {
+                let params: Vec<String> = fd
+                    .type_sig
+                    .params
+                    .iter()
                     .zip(ts_param_names(fd).into_iter())
                     .map(|(ty, name)| format!("{}: {}", name, self.emit_type_expr(ty)))
                     .collect();
                 let body = self.emit_fn_body(fd);
-                out.push_str(&format!("  {}({}): {} {{\n{}\n  }}\n",
-                    method_name, params.join(", "), ret, body));
+                out.push_str(&format!(
+                    "  {}({}): {} {{\n{}\n  }}\n",
+                    method_name,
+                    params.join(", "),
+                    ret,
+                    body
+                ));
             } else {
-                let params: Vec<String> = sig.params.iter().enumerate()
+                let params: Vec<String> = sig
+                    .params
+                    .iter()
+                    .enumerate()
                     .map(|(i, ty)| format!("arg{}: {}", i, self.emit_type_expr(ty)))
                     .collect();
-                out.push_str(&format!("  {}({}): {} {{\n    throw new Error(\"not implemented\");\n  }}\n",
-                    method_name, params.join(", "), ret));
+                out.push_str(&format!(
+                    "  {}({}): {} {{\n    throw new Error(\"not implemented\");\n  }}\n",
+                    method_name,
+                    params.join(", "),
+                    ret
+                ));
             }
         }
         out.push('}');
@@ -295,7 +352,8 @@ impl TypeScriptEmitter {
         let mut out = String::new();
 
         // JSDoc.
-        let has_jsdoc = fd.describe.is_some() || !fd.annotations.is_empty() || !fd.effect_tiers.is_empty();
+        let has_jsdoc =
+            fd.describe.is_some() || !fd.annotations.is_empty() || !fd.effect_tiers.is_empty();
         if has_jsdoc {
             out.push_str("/**\n");
             if let Some(desc) = &fd.describe {
@@ -313,8 +371,8 @@ impl TypeScriptEmitter {
             }
             for (eff, tier) in &fd.effect_tiers {
                 let tier_str = match tier {
-                    ConsequenceTier::Pure         => "pure",
-                    ConsequenceTier::Reversible   => "reversible",
+                    ConsequenceTier::Pure => "pure",
+                    ConsequenceTier::Reversible => "reversible",
                     ConsequenceTier::Irreversible => "irreversible",
                 };
                 out.push_str(&format!(" * @effect-tier {} {}\n", eff, tier_str));
@@ -322,7 +380,10 @@ impl TypeScriptEmitter {
             out.push_str(" */\n");
         }
 
-        let params: Vec<String> = fd.type_sig.params.iter()
+        let params: Vec<String> = fd
+            .type_sig
+            .params
+            .iter()
             .zip(ts_param_names(fd).into_iter())
             .map(|(ty, name)| format!("{}: {}", name, self.emit_type_expr(ty)))
             .collect();
@@ -341,7 +402,11 @@ impl TypeScriptEmitter {
         let async_kw = if is_async { "async " } else { "" };
         out.push_str(&format!(
             "export {}function {}{}({}): {} {{\n",
-            async_kw, fd.name, type_params, params.join(", "), ret
+            async_kw,
+            fd.name,
+            type_params,
+            params.join(", "),
+            ret
         ));
 
         out.push_str(&self.emit_fn_body(fd));
@@ -409,8 +474,8 @@ impl TypeScriptEmitter {
                 let ps: Vec<String> = params.iter().map(|p| self.emit_type_expr(p)).collect();
                 match name.as_str() {
                     "List" if ps.len() == 1 => format!("{}[]", ps[0]),
-                    "Map"  if ps.len() == 2 => format!("Map<{}, {}>", ps[0], ps[1]),
-                    "Set"  if ps.len() == 1 => format!("Set<{}>", ps[0]),
+                    "Map" if ps.len() == 2 => format!("Map<{}, {}>", ps[0], ps[1]),
+                    "Set" if ps.len() == 1 => format!("Set<{}>", ps[0]),
                     _ => format!("{}<{}>", name, ps.join(", ")),
                 }
             }
@@ -477,27 +542,35 @@ impl TypeScriptEmitter {
                 format!("const {} = {}", name, self.emit_expr(value))
             }
             Expr::Literal(lit) => self.emit_literal(lit),
-            Expr::Ident(name) if name == "todo" => "(() => { throw new Error(\"todo\"); })()".to_string(),
+            Expr::Ident(name) if name == "todo" => {
+                "(() => { throw new Error(\"todo\"); })()".to_string()
+            }
             Expr::Ident(name) => name.clone(),
             Expr::Call { func, args, .. } => {
                 if let Expr::Ident(name) = func.as_ref() {
                     match (name.as_str(), args.len()) {
-                        ("map", 2) => return format!(
-                            "{}.map({})",
-                            self.emit_expr(&args[0]),
-                            self.emit_expr(&args[1])
-                        ),
-                        ("filter", 2) => return format!(
-                            "{}.filter({})",
-                            self.emit_expr(&args[0]),
-                            self.emit_expr(&args[1])
-                        ),
-                        ("fold", 3) => return format!(
-                            "{}.reduce({}, {})",
-                            self.emit_expr(&args[0]),
-                            self.emit_expr(&args[2]),
-                            self.emit_expr(&args[1])
-                        ),
+                        ("map", 2) => {
+                            return format!(
+                                "{}.map({})",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[1])
+                            )
+                        }
+                        ("filter", 2) => {
+                            return format!(
+                                "{}.filter({})",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[1])
+                            )
+                        }
+                        ("fold", 3) => {
+                            return format!(
+                                "{}.reduce({}, {})",
+                                self.emit_expr(&args[0]),
+                                self.emit_expr(&args[2]),
+                                self.emit_expr(&args[1])
+                            )
+                        }
                         _ => {}
                     }
                 }
@@ -513,7 +586,9 @@ impl TypeScriptEmitter {
             Expr::FieldAccess { object, field, .. } => {
                 format!("{}.{}", self.emit_expr(object), field)
             }
-            Expr::BinOp { op, left, right, .. } => {
+            Expr::BinOp {
+                op, left, right, ..
+            } => {
                 let op_str = match op {
                     BinOpKind::Add => "+",
                     BinOpKind::Sub => "-",
@@ -528,12 +603,18 @@ impl TypeScriptEmitter {
                     BinOpKind::And => "&&",
                     BinOpKind::Or => "||",
                 };
-                format!("({} {} {})", self.emit_expr(left), op_str, self.emit_expr(right))
+                format!(
+                    "({} {} {})",
+                    self.emit_expr(left),
+                    op_str,
+                    self.emit_expr(right)
+                )
             }
             Expr::InlineRust(code) => format!("/* inline */ {}", code),
             Expr::As(inner, _ty) => self.emit_expr(inner),
             Expr::Lambda { params, body, .. } => {
-                let param_strs: Vec<String> = params.iter()
+                let param_strs: Vec<String> = params
+                    .iter()
                     .map(|(name, ty)| {
                         if let Some(t) = ty {
                             format!("{}: {}", name, self.emit_type_expr(t))
@@ -544,9 +625,15 @@ impl TypeScriptEmitter {
                     .collect();
                 format!("({}) => {}", param_strs.join(", "), self.emit_expr(body))
             }
-            Expr::ForIn { var, iter, body, .. } => {
-                format!("for (const {} of {}) {{ {} }}",
-                    var, self.emit_expr(iter), self.emit_expr(body))
+            Expr::ForIn {
+                var, iter, body, ..
+            } => {
+                format!(
+                    "for (const {} of {}) {{ {} }}",
+                    var,
+                    self.emit_expr(iter),
+                    self.emit_expr(body)
+                )
             }
             Expr::Tuple(elems, _) => {
                 let inner: Vec<String> = elems.iter().map(|e| self.emit_expr(e)).collect();
@@ -562,12 +649,16 @@ impl TypeScriptEmitter {
                 let mut chain = String::new();
                 for (i, arm) in arms.iter().enumerate() {
                     let cond = self.emit_pattern_cond(tmp, &arm.pattern);
-                    let guard = arm.guard.as_ref()
+                    let guard = arm
+                        .guard
+                        .as_ref()
                         .map(|g| format!(" && ({})", self.emit_expr(g)))
                         .unwrap_or_default();
                     let body = self.emit_expr(&arm.body);
                     if i == 0 {
-                        chain.push_str(&format!("(({tmp}) => {{\n  if ({cond}{guard}) return {body};\n"));
+                        chain.push_str(&format!(
+                            "(({tmp}) => {{\n  if ({cond}{guard}) return {body};\n"
+                        ));
                     } else if i + 1 == arms.len() {
                         chain.push_str(&format!("  return {body};\n}})({s})"));
                     } else {
@@ -575,7 +666,9 @@ impl TypeScriptEmitter {
                     }
                 }
                 if arms.len() == 1 {
-                    chain.push_str(&format!("  throw new Error(\"non-exhaustive match\");\n}})({s})"));
+                    chain.push_str(&format!(
+                        "  throw new Error(\"non-exhaustive match\");\n}})({s})"
+                    ));
                 }
                 chain
             }
@@ -587,7 +680,11 @@ impl TypeScriptEmitter {
             Literal::Int(n) => n.to_string(),
             Literal::Float(f) => {
                 let s = format!("{}", f);
-                if s.contains('.') || s.contains('e') { s } else { format!("{}.0", s) }
+                if s.contains('.') || s.contains('e') {
+                    s
+                } else {
+                    format!("{}.0", s)
+                }
             }
             Literal::Str(s) => format!("{:?}", s),
             Literal::Bool(b) => b.to_string(),
@@ -626,17 +723,29 @@ impl TypeScriptEmitter {
         out.push_str(&format!("export namespace {} {{\n", eco.name));
 
         for sig in &eco.signals {
-            out.push_str(&format!("  /** Signal: {} ({} → {}) */\n", sig.name, sig.from, sig.to));
+            out.push_str(&format!(
+                "  /** Signal: {} ({} → {}) */\n",
+                sig.name, sig.from, sig.to
+            ));
             out.push_str(&format!("  export interface {} {{", sig.name));
-            out.push_str(&format!(" payload: {} ", self.payload_to_ts_type(&sig.payload)));
+            out.push_str(&format!(
+                " payload: {} ",
+                self.payload_to_ts_type(&sig.payload)
+            ));
             out.push_str("}\n");
         }
 
         // coordinate fn
-        let params: Vec<String> = eco.members.iter()
+        let params: Vec<String> = eco
+            .members
+            .iter()
             .map(|m| {
-                let param_name = m.chars().next().map(|c| c.to_lowercase().to_string())
-                    .unwrap_or_default() + &m[1..];
+                let param_name = m
+                    .chars()
+                    .next()
+                    .map(|c| c.to_lowercase().to_string())
+                    .unwrap_or_default()
+                    + &m[1..];
                 format!("{}: {}", param_name, m)
             })
             .collect();
@@ -676,7 +785,10 @@ impl TypeScriptEmitter {
                 "      throw new Error('implement quorum action: {}');\n    }}\n",
                 quorum.action
             ));
-            out.push_str(&format!("    return fraction >= {};\n  }}\n", quorum.threshold));
+            out.push_str(&format!(
+                "    return fraction >= {};\n  }}\n",
+                quorum.threshold
+            ));
         }
 
         out.push_str("}\n");
@@ -697,13 +809,19 @@ impl TypeScriptEmitter {
     /// Emit a being definition as a TypeScript class.
     fn emit_being_ts(&self, being: &BeingDef) -> String {
         let mut out = String::new();
-        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+        let telos_desc = being
+            .telos
+            .as_ref()
+            .map(|t| t.description.as_str())
+            .unwrap_or("");
 
         out.push_str("/**\n");
         out.push_str(&format!(" * @being {}\n", being.name));
         out.push_str(&format!(" * @telos {}\n", telos_desc));
         if let Some(matter) = &being.matter {
-            let fields_str: Vec<String> = matter.fields.iter()
+            let fields_str: Vec<String> = matter
+                .fields
+                .iter()
                 .map(|f| format!("{}: {}", f.name, self.emit_type_expr(&f.ty)))
                 .collect();
             out.push_str(&format!(" * @matter {{{}}}\n", fields_str.join(", ")));
@@ -714,14 +832,22 @@ impl TypeScriptEmitter {
 
         if let Some(matter) = &being.matter {
             if !matter.fields.is_empty() {
-                let params: Vec<String> = matter.fields.iter()
+                let params: Vec<String> = matter
+                    .fields
+                    .iter()
                     .map(|f| format!("public {}: {}", f.name, self.emit_type_expr(&f.ty)))
                     .collect();
-                out.push_str(&format!("  constructor(\n    {}\n  ) {{}}\n\n", params.join(",\n    ")));
+                out.push_str(&format!(
+                    "  constructor(\n    {}\n  ) {{}}\n\n",
+                    params.join(",\n    ")
+                ));
             }
         }
 
-        out.push_str(&format!("  /** Evaluate fitness relative to telos: {:?} */\n", telos_desc));
+        out.push_str(&format!(
+            "  /** Evaluate fitness relative to telos: {:?} */\n",
+            telos_desc
+        ));
         out.push_str(&format!(
             "  fitness(): number {{\n    throw new Error('implement fitness toward telos: {}');\n  }}\n",
             telos_desc
@@ -729,7 +855,9 @@ impl TypeScriptEmitter {
 
         for reg in &being.regulate_blocks {
             let pascal = to_pascal_case(&reg.variable);
-            let (low, high) = reg.bounds.as_ref()
+            let (low, high) = reg
+                .bounds
+                .as_ref()
                 .map(|(l, h)| (l.as_str(), h.as_str()))
                 .unwrap_or(("?", "?"));
             out.push_str(&format!(
@@ -738,7 +866,11 @@ impl TypeScriptEmitter {
             ));
             out.push_str(&format!("  regulate{}(): void {{\n", pascal));
             if !reg.response.is_empty() {
-                let resp: Vec<String> = reg.response.iter().map(|(c, a)| format!("{} -> {}", c, a)).collect();
+                let resp: Vec<String> = reg
+                    .response
+                    .iter()
+                    .map(|(c, a)| format!("{} -> {}", c, a))
+                    .collect();
                 out.push_str(&format!("    // response: {}\n", resp.join(", ")));
             }
             out.push_str(&format!(
@@ -758,7 +890,10 @@ impl TypeScriptEmitter {
                     out.push_str(&format!(" When: {}", sc.when));
                 }
                 out.push_str(" */\n");
-                out.push_str(&format!("  async {}(environment: unknown): Promise<number> {{\n", method));
+                out.push_str(&format!(
+                    "  async {}(environment: unknown): Promise<number> {{\n",
+                    method
+                ));
                 out.push_str(&format!("    // {}\n", step_comment));
                 out.push_str(&format!("    // constraint: {}\n", evolve.constraint));
                 out.push_str(&format!(
@@ -768,23 +903,33 @@ impl TypeScriptEmitter {
             }
 
             // Emit the dispatcher
-            let strategy_labels: Vec<&str> = evolve.search_cases.iter()
+            let strategy_labels: Vec<&str> = evolve
+                .search_cases
+                .iter()
                 .map(|sc| strategy_ts_label(&sc.strategy))
                 .collect();
-            let default_method = evolve.search_cases.first()
+            let default_method = evolve
+                .search_cases
+                .first()
                 .map(|sc| strategy_ts_method(&sc.strategy))
                 .unwrap_or("evolveImpl");
             out.push_str("\n  /** Select and apply the appropriate search strategy.\n");
             out.push_str("   * Directed evolution: E[distance_to_telos] non-increasing.\n");
             if !strategy_labels.is_empty() {
-                out.push_str(&format!("   * strategies: {}\n", strategy_labels.join(", ")));
+                out.push_str(&format!(
+                    "   * strategies: {}\n",
+                    strategy_labels.join(", ")
+                ));
             }
             out.push_str("   */\n");
             out.push_str("  async evolve(environment: unknown): Promise<void> {\n");
             out.push_str("    let distance = Infinity;\n");
             out.push_str("    while (distance > Number.EPSILON) {\n");
             out.push_str("      // select strategy based on landscape topology\n");
-            out.push_str(&format!("      distance = await this.{}(environment);\n", default_method));
+            out.push_str(&format!(
+                "      distance = await this.{}(environment);\n",
+                default_method
+            ));
             out.push_str("    }\n  }\n");
         }
 
@@ -796,8 +941,14 @@ impl TypeScriptEmitter {
                 "\n  /** Epigenetic modulation: {} → {}\n   * @epigenetic signal={} modifies={}\n   * Reverts when: {}\n   */\n",
                 epi.signal, epi.modifies, epi.signal, epi.modifies, reverts_str
             ));
-            out.push_str(&format!("  applyEpigenetic{}(signalStrength: number): void {{\n", signal_pascal));
-            out.push_str(&format!("    // modifies: {} without changing form structure\n", epi.modifies));
+            out.push_str(&format!(
+                "  applyEpigenetic{}(signalStrength: number): void {{\n",
+                signal_pascal
+            ));
+            out.push_str(&format!(
+                "    // modifies: {} without changing form structure\n",
+                epi.modifies
+            ));
             out.push_str("    throw new Error('implement epigenetic modulation');\n  }\n");
         }
 
@@ -809,7 +960,10 @@ impl TypeScriptEmitter {
                 "\n  /** Morphogenetic differentiation: {} at threshold {}\n   * @morphogen signal={} threshold={} produces={}\n   */\n",
                 morph.signal, morph.threshold, morph.signal, morph.threshold, produces_str
             ));
-            out.push_str(&format!("  differentiate{}(signalLevel: number): unknown[] | null {{\n", signal_pascal));
+            out.push_str(&format!(
+                "  differentiate{}(signalLevel: number): unknown[] | null {{\n",
+                signal_pascal
+            ));
             out.push_str(&format!("    if (signalLevel >= {}) {{\n", morph.threshold));
             out.push_str(&format!("      // produces: {}\n", produces_str));
             out.push_str("      throw new Error('implement differentiation');\n    }\n    return null;\n  }\n");
@@ -854,7 +1008,10 @@ impl TypeScriptEmitter {
                 crispr.target, crispr.replace, crispr.guide
             ));
             out.push_str("   */\n");
-            out.push_str(&format!("  edit{}(guide: {}): boolean {{\n", guide_pascal, crispr.guide));
+            out.push_str(&format!(
+                "  edit{}(guide: {}): boolean {{\n",
+                guide_pascal, crispr.guide
+            ));
             out.push_str(&format!(
                 "    // target: {} → replace: {}\n",
                 crispr.target, crispr.replace
@@ -873,7 +1030,9 @@ impl TypeScriptEmitter {
             let rule_description = match plasticity.rule {
                 PlasticityRule::Hebbian => "co-activation strengthens the connection weight",
                 PlasticityRule::Boltzmann => "energy minimization via thermal equilibration",
-                PlasticityRule::ReinforcementLearning => "reward signal updates weight toward policy optimum",
+                PlasticityRule::ReinforcementLearning => {
+                    "reward signal updates weight toward policy optimum"
+                }
             };
             out.push_str(&format!(
                 "\n  /** Plasticity update: {} → {} via {}\n",
@@ -940,33 +1099,33 @@ impl TypeScriptEmitter {
 /// Returns the camelCase TS method name for a search strategy.
 fn strategy_ts_method(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent   => "evolveGradientDescent",
+        SearchStrategy::GradientDescent => "evolveGradientDescent",
         SearchStrategy::StochasticGradient => "evolveStochasticGradient",
         SearchStrategy::SimulatedAnnealing => "evolveSimulatedAnnealing",
-        SearchStrategy::DerivativeFree    => "evolveDerivativeFree",
-        SearchStrategy::Mcmc              => "evolveMcmc",
+        SearchStrategy::DerivativeFree => "evolveDerivativeFree",
+        SearchStrategy::Mcmc => "evolveMcmc",
     }
 }
 
 /// Returns a short label for a search strategy (used in comments).
 fn strategy_ts_label(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent   => "gradient descent",
+        SearchStrategy::GradientDescent => "gradient descent",
         SearchStrategy::StochasticGradient => "stochastic gradient",
         SearchStrategy::SimulatedAnnealing => "simulated annealing",
-        SearchStrategy::DerivativeFree    => "derivative-free",
-        SearchStrategy::Mcmc              => "MCMC",
+        SearchStrategy::DerivativeFree => "derivative-free",
+        SearchStrategy::Mcmc => "MCMC",
     }
 }
 
 /// Returns a one-line implementation comment for a search strategy step.
 fn strategy_ts_step_comment(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent   => "adjust parameters along negative gradient",
+        SearchStrategy::GradientDescent => "adjust parameters along negative gradient",
         SearchStrategy::StochasticGradient => "noisy gradient estimation",
         SearchStrategy::SimulatedAnnealing => "probabilistic uphill acceptance",
-        SearchStrategy::DerivativeFree    => "explore without gradient information",
-        SearchStrategy::Mcmc              => "sample from posterior landscape",
+        SearchStrategy::DerivativeFree => "explore without gradient information",
+        SearchStrategy::Mcmc => "sample from posterior landscape",
     }
 }
 
@@ -974,13 +1133,13 @@ fn strategy_ts_step_comment(strategy: &SearchStrategy) -> &'static str {
 /// or `None` if the key is not a recognised algebraic property.
 fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
     match key {
-        "idempotent"   => Some("safe to retry"),
-        "commutative"  => Some("argument order does not matter"),
-        "associative"  => Some("grouping does not matter"),
+        "idempotent" => Some("safe to retry"),
+        "commutative" => Some("argument order does not matter"),
+        "associative" => Some("grouping does not matter"),
         "at-most-once" => Some("must not be called more than once"),
         "exactly-once" => Some("must be called exactly once"),
-        "pure"         => Some("no side effects"),
-        "monotonic"    => Some("output only increases"),
+        "pure" => Some("no side effects"),
+        "monotonic" => Some("output only increases"),
         _ => None,
     }
 }
@@ -1023,18 +1182,27 @@ fn ts_param_names(fd: &FnDef) -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut ordered: Vec<String> = Vec::new();
 
-    let all_exprs: Vec<&Expr> = fd.body.iter()
+    let all_exprs: Vec<&Expr> = fd
+        .body
+        .iter()
         .chain(fd.requires.iter().map(|c| &c.expr))
         .chain(fd.ensures.iter().map(|c| &c.expr))
         .collect();
 
     for expr in all_exprs {
         scan_free_idents_ts(expr, &let_bound, &mut seen, &mut ordered);
-        if ordered.len() >= max { break; }
+        if ordered.len() >= max {
+            break;
+        }
     }
 
     (0..max)
-        .map(|i| ordered.get(i).cloned().unwrap_or_else(|| format!("arg{}", i)))
+        .map(|i| {
+            ordered
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("arg{}", i))
+        })
         .collect()
 }
 
@@ -1057,7 +1225,10 @@ fn scan_free_idents_ts(
     const BUILTINS: &[&str] = &["todo", "map", "filter", "fold", "true", "false", "null"];
     match expr {
         Expr::Ident(name) => {
-            if !let_bound.contains(name) && !BUILTINS.contains(&name.as_str()) && seen.insert(name.clone()) {
+            if !let_bound.contains(name)
+                && !BUILTINS.contains(&name.as_str())
+                && seen.insert(name.clone())
+            {
                 ordered.push(name.clone());
             }
         }
@@ -1067,7 +1238,9 @@ fn scan_free_idents_ts(
         }
         Expr::Call { func, args, .. } => {
             scan_free_idents_ts(func, let_bound, seen, ordered);
-            for a in args { scan_free_idents_ts(a, let_bound, seen, ordered); }
+            for a in args {
+                scan_free_idents_ts(a, let_bound, seen, ordered);
+            }
         }
         Expr::Let { value, .. } => scan_free_idents_ts(value, let_bound, seen, ordered),
         Expr::FieldAccess { object, .. } => scan_free_idents_ts(object, let_bound, seen, ordered),
@@ -1078,12 +1251,18 @@ fn scan_free_idents_ts(
         Expr::Lambda { body, .. } => scan_free_idents_ts(body, let_bound, seen, ordered),
         Expr::Match { subject, arms, .. } => {
             scan_free_idents_ts(subject, let_bound, seen, ordered);
-            for arm in arms { scan_free_idents_ts(&arm.body, let_bound, seen, ordered); }
+            for arm in arms {
+                scan_free_idents_ts(&arm.body, let_bound, seen, ordered);
+            }
         }
         Expr::Tuple(elems, _) => {
-            for e in elems { scan_free_idents_ts(e, let_bound, seen, ordered); }
+            for e in elems {
+                scan_free_idents_ts(e, let_bound, seen, ordered);
+            }
         }
-        Expr::Try(inner, _) | Expr::As(inner, _) => scan_free_idents_ts(inner, let_bound, seen, ordered),
+        Expr::Try(inner, _) | Expr::As(inner, _) => {
+            scan_free_idents_ts(inner, let_bound, seen, ordered)
+        }
         Expr::ForIn { iter, body, .. } => {
             scan_free_idents_ts(iter, let_bound, seen, ordered);
             scan_free_idents_ts(body, let_bound, seen, ordered);

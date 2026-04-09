@@ -38,10 +38,7 @@ impl PropertyChecker {
         // Rule 1: samples: 0 is a hard error — zero samples produces no evidence.
         if pb.samples == 0 {
             errors.push(LoomError::parse(
-                format!(
-                    "property '{}': samples must be > 0, got 0",
-                    pb.name
-                ),
+                format!("property '{}': samples must be > 0, got 0", pb.name),
                 pb.span.clone(),
             ));
         }

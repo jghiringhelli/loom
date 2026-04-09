@@ -1,8 +1,8 @@
 //! Expression, literal, pattern, and type-expression emitters.
 
+use super::RustEmitter;
 use crate::ast::*;
 use crate::checker::units::{capitalize, collect_unit_labels, extract_unit};
-use super::RustEmitter;
 
 impl RustEmitter {
     /// Recursively lower a Loom `TypeExpr` to a Rust type string.
@@ -18,13 +18,16 @@ impl RustEmitter {
                 // Map Loom stdlib collection types to Rust equivalents.
                 match name.as_str() {
                     "List" if ps.len() == 1 => format!("Vec<{}>", ps[0]),
-                    "Map"  if ps.len() == 2 => format!("HashMap<{}, {}>", ps[0], ps[1]),
-                    "Set"  if ps.len() == 1 => format!("HashSet<{}>", ps[0]),
+                    "Map" if ps.len() == 2 => format!("HashMap<{}, {}>", ps[0], ps[1]),
+                    "Set" if ps.len() == 1 => format!("HashSet<{}>", ps[0]),
                     _ => format!("{}<{}>", name, ps.join(", ")),
                 }
             }
             TypeExpr::Effect(_, inner) => {
-                format!("Result<{}, Box<dyn std::error::Error>>", self.emit_type_expr(inner))
+                format!(
+                    "Result<{}, Box<dyn std::error::Error>>",
+                    self.emit_type_expr(inner)
+                )
             }
             TypeExpr::Option(inner) => format!("Option<{}>", self.emit_type_expr(inner)),
             TypeExpr::Result(ok, err) => format!(
@@ -168,20 +171,22 @@ impl RustEmitter {
             Expr::FieldAccess { object, field, .. } => {
                 format!("{}.{}", self.emit_expr(object), field)
             }
-            Expr::BinOp { op, left, right, .. } => {
+            Expr::BinOp {
+                op, left, right, ..
+            } => {
                 let op_str = match op {
                     BinOpKind::Add => "+",
                     BinOpKind::Sub => "-",
                     BinOpKind::Mul => "*",
                     BinOpKind::Div => "/",
-                    BinOpKind::Eq  => "==",
-                    BinOpKind::Ne  => "!=",
-                    BinOpKind::Lt  => "<",
-                    BinOpKind::Le  => "<=",
-                    BinOpKind::Gt  => ">",
-                    BinOpKind::Ge  => ">=",
+                    BinOpKind::Eq => "==",
+                    BinOpKind::Ne => "!=",
+                    BinOpKind::Lt => "<",
+                    BinOpKind::Le => "<=",
+                    BinOpKind::Gt => ">",
+                    BinOpKind::Ge => ">=",
                     BinOpKind::And => "&&",
-                    BinOpKind::Or  => "||",
+                    BinOpKind::Or => "||",
                 };
                 format!(
                     "({} {} {})",
@@ -207,7 +212,9 @@ impl RustEmitter {
                     .collect();
                 format!("|{}| {}", param_strs.join(", "), self.emit_expr(body))
             }
-            Expr::ForIn { var, iter, body, .. } => {
+            Expr::ForIn {
+                var, iter, body, ..
+            } => {
                 format!(
                     "for {} in ({}).iter() {{ {} }}",
                     var,
@@ -252,9 +259,9 @@ impl RustEmitter {
                     format!("{}.0", s)
                 }
             }
-            Literal::Str(s)  => format!("{:?}", s),
+            Literal::Str(s) => format!("{:?}", s),
             Literal::Bool(b) => b.to_string(),
-            Literal::Unit    => "()".to_string(),
+            Literal::Unit => "()".to_string(),
         }
     }
 
@@ -264,14 +271,13 @@ impl RustEmitter {
                 if sub_pats.is_empty() {
                     name.clone()
                 } else {
-                    let subs: Vec<String> =
-                        sub_pats.iter().map(|p| self.emit_pattern(p)).collect();
+                    let subs: Vec<String> = sub_pats.iter().map(|p| self.emit_pattern(p)).collect();
                     format!("{}({})", name, subs.join(", "))
                 }
             }
-            Pattern::Ident(name)    => name.clone(),
-            Pattern::Wildcard       => "_".to_string(),
-            Pattern::Literal(lit)   => self.emit_literal(lit),
+            Pattern::Ident(name) => name.clone(),
+            Pattern::Wildcard => "_".to_string(),
+            Pattern::Literal(lit) => self.emit_literal(lit),
         }
     }
 }

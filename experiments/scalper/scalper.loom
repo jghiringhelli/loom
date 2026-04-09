@@ -1,0 +1,327 @@
+-- experiments/scalper/scalper.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Mean-Reversion Scalping Agent
+-- ══════════════════════════════════════════════════════════════════
+--
+-- A self-governing scalping agent built on Ornstein-Uhlenbeck
+-- mean-reversion. The agent detects when price drifts beyond its
+-- equilibrium spread threshold, enters a contrarian position, and
+-- exits at take-profit or stop-loss.
+--
+-- Loom features exercised:
+--   M1–M8   types, enums, refinements, contracts, effects
+--   M19     Float<usd> / Float<pct> unit types
+--   M20     @never-log on sensitive PnL fields
+--   M21     @idempotent, @exactly-once on order submission
+--   M22     lifecycle Order :: Pending -> Filled -> Settled
+--   M23     information flow: session key never leaks to log
+--   M41–M55 being: / ecosystem: / regulate: / evolve: / telomere:
+--           epigenetic: / autopoietic: / @mortal @corrigible @sandboxed
+--   M84–M89 OU stochastic process, Cauchy tail-risk model
+--
+-- To compile:
+--   loom compile experiments/scalper/scalper.loom
+--
+-- To run the synthetic backtest:
+--   rustc experiments/scalper/scalper.rs experiments/scalper/runner.rs \
+--         --edition 2021 -o scalper && ./scalper
+--
+-- ══════════════════════════════════════════════════════════════════
+
+module ScalpingAgent
+describe: "Mean-reversion scalping agent with homeostatic risk management"
+
+-- ── I. TYPES ──────────────────────────────────────────────────────
+
+type Tick =
+  symbol:    String
+  bid:       Float<usd>
+  ask:       Float<usd>
+  mid:       Float<usd>
+  timestamp: Int
+end
+
+type Position =
+  symbol:    String
+  entry:     Float<usd>
+  size:      Float<usd>
+  direction: Direction
+  opened_at: Int
+end
+
+type Fill =
+  order_id:  Int
+  price:     Float<usd>
+  size:      Float<usd>
+  fee:       Float<usd>
+end
+
+type PnL =
+  realized:   Float<usd> @never-log
+  unrealized: Float<usd> @never-log
+  total:      Float<usd> @never-log
+  trade_count: Int
+  win_count:   Int
+end
+
+-- Refined types — constraints checked by the type system
+type PositivePrice   = Float where self > 0.0
+type BoundedSize     = Float where self > 0.0 and self <= 10000.0
+type SpreadBps       = Float where self >= 0.0 and self <= 500.0
+
+enum Direction =
+  | Long
+  | Short
+  | Flat
+end
+
+enum Signal =
+  | Buy  of Float<usd>
+  | Sell of Float<usd>
+  | Hold
+end
+
+enum OrderResult =
+  | Filled of Fill
+  | Rejected of String
+  | Timeout
+end
+
+-- ── II. LIFECYCLE (M22) ───────────────────────────────────────────
+
+lifecycle Order ::
+  Pending -> Filled -> Settled
+
+-- ── III. SESSION-TYPED EXECUTION CHANNEL (M23) ───────────────────
+
+signal OrderChannel from ScalpingAgent to Exchange
+  submit  :: Position
+  cancel  :: Int
+  confirm :: Fill
+end
+
+-- ── IV. STOCHASTIC MODELS (M84–M89) ──────────────────────────────
+
+-- Ornstein-Uhlenbeck: models mean-reverting spread dynamics.
+-- The OU process is the mathematical basis of this strategy:
+--   dX = θ(μ - X)dt + σdW
+-- where θ = reversion speed, μ = long-run mean, σ = volatility.
+fn sample_spread @probabilistic :: Float -> Float -> Float
+  distribution:
+    family: OrnsteinUhlenbeck(
+      mean:      0.0
+      reversion: 2.0
+      volatility: 0.15
+    )
+  end
+  process:
+    kind: OrnsteinUhlenbeck
+    stationary: true
+    mean_reverting: true
+  end
+  0.0
+end
+
+-- Cauchy tail-risk model: fat-tailed slippage on large positions.
+fn estimate_slippage @probabilistic :: Float<usd> -> Float<usd>
+  distribution:
+    family: Cauchy(location: 0.0, scale: 0.002)
+  end
+  0.0
+end
+
+-- GBM baseline drift (non-zero drift makes strategy harder — good test).
+fn simulate_mid_price @probabilistic :: PositivePrice -> Float
+  distribution:
+    family: GeometricBrownian(drift: 0.0001, volatility: 0.02)
+  end
+  process:
+    kind: GeometricBrownian
+    always_positive: true
+    martingale: false
+  end
+  1.0
+end
+
+-- ── V. FUNCTIONS ─────────────────────────────────────────────────
+
+fn spread_bps @pure :: Float<usd> -> Float<usd> -> Float
+  require: ask > 0.0
+  require: bid > 0.0
+  require: ask >= bid
+  ensure:  result >= 0.0
+  (ask - bid) / bid * 10000.0
+end
+
+fn signal_from_tick @pure :: Tick -> Float -> Signal
+  require: threshold_bps > 0.0
+  Signal
+end
+
+fn unrealized_pnl @pure :: Position -> Tick -> Float<usd>
+  require: position.size > 0.0
+  ensure:  result == 0.0 || position.direction != Flat
+  0.0
+end
+
+fn update_pnl @pure :: PnL -> Float<usd> -> Bool -> PnL
+  require: trade_pnl != 0.0 || not is_win
+  PnL
+end
+
+fn risk_adjusted_return @pure :: PnL -> Float
+  require: pnl.trade_count > 0
+  ensure:  result >= -100.0
+  0.0
+end
+
+-- ── VI. THE SCALPING BEING (M41–M55) ─────────────────────────────
+
+being ScalpingAgent
+describe: "OU mean-reversion scalper — enter on spread widening, exit on reversion"
+
+@mortal
+@corrigible
+@sandboxed
+@transparent
+@bounded_telos
+
+-- Internal state the agent owns
+matter:
+  position:         Option<Position>
+  cash:             Float<usd>
+  pnl:              PnL
+  mid_price_ema:    Float<usd>
+  tick_count:       Int
+  consecutive_losses: Int
+end
+
+-- Tunable parameters (evolved via gradient_descent)
+form:
+  spread_threshold_bps: SpreadBps
+  stop_loss_bps:        SpreadBps
+  take_profit_bps:      SpreadBps
+  position_size:        BoundedSize
+  ema_alpha:            Float
+end
+
+-- Behavioural interface
+function:
+  on_tick:        fn :: Tick -> Signal
+  open_position:  fn :: Signal -> Effect<[IO@irreversible], OrderResult]
+  close_position: fn :: Tick -> Effect<[IO@irreversible], OrderResult]
+  update_ema:     fn :: Float<usd> -> Float<usd>
+end
+
+-- The agent's goal: maximize risk-adjusted PnL while staying safe.
+-- `bounded_by` is enforced by the SafetyChecker — violating it is
+-- a compile-time error if autopoietic: true.
+telos:
+  maximize:    "pnl.total"
+  measured_by: risk_adjusted_return
+  bounded_by:  "pnl.realized > -500.0 && pnl.trade_count < 100"
+  modifiable_by: "operator"
+  thresholds:
+    convergence:  0.80
+    warning:      0.50
+    divergence:   0.20
+    propagation:  0.90
+  guides:
+    minimize_drawdown
+    maximize_win_rate
+  end
+end
+
+-- Homeostatic risk management (Cannon 1932):
+-- The agent automatically adjusts if parameters drift out of bounds.
+regulate SpreadBand
+  spread_threshold_bps between 5.0  and 50.0
+  stop_loss_bps        between 3.0  and 20.0
+  take_profit_bps      between 5.0  and 30.0
+  position_size        between 100.0 and 5000.0
+  consecutive_losses   between 0    and 5
+end
+
+-- Evolution: tune spread_threshold_bps to improve Sharpe over time.
+evolve TuneParameters
+  toward: telos
+  search:
+    | gradient_descent when pnl.trade_count > 10
+    | simulated_annealing when consecutive_losses >= 3
+  constraint: "pnl.realized >= -500.0"
+  rate: 0.005
+end
+
+-- Epigenetic regime switch (Waddington 1957):
+-- When consecutive losses pile up, halve position size defensively.
+epigenetic LossProtection
+  trigger:  consecutive_losses >= 3
+  response: position_size = position_size * 0.5
+end
+
+-- Epigenetic recovery: when losses stop, restore normal sizing.
+epigenetic Recovery
+  trigger:  consecutive_losses == 0
+  response: position_size = 1000.0
+end
+
+-- Hayflick limit: max 100 trades per session, then rest.
+telomere:
+  limit: 100
+  on_exhaustion: Flat
+end
+
+-- Maturana/Varela operational closure:
+-- The agent's effects are limited to its matter: scope and
+-- the OrderChannel. It cannot write to any other resource.
+autopoietic: true
+
+-- Scenario acceptance criteria (empirically tested by runner.rs)
+scenario ProfitableOnOU:
+  given: "1000 ticks of OU mid-price data (θ=2.0, σ=0.15)"
+  when:  "agent runs with default parameters"
+  then:  "pnl.realized > -500.0 after 100 trades"
+  within: 1000
+end
+
+scenario DrawdownBounded:
+  given: "500 ticks with 3 consecutive bad entries"
+  when:  "LossProtection epigenetic fires"
+  then:  "position_size halves and losses stop compounding"
+  within: 500
+end
+
+end -- being ScalpingAgent
+
+-- ── VII. THE MARKET ECOSYSTEM ─────────────────────────────────────
+
+ecosystem Market
+describe: "Synthetic OU market — the environment the scalper trades in"
+
+telos:
+  maximize: "price_discovery"
+  bounded_by: "step_count < 10000"
+end
+
+end -- ecosystem Market
+
+-- ── VIII. MODULE INVARIANTS ───────────────────────────────────────
+
+invariant spread_always_positive  :: ask >= bid
+invariant cash_never_negative     :: cash >= 0.0
+invariant pnl_trade_count_bounded :: pnl.trade_count <= 100
+invariant telos_bounded_by_safety :: pnl.realized >= -500.0
+
+-- ── IX. INLINE TESTS ─────────────────────────────────────────────
+
+test spread_bps_zero_when_equal ::
+  spread_bps(100.0, 100.0) == 0.0
+end
+
+test spread_bps_positive_when_spread ::
+  spread_bps(99.9, 100.1) > 0.0
+end
+
+test signal_hold_on_tight_spread ::
+  signal_from_tick(tight_tick, 50.0) == Hold
+end

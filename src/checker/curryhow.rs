@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct CurryHowardChecker;
 
 impl CurryHowardChecker {
-    pub fn new() -> Self { CurryHowardChecker }
+    pub fn new() -> Self {
+        CurryHowardChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -14,7 +16,11 @@ impl CurryHowardChecker {
                 self.check_fn(fd, &mut errors);
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn has_recursive_call(name: &str, exprs: &[Expr]) -> bool {
@@ -25,17 +31,22 @@ impl CurryHowardChecker {
         match expr {
             Expr::Call { func, args, .. } => {
                 if let Expr::Ident(n) = func.as_ref() {
-                    if n == name { return true; }
+                    if n == name {
+                        return true;
+                    }
                 }
                 args.iter().any(|a| Self::expr_has_recursive_call(name, a))
             }
             Expr::Let { value, .. } => Self::expr_has_recursive_call(name, value),
             Expr::Pipe { left, right, .. } => {
-                Self::expr_has_recursive_call(name, left) || Self::expr_has_recursive_call(name, right)
+                Self::expr_has_recursive_call(name, left)
+                    || Self::expr_has_recursive_call(name, right)
             }
             Expr::Match { subject, arms, .. } => {
-                Self::expr_has_recursive_call(name, subject) ||
-                arms.iter().any(|a| Self::expr_has_recursive_call(name, &a.body))
+                Self::expr_has_recursive_call(name, subject)
+                    || arms
+                        .iter()
+                        .any(|a| Self::expr_has_recursive_call(name, &a.body))
             }
             _ => false,
         }

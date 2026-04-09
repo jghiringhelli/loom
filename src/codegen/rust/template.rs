@@ -88,7 +88,10 @@ mod tests {
 
     #[test]
     fn value_with_braces_not_expanded() {
-        let code = subst(r#"fn {name}() { {body} }"#, &[("name", "foo"), ("body", "let x = {y};")]);
+        let code = subst(
+            r#"fn {name}() { {body} }"#,
+            &[("name", "foo"), ("body", "let x = {y};")],
+        );
         assert_eq!(code, "fn foo() { let x = {y}; }");
     }
 

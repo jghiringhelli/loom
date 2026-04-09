@@ -1,7 +1,7 @@
 //! Being and ecosystem emitters — `being:` / `ecosystem:` blocks → Rust structs + impl.
 
+use super::{to_snake_case, RustEmitter};
 use crate::ast::*;
-use super::{RustEmitter, to_snake_case};
 
 impl RustEmitter {
     /// Emit all ecosystem definitions as Rust submodules.
@@ -20,7 +20,10 @@ impl RustEmitter {
         out.push_str("    use super::*;\n");
 
         for sig in &eco.signals {
-            out.push_str(&format!("\n    /// Signal: {} ({} → {})\n", sig.name, sig.from, sig.to));
+            out.push_str(&format!(
+                "\n    /// Signal: {} ({} → {})\n",
+                sig.name, sig.from, sig.to
+            ));
             out.push_str(&format!("    pub struct {} {{\n", sig.name));
             out.push_str(&format!(
                 "        pub payload: {}, // {}\n",
@@ -30,7 +33,9 @@ impl RustEmitter {
             out.push_str("    }\n");
         }
 
-        let params: Vec<String> = eco.members.iter()
+        let params: Vec<String> = eco
+            .members
+            .iter()
             .map(|m| format!("{}: &mut {}", to_snake_case(m), m))
             .collect();
         if let Some(telos) = &eco.telos {
@@ -39,7 +44,10 @@ impl RustEmitter {
         } else {
             out.push_str("\n    /// Coordinate the ecosystem: route signals between members.\n");
         }
-        out.push_str(&format!("    pub fn coordinate({}) {{\n", params.join(", ")));
+        out.push_str(&format!(
+            "    pub fn coordinate({}) {{\n",
+            params.join(", ")
+        ));
         out.push_str("        todo!(\"implement ecosystem coordination toward telos\")\n");
         out.push_str("    }\n");
 
@@ -50,7 +58,9 @@ impl RustEmitter {
                 "\n    /// Quorum sensing: {} at {} population fraction → {}\n",
                 quorum.signal, quorum.threshold, quorum.action
             ));
-            out.push_str("    /// Bassler (1999): collective behavior emerging from individual signals.\n");
+            out.push_str(
+                "    /// Bassler (1999): collective behavior emerging from individual signals.\n",
+            );
             out.push_str(&format!(
                 "    pub fn check_quorum_{}(population_signals: &[f64]) -> bool {{\n",
                 signal_snake
@@ -59,13 +69,19 @@ impl RustEmitter {
                 "        let fraction = population_signals.iter().filter(|&&s| s > 0.0).count() as f64\n"
             );
             out.push_str("            / population_signals.len() as f64;\n");
-            out.push_str(&format!("        if fraction >= {}_f64 {{\n", threshold_f64));
+            out.push_str(&format!(
+                "        if fraction >= {}_f64 {{\n",
+                threshold_f64
+            ));
             out.push_str(&format!("            // trigger: {}\n", quorum.action));
             out.push_str(&format!(
                 "            todo!(\"implement quorum action: {}\")\n        }}\n",
                 quorum.action
             ));
-            out.push_str(&format!("        fraction >= {}_f64\n    }}\n", threshold_f64));
+            out.push_str(&format!(
+                "        fraction >= {}_f64\n    }}\n",
+                threshold_f64
+            ));
         }
 
         out.push_str("}\n");
@@ -87,7 +103,11 @@ impl RustEmitter {
     /// Emit a being definition as a Rust struct + impl with fitness/regulate/evolve methods.
     pub(super) fn emit_being(&self, being: &BeingDef) -> String {
         let mut out = String::new();
-        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+        let telos_desc = being
+            .telos
+            .as_ref()
+            .map(|t| t.description.as_str())
+            .unwrap_or("");
 
         out.push_str(&format!("// Being: {}\n", being.name));
         if let Some(telos) = &being.telos {
@@ -166,7 +186,11 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
         out.push_str(&format!("pub struct {} {{\n", being.name));
         if let Some(matter) = &being.matter {
             for field in &matter.fields {
-                out.push_str(&format!("    pub {}: {},\n", field.name, self.emit_type_expr(&field.ty)));
+                out.push_str(&format!(
+                    "    pub {}: {},\n",
+                    field.name,
+                    self.emit_type_expr(&field.ty)
+                ));
             }
         }
         if being.telomere.is_some() {
@@ -186,9 +210,14 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
         } else {
             "implement fitness".to_string()
         };
-        out.push_str("    /// Returns the fitness score relative to telos (0.0 = worst, 1.0 = perfect).\n");
+        out.push_str(
+            "    /// Returns the fitness score relative to telos (0.0 = worst, 1.0 = perfect).\n",
+        );
         out.push_str(&format!("    /// telos: {:?}\n", telos_desc));
-        out.push_str(&format!("    pub fn fitness(&self) -> f64 {{\n        todo!({:?})\n    }}\n", fitness_todo));
+        out.push_str(&format!(
+            "    pub fn fitness(&self) -> f64 {{\n        todo!({:?})\n    }}\n",
+            fitness_todo
+        ));
 
         // Convergence state helper (only when thresholds are declared).
         if let Some(telos) = &being.telos {
@@ -213,17 +242,29 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
 
         for reg in &being.regulate_blocks {
             let var_snake = to_snake_case(&reg.variable);
-            let (low, high) = reg.bounds.as_ref()
+            let (low, high) = reg
+                .bounds
+                .as_ref()
                 .map(|(l, h)| (l.as_str(), h.as_str()))
                 .unwrap_or(("?", "?"));
             out.push_str(&format!(
                 "\n    /// Homeostatic regulation: {} → target {} within [{}, {}]\n",
                 reg.variable, reg.target, low, high
             ));
-            out.push_str(&format!("    pub fn regulate_{}(&mut self) {{\n", var_snake));
-            out.push_str(&format!("        // target: {}, bounds: ({}, {})\n", reg.target, low, high));
+            out.push_str(&format!(
+                "    pub fn regulate_{}(&mut self) {{\n",
+                var_snake
+            ));
+            out.push_str(&format!(
+                "        // target: {}, bounds: ({}, {})\n",
+                reg.target, low, high
+            ));
             if !reg.response.is_empty() {
-                let resp: Vec<String> = reg.response.iter().map(|(c, a)| format!("{} -> {}", c, a)).collect();
+                let resp: Vec<String> = reg
+                    .response
+                    .iter()
+                    .map(|(c, a)| format!("{} -> {}", c, a))
+                    .collect();
                 out.push_str(&format!("        // response: {}\n", resp.join(", ")));
             }
             out.push_str(&format!(
@@ -251,20 +292,32 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 ));
             }
 
-            let strategy_list: Vec<&str> = evolve.search_cases.iter()
+            let strategy_list: Vec<&str> = evolve
+                .search_cases
+                .iter()
                 .map(|sc| strategy_rust_label(&sc.strategy))
                 .collect();
-            let default_method = evolve.search_cases.first()
+            let default_method = evolve
+                .search_cases
+                .first()
                 .map(|sc| strategy_rust_method(&sc.strategy))
                 .unwrap_or("evolve_step_impl");
             out.push_str("\n    /// Select and apply the appropriate search strategy based on current landscape.\n");
-            out.push_str("    /// Directed evolution: E[distance_to_telos] must be non-increasing.\n");
+            out.push_str(
+                "    /// Directed evolution: E[distance_to_telos] must be non-increasing.\n",
+            );
             out.push_str("    pub fn evolve_step(&mut self) -> f64 {\n");
             out.push_str("        // dispatcher: select strategy based on landscape topology\n");
             if !strategy_list.is_empty() {
-                out.push_str(&format!("        // strategies available: {}\n", strategy_list.join(", ")));
+                out.push_str(&format!(
+                    "        // strategies available: {}\n",
+                    strategy_list.join(", ")
+                ));
             }
-            out.push_str(&format!("        self.{}()  // default to first strategy\n    }}\n", default_method));
+            out.push_str(&format!(
+                "        self.{}()  // default to first strategy\n    }}\n",
+                default_method
+            ));
         }
 
         for epi in &being.epigenetic_blocks {
@@ -274,7 +327,10 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 "\n    /// Epigenetic modulation: {} → modifies {}\n    /// Waddington landscape: behavioral change without structural change.\n    /// Reverts when: {}\n",
                 epi.signal, epi.modifies, reverts_str
             ));
-            out.push_str(&format!("    pub fn apply_epigenetic_{}(&mut self, signal_strength: f64) {{\n", signal_snake));
+            out.push_str(&format!(
+                "    pub fn apply_epigenetic_{}(&mut self, signal_strength: f64) {{\n",
+                signal_snake
+            ));
             out.push_str(&format!("        // modifies: {}\n", epi.modifies));
             out.push_str(&format!("        // reverts_when: {}\n", reverts_str));
             out.push_str(&format!(
@@ -292,7 +348,10 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 morph.signal, morph.threshold, produces_str
             ));
             out.push_str(&format!("    pub fn differentiate_{}(&self, signal_level: f64) -> Option<Vec<Box<dyn std::any::Any>>> {{\n", signal_snake));
-            out.push_str(&format!("        if signal_level >= {}_f64 {{\n", threshold_val));
+            out.push_str(&format!(
+                "        if signal_level >= {}_f64 {{\n",
+                threshold_val
+            ));
             out.push_str(&format!("            // produces: {}\n", produces_str));
             out.push_str(&format!(
                 "            todo!({:?})\n        }} else {{\n            None\n        }}\n    }}\n",
@@ -340,7 +399,9 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
             let rule_description = match plasticity.rule {
                 PlasticityRule::Hebbian => "co-activation strengthens the connection weight",
                 PlasticityRule::Boltzmann => "energy minimization via thermal equilibration",
-                PlasticityRule::ReinforcementLearning => "reward signal updates weight toward policy optimum",
+                PlasticityRule::ReinforcementLearning => {
+                    "reward signal updates weight toward policy optimum"
+                }
             };
             out.push_str(&format!(
                 "\n    /// Plasticity: {} → updates {} via {}\n",
@@ -351,7 +412,10 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 "    pub fn update_{}(&mut self, trigger_strength: f64) {{\n",
                 modifies_snake
             ));
-            out.push_str(&format!("        // rule: {} — {}\n", rule_name, rule_description));
+            out.push_str(&format!(
+                "        // rule: {} — {}\n",
+                rule_name, rule_description
+            ));
             out.push_str(&format!("        // modifies: {}\n", plasticity.modifies));
             out.push_str(&format!(
                 "        todo!(\"implement {} plasticity for {}\")\n    }}\n",
@@ -371,21 +435,35 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
             }
         }
         if let Some(sen) = &being.senescence {
-            out.push_str(&format!("// senescence: onset: {}, degradation: {}\n", sen.onset, sen.degradation));
-            if let Some(s) = &sen.sasp { out.push_str(&format!("//   sasp: {}\n", s)); }
+            out.push_str(&format!(
+                "// senescence: onset: {}, degradation: {}\n",
+                sen.onset, sen.degradation
+            ));
+            if let Some(s) = &sen.sasp {
+                out.push_str(&format!("//   sasp: {}\n", s));
+            }
         }
         if let Some(crit) = &being.criticality {
-            out.push_str(&format!("// criticality: lower: {}, upper: {}\n", crit.lower, crit.upper));
-            if let Some(p) = &crit.probe_fn { out.push_str(&format!("//   probe_fn: {}\n", p)); }
+            out.push_str(&format!(
+                "// criticality: lower: {}, upper: {}\n",
+                crit.lower, crit.upper
+            ));
+            if let Some(p) = &crit.probe_fn {
+                out.push_str(&format!("//   probe_fn: {}\n", p));
+            }
         }
         if being.autopoietic {
             out.push_str(&format!("\nimpl {} {{\n", being.name));
             out.push_str("    /// Autopoietic system: operationally closed, self-producing, boundary-maintaining.\n");
             out.push_str("    /// Maturana/Varela (1972): the living system that produces and maintains itself.\n");
-            out.push_str("    /// Organizational properties: telos (purpose) + regulate (homeostasis) +\n");
+            out.push_str(
+                "    /// Organizational properties: telos (purpose) + regulate (homeostasis) +\n",
+            );
             out.push_str("    /// evolve (self-modification) + matter (boundary substrate).\n");
             out.push_str("    pub fn is_autopoietic() -> bool { true }\n\n");
-            out.push_str("    /// Verify operational closure: all autopoietic components are functional.\n");
+            out.push_str(
+                "    /// Verify operational closure: all autopoietic components are functional.\n",
+            );
             out.push_str("    pub fn verify_closure(&self) -> bool {\n");
             out.push_str("        // operational closure requires all four layers to be non-trivially implemented\n");
             out.push_str("        false // todo: implement verification\n");
@@ -418,30 +496,36 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
 
 fn strategy_rust_method(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent    => "evolve_gradient_descent",
+        SearchStrategy::GradientDescent => "evolve_gradient_descent",
         SearchStrategy::StochasticGradient => "evolve_stochastic_gradient",
         SearchStrategy::SimulatedAnnealing => "evolve_simulated_annealing",
-        SearchStrategy::DerivativeFree     => "evolve_derivative_free",
-        SearchStrategy::Mcmc               => "evolve_mcmc",
+        SearchStrategy::DerivativeFree => "evolve_derivative_free",
+        SearchStrategy::Mcmc => "evolve_mcmc",
     }
 }
 
 fn strategy_rust_label(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent    => "gradient_descent",
+        SearchStrategy::GradientDescent => "gradient_descent",
         SearchStrategy::StochasticGradient => "stochastic_gradient",
         SearchStrategy::SimulatedAnnealing => "simulated_annealing",
-        SearchStrategy::DerivativeFree     => "derivative_free",
-        SearchStrategy::Mcmc               => "mcmc",
+        SearchStrategy::DerivativeFree => "derivative_free",
+        SearchStrategy::Mcmc => "mcmc",
     }
 }
 
 fn strategy_rust_step_comment(strategy: &SearchStrategy) -> &'static str {
     match strategy {
-        SearchStrategy::GradientDescent    => "gradient descent step: adjust parameters along negative gradient",
+        SearchStrategy::GradientDescent => {
+            "gradient descent step: adjust parameters along negative gradient"
+        }
         SearchStrategy::StochasticGradient => "stochastic gradient step: noisy gradient estimation",
-        SearchStrategy::SimulatedAnnealing => "simulated annealing step: probabilistic uphill acceptance",
-        SearchStrategy::DerivativeFree     => "derivative-free step: explore without gradient information",
-        SearchStrategy::Mcmc               => "MCMC step: sample from posterior landscape",
+        SearchStrategy::SimulatedAnnealing => {
+            "simulated annealing step: probabilistic uphill acceptance"
+        }
+        SearchStrategy::DerivativeFree => {
+            "derivative-free step: explore without gradient information"
+        }
+        SearchStrategy::Mcmc => "MCMC step: sample from posterior landscape",
     }
 }

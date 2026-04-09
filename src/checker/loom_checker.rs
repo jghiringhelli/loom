@@ -49,12 +49,18 @@ pub struct CheckerStage {
 impl CheckerStage {
     /// Stage that fails on any error (no suppression).
     pub fn hard(checker: impl LoomChecker + 'static) -> Self {
-        Self { checker: Box::new(checker), suppress: &[] }
+        Self {
+            checker: Box::new(checker),
+            suppress: &[],
+        }
     }
 
     /// Stage that suppresses `[warn]` prefixed messages.
     pub fn warn_only(checker: impl LoomChecker + 'static) -> Self {
-        Self { checker: Box::new(checker), suppress: &["[warn]"] }
+        Self {
+            checker: Box::new(checker),
+            suppress: &["[warn]"],
+        }
     }
 
     /// Stage with custom suppression prefixes.
@@ -62,7 +68,10 @@ impl CheckerStage {
         checker: impl LoomChecker + 'static,
         suppress: &'static [&'static str],
     ) -> Self {
-        Self { checker: Box::new(checker), suppress }
+        Self {
+            checker: Box::new(checker),
+            suppress,
+        }
     }
 
     /// Run this stage. Returns `Err` only if hard (non-suppressed) errors exist.
@@ -76,7 +85,11 @@ impl CheckerStage {
                 self.suppress.iter().all(|prefix| !msg.contains(prefix))
             })
             .collect();
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }
 
@@ -107,38 +120,74 @@ macro_rules! impl_vec_checker {
 }
 
 use super::{
-    AlgebraicChecker, AspectChecker, BoundaryChecker, CanalizationChecker,
-    CategoryChecker, CheckpointChecker, CognitiveMemoryChecker, ConservationChecker,
-    CriticalityChecker, CurryHowardChecker, DegeneracyChecker, DependentChecker,
-    EffectChecker, EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
-    ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
-    ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
-    PathwayChecker, PrivacyChecker, ProbabilisticChecker, PropertyChecker,
-    ProvenanceChecker, RefinementChecker, ResonanceChecker, ScenarioChecker,
-    SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
+    AlgebraicChecker, AspectChecker, BoundaryChecker, CanalizationChecker, CategoryChecker,
+    CheckpointChecker, CognitiveMemoryChecker, ConservationChecker, CriticalityChecker,
+    CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker, EffectHandlerChecker,
+    ErrorCorrectionChecker, EvolutionVectorChecker, ExhaustivenessChecker, GradualChecker,
+    HgtChecker, InferenceEngine, JournalChecker, ManifestChecker, MessagingChecker,
+    MigrationChecker, MinimalChecker, NicheConstructionChecker, PathwayChecker, PrivacyChecker,
+    ProbabilisticChecker, PropertyChecker, ProvenanceChecker, RefinementChecker, ResonanceChecker,
+    ScenarioChecker, SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
     SessionChecker, SideChannelChecker, SignalAttentionChecker, StochasticChecker, StoreChecker,
-    SymbiosisChecker, TensorChecker, TemporalChecker, TypeChecker, TypestateChecker,
-    UmweltChecker, UnitsChecker, UseCaseChecker,
+    SymbiosisChecker, TemporalChecker, TensorChecker, TypeChecker, TypestateChecker, UmweltChecker,
+    UnitsChecker, UseCaseChecker,
 };
 
 // Result<(), Vec<LoomError>> checkers
 impl_result_checker!(
-    AlgebraicChecker, AspectChecker, CanalizationChecker, CategoryChecker,
-    CheckpointChecker, CriticalityChecker, CurryHowardChecker, DegeneracyChecker,
-    DependentChecker, EffectChecker, ErrorCorrectionChecker, ExhaustivenessChecker,
-    GradualChecker, HgtChecker, InferenceEngine, NicheConstructionChecker,
-    PathwayChecker, PrivacyChecker, ProbabilisticChecker, RefinementChecker,
-    SelfCertChecker, SenescenceChecker, SeparationChecker, SideChannelChecker,
-    SymbiosisChecker, TensorChecker, TemporalChecker, TypeChecker, TypestateChecker,
-    UmweltChecker, UnitsChecker,
+    AlgebraicChecker,
+    AspectChecker,
+    CanalizationChecker,
+    CategoryChecker,
+    CheckpointChecker,
+    CriticalityChecker,
+    CurryHowardChecker,
+    DegeneracyChecker,
+    DependentChecker,
+    EffectChecker,
+    ErrorCorrectionChecker,
+    ExhaustivenessChecker,
+    GradualChecker,
+    HgtChecker,
+    InferenceEngine,
+    NicheConstructionChecker,
+    PathwayChecker,
+    PrivacyChecker,
+    ProbabilisticChecker,
+    RefinementChecker,
+    SelfCertChecker,
+    SenescenceChecker,
+    SeparationChecker,
+    SideChannelChecker,
+    SymbiosisChecker,
+    TensorChecker,
+    TemporalChecker,
+    TypeChecker,
+    TypestateChecker,
+    UmweltChecker,
+    UnitsChecker,
 );
 
 // Vec<LoomError> checkers
 impl_vec_checker!(
-    BoundaryChecker, CognitiveMemoryChecker, ConservationChecker, EffectHandlerChecker,
-    EvolutionVectorChecker, JournalChecker, ManifestChecker, MessagingChecker,
-    MigrationChecker, MinimalChecker, PropertyChecker, ProvenanceChecker, ResonanceChecker,
-    ScenarioChecker, SemiosisChecker, SessionChecker, SignalAttentionChecker, StoreChecker,
+    BoundaryChecker,
+    CognitiveMemoryChecker,
+    ConservationChecker,
+    EffectHandlerChecker,
+    EvolutionVectorChecker,
+    JournalChecker,
+    ManifestChecker,
+    MessagingChecker,
+    MigrationChecker,
+    MinimalChecker,
+    PropertyChecker,
+    ProvenanceChecker,
+    ResonanceChecker,
+    ScenarioChecker,
+    SemiosisChecker,
+    SessionChecker,
+    SignalAttentionChecker,
+    StoreChecker,
     UseCaseChecker,
 );
 

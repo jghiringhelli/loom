@@ -1,0 +1,39 @@
+-- examples/01-hello-contracts.loom
+-- ══════════════════════════════════════════════════════════════════
+-- The simplest Loom program: a function with Hoare-style contracts.
+-- Contracts become debug_assert! in the emitted Rust.
+--
+-- Run:  loom compile examples/01-hello-contracts.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module HelloContracts
+describe: "A greeting function that proves its own correctness"
+
+-- A pure function: no I/O, no DB — just arithmetic.
+-- The compiler checks that the type is correct and the
+-- contract is syntactically well-formed.
+fn add_positive :: Int -> Int -> Int
+  require: a > 0
+  require: b > 0
+  ensure:  result > 0
+  a + b
+end
+
+-- Refined types: the type system enforces the precondition
+-- so callers cannot pass invalid values without a compile error.
+type PositiveInt = Int where self > 0
+
+fn safe_divide :: Float -> Float -> Float
+  require: divisor != 0.0
+  ensure:  result != 0.0 || numerator = 0.0
+  numerator / divisor
+end
+
+-- Inline test: compiled to a #[test] in the emitted Rust.
+test add_positive_works ::
+  add_positive(2, 3) = 5
+end
+
+test safe_divide_works ::
+  safe_divide(10.0, 2.0) = 5.0
+end

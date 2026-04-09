@@ -17,7 +17,11 @@ module Chemistry
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "conserved annotation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "conserved annotation should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -29,7 +33,11 @@ module Physics
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "multiple conserved annotations should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "multiple conserved annotations should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -41,7 +49,11 @@ module Finance
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "conserved(Value) annotation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "conserved(Value) annotation should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -58,7 +70,11 @@ module App
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "relational store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "relational store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -73,7 +89,11 @@ module Cache
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "keyvalue store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "keyvalue store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -89,7 +109,11 @@ module Knowledge
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "graph store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "graph store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -104,7 +128,11 @@ module Sensors
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "timeseries store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "timeseries store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -118,7 +146,11 @@ module Search
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "vector store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "vector store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -133,7 +165,11 @@ module Science
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "flatfile store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "flatfile store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -148,7 +184,11 @@ module Analytics
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "snowflake store should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "snowflake store should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -172,7 +212,11 @@ module Polyglot
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "multiple stores should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "multiple stores should parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -184,7 +228,11 @@ module Physics
   end
 end
 "#;
-    assert!(loom::compile(src).is_ok(), "conserved annotation should compile: {:?}", loom::compile(src).err());
+    assert!(
+        loom::compile(src).is_ok(),
+        "conserved annotation should compile: {:?}",
+        loom::compile(src).err()
+    );
 }
 
 #[test]
@@ -199,11 +247,19 @@ end
 "#;
     let module = parse(src).expect("parse failed");
     let errors = loom::checker::StoreChecker::new().check(&module);
-    assert!(!errors.is_empty(), "KeyValue store without key: field should be rejected");
-    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        !errors.is_empty(),
+        "KeyValue store without key: field should be rejected"
+    );
+    let msgs: String = errors
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msgs.contains("key") || msgs.contains("KeyValue"),
-        "Expected key/KeyValue error, got: {}", msgs
+        "Expected key/KeyValue error, got: {}",
+        msgs
     );
 }
 
@@ -223,10 +279,18 @@ end
 "#;
     let module = parse(src).expect("parse failed");
     let errors = loom::checker::StoreChecker::new().check(&module);
-    assert!(!errors.is_empty(), "Duplicate primary key should be rejected");
-    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        !errors.is_empty(),
+        "Duplicate primary key should be rejected"
+    );
+    let msgs: String = errors
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msgs.contains("primary_key") || msgs.contains("unique"),
-        "Expected primary_key error, got: {}", msgs
+        "Expected primary_key error, got: {}",
+        msgs
     );
 }

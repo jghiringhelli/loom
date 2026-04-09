@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct ProbabilisticChecker;
 
 impl ProbabilisticChecker {
-    pub fn new() -> Self { ProbabilisticChecker }
+    pub fn new() -> Self {
+        ProbabilisticChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -14,7 +16,11 @@ impl ProbabilisticChecker {
                 self.check_fn(fd, &mut errors);
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn has_annotation(fd: &FnDef, key: &str) -> bool {
@@ -46,7 +52,12 @@ impl ProbabilisticChecker {
                     });
                 }
             }
-            self.check_distribution_family(&dist.family, dist.convergence.as_deref(), errors, &dist.span);
+            self.check_distribution_family(
+                &dist.family,
+                dist.convergence.as_deref(),
+                errors,
+                &dist.span,
+            );
         }
     }
 
@@ -81,7 +92,10 @@ impl ProbabilisticChecker {
                 if let Ok(a) = alpha.parse::<f64>() {
                     if a <= 0.0 {
                         errors.push(LoomError::TypeError {
-                            msg: format!("distribution: Beta alpha parameter must be > 0, got {}", a),
+                            msg: format!(
+                                "distribution: Beta alpha parameter must be > 0, got {}",
+                                a
+                            ),
                             span: span.clone(),
                         });
                     }
@@ -89,7 +103,10 @@ impl ProbabilisticChecker {
                 if let Ok(b) = beta.parse::<f64>() {
                     if b <= 0.0 {
                         errors.push(LoomError::TypeError {
-                            msg: format!("distribution: Beta beta parameter must be > 0, got {}", b),
+                            msg: format!(
+                                "distribution: Beta beta parameter must be > 0, got {}",
+                                b
+                            ),
                             span: span.clone(),
                         });
                     }
@@ -99,7 +116,10 @@ impl ProbabilisticChecker {
                 if let Ok(prob) = p.parse::<f64>() {
                     if prob < 0.0 || prob > 1.0 {
                         errors.push(LoomError::TypeError {
-                            msg: format!("distribution: Binomial p must be in [0, 1], got {}", prob),
+                            msg: format!(
+                                "distribution: Binomial p must be in [0, 1], got {}",
+                                prob
+                            ),
                             span: span.clone(),
                         });
                     }
@@ -119,4 +139,3 @@ impl ProbabilisticChecker {
         }
     }
 }
-

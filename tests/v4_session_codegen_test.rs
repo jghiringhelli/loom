@@ -14,9 +14,7 @@
 use loom::compile;
 
 fn emit(src: &str) -> String {
-    compile(src).unwrap_or_else(|errs| {
-        panic!("compile failed: {:?}", errs)
-    })
+    compile(src).unwrap_or_else(|errs| panic!("compile failed: {:?}", errs))
 }
 
 // 1. A session emits per-role state marker structs (one per step + Done).

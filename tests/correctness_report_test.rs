@@ -15,7 +15,11 @@ module Core
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "basic correctness_report should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "basic correctness_report should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -31,7 +35,11 @@ module Core
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "correctness_report with unverified should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "correctness_report with unverified should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -49,11 +57,13 @@ end
     let code = result.unwrap();
     assert!(
         code.contains("// correctness_report:"),
-        "codegen should emit report comment:\n{}", code
+        "codegen should emit report comment:\n{}",
+        code
     );
     assert!(
         code.contains("type_safety"),
-        "codegen should include proved claims:\n{}", code
+        "codegen should include proved claims:\n{}",
+        code
     );
 }
 
@@ -75,8 +85,10 @@ end
     );
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("duplicate proved claim")),
-        "error should mention duplicate claim: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("duplicate proved claim")),
+        "error should mention duplicate claim: {:?}",
+        errs
     );
 }
 
@@ -102,7 +114,9 @@ end
     );
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("correctness_report")),
-        "error should mention the constraint: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("correctness_report")),
+        "error should mention the constraint: {:?}",
+        errs
     );
 }

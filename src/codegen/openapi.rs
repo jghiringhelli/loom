@@ -56,15 +56,21 @@ use crate::codegen::schema::JsonSchemaEmitter;
 // ── HTTP verb ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]
-enum Verb { Get, Post, Put, Patch, Delete }
+enum Verb {
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+}
 
 impl Verb {
     fn as_str(&self) -> &'static str {
         match self {
-            Verb::Get    => "get",
-            Verb::Post   => "post",
-            Verb::Put    => "put",
-            Verb::Patch  => "patch",
+            Verb::Get => "get",
+            Verb::Post => "post",
+            Verb::Put => "put",
+            Verb::Patch => "patch",
             Verb::Delete => "delete",
         }
     }
@@ -73,11 +79,15 @@ impl Verb {
         let n = name.to_lowercase();
         let prefix = n.split('_').next().unwrap_or(&n);
         match prefix {
-            "create" | "add" | "register" | "post" | "insert" | "save" | "submit" | "publish" => Some(Verb::Post),
+            "create" | "add" | "register" | "post" | "insert" | "save" | "submit" | "publish" => {
+                Some(Verb::Post)
+            }
             "update" | "set" | "put" | "replace" | "upsert" | "store" => Some(Verb::Put),
-            "patch"  | "modify" | "change" | "edit" => Some(Verb::Patch),
+            "patch" | "modify" | "change" | "edit" => Some(Verb::Patch),
             "delete" | "remove" | "destroy" | "drop" | "purge" | "revoke" => Some(Verb::Delete),
-            "get" | "fetch" | "find" | "load" | "read" | "show" | "by" | "lookup" => Some(Verb::Get),
+            "get" | "fetch" | "find" | "load" | "read" | "show" | "by" | "lookup" => {
+                Some(Verb::Get)
+            }
             "list" | "all" | "search" | "query" | "index" | "browse" | "filter" => Some(Verb::Get),
             _ => None,
         }
@@ -93,8 +103,8 @@ impl Verb {
 struct RestOp {
     verb: Verb,
     path: String,
-    path_params: Vec<(String, String)>,   // (param_name, json_type)
-    request_body: Option<String>,          // JSON fragment
+    path_params: Vec<(String, String)>, // (param_name, json_type)
+    request_body: Option<String>,       // JSON fragment
     responses: Vec<(u16, String, String)>, // (status, description, schema_json)
     operation_id: String,
     summary: String,
@@ -115,7 +125,9 @@ struct RestOp {
 pub struct OpenApiEmitter;
 
 impl OpenApiEmitter {
-    pub fn new() -> Self { OpenApiEmitter }
+    pub fn new() -> Self {
+        OpenApiEmitter
+    }
 
     /// Emit a complete OpenAPI 3.0.3 JSON document for a [`Module`].
     pub fn emit(&self, module: &Module) -> String {
@@ -125,26 +137,44 @@ impl OpenApiEmitter {
         let description = module.describe.as_deref().unwrap_or(title);
 
         // Collect type names defined in this module (for resource detection).
-        let type_names: Vec<String> = module.items.iter().filter_map(|i| match i {
-            Item::Type(td) => Some(td.name.clone()),
-            _ => None,
-        }).collect();
+        let type_names: Vec<String> = module
+            .items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Type(td) => Some(td.name.clone()),
+                _ => None,
+            })
+            .collect();
 
         // Collect error enums (XError, XException patterns) for response inference.
-        let error_enums: Vec<&EnumDef> = module.items.iter().filter_map(|i| {
-            if let Item::Enum(ed) = i {
-                if ed.name.ends_with("Error") || ed.name.ends_with("Exception") || ed.name.ends_with("Fault") {
-                    Some(ed)
-                } else { None }
-            } else { None }
-        }).collect();
+        let error_enums: Vec<&EnumDef> = module
+            .items
+            .iter()
+            .filter_map(|i| {
+                if let Item::Enum(ed) = i {
+                    if ed.name.ends_with("Error")
+                        || ed.name.ends_with("Exception")
+                        || ed.name.ends_with("Fault")
+                    {
+                        Some(ed)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Analyse each fn.
-        let fns: Vec<&FnDef> = module.items.iter().filter_map(|i| {
-            if let Item::Fn(fd) = i { Some(fd) } else { None }
-        }).collect();
+        let fns: Vec<&FnDef> = module
+            .items
+            .iter()
+            .filter_map(|i| if let Item::Fn(fd) = i { Some(fd) } else { None })
+            .collect();
 
-        let mut ops: Vec<RestOp> = fns.iter()
+        let mut ops: Vec<RestOp> = fns
+            .iter()
             .map(|fd| self.analyse(fd, module, &type_names, &error_enums))
             .collect();
 
@@ -159,13 +189,23 @@ impl OpenApiEmitter {
         }
 
         // ── paths JSON ────────────────────────────────────────────────────
-        let paths_entries: Vec<String> = path_groups.iter().map(|(path, indices)| {
-            let method_entries: Vec<String> = indices.iter().map(|&i| {
-                let op = &ops[i];
-                format!("      {:?}: {}", op.verb.as_str(), self.render_operation(op))
-            }).collect();
-            format!("    {:?}: {{\n{}\n    }}", path, method_entries.join(",\n"))
-        }).collect();
+        let paths_entries: Vec<String> = path_groups
+            .iter()
+            .map(|(path, indices)| {
+                let method_entries: Vec<String> = indices
+                    .iter()
+                    .map(|&i| {
+                        let op = &ops[i];
+                        format!(
+                            "      {:?}: {}",
+                            op.verb.as_str(),
+                            self.render_operation(op)
+                        )
+                    })
+                    .collect();
+                format!("    {:?}: {{\n{}\n    }}", path, method_entries.join(",\n"))
+            })
+            .collect();
 
         let paths_section = if paths_entries.is_empty() {
             "  \"paths\": {}".to_string()
@@ -175,7 +215,9 @@ impl OpenApiEmitter {
 
         // ── components/schemas ────────────────────────────────────────────
         // Build a sensitivity map for x-sensitivity injection.
-        let sensitivity_map: std::collections::HashMap<String, String> = module.flow_labels.iter()
+        let sensitivity_map: std::collections::HashMap<String, String> = module
+            .flow_labels
+            .iter()
             .flat_map(|fl| fl.types.iter().map(move |t| (t.clone(), fl.label.clone())))
             .collect();
 
@@ -216,13 +258,22 @@ impl OpenApiEmitter {
             if let Item::Type(td) = item {
                 for f in &td.fields {
                     let has = |key: &str| f.annotations.iter().any(|a| a.key == key);
-                    if has("pii")   { pii_fields.push(format!("{}.{}", td.name, f.name)); }
-                    if has("hipaa") { hipaa_fields.push(format!("{}.{}", td.name, f.name)); }
-                    if has("pci")   { pci_fields.push(format!("{}.{}", td.name, f.name)); }
+                    if has("pii") {
+                        pii_fields.push(format!("{}.{}", td.name, f.name));
+                    }
+                    if has("hipaa") {
+                        hipaa_fields.push(format!("{}.{}", td.name, f.name));
+                    }
+                    if has("pci") {
+                        pci_fields.push(format!("{}.{}", td.name, f.name));
+                    }
                 }
             }
         }
-        let data_protection_ext = if pii_fields.is_empty() && hipaa_fields.is_empty() && pci_fields.is_empty() {
+        let data_protection_ext = if pii_fields.is_empty()
+            && hipaa_fields.is_empty()
+            && pci_fields.is_empty()
+        {
             String::new()
         } else {
             let pii_json: Vec<String> = pii_fields.iter().map(|s| format!("{:?}", s)).collect();
@@ -237,37 +288,58 @@ impl OpenApiEmitter {
         let schemas_section = if schemas.is_empty() {
             "  \"components\": {\"schemas\": {}}".to_string()
         } else {
-            format!("  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}", schemas.join(",\n"))
+            format!(
+                "  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}",
+                schemas.join(",\n")
+            )
         };
 
         // Build x-lifecycle extension when lifecycle_defs are present.
         let lifecycle_ext = if module.lifecycle_defs.is_empty() {
             String::new()
         } else {
-            let entries: Vec<String> = module.lifecycle_defs.iter().map(|lc| {
-                let states_json: Vec<String> = lc.states.iter().map(|s| format!("{:?}", s)).collect();
-                let transitions_json: Vec<String> = lc.states.windows(2).map(|w| {
-                    format!("[{:?},{:?}]", w[0], w[1])
-                }).collect();
-                format!(
-                    "      {:?}: {{\"states\": [{}], \"transitions\": [{}]}}",
-                    lc.type_name,
-                    states_json.join(", "),
-                    transitions_json.join(", ")
-                )
-            }).collect();
-            format!(",\n    \"x-lifecycle\": {{\n{}\n    }}", entries.join(",\n"))
+            let entries: Vec<String> = module
+                .lifecycle_defs
+                .iter()
+                .map(|lc| {
+                    let states_json: Vec<String> =
+                        lc.states.iter().map(|s| format!("{:?}", s)).collect();
+                    let transitions_json: Vec<String> = lc
+                        .states
+                        .windows(2)
+                        .map(|w| format!("[{:?},{:?}]", w[0], w[1]))
+                        .collect();
+                    format!(
+                        "      {:?}: {{\"states\": [{}], \"transitions\": [{}]}}",
+                        lc.type_name,
+                        states_json.join(", "),
+                        transitions_json.join(", ")
+                    )
+                })
+                .collect();
+            format!(
+                ",\n    \"x-lifecycle\": {{\n{}\n    }}",
+                entries.join(",\n")
+            )
         };
 
         // Build x-security-labels extension when flow_labels are present.
         let security_labels_ext = if module.flow_labels.is_empty() {
             String::new()
         } else {
-            let entries: Vec<String> = module.flow_labels.iter().map(|fl| {
-                let types_json: Vec<String> = fl.types.iter().map(|t| format!("{:?}", t)).collect();
-                format!("    {:?}: [{}]", fl.label, types_json.join(", "))
-            }).collect();
-            format!(",\n  \"x-security-labels\": {{\n{}\n  }}", entries.join(",\n"))
+            let entries: Vec<String> = module
+                .flow_labels
+                .iter()
+                .map(|fl| {
+                    let types_json: Vec<String> =
+                        fl.types.iter().map(|t| format!("{:?}", t)).collect();
+                    format!("    {:?}: [{}]", fl.label, types_json.join(", "))
+                })
+                .collect();
+            format!(
+                ",\n  \"x-security-labels\": {{\n{}\n  }}",
+                entries.join(",\n")
+            )
         };
 
         // Build x-beings extension when being_defs are present.
@@ -354,13 +426,19 @@ impl OpenApiEmitter {
 
         // Add being schemas to components/schemas.
         for being in &module.being_defs {
-            let telos_str = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+            let telos_str = being
+                .telos
+                .as_ref()
+                .map(|t| t.description.as_str())
+                .unwrap_or("");
             let mut parts = vec![
                 format!("\"x-being\": true"),
                 format!("\"x-telos\": {:?}", telos_str),
             ];
             if let Some(matter) = &being.matter {
-                let props: Vec<String> = matter.fields.iter()
+                let props: Vec<String> = matter
+                    .fields
+                    .iter()
                     .map(|f| format!("{:?}: {{\"type\": \"string\"}}", f.name))
                     .collect();
                 if !props.is_empty() {
@@ -371,79 +449,141 @@ impl OpenApiEmitter {
                 parts.push("\"x-autopoietic\": true".to_string());
             }
             if !being.epigenetic_blocks.is_empty() {
-                let epi_entries: Vec<String> = being.epigenetic_blocks.iter().map(|epi| {
-                    format!("{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
-                        epi.signal, epi.modifies,
-                        epi.reverts_when.as_deref().map(|r| format!("{:?}", r)).unwrap_or("null".to_string()))
-                }).collect();
+                let epi_entries: Vec<String> = being
+                    .epigenetic_blocks
+                    .iter()
+                    .map(|epi| {
+                        format!(
+                            "{{\"signal\": {:?}, \"modifies\": {:?}, \"reverts_when\": {}}}",
+                            epi.signal,
+                            epi.modifies,
+                            epi.reverts_when
+                                .as_deref()
+                                .map(|r| format!("{:?}", r))
+                                .unwrap_or("null".to_string())
+                        )
+                    })
+                    .collect();
                 parts.push(format!("\"x-epigenetic\": [{}]", epi_entries.join(", ")));
             }
             if !being.morphogen_blocks.is_empty() {
-                let morph_entries: Vec<String> = being.morphogen_blocks.iter().map(|morph| {
-                    format!("{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
-                        morph.signal, morph.threshold,
-                        morph.produces.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", "))
-                }).collect();
+                let morph_entries: Vec<String> = being
+                    .morphogen_blocks
+                    .iter()
+                    .map(|morph| {
+                        format!(
+                            "{{\"signal\": {:?}, \"threshold\": {:?}, \"produces\": [{}]}}",
+                            morph.signal,
+                            morph.threshold,
+                            morph
+                                .produces
+                                .iter()
+                                .map(|p| format!("{:?}", p))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    })
+                    .collect();
                 parts.push(format!("\"x-morphogen\": [{}]", morph_entries.join(", ")));
             }
             if let Some(tel) = &being.telomere {
-                parts.push(format!("\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}", tel.limit, tel.on_exhaustion));
+                parts.push(format!(
+                    "\"x-telomere\": {{\"limit\": {}, \"on_exhaustion\": {:?}}}",
+                    tel.limit, tel.on_exhaustion
+                ));
             }
             if !being.crispr_blocks.is_empty() {
-                let crispr_entries: Vec<String> = being.crispr_blocks.iter().map(|c| {
-                    format!("{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}", c.target, c.replace, c.guide)
-                }).collect();
+                let crispr_entries: Vec<String> = being
+                    .crispr_blocks
+                    .iter()
+                    .map(|c| {
+                        format!(
+                            "{{\"target\": {:?}, \"replace\": {:?}, \"guide\": {:?}}}",
+                            c.target, c.replace, c.guide
+                        )
+                    })
+                    .collect();
                 parts.push(format!("\"x-crispr\": [{}]", crispr_entries.join(", ")));
             }
             if !being.plasticity_blocks.is_empty() {
-                let plasticity_entries: Vec<String> = being.plasticity_blocks.iter().map(|p| {
-                    let rule_str = match p.rule {
-                        PlasticityRule::Hebbian => "hebbian",
-                        PlasticityRule::Boltzmann => "boltzmann",
-                        PlasticityRule::ReinforcementLearning => "reinforcement_learning",
-                    };
-                    format!("{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}", p.trigger, p.modifies, rule_str)
-                }).collect();
-                parts.push(format!("\"x-plasticity\": [{}]", plasticity_entries.join(", ")));
+                let plasticity_entries: Vec<String> = being
+                    .plasticity_blocks
+                    .iter()
+                    .map(|p| {
+                        let rule_str = match p.rule {
+                            PlasticityRule::Hebbian => "hebbian",
+                            PlasticityRule::Boltzmann => "boltzmann",
+                            PlasticityRule::ReinforcementLearning => "reinforcement_learning",
+                        };
+                        format!(
+                            "{{\"trigger\": {:?}, \"modifies\": {:?}, \"rule\": {:?}}}",
+                            p.trigger, p.modifies, rule_str
+                        )
+                    })
+                    .collect();
+                parts.push(format!(
+                    "\"x-plasticity\": [{}]",
+                    plasticity_entries.join(", ")
+                ));
             }
-            schemas.push(format!("      {:?}: {{\"type\": \"object\", {}}}", being.name, parts.join(", ")));
+            schemas.push(format!(
+                "      {:?}: {{\"type\": \"object\", {}}}",
+                being.name,
+                parts.join(", ")
+            ));
         }
 
         let schemas_section = if schemas.is_empty() {
             "  \"components\": {\"schemas\": {}}".to_string()
         } else {
-            format!("  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}", schemas.join(",\n"))
+            format!(
+                "  \"components\": {{\n    \"schemas\": {{\n{}\n    }}\n  }}",
+                schemas.join(",\n")
+            )
         };
 
         // Build x-ecosystems extension when ecosystem_defs are present.
         let ecosystem_ext = if module.ecosystem_defs.is_empty() {
             String::new()
         } else {
-            let entries: Vec<String> = module.ecosystem_defs.iter().map(|eco| {
-                let telos_str = eco.telos.as_deref().unwrap_or("");
-                let members_json: Vec<String> = eco.members.iter().map(|m| format!("{:?}", m)).collect();
-                let signals_json: Vec<String> = eco.signals.iter().map(|sig| {
-                    format!(
+            let entries: Vec<String> = module
+                .ecosystem_defs
+                .iter()
+                .map(|eco| {
+                    let telos_str = eco.telos.as_deref().unwrap_or("");
+                    let members_json: Vec<String> =
+                        eco.members.iter().map(|m| format!("{:?}", m)).collect();
+                    let signals_json: Vec<String> = eco
+                        .signals
+                        .iter()
+                        .map(|sig| {
+                            format!(
                         "{{\"name\": {:?}, \"from\": {:?}, \"to\": {:?}, \"payload\": {:?}}}",
                         sig.name, sig.from, sig.to, sig.payload
                     )
-                }).collect();
-                let quorum_json: Vec<String> = eco.quorum_blocks.iter().map(|q| {
-                    format!(
-                        "{{\"signal\": {:?}, \"threshold\": {:?}, \"action\": {:?}}}",
-                        q.signal, q.threshold, q.action
-                    )
-                }).collect();
-                let mut eco_parts = vec![
-                    format!("\"x-telos\": {:?}", telos_str),
-                    format!("\"x-members\": [{}]", members_json.join(", ")),
-                    format!("\"x-signals\": [{}]", signals_json.join(", ")),
-                ];
-                if !quorum_json.is_empty() {
-                    eco_parts.push(format!("\"x-quorum\": [{}]", quorum_json.join(", ")));
-                }
-                format!("    {:?}: {{{}}}", eco.name, eco_parts.join(", "))
-            }).collect();
+                        })
+                        .collect();
+                    let quorum_json: Vec<String> = eco
+                        .quorum_blocks
+                        .iter()
+                        .map(|q| {
+                            format!(
+                                "{{\"signal\": {:?}, \"threshold\": {:?}, \"action\": {:?}}}",
+                                q.signal, q.threshold, q.action
+                            )
+                        })
+                        .collect();
+                    let mut eco_parts = vec![
+                        format!("\"x-telos\": {:?}", telos_str),
+                        format!("\"x-members\": [{}]", members_json.join(", ")),
+                        format!("\"x-signals\": [{}]", signals_json.join(", ")),
+                    ];
+                    if !quorum_json.is_empty() {
+                        eco_parts.push(format!("\"x-quorum\": [{}]", quorum_json.join(", ")));
+                    }
+                    format!("    {:?}: {{{}}}", eco.name, eco_parts.join(", "))
+                })
+                .collect();
             format!(",\n  \"x-ecosystems\": {{\n{}\n  }}", entries.join(",\n"))
         };
 
@@ -467,29 +607,37 @@ impl OpenApiEmitter {
         // ── verb ─────────────────────────────────────────────────────────
         let verb = annotation_value(&fd.annotations, "method")
             .and_then(|m| match m.to_lowercase().as_str() {
-                "get"    => Some(Verb::Get),
-                "post"   => Some(Verb::Post),
-                "put"    => Some(Verb::Put),
-                "patch"  => Some(Verb::Patch),
+                "get" => Some(Verb::Get),
+                "post" => Some(Verb::Post),
+                "put" => Some(Verb::Put),
+                "patch" => Some(Verb::Patch),
                 "delete" => Some(Verb::Delete),
                 _ => None,
             })
             .or_else(|| Verb::from_name(&fd.name))
             .unwrap_or_else(|| {
-                if fd.type_sig.params.is_empty() { Verb::Get }
-                else if returns_list(&fd.type_sig.return_type) { Verb::Get }
-                else { Verb::Post }
+                if fd.type_sig.params.is_empty() {
+                    Verb::Get
+                } else if returns_list(&fd.type_sig.return_type) {
+                    Verb::Get
+                } else {
+                    Verb::Post
+                }
             });
 
         // @idempotent forces POST → PUT (idempotent mutations should be PUT).
         let is_idempotent = has_annotation(&fd.annotations, "idempotent");
-        let verb = if is_idempotent && verb == Verb::Post { Verb::Put } else { verb };
+        let verb = if is_idempotent && verb == Verb::Post {
+            Verb::Put
+        } else {
+            verb
+        };
 
-        let is_commutative  = has_annotation(&fd.annotations, "commutative");
-        let is_associative  = has_annotation(&fd.annotations, "associative");
+        let is_commutative = has_annotation(&fd.annotations, "commutative");
+        let is_associative = has_annotation(&fd.annotations, "associative");
         let is_at_most_once = has_annotation(&fd.annotations, "at-most-once");
         let is_exactly_once = has_annotation(&fd.annotations, "exactly-once");
-        let is_monotonic    = has_annotation(&fd.annotations, "monotonic");
+        let is_monotonic = has_annotation(&fd.annotations, "monotonic");
 
         // ── resource ─────────────────────────────────────────────────────
         let resource = annotation_value(&fd.annotations, "resource")
@@ -505,13 +653,15 @@ impl OpenApiEmitter {
 
         // ── parameter names ───────────────────────────────────────────────
         let param_names = op_param_names(fd);
-        let params_with_types: Vec<(String, &TypeExpr)> = param_names.iter()
+        let params_with_types: Vec<(String, &TypeExpr)> = param_names
+            .iter()
             .zip(fd.type_sig.params.iter())
             .map(|(n, t)| (n.clone(), t))
             .collect();
 
         // ── path params ───────────────────────────────────────────────────
-        let path_params: Vec<(String, String)> = params_with_types.iter()
+        let path_params: Vec<(String, String)> = params_with_types
+            .iter()
             .filter(|(name, ty)| is_path_param(name, ty, &verb))
             .map(|(name, ty)| (name.clone(), schema_emitter.type_expr_to_schema(ty)))
             .collect();
@@ -526,7 +676,10 @@ impl OpenApiEmitter {
                 } else if path_params.len() == 1 {
                     format!("{}/{{{}}}", base, path_params[0].0)
                 } else {
-                    let pp: Vec<String> = path_params.iter().map(|(n, _)| format!("{{{}}}", n)).collect();
+                    let pp: Vec<String> = path_params
+                        .iter()
+                        .map(|(n, _)| format!("{{{}}}", n))
+                        .collect();
                     format!("{}/{}", base, pp.join("/"))
                 }
             });
@@ -535,16 +688,25 @@ impl OpenApiEmitter {
         let path_param_names: std::collections::HashSet<String> =
             path_params.iter().map(|(n, _)| n.clone()).collect();
 
-        let body_params: Vec<(&String, &TypeExpr)> = params_with_types.iter()
+        let body_params: Vec<(&String, &TypeExpr)> = params_with_types
+            .iter()
             .filter(|(name, _)| !path_param_names.contains(name))
             .map(|(n, t)| (n, *t))
             .collect();
 
         let request_body = if verb.takes_body() && !body_params.is_empty() {
-            let props: Vec<String> = body_params.iter()
-                .map(|(name, ty)| format!("            {:?}: {}", name, schema_emitter.type_expr_to_schema(ty)))
+            let props: Vec<String> = body_params
+                .iter()
+                .map(|(name, ty)| {
+                    format!(
+                        "            {:?}: {}",
+                        name,
+                        schema_emitter.type_expr_to_schema(ty)
+                    )
+                })
                 .collect();
-            let required: Vec<String> = body_params.iter()
+            let required: Vec<String> = body_params
+                .iter()
                 .map(|(name, _)| format!("{:?}", name))
                 .collect();
             Some(format!(
@@ -565,16 +727,31 @@ impl OpenApiEmitter {
 
         // Handle Result<T, E> specially — split into 200 and 422.
         if let TypeExpr::Result(ok, err) = inner_ret {
-            responses.push((success_status, "Success".to_string(), schema_emitter.type_expr_to_schema(ok)));
-            responses.push((422, "Unprocessable entity".to_string(), schema_emitter.type_expr_to_schema(err)));
+            responses.push((
+                success_status,
+                "Success".to_string(),
+                schema_emitter.type_expr_to_schema(ok),
+            ));
+            responses.push((
+                422,
+                "Unprocessable entity".to_string(),
+                schema_emitter.type_expr_to_schema(err),
+            ));
         } else {
-            responses.push((success_status, "Success".to_string(), schema_emitter.type_expr_to_schema(inner_ret)));
+            responses.push((
+                success_status,
+                "Success".to_string(),
+                schema_emitter.type_expr_to_schema(inner_ret),
+            ));
         }
 
         // Error responses from matching XError enums.
         let resource_pascal = snake_to_pascal(&resource);
         let error_enum_name = format!("{}Error", resource_pascal);
-        if let Some(err_enum) = error_enums.iter().find(|e| e.name == error_enum_name || e.name.contains(&resource_pascal)) {
+        if let Some(err_enum) = error_enums
+            .iter()
+            .find(|e| e.name == error_enum_name || e.name.contains(&resource_pascal))
+        {
             for status in error_status_codes(err_enum) {
                 responses.push(status);
             }
@@ -591,7 +768,12 @@ impl OpenApiEmitter {
 
         // 500 for effectful operations.
         if is_async {
-            responses.push((500, "Internal server error".to_string(), "{\"type\":\"object\",\"properties\":{\"message\":{\"type\":\"string\"}}}".to_string()));
+            responses.push((
+                500,
+                "Internal server error".to_string(),
+                "{\"type\":\"object\",\"properties\":{\"message\":{\"type\":\"string\"}}}"
+                    .to_string(),
+            ));
         }
 
         // ── tags ──────────────────────────────────────────────────────────
@@ -624,23 +806,37 @@ impl OpenApiEmitter {
         let mut parts: Vec<String> = Vec::new();
         parts.push(format!("        \"operationId\": {:?}", op.operation_id));
         parts.push(format!("        \"summary\": {:?}", op.summary));
-        parts.push(format!("        \"tags\": [{}]",
-            op.tags.iter().map(|t| format!("{:?}", t)).collect::<Vec<_>>().join(", ")));
+        parts.push(format!(
+            "        \"tags\": [{}]",
+            op.tags
+                .iter()
+                .map(|t| format!("{:?}", t))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
 
         if op.is_async {
             parts.push("        \"x-loom-async\": true".to_string());
         }
 
         // Algebraic property extensions.
-        if op.is_idempotent    { parts.push("        \"x-idempotent\": true".to_string()); }
-        if op.is_commutative   { parts.push("        \"x-commutative\": true".to_string()); }
-        if op.is_associative   { parts.push("        \"x-associative\": true".to_string()); }
-        if op.is_monotonic     { parts.push("        \"x-monotonic\": true".to_string()); }
-        if op.is_at_most_once  {
+        if op.is_idempotent {
+            parts.push("        \"x-idempotent\": true".to_string());
+        }
+        if op.is_commutative {
+            parts.push("        \"x-commutative\": true".to_string());
+        }
+        if op.is_associative {
+            parts.push("        \"x-associative\": true".to_string());
+        }
+        if op.is_monotonic {
+            parts.push("        \"x-monotonic\": true".to_string());
+        }
+        if op.is_at_most_once {
             parts.push("        \"x-at-most-once\": true".to_string());
             parts.push("        \"x-retry-policy\": \"never\"".to_string());
         }
-        if op.is_exactly_once  {
+        if op.is_exactly_once {
             parts.push("        \"x-exactly-once\": true".to_string());
             parts.push("        \"x-retry-policy\": \"never\"".to_string());
         }
@@ -653,7 +849,10 @@ impl OpenApiEmitter {
                     name, schema
                 )
             }).collect();
-            parts.push(format!("        \"parameters\": [\n          {}\n        ]", pp.join(",\n          ")));
+            parts.push(format!(
+                "        \"parameters\": [\n          {}\n        ]",
+                pp.join(",\n          ")
+            ));
         }
 
         // Request body.
@@ -668,7 +867,10 @@ impl OpenApiEmitter {
                 status.to_string(), desc, schema
             )
         }).collect();
-        parts.push(format!("        \"responses\": {{\n{}\n        }}", resp_entries.join(",\n")));
+        parts.push(format!(
+            "        \"responses\": {{\n{}\n        }}",
+            resp_entries.join(",\n")
+        ));
 
         format!("{{\n{}\n      }}", parts.join(",\n"))
     }
@@ -707,7 +909,10 @@ fn infer_resource_from_fn(fd: &FnDef, type_names: &[String]) -> Option<String> {
         }
     }
     // From fn name suffix: `create_order` → `order`.
-    for prefix in &["create", "add", "get", "fetch", "find", "update", "patch", "delete", "remove", "list", "search", "load", "save", "upsert", "register"] {
+    for prefix in &[
+        "create", "add", "get", "fetch", "find", "update", "patch", "delete", "remove", "list",
+        "search", "load", "save", "upsert", "register",
+    ] {
         if fd.name.starts_with(prefix) {
             let rest = &fd.name[prefix.len()..];
             let rest = rest.trim_start_matches('_');
@@ -721,7 +926,14 @@ fn infer_resource_from_fn(fd: &FnDef, type_names: &[String]) -> Option<String> {
 
 fn infer_resource_from_module(module_name: &str, type_names: &[String]) -> Option<String> {
     // Strip common suffixes: Service, Controller, Handler, Manager, Api
-    for suffix in &["Service", "Controller", "Handler", "Manager", "Api", "Resource"] {
+    for suffix in &[
+        "Service",
+        "Controller",
+        "Handler",
+        "Manager",
+        "Api",
+        "Resource",
+    ] {
         if module_name.ends_with(suffix) {
             let base = &module_name[..module_name.len() - suffix.len()];
             if !base.is_empty() {
@@ -741,11 +953,15 @@ fn infer_resource_from_module(module_name: &str, type_names: &[String]) -> Optio
 fn type_name_from_expr(ty: &TypeExpr, type_names: &[String]) -> Option<String> {
     match ty {
         TypeExpr::Base(name) => {
-            if type_names.contains(name) { Some(name.clone()) } else { None }
+            if type_names.contains(name) {
+                Some(name.clone())
+            } else {
+                None
+            }
         }
-        TypeExpr::Generic(name, params) if name == "List" || name == "Set" => {
-            params.first().and_then(|p| type_name_from_expr(p, type_names))
-        }
+        TypeExpr::Generic(name, params) if name == "List" || name == "Set" => params
+            .first()
+            .and_then(|p| type_name_from_expr(p, type_names)),
         TypeExpr::Option(inner) => type_name_from_expr(inner, type_names),
         TypeExpr::Effect(_, inner) => type_name_from_expr(inner, type_names),
         TypeExpr::Result(ok, _) => type_name_from_expr(ok, type_names),
@@ -764,15 +980,29 @@ fn error_status_codes(ed: &EnumDef) -> Vec<(u16, String, String)> {
 
     for v in &ed.variants {
         let lower = v.name.to_lowercase();
-        if !have_404 && (lower.contains("notfound") || lower.contains("not_found") || lower.contains("missing")) {
+        if !have_404
+            && (lower.contains("notfound")
+                || lower.contains("not_found")
+                || lower.contains("missing"))
+        {
             out.push((404u16, "Not found".to_string(), schema.clone()));
             have_404 = true;
         }
-        if !have_403 && (lower.contains("permission") || lower.contains("denied") || lower.contains("unauthorized") || lower.contains("forbidden")) {
+        if !have_403
+            && (lower.contains("permission")
+                || lower.contains("denied")
+                || lower.contains("unauthorized")
+                || lower.contains("forbidden"))
+        {
             out.push((403u16, "Forbidden".to_string(), schema.clone()));
             have_403 = true;
         }
-        if !have_400 && (lower.contains("invalid") || lower.contains("validation") || lower.contains("bad") || lower.contains("malformed")) {
+        if !have_400
+            && (lower.contains("invalid")
+                || lower.contains("validation")
+                || lower.contains("bad")
+                || lower.contains("malformed"))
+        {
             out.push((400u16, "Bad request".to_string(), schema.clone()));
             have_400 = true;
         }
@@ -819,7 +1049,9 @@ fn unwrap_effect(ty: &TypeExpr) -> &TypeExpr {
 fn to_kebab_case(name: &str) -> String {
     let mut out = String::with_capacity(name.len() + 4);
     for (i, ch) in name.chars().enumerate() {
-        if ch.is_uppercase() && i > 0 { out.push('-'); }
+        if ch.is_uppercase() && i > 0 {
+            out.push('-');
+        }
         out.push(ch.to_lowercase().next().unwrap());
     }
     out
@@ -838,7 +1070,9 @@ fn snake_to_pascal(s: &str) -> String {
 }
 
 fn pluralize(word: &str) -> String {
-    if word.is_empty() { return word.to_string(); }
+    if word.is_empty() {
+        return word.to_string();
+    }
     // Handle kebab compounds: use last segment for pluralization.
     if let Some(pos) = word.rfind('-') {
         let prefix = &word[..=pos];
@@ -846,19 +1080,25 @@ fn pluralize(word: &str) -> String {
         return format!("{}{}", prefix, pluralize(last));
     }
     let low = word.to_lowercase();
-    if low.ends_with('s') || low.ends_with('x') || low.ends_with('z')
-        || low.ends_with("ch") || low.ends_with("sh")
+    if low.ends_with('s')
+        || low.ends_with('x')
+        || low.ends_with('z')
+        || low.ends_with("ch")
+        || low.ends_with("sh")
     {
         format!("{}es", word)
-    } else if low.ends_with('y') && !matches!(low.chars().rev().nth(1), Some('a'|'e'|'i'|'o'|'u')) {
-        format!("{}ies", &word[..word.len()-1])
+    } else if low.ends_with('y')
+        && !matches!(low.chars().rev().nth(1), Some('a' | 'e' | 'i' | 'o' | 'u'))
+    {
+        format!("{}ies", &word[..word.len() - 1])
     } else {
         format!("{}s", word)
     }
 }
 
 fn annotation_value<'a>(annotations: &'a [Annotation], key: &str) -> Option<&'a str> {
-    annotations.iter()
+    annotations
+        .iter()
         .find(|a| a.key == key)
         .map(|a| a.value.as_str())
         .filter(|v| !v.is_empty())
@@ -871,23 +1111,34 @@ fn has_annotation(annotations: &[Annotation], key: &str) -> bool {
 fn op_param_names(fd: &FnDef) -> Vec<String> {
     use std::collections::HashSet;
     let max = fd.type_sig.params.len();
-    if max == 0 { return vec![]; }
+    if max == 0 {
+        return vec![];
+    }
     let mut let_bound: HashSet<String> = HashSet::new();
     for expr in &fd.body {
         collect_lets(expr, &mut let_bound);
     }
     let mut seen: HashSet<String> = HashSet::new();
     let mut ordered: Vec<String> = Vec::new();
-    let all: Vec<&Expr> = fd.body.iter()
+    let all: Vec<&Expr> = fd
+        .body
+        .iter()
         .chain(fd.requires.iter().map(|c| &c.expr))
         .chain(fd.ensures.iter().map(|c| &c.expr))
         .collect();
     for expr in all {
         scan_idents(expr, &let_bound, &mut seen, &mut ordered);
-        if ordered.len() >= max { break; }
+        if ordered.len() >= max {
+            break;
+        }
     }
     (0..max)
-        .map(|i| ordered.get(i).cloned().unwrap_or_else(|| format!("arg{}", i)))
+        .map(|i| {
+            ordered
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("arg{}", i))
+        })
         .collect()
 }
 
@@ -907,7 +1158,10 @@ fn scan_idents(
     const BUILTINS: &[&str] = &["todo", "map", "filter", "fold", "true", "false"];
     match expr {
         Expr::Ident(name) => {
-            if !let_bound.contains(name) && !BUILTINS.contains(&name.as_str()) && seen.insert(name.clone()) {
+            if !let_bound.contains(name)
+                && !BUILTINS.contains(&name.as_str())
+                && seen.insert(name.clone())
+            {
                 ordered.push(name.clone());
             }
         }
@@ -917,7 +1171,9 @@ fn scan_idents(
         }
         Expr::Call { func, args, .. } => {
             scan_idents(func, let_bound, seen, ordered);
-            for a in args { scan_idents(a, let_bound, seen, ordered); }
+            for a in args {
+                scan_idents(a, let_bound, seen, ordered);
+            }
         }
         Expr::Let { value, .. } => scan_idents(value, let_bound, seen, ordered),
         Expr::FieldAccess { object, .. } => scan_idents(object, let_bound, seen, ordered),
@@ -928,9 +1184,15 @@ fn scan_idents(
         Expr::Lambda { body, .. } => scan_idents(body, let_bound, seen, ordered),
         Expr::Match { subject, arms, .. } => {
             scan_idents(subject, let_bound, seen, ordered);
-            for arm in arms { scan_idents(&arm.body, let_bound, seen, ordered); }
+            for arm in arms {
+                scan_idents(&arm.body, let_bound, seen, ordered);
+            }
         }
-        Expr::Tuple(elems, _) => { for e in elems { scan_idents(e, let_bound, seen, ordered); } }
+        Expr::Tuple(elems, _) => {
+            for e in elems {
+                scan_idents(e, let_bound, seen, ordered);
+            }
+        }
         Expr::Try(inner, _) | Expr::As(inner, _) => scan_idents(inner, let_bound, seen, ordered),
         Expr::ForIn { iter, body, .. } => {
             scan_idents(iter, let_bound, seen, ordered);

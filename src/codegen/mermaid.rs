@@ -65,8 +65,16 @@ impl MermaidEmitter {
                     out.push_str(&format!("  participant {}\n", role.name));
                 }
                 if let Some((dual_a, dual_b)) = &sd.duality {
-                    let steps_a = sd.roles.iter().find(|r| r.name == *dual_a).map(|r| &r.steps);
-                    let steps_b = sd.roles.iter().find(|r| r.name == *dual_b).map(|r| &r.steps);
+                    let steps_a = sd
+                        .roles
+                        .iter()
+                        .find(|r| r.name == *dual_a)
+                        .map(|r| &r.steps);
+                    let steps_b = sd
+                        .roles
+                        .iter()
+                        .find(|r| r.name == *dual_b)
+                        .map(|r| &r.steps);
                     if let (Some(sa), Some(sb)) = (steps_a, steps_b) {
                         let max = sa.len().max(sb.len());
                         for i in 0..max {
@@ -158,6 +166,12 @@ fn type_expr_str(te: &TypeExpr) -> String {
 /// Convert a function name into a valid Mermaid node ID (alphanumeric + underscore only).
 fn fn_node_id(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }

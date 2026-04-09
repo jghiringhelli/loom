@@ -15,7 +15,11 @@ fn parse(src: &str) -> Result<loom::ast::Module, loom::error::LoomError> {
 fn test_m89_chemistry_stdlib_parses() {
     let stdlib = loom::stdlib::CHEMISTRY_STDLIB;
     let result = parse(stdlib);
-    assert!(result.is_ok(), "chemistry_stdlib must parse cleanly: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "chemistry_stdlib must parse cleanly: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -40,7 +44,11 @@ module Reaction
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "ReactionGraph store must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "ReactionGraph store must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -54,7 +62,11 @@ module Chemistry
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "@conserved(Mass) @conserved(Charge) must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "@conserved(Mass) @conserved(Charge) must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -66,5 +78,9 @@ module ChemTypes
   type Temperature   = Float where x > 0.0
 end
 "#;
-    assert!(parse(src).is_ok(), "chemistry refinement types must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "chemistry refinement types must parse: {:?}",
+        parse(src).err()
+    );
 }

@@ -1,7 +1,7 @@
 //! Multi-module project compilation tests for M8.
 
+use loom::project::{build_project, ProjectManifest};
 use std::path::PathBuf;
-use loom::project::{ProjectManifest, build_project};
 
 // ── Manifest parsing ──────────────────────────────────────────────────────────
 
@@ -51,10 +51,7 @@ end
 
     // Build via the project API.
     let out_dir = tmp.join("out");
-    let result = build_project(
-        &[loom_path.to_str().unwrap()],
-        out_dir.to_str().unwrap(),
-    );
+    let result = build_project(&[loom_path.to_str().unwrap()], out_dir.to_str().unwrap());
     assert!(result.is_ok(), "build failed: {:?}", result);
 
     // Output file should exist.
@@ -65,7 +62,11 @@ end
     let lib_rs = out_dir.join("lib.rs");
     assert!(lib_rs.exists(), "expected lib.rs to exist");
     let lib_content = std::fs::read_to_string(&lib_rs).unwrap();
-    assert!(lib_content.contains("mod simple_calc"), "expected mod re-export in lib.rs:\n{}", lib_content);
+    assert!(
+        lib_content.contains("mod simple_calc"),
+        "expected mod re-export in lib.rs:\n{}",
+        lib_content
+    );
 
     // Cleanup.
     let _ = std::fs::remove_dir_all(&tmp);
@@ -88,7 +89,8 @@ fn build_multiple_modules_emits_all_outputs() {
     build_project(
         &[a_path.to_str().unwrap(), b_path.to_str().unwrap()],
         out_dir.to_str().unwrap(),
-    ).expect("build failed");
+    )
+    .expect("build failed");
 
     assert!(out_dir.join("alpha.rs").exists());
     assert!(out_dir.join("beta.rs").exists());
@@ -149,10 +151,7 @@ fn loom_build_with_valid_toml_succeeds() {
     let out_path = tmp.join(&manifest.output);
 
     let refs: Vec<&str> = resolved.iter().map(|s: &String| s.as_str()).collect();
-    build_project(
-        &refs,
-        out_path.to_str().unwrap(),
-    ).expect("CLI build failed");
+    build_project(&refs, out_path.to_str().unwrap()).expect("CLI build failed");
 
     assert!(tmp.join("out/lib.rs").exists());
     let _ = std::fs::remove_dir_all(&tmp);

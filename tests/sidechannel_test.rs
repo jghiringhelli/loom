@@ -27,7 +27,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("timing") || msg.contains("side-channel"), "expected timing error in: {}", msg);
+    assert!(
+        msg.contains("timing") || msg.contains("side-channel"),
+        "expected timing error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -44,7 +48,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("bits") || msg.contains("constant_time") || msg.contains("zero"), "expected leaks_bits error in: {}", msg);
+    assert!(
+        msg.contains("bits") || msg.contains("constant_time") || msg.contains("zero"),
+        "expected leaks_bits error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -75,7 +83,10 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("timing_safety") || rust_src.contains("constant_time"), "Expected timing_safety in codegen");
+    assert!(
+        rust_src.contains("timing_safety") || rust_src.contains("constant_time"),
+        "Expected timing_safety in codegen"
+    );
 }
 
 #[test]

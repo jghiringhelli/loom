@@ -45,10 +45,9 @@
 //! | aspect on_failure + max_attempts | Circuit breaker               | Nygard 2007     |
 //! | aspect max_attempts              | Retry with exponential backoff| AWS pattern     |
 
-use crate::ast::*;
-use super::{RustEmitter, to_pascal_case, to_snake_case};
 use super::template::ts;
-
+use super::{to_pascal_case, to_snake_case, RustEmitter};
+use crate::ast::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA ACCESS LAYER
@@ -59,7 +58,11 @@ impl RustEmitter {
     /// Concrete testable fake using Mutex<HashMap<String, Entity>>.
     /// Replace with a sqlx/diesel/sea-orm adapter at the composition root.
     pub(super) fn emit_crud_in_memory_impl(
-        &self, _store: &str, table: &str, pk_field: &str, out: &mut String,
+        &self,
+        _store: &str,
+        table: &str,
+        pk_field: &str,
+        out: &mut String,
     ) {
         out.push_str(&ts(
             r#"
@@ -95,12 +98,23 @@ impl {T}Repository for InMemory{T}Repository {
         out.push_str("// Ecosystem: sqlx::Transaction | diesel::Connection::transaction\n");
         out.push_str(&format!("pub struct {}UnitOfWork {{\n", store_name));
         for t in tables {
-            out.push_str(&format!("    pub {}: InMemory{}Repository,\n", to_snake_case(t), t));
+            out.push_str(&format!(
+                "    pub {}: InMemory{}Repository,\n",
+                to_snake_case(t),
+                t
+            ));
         }
         out.push_str("}\n");
-        out.push_str(&format!("impl Default for {}UnitOfWork {{\n    fn default() -> Self {{ Self {{\n", store_name));
+        out.push_str(&format!(
+            "impl Default for {}UnitOfWork {{\n    fn default() -> Self {{ Self {{\n",
+            store_name
+        ));
         for t in tables {
-            out.push_str(&format!("        {}: InMemory{}Repository::default(),\n", to_snake_case(t), t));
+            out.push_str(&format!(
+                "        {}: InMemory{}Repository::default(),\n",
+                to_snake_case(t),
+                t
+            ));
         }
         out.push_str("    } }\n}\n");
         out.push_str(&format!("impl {}UnitOfWork {{\n", store_name));
@@ -119,7 +133,8 @@ impl {T}Repository for InMemory{T}Repository {
             "pub trait {table}Specification {{\n    fn is_satisfied_by(&self, candidate: &{table}) -> bool;\n}}\n\n"
         ));
         out.push_str(&format!(
-            "pub struct And{t}Spec<A: {t}Specification, B: {t}Specification>(pub A, pub B);\n", t = table
+            "pub struct And{t}Spec<A: {t}Specification, B: {t}Specification>(pub A, pub B);\n",
+            t = table
         ));
         out.push_str(&format!(
             "impl<A: {t}Specification, B: {t}Specification> {t}Specification for And{t}Spec<A,B> {{\n\
@@ -127,7 +142,8 @@ impl {T}Repository for InMemory{T}Repository {
             t = table
         ));
         out.push_str(&format!(
-            "pub struct Not{t}Spec<A: {t}Specification>(pub A);\n", t = table
+            "pub struct Not{t}Spec<A: {t}Specification>(pub A);\n",
+            t = table
         ));
         out.push_str(&format!(
             "impl<A: {t}Specification> {t}Specification for Not{t}Spec<A> {{\n\
@@ -144,7 +160,6 @@ impl {T}Repository for InMemory{T}Repository {
         out.push_str(&format!("#[derive(Debug, Clone)]\npub struct {}Page {{\n    pub items: Vec<{table}>,\n    pub next_cursor: Option<String>,\n    pub total_count: Option<usize>,\n}}\n\n", table));
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // API / WEB LAYER
@@ -176,7 +191,6 @@ impl RustEmitter {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ARCHITECTURE PATTERNS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -198,7 +212,12 @@ impl RustEmitter {
     }
 
     /// Event Sourcing — EventStore trait + Aggregate with fold (Fowler 2005 + Evans 2003 DDD).
-    pub(super) fn emit_event_sourcing(&self, store_name: &str, event_types: &[String], out: &mut String) {
+    pub(super) fn emit_event_sourcing(
+        &self,
+        store_name: &str,
+        event_types: &[String],
+        out: &mut String,
+    ) {
         out.push_str(&format!(
             "// LOOM[implicit:EventSourcing]: {store_name} — Fowler 2005, Evans DDD Aggregate\n"
         ));
@@ -206,7 +225,9 @@ impl RustEmitter {
         if !event_types.is_empty() {
             out.push_str("#[derive(Debug, Clone)]\n");
             out.push_str(&format!("pub enum {}Event {{\n", store_name));
-            for ev in event_types { out.push_str(&format!("    {}({}),\n", ev, ev)); }
+            for ev in event_types {
+                out.push_str(&format!("    {}({}),\n", ev, ev));
+            }
             out.push_str("}\n\n");
         } else {
             out.push_str(&format!(
@@ -286,7 +307,6 @@ impl RustEmitter {
         ));
     }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONCURRENCY / MESSAGING
@@ -369,9 +389,7 @@ impl RustEmitter {
         out.push_str(
             "// Wrong send/recv order is a compile-time type error. Zero runtime overhead.\n",
         );
-        out.push_str(
-            "// Each step consumes the channel state; the next state is returned.\n",
-        );
+        out.push_str("// Each step consumes the channel state; the next state is returned.\n");
         out.push_str(
             "// Ecosystem: ferrite-session, sesh. Theory: Gay & Hole (2005) subtyping.\n\n",
         );
@@ -399,9 +417,7 @@ impl RustEmitter {
             } else {
                 format!("{chan}{rp}Done")
             };
-            out.push_str(&format!(
-                "impl {chan}{rp}Channel<{start_state}> {{\n"
-            ));
+            out.push_str(&format!("impl {chan}{rp}Channel<{start_state}> {{\n"));
             out.push_str(
                 "    pub fn new() -> Self { Self { _state: std::marker::PhantomData } }\n",
             );
@@ -462,7 +478,8 @@ impl RustEmitter {
     pub(super) fn emit_effect_handler(&self, ed: &EffectDef, out: &mut String) {
         out.push_str(&format!(
             "// LOOM[implicit:AlgebraicEffect]: {} — Plotkin & Pretnar 2009\n\
-             // Ecosystem: effective crate, frunk\n\n", ed.name
+             // Ecosystem: effective crate, frunk\n\n",
+            ed.name
         ));
         out.push_str(&format!("pub trait {}Handler {{\n", ed.name));
         for op in &ed.operations {
@@ -477,7 +494,8 @@ impl RustEmitter {
         ));
         out.push_str(&format!("impl {}Dispatcher {{\n", ed.name));
         out.push_str(&format!(
-            "    pub fn new(h: Box<dyn {}Handler>) -> Self {{ Self {{ handler: h }} }}\n", ed.name
+            "    pub fn new(h: Box<dyn {}Handler>) -> Self {{ Self {{ handler: h }} }}\n",
+            ed.name
         ));
         for op in &ed.operations {
             let i = self.emit_type_expr(&op.input);
@@ -491,7 +509,6 @@ impl RustEmitter {
     }
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════
 // RESILIENCE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -499,7 +516,12 @@ impl RustEmitter {
 impl RustEmitter {
     /// Circuit breaker — Nygard 2007 "Release It!".
     /// Three states: Closed (normal), Open (fast-fail), Half-Open (probe).
-    pub(super) fn emit_circuit_breaker(&self, aspect_name: &str, max_attempts: u32, out: &mut String) {
+    pub(super) fn emit_circuit_breaker(
+        &self,
+        aspect_name: &str,
+        max_attempts: u32,
+        out: &mut String,
+    ) {
         let n = to_pascal_case(aspect_name);
         out.push_str(&format!(
             "// LOOM[implicit:CircuitBreaker]: {aspect_name} — Nygard 2007 Release It!\n\

@@ -21,48 +21,48 @@ use crate::parser::Parser;
 // in CorrectnessClaim, so spelling variations ("typechecker" / "TypeChecker")
 // both match.
 const STAGE_ORDER: &[(&str, &str)] = &[
-    ("lex",              "Lexer"),
-    ("parse",            "Parser"),
-    ("inference",        "InferenceEngine"),
-    ("aspect",           "AspectChecker"),
-    ("type",             "TypeChecker"),
-    ("refinement",       "RefinementChecker"),
-    ("exhaustiveness",   "ExhaustivenessChecker"),
-    ("effects",          "EffectChecker"),
-    ("algebraic",        "AlgebraicChecker"),
-    ("units",            "UnitsChecker"),
-    ("typestate",        "TypestateChecker"),
-    ("temporal",         "TemporalChecker"),
-    ("separation",       "SeparationChecker"),
-    ("gradual",          "GradualChecker"),
-    ("probabilistic",    "ProbabilisticChecker"),
-    ("dependent",        "DependentChecker"),
-    ("side_channel",     "SideChannelChecker"),
-    ("category",         "CategoryChecker"),
-    ("curry_howard",     "CurryHowardChecker"),
-    ("self_cert",        "SelfCertChecker"),
-    ("store",            "StoreChecker"),
-    ("tensor",           "TensorChecker"),
-    ("privacy",          "PrivacyChecker"),
-    ("teleos",           "TeleosChecker"),
-    ("safety",           "SafetyChecker"),
-    ("session",          "SessionChecker"),
-    ("effect_handler",   "EffectHandlerChecker"),
-    ("use_case",         "UseCaseChecker"),
-    ("randomness",       "RandomnessChecker"),
-    ("stochastic",       "StochasticChecker"),
-    ("smt",              "SmtBridgeChecker"),
-    ("manifest",         "ManifestChecker"),
-    ("migration",        "MigrationChecker"),
-    ("minimal",          "MinimalChecker"),
-    ("journal",          "JournalChecker"),
-    ("scenario",         "ScenarioChecker"),
-    ("property",         "PropertyChecker"),
-    ("provenance",        "ProvenanceChecker"),
-    ("boundary",          "BoundaryChecker"),
-    ("evolution_vector",  "EvolutionVectorChecker"),
-    ("signal_attention",  "SignalAttentionChecker"),
-    ("messaging",         "MessagingChecker"),
+    ("lex", "Lexer"),
+    ("parse", "Parser"),
+    ("inference", "InferenceEngine"),
+    ("aspect", "AspectChecker"),
+    ("type", "TypeChecker"),
+    ("refinement", "RefinementChecker"),
+    ("exhaustiveness", "ExhaustivenessChecker"),
+    ("effects", "EffectChecker"),
+    ("algebraic", "AlgebraicChecker"),
+    ("units", "UnitsChecker"),
+    ("typestate", "TypestateChecker"),
+    ("temporal", "TemporalChecker"),
+    ("separation", "SeparationChecker"),
+    ("gradual", "GradualChecker"),
+    ("probabilistic", "ProbabilisticChecker"),
+    ("dependent", "DependentChecker"),
+    ("side_channel", "SideChannelChecker"),
+    ("category", "CategoryChecker"),
+    ("curry_howard", "CurryHowardChecker"),
+    ("self_cert", "SelfCertChecker"),
+    ("store", "StoreChecker"),
+    ("tensor", "TensorChecker"),
+    ("privacy", "PrivacyChecker"),
+    ("teleos", "TeleosChecker"),
+    ("safety", "SafetyChecker"),
+    ("session", "SessionChecker"),
+    ("effect_handler", "EffectHandlerChecker"),
+    ("use_case", "UseCaseChecker"),
+    ("randomness", "RandomnessChecker"),
+    ("stochastic", "StochasticChecker"),
+    ("smt", "SmtBridgeChecker"),
+    ("manifest", "ManifestChecker"),
+    ("migration", "MigrationChecker"),
+    ("minimal", "MinimalChecker"),
+    ("journal", "JournalChecker"),
+    ("scenario", "ScenarioChecker"),
+    ("property", "PropertyChecker"),
+    ("provenance", "ProvenanceChecker"),
+    ("boundary", "BoundaryChecker"),
+    ("evolution_vector", "EvolutionVectorChecker"),
+    ("signal_attention", "SignalAttentionChecker"),
+    ("messaging", "MessagingChecker"),
 ];
 
 /// A single measurement point in the S_realized convergence curve.
@@ -142,11 +142,20 @@ impl ConvergenceTrace {
     pub fn report(&self, label: &str) {
         eprintln!("\n╔══ ALX Convergence: {} ══", label);
         eprintln!("║  Mode: {:?}", self.mode);
-        eprintln!("║  Final S_realized = {}/{} = {:.4}", self.total_proved, self.total_claims, self.final_s);
-        eprintln!("║  Monotonic: {}", if self.is_monotonic { "✅" } else { "❌" });
+        eprintln!(
+            "║  Final S_realized = {}/{} = {:.4}",
+            self.total_proved, self.total_claims, self.final_s
+        );
+        eprintln!(
+            "║  Monotonic: {}",
+            if self.is_monotonic { "✅" } else { "❌" }
+        );
         eprintln!("║  Sparkline: {}", self.sparkline());
         if !self.contributing_stages.is_empty() {
-            eprintln!("║  Contributing stages: {}", self.contributing_stages.join(", "));
+            eprintln!(
+                "║  Contributing stages: {}",
+                self.contributing_stages.join(", ")
+            );
         }
         eprintln!("╚══");
     }
@@ -201,7 +210,11 @@ fn normalize_checker_name(s: &str) -> String {
 
 fn claim_level_trace(module: &Module) -> Option<ConvergenceTrace> {
     let report = module.items.iter().find_map(|item| {
-        if let Item::CorrectnessReport(r) = item { Some(r) } else { None }
+        if let Item::CorrectnessReport(r) = item {
+            Some(r)
+        } else {
+            None
+        }
     })?;
 
     let total_claims = report.proved.len() + report.unverified.len();
@@ -212,15 +225,22 @@ fn claim_level_trace(module: &Module) -> Option<ConvergenceTrace> {
     // For each proved claim, find the first pipeline stage that matches its checker name.
     // A claim that matches no stage is assigned STAGE_ORDER.len() (never fired).
     let stage_count = STAGE_ORDER.len();
-    let claim_stage_indices: Vec<usize> = report.proved.iter().map(|claim| {
-        let norm_claim = normalize_checker_name(&claim.checker);
-        STAGE_ORDER.iter().position(|(_, checker_name)| {
-            let norm_stage = normalize_checker_name(checker_name);
-            norm_stage == norm_claim
-                || norm_stage.contains(&norm_claim)
-                || norm_claim.contains(&norm_stage)
-        }).unwrap_or(stage_count)
-    }).collect();
+    let claim_stage_indices: Vec<usize> = report
+        .proved
+        .iter()
+        .map(|claim| {
+            let norm_claim = normalize_checker_name(&claim.checker);
+            STAGE_ORDER
+                .iter()
+                .position(|(_, checker_name)| {
+                    let norm_stage = normalize_checker_name(checker_name);
+                    norm_stage == norm_claim
+                        || norm_stage.contains(&norm_claim)
+                        || norm_claim.contains(&norm_stage)
+                })
+                .unwrap_or(stage_count)
+        })
+        .collect();
 
     // Build the convergence curve.
     let mut steps = Vec::with_capacity(stage_count);
@@ -228,8 +248,13 @@ fn claim_level_trace(module: &Module) -> Option<ConvergenceTrace> {
 
     for (idx, &(stage_name, checker_name)) in STAGE_ORDER.iter().enumerate() {
         let cumulative = claim_stage_indices.iter().filter(|&&si| si <= idx).count();
-        let prev = if idx == 0 { 0 } else {
-            steps.last().map(|s: &ConvergenceStep| s.claims_proved_cumulative).unwrap_or(0)
+        let prev = if idx == 0 {
+            0
+        } else {
+            steps
+                .last()
+                .map(|s: &ConvergenceStep| s.claims_proved_cumulative)
+                .unwrap_or(0)
         };
         let delta = cumulative - prev;
         let s = cumulative as f64 / total_claims as f64;
@@ -249,7 +274,10 @@ fn claim_level_trace(module: &Module) -> Option<ConvergenceTrace> {
         });
     }
 
-    let final_cumulative = claim_stage_indices.iter().filter(|&&si| si < stage_count).count();
+    let final_cumulative = claim_stage_indices
+        .iter()
+        .filter(|&&si| si < stage_count)
+        .count();
     let is_monotonic = steps.windows(2).all(|w| w[1].s_realized >= w[0].s_realized);
 
     Some(ConvergenceTrace {
@@ -277,7 +305,11 @@ fn stage_fallback_trace(module: &Module) -> ConvergenceTrace {
 
     for (idx, &(stage_name, checker_name)) in STAGE_ORDER.iter().enumerate() {
         let s = (idx + 1) as f64 / total as f64;
-        let delta = if stage_is_relevant(stage_name, module) { 1 } else { 0 };
+        let delta = if stage_is_relevant(stage_name, module) {
+            1
+        } else {
+            0
+        };
         if delta > 0 {
             contributing.push(stage_name);
         }
@@ -306,17 +338,26 @@ fn stage_fallback_trace(module: &Module) -> ConvergenceTrace {
 /// Heuristic: is this stage relevant to the module's constructs?
 fn stage_is_relevant(stage: &str, module: &Module) -> bool {
     match stage {
-        "migration"      => module.being_defs.iter().any(|b| !b.migrations.is_empty()),
-        "journal"        => module.being_defs.iter().any(|b| b.journal.is_some()),
-        "session"        => module.items.iter().any(|i| matches!(i, Item::Session(_))),
-        "manifest"       => module.being_defs.iter().any(|b| b.manifest.is_some()),
-        "scenario"       => module.being_defs.iter().any(|b| !b.scenarios.is_empty()),
-        "use_case"       => module.items.iter().any(|i| matches!(i, Item::UseCase(_))),
-        "boundary"       => module.items.iter().any(|i| matches!(i, Item::BoundaryBlock(_))),
-        "smt"            => module.items.iter().any(|i| matches!(i, Item::Fn(_))),
-        "signal_attention" => module.being_defs.iter().any(|b| b.signal_attention.is_some()),
-        "messaging"      => module.items.iter().any(|i| matches!(i, Item::MessagingPrimitive(_))),
-        _                => true, // structural stages always relevant
+        "migration" => module.being_defs.iter().any(|b| !b.migrations.is_empty()),
+        "journal" => module.being_defs.iter().any(|b| b.journal.is_some()),
+        "session" => module.items.iter().any(|i| matches!(i, Item::Session(_))),
+        "manifest" => module.being_defs.iter().any(|b| b.manifest.is_some()),
+        "scenario" => module.being_defs.iter().any(|b| !b.scenarios.is_empty()),
+        "use_case" => module.items.iter().any(|i| matches!(i, Item::UseCase(_))),
+        "boundary" => module
+            .items
+            .iter()
+            .any(|i| matches!(i, Item::BoundaryBlock(_))),
+        "smt" => module.items.iter().any(|i| matches!(i, Item::Fn(_))),
+        "signal_attention" => module
+            .being_defs
+            .iter()
+            .any(|b| b.signal_attention.is_some()),
+        "messaging" => module
+            .items
+            .iter()
+            .any(|i| matches!(i, Item::MessagingPrimitive(_))),
+        _ => true, // structural stages always relevant
     }
 }
 

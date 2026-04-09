@@ -27,7 +27,10 @@ end
 "#;
     let module = parse(src);
     let results = SmtBridgeChecker::check(&module.items);
-    assert!(!results.is_empty(), "should return at least one verification result");
+    assert!(
+        !results.is_empty(),
+        "should return at least one verification result"
+    );
     assert_eq!(results[0].function, "positive_input");
 }
 

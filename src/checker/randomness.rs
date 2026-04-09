@@ -60,10 +60,10 @@ impl RandomnessChecker {
     fn quality_of(fd: &FnDef) -> Option<RandomnessQuality> {
         for ann in &fd.annotations {
             match ann.key.as_str() {
-                "true_random"   => return Some(RandomnessQuality::True),
+                "true_random" => return Some(RandomnessQuality::True),
                 "crypto_random" => return Some(RandomnessQuality::Crypto),
                 "pseudo_random" => return Some(RandomnessQuality::Pseudo),
-                "seeded"        => return Some(RandomnessQuality::Seeded(ann.value.clone())),
+                "seeded" => return Some(RandomnessQuality::Seeded(ann.value.clone())),
                 _ => {}
             }
         }

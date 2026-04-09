@@ -109,7 +109,12 @@ impl<'src> crate::parser::Parser<'src> {
                     }
                     self.expect(Token::RParen)?;
                     Ok(Pattern::Variant(name, sub))
-                } else if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                } else if name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_uppercase())
+                    .unwrap_or(false)
+                {
                     // Capital letter → treat as a (nullary) variant.
                     Ok(Pattern::Variant(name, Vec::new()))
                 } else {
@@ -470,5 +475,4 @@ impl<'src> crate::parser::Parser<'src> {
             span: Span::merge(&start, &end_span),
         })
     }
-
 }

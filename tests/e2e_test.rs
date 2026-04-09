@@ -22,7 +22,10 @@ fn loom_compile(src: &str) -> String {
     loom::compile(src).unwrap_or_else(|errs| {
         panic!(
             "Loom compilation failed:\n{}",
-            errs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n")
+            errs.iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
         )
     })
 }
@@ -58,7 +61,10 @@ fn rustc_and_run(rust_src: &str, test_name: &str) -> String {
 
     if !run.status.success() {
         let stderr = String::from_utf8_lossy(&run.stderr);
-        panic!("binary exited non-zero for test `{}`: {}", test_name, stderr);
+        panic!(
+            "binary exited non-zero for test `{}`: {}",
+            test_name, stderr
+        );
     }
 
     let _ = fs::remove_file(&rs_path);
@@ -77,7 +83,13 @@ fn rustc_and_run_tests(rust_src: &str, test_name: &str) -> String {
     fs::write(&rs_path, rust_src).unwrap();
 
     let compile = Command::new("rustc")
-        .args(["--edition", "2021", "--test", "-o", exe_path.to_str().unwrap()])
+        .args([
+            "--edition",
+            "2021",
+            "--test",
+            "-o",
+            exe_path.to_str().unwrap(),
+        ])
         .arg(rs_path.to_str().unwrap())
         .output()
         .expect("failed to spawn rustc");
@@ -268,9 +280,7 @@ end
     let emitted = loom_compile(loom_src);
 
     // Generic fn with todo!() body — just check it compiles
-    let full_src = format!(
-        "#![allow(unused)]\n{}", emitted
-    );
+    let full_src = format!("#![allow(unused)]\n{}", emitted);
 
     // We can't call a todo!() fn at runtime — just verify rustc accepts it
     let tmp_dir = std::env::temp_dir();
@@ -279,7 +289,14 @@ end
     fs::write(&rs_path, &full_src).unwrap();
 
     let compile = Command::new("rustc")
-        .args(["--edition", "2021", "--crate-type", "lib", "-o", exe_path.to_str().unwrap()])
+        .args([
+            "--edition",
+            "2021",
+            "--crate-type",
+            "lib",
+            "-o",
+            exe_path.to_str().unwrap(),
+        ])
         .arg(rs_path.to_str().unwrap())
         .output()
         .expect("failed to spawn rustc");
@@ -307,7 +324,10 @@ end
 end
 "#;
     let emitted = loom_compile(loom_src);
-    assert!(emitted.contains("pub mod my_module"), "expected snake_case mod name");
+    assert!(
+        emitted.contains("pub mod my_module"),
+        "expected snake_case mod name"
+    );
 
     let full_src = format!(
         "{}\nfn main() {{\n    println!(\"{{}}\", my_module::value(0));\n}}",
@@ -337,11 +357,15 @@ fn e2e_pricing_engine_corpus_emits_valid_rust() {
 
     let compile = Command::new("rustc")
         .args([
-            "--edition", "2021",
-            "--crate-type", "lib",
-            "-o", rlib_path.to_str().unwrap(),
+            "--edition",
+            "2021",
+            "--crate-type",
+            "lib",
+            "-o",
+            rlib_path.to_str().unwrap(),
             // Allow type mismatches in arithmetic to check structural validity
-            "-A", "unused",
+            "-A",
+            "unused",
         ])
         .arg(rs_path.to_str().unwrap())
         .output()
@@ -388,7 +412,8 @@ end
 
     assert!(
         emitted.contains("debug_assert!"),
-        "expected debug_assert! in emitted code; got:\n{}", emitted
+        "expected debug_assert! in emitted code; got:\n{}",
+        emitted
     );
 
     let full_src = format!(
@@ -425,9 +450,12 @@ end
 
     let compile = Command::new("rustc")
         .args([
-            "--edition", "2021",
-            "-C", "debug-assertions=yes",
-            "-o", exe_path.to_str().unwrap(),
+            "--edition",
+            "2021",
+            "-C",
+            "debug-assertions=yes",
+            "-o",
+            exe_path.to_str().unwrap(),
         ])
         .arg(rs_path.to_str().unwrap())
         .output()
@@ -454,7 +482,8 @@ end
     let stderr = String::from_utf8_lossy(&run.stderr);
     assert!(
         stderr.contains("precondition violated") || stderr.contains("assertion"),
-        "Expected precondition panic message; got: {}", stderr
+        "Expected precondition panic message; got: {}",
+        stderr
     );
 }
 
@@ -496,30 +525,36 @@ end
     // V3 edge-case loop
     assert!(
         emitted.contains("assert!"),
-        "V3 emitted code must contain assert!:\n{}", emitted
+        "V3 emitted code must contain assert!:\n{}",
+        emitted
     );
     assert!(
         emitted.contains("edge_cases"),
-        "V3 emitted code must contain an edge_cases array:\n{}", emitted
+        "V3 emitted code must contain an edge_cases array:\n{}",
+        emitted
     );
     // V3+ proptest block (gated by #[cfg(loom_proptest)] — runs with RUSTFLAGS="--cfg loom_proptest")
     assert!(
         emitted.contains("proptest!"),
-        "V3+ emitted code must contain proptest! macro:\n{}", emitted
+        "V3+ emitted code must contain proptest! macro:\n{}",
+        emitted
     );
     assert!(
         emitted.contains("prop_assert!"),
-        "V3+ emitted code must contain prop_assert! macro:\n{}", emitted
+        "V3+ emitted code must contain prop_assert! macro:\n{}",
+        emitted
     );
     assert!(
         emitted.contains("loom_proptest"),
-        "V3+ proptest block must be gated by cfg(loom_proptest):\n{}", emitted
+        "V3+ proptest block must be gated by cfg(loom_proptest):\n{}",
+        emitted
     );
 
     // Compile + run edge-case tests (without loom_proptest flag — proptest block skipped)
     let output = rustc_and_run_tests(&emitted, "v3_property");
     assert!(
         output.contains("test result: ok"),
-        "V3 property test binary should report 'test result: ok'; got:\n{}", output
+        "V3 property test binary should report 'test result: ok'; got:\n{}",
+        output
     );
 }

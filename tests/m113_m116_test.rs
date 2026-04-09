@@ -8,14 +8,27 @@ fn ok(src: &str) {
     assert!(
         r.is_ok(),
         "expected ok:\n{}",
-        r.unwrap_err().iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n")
+        r.unwrap_err()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }
 
 fn err_contains(src: &str, fragment: &str) {
     let r = compile(src);
-    assert!(r.is_err(), "expected error containing '{}' but compiled ok", fragment);
-    let msg = r.unwrap_err().iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+    assert!(
+        r.is_err(),
+        "expected error containing '{}' but compiled ok",
+        fragment
+    );
+    let msg = r
+        .unwrap_err()
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msg.contains(fragment),
         "expected error containing '{}'\nGot:\n{}",

@@ -31,10 +31,18 @@ module UserService
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "full usecase: block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "full usecase: block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let uc = module.items.iter().find_map(|i| {
-        if let Item::UseCase(u) = i { Some(u) } else { None }
+        if let Item::UseCase(u) = i {
+            Some(u)
+        } else {
+            None
+        }
     });
     assert!(uc.is_some(), "should have a UseCase item");
     let uc = uc.unwrap();
@@ -64,10 +72,18 @@ module Auth
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "acceptance criteria should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "acceptance criteria should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let uc = module.items.iter().find_map(|i| {
-        if let Item::UseCase(u) = i { Some(u) } else { None }
+        if let Item::UseCase(u) = i {
+            Some(u)
+        } else {
+            None
+        }
     });
     assert!(uc.is_some());
     let uc = uc.unwrap();
@@ -94,7 +110,11 @@ end
 "#;
     // loom::compile filters [warn] prefixed errors so compilation should succeed.
     let result = loom::compile(src);
-    assert!(result.is_ok(), "empty acceptance: should not block compilation: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "empty acceptance: should not block compilation: {:?}",
+        result.err()
+    );
 
     // But the raw checker should emit the warning.
     let tokens = Lexer::tokenize(src).unwrap();
@@ -102,8 +122,11 @@ end
     let checker = loom::checker::UseCaseChecker::new();
     let diagnostics = checker.check(&module);
     assert!(
-        diagnostics.iter().any(|e| format!("{}", e).contains("[warn]")),
-        "should emit a [warn] for empty acceptance: but got {:?}", diagnostics
+        diagnostics
+            .iter()
+            .any(|e| format!("{}", e).contains("[warn]")),
+        "should emit a [warn] for empty acceptance: but got {:?}",
+        diagnostics
     );
 }
 
@@ -133,7 +156,8 @@ end
             let msg = format!("{}", e);
             msg.contains("duplicate acceptance criterion") && !msg.contains("[warn]")
         }),
-        "duplicate criterion names should be a hard error: {:?}", errors
+        "duplicate criterion names should be a hard error: {:?}",
+        errors
     );
 }
 
@@ -162,7 +186,8 @@ end
             let msg = format!("{}", e);
             msg.contains("[warn]") && msg.contains("postcondition")
         }),
-        "identical pre/postcondition should warn: {:?}", diagnostics
+        "identical pre/postcondition should warn: {:?}",
+        diagnostics
     );
 }
 
@@ -191,11 +216,13 @@ end
         "emitted Rust should contain #[test] stubs"
     );
     assert!(
-        rust_src.contains("valid_card_accepted") || rust_src.contains("uc_process_payment_valid_card_accepted"),
+        rust_src.contains("valid_card_accepted")
+            || rust_src.contains("uc_process_payment_valid_card_accepted"),
         "emitted Rust should contain test fn for 'valid_card_accepted'"
     );
     assert!(
-        rust_src.contains("expired_card_rejected") || rust_src.contains("uc_process_payment_expired_card_rejected"),
+        rust_src.contains("expired_card_rejected")
+            || rust_src.contains("uc_process_payment_expired_card_rejected"),
         "emitted Rust should contain test fn for 'expired_card_rejected'"
     );
 }
@@ -255,11 +282,23 @@ module UserAccount
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "two usecase: blocks should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "two usecase: blocks should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let use_cases: Vec<_> = module.items.iter().filter_map(|i| {
-        if let Item::UseCase(u) = i { Some(u) } else { None }
-    }).collect();
+    let use_cases: Vec<_> = module
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let Item::UseCase(u) = i {
+                Some(u)
+            } else {
+                None
+            }
+        })
+        .collect();
     assert_eq!(use_cases.len(), 2, "should have two UseCase items");
     assert_eq!(use_cases[0].name, "RegisterUser");
     assert_eq!(use_cases[1].name, "DeleteUser");

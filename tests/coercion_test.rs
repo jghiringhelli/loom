@@ -1,5 +1,4 @@
 /// Tests for M10 — numeric coercion (`as` operator) + parenthesized expressions.
-
 use loom::compile;
 
 // ── as coercion ───────────────────────────────────────────────────────────────
@@ -88,16 +87,18 @@ fn e2e_as(loom_src: &str, fn_call: &str, expected: &str) {
     let rust_src = compile(loom_src).expect("loom compile failed");
 
     let mod_name = {
-        let line = rust_src.lines().find(|l| l.contains("pub mod")).unwrap_or("pub mod demo {");
+        let line = rust_src
+            .lines()
+            .find(|l| l.contains("pub mod"))
+            .unwrap_or("pub mod demo {");
         line.trim()
             .strip_prefix("pub mod ")
             .unwrap_or("demo")
             .trim_end_matches(" {")
             .to_string()
     };
-    let main_src = format!(
-        "{rust_src}\nfn main() {{\n    println!(\"{{}}\", {mod_name}::{fn_call});\n}}\n"
-    );
+    let main_src =
+        format!("{rust_src}\nfn main() {{\n    println!(\"{{}}\", {mod_name}::{fn_call});\n}}\n");
 
     let dir = std::env::temp_dir().join(format!(
         "loom_coerce_e2e_{}",
@@ -112,7 +113,13 @@ fn e2e_as(loom_src: &str, fn_call: &str, expected: &str) {
     std::fs::write(&rs_path, &main_src).unwrap();
 
     let compile_out = std::process::Command::new("rustc")
-        .args(["--edition", "2021", rs_path.to_str().unwrap(), "-o", bin_path.to_str().unwrap()])
+        .args([
+            "--edition",
+            "2021",
+            rs_path.to_str().unwrap(),
+            "-o",
+            bin_path.to_str().unwrap(),
+        ])
         .output()
         .expect("rustc should be available");
 
@@ -124,7 +131,9 @@ fn e2e_as(loom_src: &str, fn_call: &str, expected: &str) {
         );
     }
 
-    let run_out = std::process::Command::new(&bin_path).output().expect("binary should run");
+    let run_out = std::process::Command::new(&bin_path)
+        .output()
+        .expect("binary should run");
     assert_eq!(String::from_utf8_lossy(&run_out.stdout).trim(), expected);
     std::fs::remove_dir_all(&dir).ok();
 }

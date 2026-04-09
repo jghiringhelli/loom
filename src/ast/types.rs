@@ -74,7 +74,6 @@ pub struct FieldDef {
     pub span: Span,
 }
 
-
 /// Product type (struct / record).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeDef {
@@ -166,8 +165,6 @@ pub struct CertificateDef {
     pub span: Span,
 }
 
-
-
 /// Type expression — the right-hand side of a type annotation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeExpr {
@@ -224,4 +221,3 @@ pub struct Contract {
     pub expr: Expr,
     pub span: Span,
 }
-

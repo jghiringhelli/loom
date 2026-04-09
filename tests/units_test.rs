@@ -43,10 +43,7 @@ end
     if let Item::Fn(fd) = &module.items[0] {
         assert_eq!(
             fd.type_sig.params[0],
-            TypeExpr::Generic(
-                "Float".to_string(),
-                vec![TypeExpr::Base("usd".to_string())]
-            )
+            TypeExpr::Generic("Float".to_string(), vec![TypeExpr::Base("usd".to_string())])
         );
     } else {
         panic!("expected fn item");
@@ -88,7 +85,10 @@ fn add_prices :: Float<usd> -> Float<usd> -> Float<usd>
 end
 end
 "#;
-    assert!(check_units(src).is_ok(), "same-unit addition should be allowed");
+    assert!(
+        check_units(src).is_ok(),
+        "same-unit addition should be allowed"
+    );
 }
 
 #[test]
@@ -100,7 +100,10 @@ fn diff :: Float<eur> -> Float<eur> -> Float<eur>
 end
 end
 "#;
-    assert!(check_units(src).is_ok(), "same-unit subtraction should be allowed");
+    assert!(
+        check_units(src).is_ok(),
+        "same-unit subtraction should be allowed"
+    );
 }
 
 // ── 3. Checker: different-unit addition errors ────────────────────────────────
@@ -114,7 +117,10 @@ fn bad_add :: Float<usd> -> Float<eur> -> Float<usd>
 end
 end
 "#;
-    assert!(has_type_error(src), "cross-unit addition should produce a TypeError");
+    assert!(
+        has_type_error(src),
+        "cross-unit addition should produce a TypeError"
+    );
 }
 
 #[test]
@@ -126,7 +132,10 @@ fn bad_sub :: Float<celsius> -> Float<fahrenheit> -> Float<celsius>
 end
 end
 "#;
-    assert!(has_type_error(src), "cross-unit subtraction should produce a TypeError");
+    assert!(
+        has_type_error(src),
+        "cross-unit subtraction should produce a TypeError"
+    );
 }
 
 // ── 4. Rust codegen: unit newtype struct emitted ─────────────────────────────
@@ -141,8 +150,14 @@ end
 end
 "#;
     let rust = loom::compile(src).expect("compile failed");
-    assert!(rust.contains("pub struct Usd"), "Rust output should contain `pub struct Usd`");
-    assert!(rust.contains("impl std::ops::Add for Usd"), "should have Add impl");
+    assert!(
+        rust.contains("pub struct Usd"),
+        "Rust output should contain `pub struct Usd`"
+    );
+    assert!(
+        rust.contains("impl std::ops::Add for Usd"),
+        "should have Add impl"
+    );
 }
 
 #[test]
@@ -156,7 +171,10 @@ end
 "#;
     let rust = loom::compile(src).expect("compile failed");
     // The function signature should use `Usd` not `f64`
-    assert!(rust.contains("Usd"), "Rust output should use Usd in fn signature");
+    assert!(
+        rust.contains("Usd"),
+        "Rust output should use Usd in fn signature"
+    );
 }
 
 // ── 5. TypeScript codegen: branded type emitted ──────────────────────────────
@@ -171,8 +189,14 @@ end
 end
 "#;
     let ts = loom::compile_typescript(src).expect("ts compile failed");
-    assert!(ts.contains("_unit"), "TS output should contain `_unit` brand");
-    assert!(ts.contains("Usd"), "TS output should contain `Usd` type alias");
+    assert!(
+        ts.contains("_unit"),
+        "TS output should contain `_unit` brand"
+    );
+    assert!(
+        ts.contains("Usd"),
+        "TS output should contain `Usd` type alias"
+    );
 }
 
 // ── 6. JSON Schema: x-unit extension emitted ─────────────────────────────────
@@ -185,7 +209,10 @@ type Money = amount: Float<usd> end
 end
 "#;
     let schema = loom::compile_json_schema(src).expect("schema compile failed");
-    assert!(schema.contains("x-unit"), "JSON Schema should contain `x-unit`");
+    assert!(
+        schema.contains("x-unit"),
+        "JSON Schema should contain `x-unit`"
+    );
     assert!(schema.contains("usd"), "JSON Schema should contain `usd`");
 }
 
@@ -200,7 +227,10 @@ fn add :: Float -> Float -> Float
 end
 end
 "#;
-    assert!(check_units(src).is_ok(), "dimensionless Float addition should be OK");
+    assert!(
+        check_units(src).is_ok(),
+        "dimensionless Float addition should be OK"
+    );
 }
 
 // ── 8. Unit in struct field emits correctly ──────────────────────────────────
@@ -214,7 +244,10 @@ end
 "#;
     let rust = loom::compile(src).expect("compile failed");
     assert!(rust.contains("pub struct Usd"), "should emit Usd newtype");
-    assert!(rust.contains("amount: Usd"), "struct field should use Usd type");
+    assert!(
+        rust.contains("amount: Usd"),
+        "struct field should use Usd type"
+    );
 }
 
 // ── 9. Multiplication of different units is allowed ──────────────────────────
@@ -297,7 +330,11 @@ module Physics
   end
 end
 "#;
-    assert!(loom::parse(src).is_ok(), "unit-annotated function should parse: {:?}", loom::parse(src).err());
+    assert!(
+        loom::parse(src).is_ok(),
+        "unit-annotated function should parse: {:?}",
+        loom::parse(src).err()
+    );
 }
 
 // ── 14. Dimensionless efficiency ratio parses ─────────────────────────────────
@@ -311,5 +348,9 @@ module Math
   end
 end
 "#;
-    assert!(loom::parse(src).is_ok(), "dimensionless ratio signature should parse: {:?}", loom::parse(src).err());
+    assert!(
+        loom::parse(src).is_ok(),
+        "dimensionless ratio signature should parse: {:?}",
+        loom::parse(src).err()
+    );
 }

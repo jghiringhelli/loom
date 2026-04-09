@@ -25,12 +25,20 @@ end
 "#;
     // Compile returns Err when warnings are present (minimal checker surfaces them).
     let result = loom::compile(src);
-    assert!(result.is_err(), "unused sense channel should produce a diagnostic");
+    assert!(
+        result.is_err(),
+        "unused sense channel should produce a diagnostic"
+    );
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("[warn]"),
-        "expected [warn] for unused sense channel, got: {}", combined
+        "expected [warn] for unused sense channel, got: {}",
+        combined
     );
 }
 
@@ -53,16 +61,25 @@ module Controller
 end
 "#;
     let result = loom::compile(src);
-    assert!(result.is_err(), "regulate on nonexistent field should be an error");
+    assert!(
+        result.is_err(),
+        "regulate on nonexistent field should be an error"
+    );
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("[error]"),
-        "expected [error] for regulate on nonexistent field, got: {}", combined
+        "expected [error] for regulate on nonexistent field, got: {}",
+        combined
     );
     assert!(
         combined.contains("ghost_field"),
-        "error should name the missing field, got: {}", combined
+        "error should name the missing field, got: {}",
+        combined
     );
 }
 
@@ -90,7 +107,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "sense channel referenced in evolve: should compile cleanly: {:?}", result.err()
+        "sense channel referenced in evolve: should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -111,7 +129,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "being without any sense: should compile cleanly: {:?}", result.err()
+        "being without any sense: should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -146,7 +165,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "fully load-bearing being should compile cleanly: {:?}", result.err()
+        "fully load-bearing being should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -177,9 +197,14 @@ end
         "MinimalChecker must run in compile() pipeline and catch phantom regulate"
     );
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("phantom"),
-        "error message should identify the phantom field: {}", combined
+        "error message should identify the phantom field: {}",
+        combined
     );
 }

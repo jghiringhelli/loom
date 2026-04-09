@@ -165,8 +165,15 @@ fn checker_rejects_duplicate_checkpoint_names() {
     };
     let result = CheckpointChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msgs.contains("duplicate"), "expected 'duplicate' in: {msgs}");
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
+    assert!(
+        msgs.contains("duplicate"),
+        "expected 'duplicate' in: {msgs}"
+    );
 }
 
 // 6. checker passes valid checkpoints

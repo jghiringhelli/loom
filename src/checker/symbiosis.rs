@@ -25,7 +25,12 @@ impl SymbiosisChecker {
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors: Vec<LoomError> = Vec::new();
         for item in &module.items {
-            if let Item::SymbioticImport { module: mod_name, kind, span } = item {
+            if let Item::SymbioticImport {
+                module: mod_name,
+                kind,
+                span,
+            } = item
+            {
                 if mod_name.is_empty() {
                     errors.push(LoomError::parse(
                         "symbiotic import: module name must be non-empty",
@@ -44,6 +49,10 @@ impl SymbiosisChecker {
                 }
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }

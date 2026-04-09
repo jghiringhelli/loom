@@ -118,13 +118,12 @@ impl WasmEmitter {
         }
 
         // Resolve return type.
-        let return_type =
-            WasmType::from_type_expr(&fd.type_sig.return_type).ok_or_else(|| {
-                LoomError::WasmUnsupported {
-                    feature: format!("unsupported return type in `{}`", fd.name),
-                    span: fd.span.clone(),
-                }
-            })?;
+        let return_type = WasmType::from_type_expr(&fd.type_sig.return_type).ok_or_else(|| {
+            LoomError::WasmUnsupported {
+                feature: format!("unsupported return type in `{}`", fd.name),
+                span: fd.span.clone(),
+            }
+        })?;
 
         // Resolve parameter types.
         let param_types: Vec<WasmType> = fd
@@ -220,7 +219,12 @@ fn emit_expr(
             }
         }
 
-        Expr::BinOp { op, left, right, span } => {
+        Expr::BinOp {
+            op,
+            left,
+            right,
+            span,
+        } => {
             emit_expr(left, params, lets, out)?;
             emit_expr(right, params, lets, out)?;
             out.push(emit_binop(op, span)?);
@@ -431,9 +435,7 @@ fn collect_free_vars_in(
             collect_free_vars_in(left, let_bound, seen, ordered);
             collect_free_vars_in(right, let_bound, seen, ordered);
         }
-        Expr::FieldAccess { object, .. } => {
-            collect_free_vars_in(object, let_bound, seen, ordered)
-        }
+        Expr::FieldAccess { object, .. } => collect_free_vars_in(object, let_bound, seen, ordered),
         Expr::Match { subject, arms, .. } => {
             collect_free_vars_in(subject, let_bound, seen, ordered);
             for arm in arms {
@@ -453,14 +455,18 @@ fn collect_free_vars_in(
             }
             collect_free_vars_in(body, &ext, seen, ordered);
         }
-        Expr::ForIn { var, iter, body, .. } => {
+        Expr::ForIn {
+            var, iter, body, ..
+        } => {
             collect_free_vars_in(iter, let_bound, seen, ordered);
             let mut ext = let_bound.clone();
             ext.insert(var.as_str());
             collect_free_vars_in(body, &ext, seen, ordered);
         }
         Expr::Tuple(elems, _) => {
-            elems.iter().for_each(|e| collect_free_vars_in(e, let_bound, seen, ordered));
+            elems
+                .iter()
+                .for_each(|e| collect_free_vars_in(e, let_bound, seen, ordered));
         }
         Expr::Try(inner, _) => collect_free_vars_in(inner, let_bound, seen, ordered),
     }

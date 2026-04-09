@@ -13,21 +13,40 @@ fn parse(src: &str) -> Result<loom::ast::Module, loom::error::LoomError> {
 fn test_m91_quantum_stdlib_parses() {
     let stdlib = loom::stdlib::QUANTUM_STDLIB;
     let result = parse(stdlib);
-    assert!(result.is_ok(), "quantum_stdlib must parse cleanly: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "quantum_stdlib must parse cleanly: {:?}",
+        result.err()
+    );
 }
 
 #[test]
 fn test_m91_stdlib_has_key_functions() {
     let stdlib = loom::stdlib::QUANTUM_STDLIB;
-    assert!(stdlib.contains("born_probability"),     "missing born_probability");
-    assert!(stdlib.contains("hadamard_alpha"),       "missing hadamard_alpha");
-    assert!(stdlib.contains("pauli_x_alpha"),        "missing pauli_x_alpha");
-    assert!(stdlib.contains("phase_gate"),           "missing phase_gate");
-    assert!(stdlib.contains("cnot_target_alpha"),    "missing cnot_target_alpha");
-    assert!(stdlib.contains("heisenberg_satisfied"), "missing heisenberg_satisfied");
-    assert!(stdlib.contains("von_neumann_entropy"),  "missing von_neumann_entropy");
-    assert!(stdlib.contains("fidelity"),             "missing fidelity");
-    assert!(stdlib.contains("QuantumRegister"),      "missing QuantumRegister store");
+    assert!(
+        stdlib.contains("born_probability"),
+        "missing born_probability"
+    );
+    assert!(stdlib.contains("hadamard_alpha"), "missing hadamard_alpha");
+    assert!(stdlib.contains("pauli_x_alpha"), "missing pauli_x_alpha");
+    assert!(stdlib.contains("phase_gate"), "missing phase_gate");
+    assert!(
+        stdlib.contains("cnot_target_alpha"),
+        "missing cnot_target_alpha"
+    );
+    assert!(
+        stdlib.contains("heisenberg_satisfied"),
+        "missing heisenberg_satisfied"
+    );
+    assert!(
+        stdlib.contains("von_neumann_entropy"),
+        "missing von_neumann_entropy"
+    );
+    assert!(stdlib.contains("fidelity"), "missing fidelity");
+    assert!(
+        stdlib.contains("QuantumRegister"),
+        "missing QuantumRegister store"
+    );
 }
 
 #[test]
@@ -39,7 +58,11 @@ module Quantum
   type NumQubits = Int  where x > 0
 end
 "#;
-    assert!(parse(src).is_ok(), "quantum refinement types must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "quantum refinement types must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -52,7 +75,11 @@ module Quantum
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "KeyValue store must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "KeyValue store must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -66,7 +93,11 @@ module Gates
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "@conserved(Unitarity) must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "@conserved(Unitarity) must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -80,7 +111,11 @@ module Measurement
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "@conserved(Probability) must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "@conserved(Probability) must parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -94,5 +129,9 @@ module Schrodinger
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "@conserved(Energy) must parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "@conserved(Energy) must parse: {:?}",
+        parse(src).err()
+    );
 }

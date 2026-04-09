@@ -15,7 +15,11 @@ fn parse(src: &str) -> Result<loom::ast::Module, loom::error::LoomError> {
 fn test_m83_sense_stdlib_parses() {
     let stdlib = loom::stdlib::SENSE_STDLIB;
     let result = parse(stdlib);
-    assert!(result.is_ok(), "sense_stdlib must parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "sense_stdlib must parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -58,7 +62,11 @@ module SIDimensions
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "sense with dimension field must parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "sense with dimension field must parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -79,7 +87,11 @@ module DerivedUnits
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "sense with derived field must parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "sense with derived field must parse: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -186,11 +198,20 @@ end
     let tokens = Lexer::tokenize(src).expect("lex failed");
     let module = Parser::new(&tokens).parse_module().expect("parse failed");
     let result = loom::checker::TensorChecker::new().check(&module);
-    assert!(result.is_err(), "Tensor rank/shape mismatch should be rejected by TensorChecker");
-    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        result.is_err(),
+        "Tensor rank/shape mismatch should be rejected by TensorChecker"
+    );
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msgs.contains("rank") || msgs.contains("shape"),
-        "Expected rank/shape error, got: {}", msgs
+        "Expected rank/shape error, got: {}",
+        msgs
     );
 }
 

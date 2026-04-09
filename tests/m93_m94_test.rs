@@ -112,7 +112,11 @@ module Docs
   end
 end
 "#;
-    assert!(loom::compile(src).is_ok(), "Document store with schema should compile: {:?}", loom::compile(src).err());
+    assert!(
+        loom::compile(src).is_ok(),
+        "Document store with schema should compile: {:?}",
+        loom::compile(src).err()
+    );
 }
 
 #[test]

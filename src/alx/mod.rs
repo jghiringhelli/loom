@@ -5,4 +5,6 @@
 //! curve that diagnoses which stages contribute most to correctness proofs.
 
 pub mod convergence;
-pub use convergence::{ConvergenceStep, ConvergenceTrace, ConvergenceTraceMode, compute_convergence_trace};
+pub use convergence::{
+    compute_convergence_trace, ConvergenceStep, ConvergenceTrace, ConvergenceTraceMode,
+};

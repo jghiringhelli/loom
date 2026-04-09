@@ -27,12 +27,12 @@ const DIM_NUMERIC_FLOAT: usize = 1;
 const DIM_NUMERIC_PRECISE: usize = 2; // Decimal, Money
 const DIM_STRING_RAW: usize = 3;
 const DIM_STRING_ENCODED: usize = 4; // Bytes, Utf8
-const DIM_STRING_RICH: usize = 5;    // Text, Html, Markdown
-const DIM_TEMPORAL: usize = 6;       // Duration, Timestamp, DateTime
-const DIM_SPATIAL: usize = 7;        // Point, Vec3, Coordinate
-const DIM_MONETARY: usize = 8;       // Money, Currency, Amount
+const DIM_STRING_RICH: usize = 5; // Text, Html, Markdown
+const DIM_TEMPORAL: usize = 6; // Duration, Timestamp, DateTime
+const DIM_SPATIAL: usize = 7; // Point, Vec3, Coordinate
+const DIM_MONETARY: usize = 8; // Money, Currency, Amount
 const DIM_BOOLEAN: usize = 9;
-const DIM_COMPOSITE: usize = 10;     // List, Set, Map, Option
+const DIM_COMPOSITE: usize = 10; // List, Set, Map, Option
 const DIM_UNKNOWN: usize = 11;
 const DIMS: usize = 12;
 
@@ -165,7 +165,8 @@ impl EvolutionVectorChecker {
             if members.len() < 3 {
                 continue;
             }
-            let beings: Vec<&str> = members.iter()
+            let beings: Vec<&str> = members
+                .iter()
                 .map(|&i| patterns[i].being.as_str())
                 .collect::<std::collections::HashSet<_>>()
                 .into_iter()
@@ -174,7 +175,8 @@ impl EvolutionVectorChecker {
                 continue;
             }
             let root = &patterns[*root_idx];
-            let member_names: Vec<String> = members.iter()
+            let member_names: Vec<String> = members
+                .iter()
                 .map(|&i| format!("'{}'::{}", patterns[i].being, patterns[i].migration))
                 .collect();
             errors.push(LoomError::type_err(
@@ -202,7 +204,8 @@ impl EvolutionVectorChecker {
 fn type_vector(type_name: &str) -> [f32; DIMS] {
     let mut v = [0.0f32; DIMS];
     match type_name {
-        "Int" | "Integer" | "I8" | "I16" | "I32" | "I64" | "I128" | "U8" | "U16" | "U32" | "U64" => {
+        "Int" | "Integer" | "I8" | "I16" | "I32" | "I64" | "I128" | "U8" | "U16" | "U32"
+        | "U64" => {
             v[DIM_NUMERIC_INT] = 1.0;
         }
         "Float" | "F32" | "Double" | "F64" => {
@@ -289,7 +292,8 @@ fn parse_migration_field(raw: &str) -> Option<(String, String)> {
     if parts.len() >= 2 {
         let field = extract_ident(parts[0]);
         let typ = extract_ident(parts[1]);
-        if !field.is_empty() && !typ.is_empty()
+        if !field.is_empty()
+            && !typ.is_empty()
             && !field.starts_with("Int(")
             && !field.starts_with("Float(")
         {
@@ -300,7 +304,10 @@ fn parse_migration_field(raw: &str) -> Option<(String, String)> {
 }
 
 fn extract_ident(s: &str) -> String {
-    if let Some(inner) = s.strip_prefix("Ident(\"").and_then(|t| t.strip_suffix("\")")) {
+    if let Some(inner) = s
+        .strip_prefix("Ident(\"")
+        .and_then(|t| t.strip_suffix("\")"))
+    {
         inner.to_string()
     } else {
         s.to_string()

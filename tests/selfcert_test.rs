@@ -25,7 +25,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("type_safety") || msg.contains("certificate") || msg.contains("value"), "expected cert error in: {}", msg);
+    assert!(
+        msg.contains("type_safety") || msg.contains("certificate") || msg.contains("value"),
+        "expected cert error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -65,7 +69,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("type_safety") || rust_src.contains("certificate"), "Expected certificate in codegen: {}", &rust_src[..rust_src.len().min(500)]);
+    assert!(
+        rust_src.contains("type_safety") || rust_src.contains("certificate"),
+        "Expected certificate in codegen: {}",
+        &rust_src[..rust_src.len().min(500)]
+    );
 }
 
 #[test]

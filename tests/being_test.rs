@@ -59,8 +59,8 @@ fn regulate_without_bounds_fails_checker() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
@@ -114,7 +114,10 @@ fn regulate_without_bounds_fails_checker() {
         span: Span::synthetic(),
     };
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for regulate without bounds");
+    assert!(
+        result.is_err(),
+        "expected error for regulate without bounds"
+    );
 }
 
 // 4. evolve_without_constraint_fails_checker
@@ -134,8 +137,8 @@ fn evolve_without_constraint_fails_checker() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Org".to_string(),
             describe: None,
@@ -186,7 +189,10 @@ fn evolve_without_constraint_fails_checker() {
         span: Span::synthetic(),
     };
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for evolve without constraint");
+    assert!(
+        result.is_err(),
+        "expected error for evolve without constraint"
+    );
 }
 
 // 5. being_with_matter_parses
@@ -222,7 +228,10 @@ end
 "#;
     let module = parse(src);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub struct Organism"), "expected pub struct Organism in:\n{out}");
+    assert!(
+        out.contains("pub struct Organism"),
+        "expected pub struct Organism in:\n{out}"
+    );
 }
 
 // 7. rust_emit_being_has_fitness_fn
@@ -237,7 +246,10 @@ end
 "#;
     let module = parse(src);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn fitness"), "expected pub fn fitness in:\n{out}");
+    assert!(
+        out.contains("pub fn fitness"),
+        "expected pub fn fitness in:\n{out}"
+    );
 }
 
 // 8. rust_emit_being_has_regulate_fn
@@ -257,8 +269,8 @@ fn rust_emit_being_has_regulate_fn() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![BeingDef {
             name: "Organism".to_string(),
             describe: None,
@@ -312,7 +324,10 @@ fn rust_emit_being_has_regulate_fn() {
         span: Span::synthetic(),
     };
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn regulate_"), "expected pub fn regulate_ in:\n{out}");
+    assert!(
+        out.contains("pub fn regulate_"),
+        "expected pub fn regulate_ in:\n{out}"
+    );
 }
 
 // 9. typescript_emit_being_has_class
@@ -327,7 +342,10 @@ end
 "#;
     let module = parse(src);
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("export class Organism"), "expected export class Organism in:\n{out}");
+    assert!(
+        out.contains("export class Organism"),
+        "expected export class Organism in:\n{out}"
+    );
 }
 
 // 10. typescript_emit_being_has_fitness
