@@ -1,0 +1,29 @@
+// V1: Verify that require:/ensure: contracts emit valid, compilable Rust
+// and fire at runtime when violated.
+//
+// Claim under test: Loom's `require:` and `ensure:` annotations translate
+// to `debug_assert!()` guards in the emitted Rust. When debug assertions
+// are enabled (`RUSTFLAGS=-C debug-assertions`) a violated precondition
+// panics; a satisfied precondition passes silently.
+//
+// Gate: this file compiles clean with `rustc` and the three test cases pass.
+
+module V1Contracts
+
+  // --- function under test ---
+  // add_positive :: Int -> Int -> Int
+  //   require: both inputs are positive
+  //   ensure:  result is strictly greater than both inputs
+  fn add_positive :: Int -> Int -> Int
+    require: a > 0
+    require: b > 0
+    ensure:  result > a
+    ensure:  result > b
+  body
+    a + b
+  end
+
+  // Negative test: calling with zero should violate the precondition.
+  // The test harness catches the panic.
+
+end

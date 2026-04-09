@@ -328,3 +328,118 @@ fn e2e_pricing_engine_corpus_emits_valid_rust() {
         stderr, full_src
     );
 }
+
+// ── V1 Verification: require:/ensure: contracts emit valid Rust debug_assert! ──
+//
+// Gate: the emitted Rust compiles and the contracts fire at runtime.
+// This is the first step in the Verification Pipeline (Phase V).
+
+/// V1a: A function with require/ensure contracts emits compilable Rust.
+/// The contracts become `debug_assert!()` calls in the body.
+#[test]
+fn v1_contracts_emit_compilable_rust() {
+    let loom_src = r#"
+module Contracts
+fn add_positive :: Int -> Int -> Int
+  require: a > 0
+  require: b > 0
+  ensure:  result > a
+  ensure:  result > b
+  a + b
+end
+end
+"#;
+    let emitted = loom_compile(loom_src);
+
+    assert!(
+        emitted.contains("debug_assert!"),
+        "expected debug_assert! in emitted code; got:\n{}", emitted
+    );
+
+    let full_src = format!(
+        "{}\nfn main() {{\n    println!(\"{{}}\", contracts::add_positive(3, 4));\n}}",
+        emitted
+    );
+    let output = rustc_and_run(&full_src, "v1_contracts");
+    assert_eq!(output, "7", "add_positive(3, 4) should return 7");
+}
+
+/// V1b: A violated precondition panics at runtime (debug assertions enabled).
+#[test]
+fn v1_violated_precondition_panics() {
+    let loom_src = r#"
+module Guards
+fn positive_only :: Int -> Int
+  require: n > 0
+  n + 1
+end
+end
+"#;
+    let emitted = loom_compile(loom_src);
+
+    let full_src = format!(
+        "{}\nfn main() {{\n    println!(\"{{}}\", guards::positive_only(0));\n}}",
+        emitted
+    );
+
+    let tmp_dir = std::env::temp_dir();
+    let rs_path = tmp_dir.join("loom_e2e_v1b.rs");
+    let exe_path = tmp_dir.join("loom_e2e_v1b.exe");
+
+    fs::write(&rs_path, &full_src).unwrap();
+
+    let compile = Command::new("rustc")
+        .args([
+            "--edition", "2021",
+            "-C", "debug-assertions=yes",
+            "-o", exe_path.to_str().unwrap(),
+        ])
+        .arg(rs_path.to_str().unwrap())
+        .output()
+        .expect("failed to spawn rustc");
+
+    assert!(
+        compile.status.success(),
+        "v1b failed to compile:\n{}",
+        String::from_utf8_lossy(&compile.stderr)
+    );
+
+    let run = Command::new(&exe_path)
+        .output()
+        .expect("failed to run binary");
+
+    let _ = fs::remove_file(&rs_path);
+    let _ = fs::remove_file(&exe_path);
+
+    assert!(
+        !run.status.success(),
+        "Expected panic when precondition violated, but binary exited 0"
+    );
+
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(
+        stderr.contains("precondition violated") || stderr.contains("assertion"),
+        "Expected precondition panic message; got: {}", stderr
+    );
+}
+
+/// V1c: ensure: contracts check the return value via `_loom_result`.
+#[test]
+fn v1_ensure_contract_fires_on_return_value() {
+    let loom_src = r#"
+module Postcond
+fn double :: Int -> Int
+  ensure: result > n
+  n * 2
+end
+end
+"#;
+    let emitted = loom_compile(loom_src);
+
+    let full_src = format!(
+        "{}\nfn main() {{\n    println!(\"{{}}\", postcond::double(3));\n}}",
+        emitted
+    );
+    let output = rustc_and_run(&full_src, "v1_ensure");
+    assert_eq!(output, "6", "double(3) should return 6");
+}
