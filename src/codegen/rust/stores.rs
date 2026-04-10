@@ -13,18 +13,20 @@
 use super::{to_snake_case, RustEmitter};
 use crate::ast::*;
 
-/// Standard struct derives for all store entities.
-const STORE_DERIVES: &str = "#[derive(Debug, Clone, PartialEq)]";
+/// Standard struct derives for all store entities — includes serde for binary persistence.
+const STORE_DERIVES: &str =
+    "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]";
 
-/// Serde-ready derive note. Enabled when `serde` feature is active.
-const SERDE_DERIVE_NOTE: &str =
-    "// Add #[derive(serde::Serialize, serde::Deserialize)] with feature \"serde\"";
+/// Comment emitted once per store to guide dependency setup.
+const SERDE_DEP_HINT: &str =
+    "// Deps: serde = { version = \"1\", features = [\"derive\"] }, bincode = \"1\"";
 
 impl RustEmitter {
     /// Emit Rust struct declarations for a store declaration.
     ///
     /// V5 implementation: all 13 store kinds emit complete, idiomatic Rust structs
     /// with ecosystem recommendations, V7 audit trail comments, and serde guidance.
+    /// M151: adds a `{Name}Snapshot` struct + `BinaryPersist` impl per store.
     pub fn codegen_store(&self, store: &StoreDef) -> String {
         let mut out = String::new();
         self.store_header(store, &mut out);
@@ -43,7 +45,61 @@ impl RustEmitter {
             StoreKind::Distributed => self.codegen_distributed_store(store, &mut out),
             StoreKind::DistributedLog => self.codegen_distributedlog_store(store, &mut out),
         }
+        self.emit_store_snapshot(store, &mut out);
         out
+    }
+
+    /// M151: Emit a `{Name}Snapshot` struct and a `BinaryPersist` blanket impl.
+    ///
+    /// The snapshot captures every named entity type in the store as a `Vec<T>`.
+    /// Call `save_snapshot(path)` / `load_snapshot(path)` to persist to/from disk.
+    fn emit_store_snapshot(&self, store: &StoreDef, out: &mut String) {
+        // Collect named entity types from schema entries.
+        let entities: Vec<String> = store
+            .schema
+            .iter()
+            .filter_map(|e| match e {
+                StoreSchemaEntry::Table { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::Collection { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::Node { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::Edge { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::Event { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::Fact { name, .. } => Some(name.clone()),
+                StoreSchemaEntry::DimensionEntry { name, .. } => Some(name.clone()),
+                _ => None,
+            })
+            .collect();
+
+        out.push_str(&format!(
+            "// LOOM[persist:snapshot]: M151 — {s}Snapshot (binary persistence)\n\
+             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]\n\
+             pub struct {s}Snapshot {{\n\
+             \x20\x20\x20\x20/// Unix timestamp (seconds) when this snapshot was created.\n\
+             \x20\x20\x20\x20pub created_at_secs: i64,\n",
+            s = store.name
+        ));
+
+        if entities.is_empty() {
+            // Stores with no explicit entity types (KV, FlatFile when no schema) use a raw record list.
+            out.push_str(
+                "    /// Raw serialized records — each entry is a JSON-encoded string.\n\
+                 \x20\x20\x20\x20pub records: Vec<String>,\n",
+            );
+        } else {
+            for entity in &entities {
+                out.push_str(&format!(
+                    "    pub {}: Vec<{}>,\n",
+                    to_snake_case(entity),
+                    entity
+                ));
+            }
+        }
+
+        out.push_str(&format!(
+            "}}\n\
+             impl BinaryPersist for {s}Snapshot {{}}\n\n",
+            s = store.name
+        ));
     }
 
     // ── Header ───────────────────────────────────────────────────────────────
@@ -61,7 +117,7 @@ impl RustEmitter {
                 .collect();
             out.push_str(&format!("// config: {}\n", cfg.join(", ")));
         }
-        out.push_str(SERDE_DERIVE_NOTE);
+        out.push_str(SERDE_DEP_HINT);
         out.push('\n');
     }
 

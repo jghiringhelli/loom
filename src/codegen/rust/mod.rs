@@ -29,6 +29,30 @@ pub(crate) mod template;
 mod telos;
 mod types;
 
+// ── M151: BinaryPersist trait ─────────────────────────────────────────────────
+//
+// Emitted once inside any module that declares at least one store.
+// Gives every `{Name}Snapshot` struct save/load to disk via bincode serialization.
+// Deps: serde = { version = "1", features = ["derive"] }, bincode = "1"
+const BINARY_PERSIST_TRAIT: &str = r#"
+    // LOOM[persist:binary]: M151 — binary snapshot persistence trait
+    // Deps: serde = { version = "1", features = ["derive"] }, bincode = "1"
+    pub trait BinaryPersist: serde::Serialize + for<'de> serde::Deserialize<'de> + Sized {
+        /// Serialize this snapshot to a binary file using bincode.
+        fn save_snapshot(&self, path: &std::path::Path) -> std::io::Result<()> {
+            let bytes = bincode::serialize(self)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            std::fs::write(path, bytes)
+        }
+        /// Deserialize a snapshot from a binary file.
+        fn load_snapshot(path: &std::path::Path) -> std::io::Result<Self> {
+            let bytes = std::fs::read(path)?;
+            bincode::deserialize(&bytes)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        }
+    }
+"#;
+
 // ── Emitter ───────────────────────────────────────────────────────────────────
 
 /// Stateless Rust source emitter.
@@ -76,6 +100,11 @@ impl RustEmitter {
         }
         if body.contains("HashSet") {
             out.push_str("    use std::collections::HashSet;\n");
+        }
+        // Inject BinaryPersist trait once if any stores are present.
+        let has_stores = module.items.iter().any(|i| matches!(i, Item::Store(_)));
+        if has_stores {
+            out.push_str(BINARY_PERSIST_TRAIT);
         }
         for item in &module.items {
             if let Item::Enum(ed) = item {

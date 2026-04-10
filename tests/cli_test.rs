@@ -416,6 +416,120 @@ fn compile_mermaid_flow_check_only() {
     );
 }
 
+// ── loom compile --target simulation ─────────────────────────────────────────
+
+#[test]
+fn compile_simulation_target_writes_py_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_sim_out.py");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "simulation",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "simulation compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "simulation output file not created");
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_simulation_alias_sim_works() {
+    let tmp = std::env::temp_dir().join("loom_cli_sim_alias.py");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "sim",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "sim alias failed: {}",
+        stderr(&out)
+    );
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_simulation_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "simulation",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "simulation check-only failed: {}",
+        stderr(&out)
+    );
+}
+
+// ── loom compile --target neuroml ─────────────────────────────────────────────
+
+#[test]
+fn compile_neuroml_target_writes_xml_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_nml_out.xml");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "neuroml",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "neuroml compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "neuroml output file not created");
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_neuroml_alias_nml_works() {
+    let tmp = std::env::temp_dir().join("loom_cli_nml_alias.xml");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "nml",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(out.status.success(), "nml alias failed: {}", stderr(&out));
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_neuroml_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "neuroml",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "neuroml check-only failed: {}",
+        stderr(&out)
+    );
+}
+
 // ── loom build ────────────────────────────────────────────────────────────────
 
 #[test]

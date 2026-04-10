@@ -54,6 +54,8 @@ enum Commands {
         ///   mermaid-sequence — Mermaid sequence diagram (.seq.md)
         ///   mermaid-state    — Mermaid state diagram (.state.md)
         ///   mermaid-flow     — Mermaid flow diagram (.flow.md)
+        ///   simulation       — Python simulation scaffold (.py)
+        ///   neuroml          — NeuroML 2 XML document (.nml.xml)
         #[arg(long, default_value = "rust")]
         target: String,
     },
@@ -144,6 +146,8 @@ fn main() {
                     "flow.md",
                     loom::compile_mermaid_flow(&source).map_err(mermaid_err),
                 ),
+                "simulation" | "sim" => ("sim.py", loom::compile_simulation(&source)),
+                "neuroml" | "nml" => ("nml.xml", loom::compile_neuroml(&source)),
                 _ => ("rs", loom::compile(&source)),
             };
 
