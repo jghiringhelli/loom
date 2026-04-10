@@ -532,6 +532,50 @@ impl RustEmitter {
                     "pub trait {n}Consumer<T> {{\n    fn receive(&self) -> Option<T>;\n    fn ack(&self, item: &T);\n}}\n\n"
                 ));
             }
+            // M137: PointToPoint — typed message queue with acknowledgement (AMQP model)
+            Some(MessagingPattern::PointToPoint) => {
+                out.push_str("// AMQP 0-9-1 point-to-point — one producer, one consumer, explicit ack\n");
+                out.push_str(&format!(
+                    "pub trait {n}Sender<T> {{\n    \
+                     /// Enqueue a message.  Returns the delivery tag on success.\n    \
+                     fn send(&self, msg: T) -> Result<u64, String>;\n\
+                     }}\n\n"
+                ));
+                out.push_str(&format!(
+                    "pub trait {n}Receiver<T> {{\n    \
+                     /// Poll for the next message.  Returns `None` if the queue is empty.\n    \
+                     fn poll(&self) -> Option<(u64, T)>;\n    \
+                     /// Acknowledge successful processing; removes from the queue.\n    \
+                     fn ack(&self, delivery_tag: u64) -> Result<(), String>;\n    \
+                     /// Negative acknowledgement; the broker may re-queue the message.\n    \
+                     fn nack(&self, delivery_tag: u64, requeue: bool) -> Result<(), String>;\n\
+                     }}\n\n"
+                ));
+            }
+            // M136 / M139: Stream — Reactive Streams backpressure model
+            Some(MessagingPattern::Stream) => {
+                out.push_str("// Reactive Streams 1.0 / async iterator with backpressure\n");
+                out.push_str(&format!(
+                    "pub trait {n}Source<T>: Send {{\n    \
+                     /// Request up to `n` items.  Implementors MUST respect backpressure.\n    \
+                     fn request(&mut self, n: usize);\n    \
+                     /// Poll for the next emitted item (non-blocking).\n    \
+                     fn poll_next(&mut self) -> Option<T>;\n    \
+                     /// Signal upstream that the subscriber is no longer interested.\n    \
+                     fn cancel(&mut self);\n\
+                     }}\n\n"
+                ));
+                out.push_str(&format!(
+                    "pub trait {n}Sink<T>: Send {{\n    \
+                     /// Receive an item emitted by the upstream `{n}Source`.\n    \
+                     fn on_next(&mut self, item: T);\n    \
+                     /// Called exactly once when the stream terminates normally.\n    \
+                     fn on_complete(&mut self);\n    \
+                     /// Called exactly once on error; the stream is terminated thereafter.\n    \
+                     fn on_error(&mut self, err: String);\n\
+                     }}\n\n"
+                ));
+            }
             _ => {
                 out.push_str("// pi-calculus bidirectional channel\n");
                 out.push_str(&format!(

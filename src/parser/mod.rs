@@ -784,14 +784,16 @@ impl<'src> Parser<'src> {
                 self.advance();
                 self.expect(Token::Colon)?;
                 if let Some((Token::Ident(p), _)) = self.tokens.get(self.pos) {
-                    pattern = Some(match p.as_str() {
-                        "request_response" => MessagingPattern::RequestResponse,
-                        "publish_subscribe" => MessagingPattern::PublishSubscribe,
-                        "point_to_point" => MessagingPattern::PointToPoint,
-                        "producer_consumer" => MessagingPattern::ProducerConsumer,
-                        "bidirectional" => MessagingPattern::Bidirectional,
-                        _ => MessagingPattern::RequestResponse,
-                    });
+                    let parsed = match p.as_str() {
+                        "request_response" => Some(MessagingPattern::RequestResponse),
+                        "publish_subscribe" => Some(MessagingPattern::PublishSubscribe),
+                        "point_to_point" => Some(MessagingPattern::PointToPoint),
+                        "producer_consumer" => Some(MessagingPattern::ProducerConsumer),
+                        "bidirectional" => Some(MessagingPattern::Bidirectional),
+                        "stream" => Some(MessagingPattern::Stream),
+                        _ => None, // unknown pattern names are ignored rather than defaulted
+                    };
+                    if parsed.is_some() { pattern = parsed; }
                     self.pos += 1;
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _))) {

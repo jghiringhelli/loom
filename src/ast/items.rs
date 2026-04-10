@@ -640,6 +640,8 @@ pub enum MessagingPattern {
     PointToPoint,
     ProducerConsumer,
     Bidirectional,
+    /// M136: Continuous data stream with backpressure (Reactive Streams spec).
+    Stream,
 }
 
 /// A top-level messaging primitive declaration.
