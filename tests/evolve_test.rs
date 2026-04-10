@@ -68,6 +68,7 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }

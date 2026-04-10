@@ -99,6 +99,7 @@ fn checker_rejects_empty_onset() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -163,6 +164,7 @@ fn checker_passes_valid_senescence() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

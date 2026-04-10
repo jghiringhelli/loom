@@ -76,6 +76,7 @@ fn base_being() -> BeingDef {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -113,6 +114,7 @@ fn epigenetic_empty_signal_fails_checker() {
         signal: "".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
@@ -136,6 +138,7 @@ fn epigenetic_empty_modifies_fails_checker() {
         signal: "Stress".to_string(),
         modifies: "".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
@@ -159,6 +162,7 @@ fn rust_emit_being_has_epigenetic_fn() {
         signal: "EnvironmentalStress".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: Some("stress_absent".to_string()),
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
@@ -180,6 +184,7 @@ fn typescript_emit_being_has_epigenetic_method() {
         signal: "EnvironmentalStress".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);

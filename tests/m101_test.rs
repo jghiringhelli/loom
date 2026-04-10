@@ -82,6 +82,7 @@ fn test_m101_missing_file_is_error() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
 
@@ -159,6 +160,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
 

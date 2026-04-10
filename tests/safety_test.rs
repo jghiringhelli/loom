@@ -75,6 +75,7 @@ fn base_being() -> BeingDef {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }

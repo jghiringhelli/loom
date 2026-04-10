@@ -178,6 +178,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut boundary: Option<BoundaryBlock> = None;
         let mut cognitive_memory: Option<CognitiveMemoryBlock> = None;
         let mut signal_attention: Option<SignalAttentionBlock> = None;
+        let mut propagate_block: Option<PropagateBlock> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -239,6 +240,10 @@ impl<'src> crate::parser::Parser<'src> {
                 cognitive_memory = Some(self.parse_cognitive_memory_block()?);
             } else if self.at(&Token::SignalAttention) {
                 signal_attention = Some(self.parse_signal_attention_block()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "propagate")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                propagate_block = Some(self.parse_being_propagate_section()?);
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -276,6 +281,7 @@ impl<'src> crate::parser::Parser<'src> {
             boundary,
             cognitive_memory,
             signal_attention,
+            propagate_block,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -684,6 +690,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut signal = String::new();
         let mut modifies = String::new();
         let mut reverts_when = None;
+        let mut duration: Option<String> = None;
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Signal) {
                 self.advance();
@@ -711,6 +718,26 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Colon)?;
                 let (val, _) = self.expect_ident()?;
                 reverts_when = Some(val);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "duration")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume "duration"
+                self.advance(); // consume ":"
+                // Collect tokens for the duration value (e.g. "18.months" = FloatLit(18.0) Dot Ident("months"))
+                let mut parts = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if self.at(&Token::Signal) || self.at(&Token::Modifies) || self.at(&Token::RevertsWhen) {
+                        break;
+                    }
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "duration") {
+                        break;
+                    }
+                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                        parts.push(super::token_to_source(tok));
+                        self.pos += 1;
+                    }
+                }
+                duration = Some(parts.join("").trim().to_string());
             } else {
                 self.advance();
             }
@@ -721,6 +748,7 @@ impl<'src> crate::parser::Parser<'src> {
             signal,
             modifies,
             reverts_when,
+            duration,
             span: Span::merge(&sec_start, &sec_end),
         })
     }
@@ -2096,8 +2124,11 @@ impl<'src> crate::parser::Parser<'src> {
     /// Grammar:
     /// ```text
     /// signal_attention
-    ///   prioritize: 0.6   -- signals with telos_relevance > threshold get priority
-    ///   attenuate: 0.2    -- signals with telos_relevance < threshold are damped
+    ///   prioritize: 0.6         -- float threshold
+    ///   prioritize: [sig1, sig2] -- named list
+    ///   attenuate: 0.2           -- float threshold
+    ///   attenuate: [sig3]        -- named list
+    ///   telos_relevance: computed_from_fitness  -- weighting function
     /// end
     /// ```
     pub(in crate::parser) fn parse_signal_attention_block(
@@ -2107,6 +2138,9 @@ impl<'src> crate::parser::Parser<'src> {
         self.advance(); // consume `signal_attention`
         let mut prioritize_above: Option<f64> = None;
         let mut attenuate_below: Option<f64> = None;
+        let mut prioritize_named: Vec<String> = Vec::new();
+        let mut attenuate_named: Vec<String> = Vec::new();
+        let mut telos_relevance: Option<String> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if matches!(self.tokens.get(self.pos), Some((Token::Prioritize, _))) {
@@ -2115,6 +2149,18 @@ impl<'src> crate::parser::Parser<'src> {
                 if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
                     prioritize_above = Some(*v);
                     self.pos += 1;
+                } else if self.at(&Token::LBracket) {
+                    self.advance();
+                    while !self.at(&Token::RBracket) && self.peek().is_some() {
+                        if let Some(name) = self.token_as_ident() {
+                            self.advance();
+                            prioritize_named.push(name);
+                        } else {
+                            self.advance();
+                        }
+                        if self.at(&Token::Comma) { self.advance(); }
+                    }
+                    if self.at(&Token::RBracket) { self.advance(); }
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Attenuate, _))) {
                 self.advance();
@@ -2122,7 +2168,37 @@ impl<'src> crate::parser::Parser<'src> {
                 if let Some((Token::FloatLit(v), _)) = self.tokens.get(self.pos) {
                     attenuate_below = Some(*v);
                     self.pos += 1;
+                } else if self.at(&Token::LBracket) {
+                    self.advance();
+                    while !self.at(&Token::RBracket) && self.peek().is_some() {
+                        if let Some(name) = self.token_as_ident() {
+                            self.advance();
+                            attenuate_named.push(name);
+                        } else {
+                            self.advance();
+                        }
+                        if self.at(&Token::Comma) { self.advance(); }
+                    }
+                    if self.at(&Token::RBracket) { self.advance(); }
                 }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "telos_relevance")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // consume "telos_relevance"
+                self.advance(); // consume ":"
+                let mut parts = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Prioritize, _)))
+                        || matches!(self.tokens.get(self.pos), Some((Token::Attenuate, _)))
+                    {
+                        break;
+                    }
+                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                        parts.push(super::token_to_source(tok));
+                        self.pos += 1;
+                    }
+                }
+                telos_relevance = Some(parts.join(" ").trim().to_string());
             } else {
                 self.advance();
             }
@@ -2134,6 +2210,103 @@ impl<'src> crate::parser::Parser<'src> {
         Ok(SignalAttentionBlock {
             prioritize_above,
             attenuate_below,
+            prioritize_named,
+            attenuate_named,
+            telos_relevance,
+            span: Span::merge(&start, &end_span),
+        })
+    }
+
+    fn parse_being_propagate_section(&mut self) -> Result<PropagateBlock, LoomError> {
+        let start = self.current_span();
+        self.advance(); // consume "propagate"
+        self.expect(Token::Colon)?;
+        let mut condition = String::new();
+        let mut inherits = Vec::new();
+        let mut mutates = Vec::new();
+        let mut offspring_type = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // Stop at known being-level keywords
+            if self.at(&Token::Telos) || self.at(&Token::Matter) || self.at(&Token::Regulate)
+                || self.at(&Token::Evolve) || self.at(&Token::Telomere) || self.at(&Token::Being)
+            {
+                break;
+            }
+            if let Some((Token::Ident(k), _)) = self.tokens.get(self.pos) {
+                let k = k.clone();
+                match k.as_str() {
+                    "condition" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        let mut parts = Vec::new();
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            let stop = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                if matches!(n.as_str(), "inherits" | "mutates" | "offspring_type" | "offspring" | "condition"));
+                            if stop { break; }
+                            if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                parts.push(super::token_to_source(tok));
+                                self.pos += 1;
+                            }
+                        }
+                        condition = parts.join(" ").trim().to_string();
+                    }
+                    "inherits" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if self.at(&Token::LBracket) {
+                            self.advance();
+                            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                                if let Some(name) = self.token_as_ident() {
+                                    self.advance();
+                                    inherits.push(name);
+                                } else {
+                                    self.advance();
+                                }
+                                if self.at(&Token::Comma) { self.advance(); }
+                            }
+                            if self.at(&Token::RBracket) { self.advance(); }
+                        }
+                    }
+                    "mutates" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(field) = self.token_as_ident() {
+                            self.advance();
+                            let mut parts = Vec::new();
+                            while !self.at(&Token::End) && self.peek().is_some() {
+                                let stop = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                    if matches!(n.as_str(), "inherits" | "mutates" | "offspring_type" | "offspring" | "condition"));
+                                if stop { break; }
+                                if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                    parts.push(super::token_to_source(tok));
+                                    self.pos += 1;
+                                }
+                            }
+                            mutates.push((field, parts.join(" ").trim().to_string()));
+                        }
+                    }
+                    "offspring_type" | "offspring" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                            offspring_type = Some(n.clone());
+                            self.pos += 1;
+                        }
+                    }
+                    _ => { self.advance(); }
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); }
+        Ok(PropagateBlock {
+            condition,
+            inherits,
+            mutates,
+            offspring_type,
             span: Span::merge(&start, &end_span),
         })
     }

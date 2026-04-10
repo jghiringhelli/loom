@@ -116,6 +116,18 @@ impl RustEmitter {
         if let Some(desc) = &being.describe {
             out.push_str(&format!("/// {}\n", desc));
         }
+        // LOOM[propagate]: emit propagation metadata
+        if let Some(prop) = &being.propagate_block {
+            out.push_str(&format!(
+                "// LOOM[propagate]: condition={}, inherits=[{}], mutates=[{}]\n",
+                prop.condition,
+                prop.inherits.join(", "),
+                prop.mutates.iter().map(|(f, c)| format!("{} {}", f, c)).collect::<Vec<_>>().join("; ")
+            ));
+            if let Some(ot) = &prop.offspring_type {
+                out.push_str(&format!("// LOOM[propagate]: offspring_type={}\n", ot));
+            }
+        }
 
         // ── Telos convergence: emit threshold constants + convergence state ──
         if let Some(telos) = &being.telos {

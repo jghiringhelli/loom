@@ -102,6 +102,7 @@ fn checker_rejects_empty_toward() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -166,6 +167,7 @@ fn checker_rejects_empty_despite() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

@@ -99,6 +99,7 @@ fn checker_rejects_inverted_bounds() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -172,6 +173,7 @@ fn checker_passes_valid_criticality() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

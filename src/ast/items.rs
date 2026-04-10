@@ -658,3 +658,91 @@ pub struct MessagingPrimitiveDef {
     pub timeout_mandatory: bool,
     pub span: Span,
 }
+
+// ── M117: TelosFunctionDef ───────────────────────────────────────────────────
+
+/// M117: Top-level telos function declaration — telos as typed function, not just string.
+///
+/// Bridges Peirce semiotics (interpretant as function), Barbieri code biology (propagation
+/// carries the interpretant), and Loom's type system (TelosMetric is a typed function).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TelosFunctionDef {
+    pub name: String,
+    /// Human-readable statement (e.g. "converge risk-adjusted PnL toward equilibrium").
+    pub statement: Option<String>,
+    /// Formal constraint (e.g. a function reference).
+    pub bounded_by: Option<String>,
+    /// Typed metric function signature (e.g. "BeingState -> SignalSet -> Float").
+    pub measured_by: Option<String>,
+    /// Convergence thresholds.
+    pub thresholds: Option<TelosThresholds>,
+    /// Decision axes this telos guides.
+    pub guides: Vec<String>,
+    pub span: Span,
+}
+
+// ── M118: EntityDef ──────────────────────────────────────────────────────────
+
+/// M118: Universal graph/network primitive — entity<N, E, Annotations>.
+///
+/// All computation structures are instances of entity:
+/// - MarkovChain = entity<State, Transition, @stochastic @finite>
+/// - DAG = entity<Node, Edge, @directed @acyclic>
+/// - NeuralNet = entity<Neuron, Weight, @directed @weighted @learnable>
+/// - KnowledgeGraph = entity<Concept, Relation, @undirected @semantic>
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityDef {
+    pub name: String,
+    /// Node type parameter (e.g. "State", "Neuron", "ClimateRegion").
+    pub node_type: Option<String>,
+    /// Edge type parameter (e.g. "Transition", "Weight", "Coupling").
+    pub edge_type: Option<String>,
+    /// All annotations combined: structural + semantic + verification + behavior.
+    pub annotations: Vec<String>,
+    /// Optional describe string.
+    pub describe: Option<String>,
+    /// Optional alias: what well-known structure this is an instance of.
+    pub alias_of: Option<String>,
+    pub span: Span,
+}
+
+// ── M119: IntentCoordinatorDef ───────────────────────────────────────────────
+
+/// Governance class for intent changes (Part IX — Intent Vivo with Governance).
+#[derive(Debug, Clone, PartialEq)]
+pub enum GovernanceClass {
+    Automatic,
+    AiProposes,
+    HumanOnly,
+    Blocked,
+}
+
+/// A signal source for intent inference.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntentSignalSource {
+    pub name: String,
+    pub trust_level: Option<String>,
+}
+
+/// M119: Intent Coordinator — living intent with human governance.
+///
+/// The third mode between static production code and full BIOISO:
+/// intent that can adapt based on usage behavior and market context,
+/// subject to governance gates that classify each change by required approval level.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntentCoordinatorDef {
+    pub name: String,
+    /// Telomere on the coordinator (e.g. 90 days before re-evaluation).
+    pub telomere_days: Option<u64>,
+    /// Default governance class for changes.
+    pub governance_class: GovernanceClass,
+    /// Signal sources that feed the coordinator.
+    pub signals: Vec<IntentSignalSource>,
+    /// Rollback condition.
+    pub rollback_on: Option<String>,
+    /// Minimum confidence score to propose a change (0.0–1.0).
+    pub min_confidence: Option<f64>,
+    /// Audit trail: emit changes to this path.
+    pub audit_path: Option<String>,
+    pub span: Span,
+}

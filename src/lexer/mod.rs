@@ -393,6 +393,16 @@ pub enum Token {
     #[token("guarantees")]
     Guarantees,
 
+    // ── BIOISO: telos_function top-level (M117) ───────────────────────────────────
+    #[token("telos_function")]
+    TelosFunction,
+    // ── BIOISO: entity universal primitive (M118) ─────────────────────────────────
+    #[token("entity")]
+    Entity,
+    // ── BIOISO: intent_coordinator (M119) ─────────────────────────────────────────
+    #[token("intent_coordinator")]
+    IntentCoordinator,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

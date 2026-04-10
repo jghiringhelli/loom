@@ -1,0 +1,134 @@
+-- IntentVivo: Intent Coordinator with human governance (Part IX).
+--
+-- "Intent Vivo con Governance Humana" from sesion-completa-loom.md:
+--
+--   The system can evolve its own telos — but only through a governed pipeline:
+--   1. Signal sources detect environmental drift
+--   2. Aggregation layer forms hypotheses about needed telos changes
+--   3. Governance gate: Automatic / AiProposes / HumanOnly / Blocked
+--   4. Change is logged to audit trail; rollback condition monitored
+--
+-- This demo shows a ScalpingAgent that can propose telos changes
+-- (e.g. "switch from BTC to ETH") but requires human approval for
+-- any change that affects capital allocation > 10%.
+
+module IntentVivo
+
+-- ── Telos function for the scalping agent ─────────────────────────────────────
+
+telos_function ScalpingTelos
+  statement: "maximize risk-adjusted PnL while staying within drawdown limits"
+  measured_by: "PortfolioState -> MarketSignals -> Float where self in (0.0, 1.0)"
+  thresholds:
+    convergence: 0.85
+    divergence: 0.30
+    warning: 0.55
+    propagation: 0.80
+  end
+  guides: [signal_attention, experiment_selection, resource_allocation, propagation_decision]
+end
+
+-- ── The scalping agent being ────────────────────────────────────────────────
+
+being ScalpingAgent
+  describe: "Mean-reversion scalping agent with governed telos evolution"
+
+  matter:
+    capital: Float
+    current_position: Float
+    pnl_today: Float
+    sharpe_rolling: Float
+    max_drawdown: Float
+  end
+
+  telos:
+    statement: "maximize risk-adjusted PnL on BTC/USD with <15% drawdown constraint"
+    bounded_by: ScalpingTelos
+    measured_by: "sharpe_rolling * (1.0 - max_drawdown)"
+    thresholds:
+      convergence: 0.85
+      divergence: 0.30
+    end
+  end
+
+  autopoietic: false
+
+  -- Attention: focus on high-signal market events
+  signal_attention:
+    prioritize: [volatility_regime, spread_signal, momentum_divergence]
+    attenuate: [macro_news, social_sentiment]
+    telos_relevance: ScalpingTelos
+  end
+
+  -- Self-regulation: pause trading on drawdown breach
+  regulate:
+    trigger: max_drawdown > 0.15
+    action: pause_trading_mode
+  end
+
+  regulate:
+    trigger: sharpe_rolling < 0.0
+    action: reduce_position_size
+  end
+
+  -- Epigenetic: adapt to regime without changing core strategy
+  epigenetic:
+    signal: volatility_regime_change
+    modifies: position_sizing_multiplier
+    reverts_when: volatility_regime == normal
+  end
+
+  telomere:
+    max_generations: 365
+    senescence_trigger: capital < 1000.0
+  end
+
+end
+
+-- ── The Intent Coordinator ────────────────────────────────────────────────────
+-- This is Part IX: governed telos evolution.
+
+intent_coordinator ScalpingIntentCoordinator
+  describe: "Governs telos changes for ScalpingAgent — requires human approval
+             for any change affecting capital allocation > 10%"
+
+  telomere: 90 days
+
+  governance: ai_proposes
+
+  signals: [
+    telos_score_drift,
+    sharpe_below_threshold,
+    regime_change_detected,
+    backtest_superior_strategy
+  ]
+
+  min_confidence: 0.85
+
+  rollback_on: "drawdown > 0.20 in next_5_days"
+
+  audit_path: "audit/intent_changes.jsonl"
+
+end
+
+-- ── Entity: the portfolio as a knowledge graph ────────────────────────────────
+
+entity Portfolio<Asset, Correlation>
+  describe: "Portfolio as a weighted undirected correlation graph"
+  alias_of: Graph
+end
+
+-- ── Functions ────────────────────────────────────────────────────────────────
+
+fn pause_trading_mode :: ScalpingAgent -> ScalpingAgent
+  require: agent.max_drawdown > 0.15
+  ensure: result.current_position == 0.0
+  agent
+end
+
+fn reduce_position_size :: ScalpingAgent -> ScalpingAgent
+  require: agent.sharpe_rolling < 0.0
+  agent
+end
+
+end

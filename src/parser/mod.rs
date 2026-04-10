@@ -313,6 +313,20 @@ impl<'src> Parser<'src> {
             Some((Token::Provenance, _)) => Some("provenance".to_string()),
             Some((Token::Convergence, _)) => Some("convergence".to_string()),
             Some((Token::Divergence, _)) => Some("divergence".to_string()),
+            Some((Token::Telos, _)) => Some("telos".to_string()),
+            Some((Token::Matter, _)) => Some("matter".to_string()),
+            Some((Token::Telomere, _)) => Some("telomere".to_string()),
+            Some((Token::SignalAttention, _)) => Some("signal_attention".to_string()),
+            Some((Token::Plasticity, _)) => Some("plasticity".to_string()),
+            Some((Token::Regulate, _)) => Some("regulate".to_string()),
+            Some((Token::Evolve, _)) => Some("evolve".to_string()),
+            Some((Token::Guides, _)) => Some("guides".to_string()),
+            Some((Token::BoundedBy, _)) => Some("bounded_by".to_string()),
+            Some((Token::MeasuredBy, _)) => Some("measured_by".to_string()),
+            Some((Token::Thresholds, _)) => Some("thresholds".to_string()),
+            Some((Token::TelosFunction, _)) => Some("telos_function".to_string()),
+            Some((Token::Entity, _)) => Some("entity".to_string()),
+            Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
             _ => None,
         }
     }
@@ -387,6 +401,9 @@ impl<'src> Parser<'src> {
             Some((Token::Provenance, _)) => Some("provenance".to_string()),
             Some((Token::Convergence, _)) => Some("convergence".to_string()),
             Some((Token::Divergence, _)) => Some("divergence".to_string()),
+            Some((Token::TelosFunction, _)) => Some("telos_function".to_string()),
+            Some((Token::Entity, _)) => Some("entity".to_string()),
+            Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
             _ => None,
         }
     }
@@ -691,6 +708,9 @@ impl<'src> Parser<'src> {
             Some(Token::MessagingPrimitive) => {
                 Ok(Item::MessagingPrimitive(self.parse_messaging_primitive()?))
             }
+            Some(Token::TelosFunction) => Ok(Item::TelosFunction(self.parse_telos_function_def()?)),
+            Some(Token::Entity) => Ok(Item::Entity(self.parse_entity_def()?)),
+            Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(self.parse_intent_coordinator_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -816,6 +836,254 @@ impl<'src> Parser<'src> {
             span: Span::merge(&start, &end_span),
         })
     }
+
+    pub(in crate::parser) fn parse_telos_function_def(&mut self) -> Result<TelosFunctionDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::TelosFunction)?;
+        let (name, _) = self.expect_ident()?;
+        let mut statement = None;
+        let mut bounded_by = None;
+        let mut measured_by = None;
+        let mut thresholds: Option<TelosThresholds> = None;
+        let mut guides = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(k) = self.token_as_ident() {
+                match k.as_str() {
+                    "statement" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            statement = Some(s.clone());
+                            self.pos += 1;
+                        }
+                    }
+                    "bounded_by" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some(n) = self.token_as_ident() { self.advance(); bounded_by = Some(n); }
+                    }
+                    "measured_by" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            measured_by = Some(s.clone());
+                            self.pos += 1;
+                        } else if let Some(n) = self.token_as_ident() {
+                            self.advance();
+                            measured_by = Some(n);
+                        }
+                    }
+                    "guides" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::LBracket) {
+                            self.advance();
+                            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                                if let Some(n) = self.token_as_ident() { self.advance(); guides.push(n); }
+                                else { self.advance(); }
+                                if self.at(&Token::Comma) { self.advance(); }
+                            }
+                            if self.at(&Token::RBracket) { self.advance(); }
+                        }
+                    }
+                    "thresholds" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        let mut convergence = 0.8_f64;
+                        let mut divergence = 0.2_f64;
+                        let mut warning = None;
+                        let mut propagation = None;
+                        for _ in 0..20 {
+                            match self.tokens.get(self.pos) {
+                                Some((Token::Convergence, _)) => {
+                                    self.advance();
+                                    if self.at(&Token::Colon) { self.advance(); }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        convergence = *f; self.pos += 1;
+                                    }
+                                }
+                                Some((Token::Divergence, _)) => {
+                                    self.advance();
+                                    if self.at(&Token::Colon) { self.advance(); }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        divergence = *f; self.pos += 1;
+                                    }
+                                }
+                                Some((Token::Ident(k), _)) if k == "warning" => {
+                                    self.advance();
+                                    if self.at(&Token::Colon) { self.advance(); }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        warning = Some(*f); self.pos += 1;
+                                    }
+                                }
+                                Some((Token::Propagation, _)) => {
+                                    self.advance();
+                                    if self.at(&Token::Colon) { self.advance(); }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                                        propagation = Some(*f); self.pos += 1;
+                                    }
+                                }
+                                Some((Token::End, _)) => break,
+                                Some((Token::Ident(_), _)) => break,
+                                _ => { self.advance(); }
+                            }
+                        }
+                        thresholds = Some(TelosThresholds { convergence, divergence, warning, propagation });
+                    }
+                    _ => { self.advance(); }
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); }
+        Ok(TelosFunctionDef { name, statement, bounded_by, measured_by, thresholds, guides, span: Span::merge(&start, &end_span) })
+    }
+
+    pub(in crate::parser) fn parse_entity_def(&mut self) -> Result<EntityDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Entity)?;
+        let (name, _) = self.expect_ident()?;
+        // Optional <NodeType, EdgeType, ...> generic params
+        let mut node_type = None;
+        let mut edge_type = None;
+        if self.at(&Token::Lt) {
+            self.advance();
+            if let Some(n) = self.token_as_ident() { self.advance(); node_type = Some(n); }
+            if self.at(&Token::Comma) {
+                self.advance();
+                if let Some(e) = self.token_as_ident() { self.advance(); edge_type = Some(e); }
+            }
+            // Skip any additional type params
+            while !self.at(&Token::Gt) && self.peek().is_some() {
+                self.advance();
+            }
+            if self.at(&Token::Gt) { self.advance(); }
+        }
+        let describe = self.parse_describe();
+        // Parse @annotations — collect as string names
+        let raw_annotations = self.parse_annotations();
+        let annotations: Vec<String> = raw_annotations.into_iter().map(|a| a.key).collect();
+        let mut alias_of = None;
+        // Optional body with `alias_of:` etc. (parse until end or no end)
+        if self.at(&Token::End) {
+            self.advance();
+        } else {
+            while !self.at(&Token::End) && self.peek().is_some() {
+                if let Some((Token::Ident(k), _)) = self.tokens.get(self.pos) {
+                    let k = k.clone();
+                    if k == "alias_of" {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some(n) = self.token_as_ident() { self.advance(); alias_of = Some(n); }
+                    } else {
+                        self.advance();
+                    }
+                } else {
+                    self.advance();
+                }
+            }
+            if self.at(&Token::End) { self.advance(); }
+        }
+        let end_span = self.current_span();
+        Ok(EntityDef { name, node_type, edge_type, annotations, describe, alias_of, span: Span::merge(&start, &end_span) })
+    }
+
+    pub(in crate::parser) fn parse_intent_coordinator_def(&mut self) -> Result<IntentCoordinatorDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::IntentCoordinator)?;
+        let (name, _) = self.expect_ident()?;
+        let mut telomere_days = None;
+        let mut governance_class = GovernanceClass::AiProposes;
+        let mut signals = Vec::new();
+        let mut rollback_on = None;
+        let mut min_confidence = None;
+        let mut audit_path = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(k) = self.token_as_ident() {
+                match k.as_str() {
+                    "telomere" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::FloatLit(n), _)) = self.tokens.get(self.pos) {
+                            telomere_days = Some(*n as u64);
+                            self.pos += 1;
+                        } else if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            telomere_days = Some(*n as u64);
+                            self.pos += 1;
+                        }
+                        // consume dot + optional unit (days/months)
+                        if self.at(&Token::Dot) { self.advance(); }
+                        if let Some((Token::Ident(unit), _)) = self.tokens.get(self.pos) {
+                            if unit == "days" || unit == "months" { self.pos += 1; }
+                        }
+                    }
+                    "governance" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::Ident(g), _)) = self.tokens.get(self.pos) {
+                            governance_class = match g.as_str() {
+                                "automatic" => GovernanceClass::Automatic,
+                                "ai_proposes" => GovernanceClass::AiProposes,
+                                "human_only" => GovernanceClass::HumanOnly,
+                                "blocked" => GovernanceClass::Blocked,
+                                _ => GovernanceClass::AiProposes,
+                            };
+                            self.pos += 1;
+                        }
+                    }
+                    "signals" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::LBracket) {
+                            self.advance();
+                            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                                if let Some(n) = self.token_as_ident() {
+                                    self.advance();
+                                    signals.push(IntentSignalSource { name: n, trust_level: None });
+                                } else { self.advance(); }
+                                if self.at(&Token::Comma) { self.advance(); }
+                            }
+                            if self.at(&Token::RBracket) { self.advance(); }
+                        }
+                    }
+                    "rollback_on" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            rollback_on = Some(s.clone());
+                            self.pos += 1;
+                        }
+                    }
+                    "min_confidence" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                            min_confidence = Some(*f);
+                            self.pos += 1;
+                        }
+                    }
+                    "audit_path" => {
+                        self.advance();
+                        if self.at(&Token::Colon) { self.advance(); }
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            audit_path = Some(s.clone());
+                            self.pos += 1;
+                        }
+                    }
+                    _ => { self.advance(); }
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); }
+        Ok(IntentCoordinatorDef { name, telomere_days, governance_class, signals, rollback_on, min_confidence, audit_path, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -940,6 +1208,8 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Embedding => Some("embedding"),
         Token::Adopt => Some("adopt"),
         Token::Process => Some("process"),
+        Token::Plasticity => Some("plasticity"),
+        Token::Telomere => Some("telomere"),
         _ => None,
     }
 }

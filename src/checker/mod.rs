@@ -63,6 +63,7 @@ pub mod typestate;
 pub mod umwelt;
 pub mod units;
 pub mod usecase;
+pub mod entity;
 
 pub use algebraic::AlgebraicChecker;
 pub use aspect::AspectChecker;
@@ -124,3 +125,4 @@ pub use typestate::TypestateChecker;
 pub use umwelt::UmweltChecker;
 pub use units::UnitsChecker;
 pub use usecase::UseCaseChecker;
+pub use entity::EntityChecker;

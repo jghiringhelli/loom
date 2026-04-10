@@ -78,6 +78,28 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         check_autopoiesis(being, errors);
     }
 
+    // Feature 1: propagate block requires telos + matter
+    if let Some(_prop) = &being.propagate_block {
+        if being.telos.is_none() {
+            errors.push(LoomError::type_err(
+                format!(
+                    "being '{}' has a propagate: block but no telos: — propagation requires telos to score convergence",
+                    being.name
+                ),
+                being.span.clone(),
+            ));
+        }
+        if being.matter.is_none() {
+            errors.push(LoomError::type_err(
+                format!(
+                    "being '{}' has a propagate: block but no matter: — propagation must copy matter",
+                    being.name
+                ),
+                being.span.clone(),
+            ));
+        }
+    }
+
     // Check epigenetic blocks
     for epi in &being.epigenetic_blocks {
         if epi.signal.trim().is_empty() {

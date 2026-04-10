@@ -148,4 +148,10 @@ pub enum Item {
     BoundaryBlock(BoundaryBlock),
     /// M116: Messaging primitive — typed inter-being communication contract.
     MessagingPrimitive(MessagingPrimitiveDef),
+    /// M117: Top-level telos function declaration.
+    TelosFunction(TelosFunctionDef),
+    /// M118: Universal graph/network entity primitive.
+    Entity(EntityDef),
+    /// M119: Intent coordinator — living intent with human governance.
+    IntentCoordinator(IntentCoordinatorDef),
 }

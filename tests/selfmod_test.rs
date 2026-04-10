@@ -102,6 +102,7 @@ fn base_being() -> BeingDef {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -389,6 +390,10 @@ fn quorum_empty_signal_fails() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -424,6 +429,10 @@ fn quorum_empty_action_fails() {
             action: "".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -459,6 +468,10 @@ fn quorum_invalid_threshold_fails() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -491,6 +504,10 @@ fn rust_emit_quorum_has_check_fn() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);

@@ -956,6 +956,10 @@ impl<'src> crate::parser::Parser<'src> {
         let mut signals: Vec<SignalDef> = Vec::new();
         let mut telos: Option<String> = None;
         let mut quorum_blocks: Vec<QuorumBlock> = Vec::new();
+        let mut collective_telos_metric: Option<String> = None;
+        let mut tipping_points: Vec<TippingPoint> = Vec::new();
+        let mut coevolution = false;
+        let mut coupling: Option<String> = None;
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Members) {
@@ -1074,6 +1078,113 @@ impl<'src> crate::parser::Parser<'src> {
                     action,
                     span: Span::merge(&sec_start, &sec_end),
                 });
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "collective_telos_metric")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); self.advance();
+                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                    collective_telos_metric = Some(s.clone());
+                    self.pos += 1;
+                } else if let Some(n) = self.token_as_ident() {
+                    collective_telos_metric = Some(n);
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "coevolution")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); self.advance();
+                if let Some((Token::BoolLit(b), _)) = self.tokens.get(self.pos) {
+                    coevolution = *b;
+                    self.pos += 1;
+                } else if let Some((Token::Ident(n), _)) = self.tokens.get(self.pos) {
+                    coevolution = n == "true";
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "coupling")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); self.advance();
+                let mut parts = Vec::new();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    let stop = self.at(&Token::Members) || self.at(&Token::Telos) || self.at(&Token::Signal)
+                        || self.at(&Token::Quorum)
+                        || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                            if matches!(n.as_str(), "coevolution" | "collective_telos_metric" | "tipping_points" | "coupling"));
+                    if stop { break; }
+                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                        parts.push(super::token_to_source(tok));
+                        self.pos += 1;
+                    }
+                }
+                coupling = Some(parts.join(" ").trim().to_string());
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "tipping_points")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); self.advance();
+                while !self.at(&Token::End) && self.peek().is_some() {
+                    // Each tipping point: name: ...
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(_), _)))
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        let tp_start = self.current_span();
+                        let (tp_name, _) = self.expect_ident()?;
+                        self.advance(); // consume ":"
+                        let mut tp_condition = String::new();
+                        let mut tp_on_crossing = String::new();
+                        while !self.at(&Token::End) && self.peek().is_some() {
+                            let stop = self.at(&Token::Members) || self.at(&Token::Telos) || self.at(&Token::Quorum)
+                                || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                    if matches!(n.as_str(), "tipping_points" | "coevolution" | "coupling" | "collective_telos_metric"));
+                            if stop { break; }
+                            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "condition")
+                                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                            {
+                                self.advance(); self.advance();
+                                let mut parts = Vec::new();
+                                while !self.at(&Token::End) && self.peek().is_some() {
+                                    let s2 = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                        if matches!(n.as_str(), "on_crossing" | "condition"));
+                                    if s2 { break; }
+                                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                        parts.push(super::token_to_source(tok));
+                                        self.pos += 1;
+                                    }
+                                }
+                                tp_condition = parts.join(" ").trim().to_string();
+                            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "on_crossing")
+                                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                            {
+                                self.advance(); self.advance();
+                                let mut parts = Vec::new();
+                                while !self.at(&Token::End) && self.peek().is_some() {
+                                    let s2 = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                                        if matches!(n.as_str(), "condition" | "on_crossing"));
+                                    if s2 { break; }
+                                    // Also break if next tipping point starts
+                                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(_), _)))
+                                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                                    { break; }
+                                    if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                        parts.push(super::token_to_source(tok));
+                                        self.pos += 1;
+                                    }
+                                }
+                                tp_on_crossing = parts.join(" ").trim().to_string();
+                            } else {
+                                self.advance();
+                            }
+                        }
+                        let tp_end = self.current_span();
+                        tipping_points.push(TippingPoint {
+                            name: tp_name,
+                            condition: tp_condition,
+                            on_crossing: tp_on_crossing,
+                            span: Span::merge(&tp_start, &tp_end),
+                        });
+                    } else {
+                        break;
+                    }
+                }
             } else {
                 self.advance();
             }
@@ -1089,6 +1200,10 @@ impl<'src> crate::parser::Parser<'src> {
             signals,
             telos,
             quorum_blocks,
+            collective_telos_metric,
+            tipping_points,
+            coevolution,
+            coupling,
             span: Span::merge(&start, &end_span),
         })
     }

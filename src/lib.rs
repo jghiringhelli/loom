@@ -49,7 +49,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     use checker::{
         AlgebraicChecker, AspectChecker, BoundaryChecker, CanalizationChecker, CategoryChecker,
         CheckerStage, CheckpointChecker, CognitiveMemoryChecker, CriticalityChecker,
-        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker,
+        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker, EntityChecker,
         EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
         ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
         ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker,
@@ -139,6 +139,8 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::hard(SignalAttentionChecker::new()),
         // M116: Messaging primitive validation
         CheckerStage::warn_only(MessagingChecker::new()),
+        // M118: Entity annotation coherence
+        CheckerStage::hard(EntityChecker::new()),
     ];
 
     for stage in pipeline {

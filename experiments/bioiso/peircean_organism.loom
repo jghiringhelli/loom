@@ -1,0 +1,127 @@
+-- PeirceanOrganism: biosemiotic being with Umwelt and sign interpretation.
+--
+-- Peirce's semiotics applied to biology (Barbieri, Uexküll):
+--   - Umwelt: the organism's subjective experience of its environment
+--   - Sign: a signal the organism interprets (not just reacts to)
+--   - Interpretant: the effect of the sign — telos_function in Loom
+--   - Code: the rule that maps sign → interpretant
+--
+-- A Peircean organism has three semiotic levels:
+--   1. Sign (matter): physical signal impinging on sensors
+--   2. Object (telos): what the sign is "about" — its semantic content
+--   3. Interpretant (function): the response the sign creates
+
+module PeirceanOrganism
+
+-- ── Telos function: the interpretant (Peirce's third) ────────────────────────
+
+telos_function SurvivalInterpretant
+  statement: "interpret environmental signals as relevant/irrelevant to survival"
+  measured_by: "BeingState -> SignalSet -> Float where self in (0.0, 1.0)"
+  thresholds:
+    convergence: 0.8
+    divergence: 0.2
+    warning: 0.5
+  end
+  guides: [signal_attention, propagation_decision, mutation_direction]
+end
+
+-- ── The organism ─────────────────────────────────────────────────────────────
+
+being EColiOrg
+  describe: "E. coli modeled as a Peircean organism — sign, object, interpretant"
+
+  -- Sign level: physical signals (the matter of semiosis)
+  matter:
+    glucose_concentration: Float  -- environmental resource signal
+    temperature: Float            -- physical parameter
+    ph_level: Float               -- chemical stress signal
+    lac_operon_state: Bool        -- gene expression state
+  end
+
+  -- Object level: what each signal means to this organism
+  telos:
+    statement: "survive by metabolizing available carbon sources efficiently"
+    bounded_by: SurvivalInterpretant
+    measured_by: "glucose_uptake_rate * atp_yield / metabolic_cost"
+    thresholds:
+      convergence: 0.7
+      divergence: 0.2
+    end
+  end
+
+  autopoietic: true
+
+  -- Umwelt: the organism's subjective world — only certain signals matter
+  -- (Uexküll 1934: each organism lives in its own functional circle)
+  signal_attention:
+    prioritize: [glucose_concentration, lac_operon_state]
+    attenuate: [background_chemical_noise]
+    telos_relevance: SurvivalInterpretant
+  end
+
+  -- Interpretant level: regulate behavior based on sign interpretation
+  -- (this is the CODE in Barbieri's sense: sign → interpretant mapping)
+  regulate:
+    trigger: glucose_concentration < 0.1
+    action: activate_lac_operon
+  end
+
+  regulate:
+    trigger: temperature > 42.0
+    action: express_heat_shock_proteins
+  end
+
+  regulate:
+    trigger: ph_level < 6.0
+    action: proton_efflux_response
+  end
+
+  -- Epigenetic: environment shapes expression without changing genotype
+  -- (Waddington's developmental landscape)
+  epigenetic:
+    signal: glucose_starvation
+    modifies: metabolic_gene_expression
+    reverts_when: glucose_concentration > 0.5
+  end
+
+  -- Propagation: hereditary code transmitted to offspring
+  propagate:
+    condition: glucose_concentration > 0.8 and ph_level > 6.5 and ph_level < 7.5
+    inherits: [matter, telos, epigenetic_memory]
+    mutates: lac_operon_state within heritable_variation
+    offspring_type: EColiOrg
+  end
+
+  telomere:
+    max_generations: 100000
+    senescence_trigger: ph_level < 4.0
+  end
+
+end
+
+-- ── Entity: the genetic regulatory network ────────────────────────────────────
+
+entity LacOperon<Gene, Interaction>
+  describe: "Regulatory network controlling lactose metabolism — a directed causal graph"
+  alias_of: DAG
+end
+
+-- ── Functions ────────────────────────────────────────────────────────────────
+
+fn activate_lac_operon :: EColiOrg -> EColiOrg
+  require: org.glucose_concentration < 0.1
+  org
+end
+
+fn express_heat_shock_proteins :: EColiOrg -> EColiOrg
+  require: org.temperature > 42.0
+  org
+end
+
+fn proton_efflux_response :: EColiOrg -> EColiOrg
+  require: org.ph_level < 6.0
+  org
+end
+
+end
