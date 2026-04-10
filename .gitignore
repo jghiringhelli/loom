@@ -34,3 +34,4 @@ mutants.out.old/
 experiments/alx/*.rs
 experiments/alx/*.exe
 experiments/alx/*.pdb
+data/btc_ohlc.json
