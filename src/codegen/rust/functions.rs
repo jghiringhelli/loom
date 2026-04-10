@@ -98,10 +98,17 @@ impl RustEmitter {
     }
 }
 
-/// Translate a Loom invariant string to a Rust boolean expression.
-fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
-    let mut result = String::with_capacity(invariant.len() + 8);
-    let chars: Vec<char> = invariant.chars().collect();
+/// Translate a Loom predicate expression string to a valid Rust boolean expression.
+///
+/// Transformations applied:
+/// - standalone `=`  → `==`  (preserves `<=`, `>=`, `!=`, `==`)
+/// - ` and `         → ` && `
+/// - ` or `          → ` || `
+/// - `not `          → `!`
+/// - `implies`       → `|| !`
+pub(super) fn loom_predicate_to_rust(expr: &str) -> String {
+    let mut result = String::with_capacity(expr.len() + 8);
+    let chars: Vec<char> = expr.chars().collect();
     let n = chars.len();
     let mut i = 0;
     while i < n {
@@ -125,8 +132,13 @@ fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
     let result = result.replace(" or ", " || ");
     let result = result.replace("not ", "!");
     let result = result.replace("implies", "|| !");
-    let _ = var_name;
     result
+}
+
+/// Translate a Loom invariant string to a Rust boolean expression.
+fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
+    let _ = var_name;
+    loom_predicate_to_rust(invariant)
 }
 
 /// Map a Loom type name to (rust_type, comma-separated edge case literals).
@@ -596,7 +608,8 @@ impl RustEmitter {
 
         // V7: emit audit trail before each contract assertion.
         for contract in &fd.requires {
-            let expr_text = self.emit_expr(&contract.expr);
+            let raw = self.emit_expr(&contract.expr);
+            let expr_text = loom_predicate_to_rust(&raw);
             body_lines.push(format!(
                 "    // LOOM[require]: {} — debug_assert! (runtime, debug builds only)",
                 expr_text
@@ -631,6 +644,7 @@ impl RustEmitter {
             }
             for contract in &fd.ensures {
                 let raw = self.emit_expr(&contract.expr);
+                let raw = loom_predicate_to_rust(&raw);
                 let cond = if needs_result_binding {
                     raw.replace("result", "_loom_result")
                 } else {
