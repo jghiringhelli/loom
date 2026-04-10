@@ -4,7 +4,7 @@
 
 It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
 
-**904 tests · 5 emission targets · 116 milestones complete · LPN AI-to-AI protocol · all examples rustc-verified ✓**
+**800+ tests · 5 emission targets · 119 milestones complete · BIOISO biological layer · LPN AI-to-AI protocol · all examples rustc-verified ✓**
 
 ---
 
@@ -166,6 +166,25 @@ LPN eliminates prompt ambiguity between AI agents. Each instruction is unambiguo
 
 ---
 
+## Verification pipeline
+
+Loom's compiler is multi-level: it writes code you run AND proof artifacts you verify.
+
+| Tier | Mechanism | Tool | Status |
+|------|-----------|------|--------|
+| **V1** Runtime contracts | `require:`/`ensure:` → `debug_assert!` | `rustc` | ✅ PROVED |
+| **V2** Formal proofs | Contracts → `#[kani::proof]` harnesses | `cargo kani` | ✅ EMITTED |
+| **V3** Property tests | `forall:` → proptest blocks | `cargo test` | ✅ EMITTED |
+| **V4** Session types | Protocol steps → affine phantom types | `rustc` | ✅ PROVED |
+| **V5** Persistence structs | `store:` → typed Rust structs + traits | `rustc` | ✅ PROVED |
+| **V8** Convergence | `telos:` → `ConvergenceState` + TLA+ spec | TLC | ✅ EMITTED |
+| **V9** Dependent types | `proof:` → Dafny method stubs | `dafny verify` | ✅ EMITTED |
+| **V7** Audit trail | Generated files include claim summary header | — | ✅ PROVED |
+
+60 claims tracked. 35 PROVED, 19 EMITTED (external tool required), 4 PENDING. See [`experiments/verification/claim_coverage.md`](experiments/verification/claim_coverage.md).
+
+---
+
 ## Install
 
 ```sh
@@ -196,10 +215,10 @@ See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
 
 ---
 
-## Milestone index (M1–M116)
+## Milestone index (M1–M119)
 
 <details>
-<summary>Click to expand all 116 milestones</summary>
+<summary>Click to expand all 119 milestones</summary>
 
 | # | Feature | # | Feature |
 |---|---------|---|---------|
@@ -220,8 +239,10 @@ See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
 | M56–M89 | Biological constructs, stochastic processes, ecosystem blocks, stdlib | |
 | M90 | Finance stdlib | M91 | Quantum stdlib |
 | M92–M116 | Verification pipeline, Dafny, TLA+, audit headers, LPN | |
+| M117 | Telos function + trigger/action regulate | M118 | Entity generic type |
+| M119 | Intent coordinator + governance | BIOISO | Propagate, epigenetic, ecosystem tipping-points |
 
-All 116 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) for detail.
+All 119 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) for detail.
 </details>
 
 ---
