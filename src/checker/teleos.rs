@@ -55,6 +55,10 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         ));
     }
     for reg in &being.regulate_blocks {
+        // Trigger/action style blocks (new syntax) don't use bounds: — skip the check
+        if reg.trigger.is_some() {
+            continue;
+        }
         if reg.bounds.is_none() {
             errors.push(LoomError::type_err(
                 format!(
@@ -437,8 +441,9 @@ fn check_ecosystem(
     known_beings: &std::collections::HashSet<&str>,
     errors: &mut Vec<LoomError>,
 ) {
-    // Rule 1: no signals → error
-    if eco.signals.is_empty() {
+    // Rule 1: no signals → error (relaxed for coevolution ecosystems which use
+    // fitness-based selection rather than explicit signal channels)
+    if eco.signals.is_empty() && !eco.coevolution {
         errors.push(LoomError::type_err(
             format!(
                 "ecosystem '{}' has no signals — beings cannot interact without communication channels",

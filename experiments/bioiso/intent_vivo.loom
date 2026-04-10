@@ -75,7 +75,7 @@ being ScalpingAgent
   epigenetic:
     signal: volatility_regime_change
     modifies: position_sizing_multiplier
-    reverts_when: volatility_regime == normal
+    reverts_when: volatility_regime = normal
   end
 
   telomere:
@@ -122,7 +122,7 @@ end
 
 fn pause_trading_mode :: ScalpingAgent -> ScalpingAgent
   require: agent.max_drawdown > 0.15
-  ensure: result.current_position == 0.0
+  ensure: result.current_position = 0.0
   agent
 end
 

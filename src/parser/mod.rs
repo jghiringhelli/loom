@@ -930,6 +930,8 @@ impl<'src> Parser<'src> {
                             }
                         }
                         thresholds = Some(TelosThresholds { convergence, divergence, warning, propagation });
+                        // Consume the optional `end` that closes an explicit `thresholds:` sub-block.
+                        if self.at(&Token::End) { self.advance(); }
                     }
                     _ => { self.advance(); }
                 }

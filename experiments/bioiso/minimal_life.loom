@@ -10,7 +10,7 @@ module MinimalLife
 
 -- ── The being ───────────────────────────────────────────────────────────────
 
-being ProtoCell
+being ProtoCell @mortal @sandboxed
   describe: "A protocell that maintains its own boundary, converts energy,
              and carries a hereditary code — satisfying three definitions of life"
 
@@ -32,8 +32,15 @@ being ProtoCell
     end
   end
 
-  -- 2. Maturana & Varela: autopoietic self-production
+  -- Maturana & Varela: autopoietic self-production
   autopoietic: true
+
+  -- Directed self-modification: improve code fidelity toward telos
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
 
   -- Autopoietic production loop: synthesize own boundary components
   regulate:

@@ -359,18 +359,15 @@ impl<'src> crate::parser::Parser<'src> {
         let sec_start = self.current_span();
         self.advance(); // consume `telos`
         self.expect(Token::Colon)?;
-        let description = match self.tokens.get(self.pos) {
+        // Accept both simple form `telos: "string"` and block form `telos:\n  statement: "..."`.
+        let mut description = match self.tokens.get(self.pos) {
             Some((Token::StrLit(s), _)) => {
                 let s = s.clone();
                 self.pos += 1;
                 s
             }
-            _ => {
-                return Err(LoomError::parse(
-                    "expected string literal after telos:",
-                    self.current_span(),
-                ))
-            }
+            // Block form: description will be populated by `statement:` inside the loop.
+            _ => String::new(),
         };
         let mut fitness_fn = None;
         let mut modifiable_by = None;
@@ -380,7 +377,16 @@ impl<'src> crate::parser::Parser<'src> {
         let mut thresholds: Option<TelosThresholds> = None;
         let mut guides: Vec<String> = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
-            if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
+            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "statement")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.advance(); // "statement"
+                self.advance(); // ":"
+                if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                    description = s.clone();
+                    self.pos += 1;
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Fitness, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 let mut parts = Vec::new();
@@ -512,6 +518,8 @@ impl<'src> crate::parser::Parser<'src> {
                     divergence,
                     propagation,
                 });
+                // Consume the optional `end` that closes an explicit `thresholds:` sub-block.
+                if self.at(&Token::End) { self.advance(); }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Guides, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
@@ -559,6 +567,56 @@ impl<'src> crate::parser::Parser<'src> {
     fn parse_being_regulate_section(&mut self) -> Result<RegulateBlock, LoomError> {
         let sec_start = self.current_span();
         self.advance(); // consume `regulate`
+
+        // Detect syntax variant: `regulate:` (trigger/action) vs `regulate varname` (classic)
+        if self.at(&Token::Colon) {
+            self.advance(); // consume `:`
+            let mut trigger: Option<String> = None;
+            let mut action: Option<String> = None;
+            while !self.at(&Token::End) && self.peek().is_some() {
+                if self.at(&Token::Trigger) {
+                    self.advance();
+                    self.expect(Token::Colon)?;
+                    // Collect tokens until next field or end as the trigger expression
+                    let mut parts = Vec::new();
+                    while !self.at(&Token::End)
+                        && !self.at(&Token::Action)
+                        && self.peek().is_some()
+                    {
+                        if let Some((tok, _)) = self.tokens.get(self.pos) {
+                            parts.push(format!("{:?}", tok));
+                        }
+                        self.advance();
+                    }
+                    trigger = Some(parts.join(" "));
+                } else if self.at(&Token::Action) {
+                    self.advance();
+                    self.expect(Token::Colon)?;
+                    let (name, _) = self.expect_any_name()?;
+                    action = Some(name);
+                } else {
+                    self.advance();
+                }
+            }
+            let sec_end = self.current_span();
+            self.expect(Token::End)?;
+            let trigger_str = trigger.clone().unwrap_or_default();
+            return Ok(RegulateBlock {
+                variable: if trigger_str.is_empty() {
+                    "__trigger__".to_string()
+                } else {
+                    trigger_str
+                },
+                target: String::new(),
+                bounds: None,
+                response: Vec::new(),
+                telos_contribution: None,
+                trigger,
+                action,
+                span: Span::merge(&sec_start, &sec_end),
+            });
+        }
+
         let (variable, _) = self.expect_ident()?;
         let mut target = String::new();
         let mut bounds = None;
@@ -612,6 +670,8 @@ impl<'src> crate::parser::Parser<'src> {
             bounds,
             response,
             telos_contribution,
+            trigger: None,
+            action: None,
             span: Span::merge(&sec_start, &sec_end),
         })
     }
@@ -831,11 +891,37 @@ impl<'src> crate::parser::Parser<'src> {
                     limit = *n as u64;
                     self.pos += 1;
                 }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "max_generations")
+            {
+                // Alias: max_generations: N → limit = N
+                self.advance();
+                self.expect(Token::Colon)?;
+                if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                    limit = *n as u64;
+                    self.pos += 1;
+                }
             } else if self.at(&Token::OnExhaustion) {
                 self.advance();
                 self.expect(Token::Colon)?;
                 let (val, _) = self.expect_any_name()?;
                 on_exhaustion = val;
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "senescence_trigger")
+            {
+                // Alias: senescence_trigger: expr → on_exhaustion = "senescence", skip expr
+                self.advance();
+                self.expect(Token::Colon)?;
+                if on_exhaustion.is_empty() {
+                    on_exhaustion = "senescence".to_string();
+                }
+                // Skip the trigger expression until next field or end
+                while !self.at(&Token::End)
+                    && !self.at(&Token::Limit)
+                    && !self.at(&Token::OnExhaustion)
+                    && !matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "max_generations" || n == "senescence_trigger")
+                    && self.peek().is_some()
+                {
+                    self.advance();
+                }
             } else {
                 self.advance();
             }

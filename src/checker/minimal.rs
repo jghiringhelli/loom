@@ -52,9 +52,13 @@ impl MinimalChecker {
         let mut errors = Vec::new();
 
         // Rule 2: regulate: variable must exist in matter: fields — hard error.
+        // (Skip for trigger/action style blocks — they reference matter fields in the trigger expr.)
         if let Some(matter) = &being.matter {
             let field_names: Vec<&str> = matter.fields.iter().map(|f| f.name.as_str()).collect();
             for reg in &being.regulate_blocks {
+                if reg.trigger.is_some() {
+                    continue;
+                }
                 if !reg.variable.is_empty() && !field_names.contains(&reg.variable.as_str()) {
                     errors.push(LoomError::type_err(
                         format!(

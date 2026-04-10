@@ -29,6 +29,10 @@ pub struct EvolveBlock {
 }
 
 /// Homeostatic regulation block.
+///
+/// Supports two syntaxes:
+/// - Classic: `regulate varname  target: ... bounds: (...) response: | cond -> action end`
+/// - Trigger/action: `regulate:  trigger: condition_expr  action: fn_name end`
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegulateBlock {
     pub variable: String,
@@ -37,6 +41,10 @@ pub struct RegulateBlock {
     pub response: Vec<(String, String)>,
     /// M114: How much this regulation contributes to telos convergence (0.0–1.0).
     pub telos_contribution: Option<f64>,
+    /// Trigger/action syntax: the condition expression that activates this rule.
+    pub trigger: Option<String>,
+    /// Trigger/action syntax: the function to call when trigger fires.
+    pub action: Option<String>,
     pub span: Span,
 }
 

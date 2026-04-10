@@ -28,7 +28,7 @@ end
 
 -- ── The organism ─────────────────────────────────────────────────────────────
 
-being EColiOrg
+being EColiOrg @mortal @sandboxed
   describe: "E. coli modeled as a Peircean organism — sign, object, interpretant"
 
   -- Sign level: physical signals (the matter of semiosis)
@@ -52,7 +52,14 @@ being EColiOrg
 
   autopoietic: true
 
-  -- Umwelt: the organism's subjective world — only certain signals matter
+  -- Directed interpretation: evolve toward telos-maximizing sign interpretation
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  -- Umwelt:the organism's subjective world — only certain signals matter
   -- (Uexküll 1934: each organism lives in its own functional circle)
   signal_attention:
     prioritize: [glucose_concentration, lac_operon_state]

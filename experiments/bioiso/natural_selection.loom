@@ -30,8 +30,6 @@ being FastFragile
     end
   end
 
-  autopoietic: true
-
   -- Darwin condition 3: fitness determines propagation eligibility
   propagate:
     condition: fast_fitness > 0.6 and membrane_stability > 0.3
@@ -66,8 +64,6 @@ being SlowRobust
       divergence: 0.3
     end
   end
-
-  autopoietic: true
 
   propagate:
     condition: robust_fitness > 0.65 and atp_synthesis_rate > 0.2
