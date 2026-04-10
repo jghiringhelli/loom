@@ -329,11 +329,173 @@ impl RustEmitter {
                 self.emit_messaging_channel(mp, &mut buf);
                 buf
             }
+            Item::Discipline(dd) => {
+                let mut buf = String::new();
+                emit_discipline(dd, &mut buf);
+                buf
+            }
         }
     }
 }
 
 // ── Helpers used across submodules ────────────────────────────────────────────
+
+// ── M141-M145: discipline codegen ────────────────────────────────────────────
+
+/// Emit Rust constructs for an explicit `discipline` declaration.
+///
+/// Reuses the pre-existing emit methods in `disciplines.rs` (CQRS, EventSourcing,
+/// Saga, UnitOfWork, CircuitBreaker) and wires them to the AST `DisciplineDecl`.
+fn emit_discipline(dd: &DisciplineDecl, out: &mut String) {
+    let emitter = RustEmitter::new();
+    let target = &dd.target;
+
+    out.push_str(&format!(
+        "// ── discipline {:?} for {} ──────────────────────────────────────────\n",
+        dd.kind, target
+    ));
+    out.push_str("// LOOM[discipline]: compiler-verified architectural contract\n\n");
+
+    match &dd.kind {
+        DisciplineKind::Cqrs => {
+            emitter.emit_cqrs_for_store(target, out);
+        }
+        DisciplineKind::EventSourcing => {
+            // Extract optional `events: [...]` list
+            let events = list_param(&dd.params, "events");
+            emitter.emit_event_sourcing(target, &events, out);
+            emitter.emit_domain_event_bus(target, out);
+        }
+        DisciplineKind::DependencyInjection => {
+            // Extract `binds: [IPortA, IPortB]`
+            let binds = list_param(&dd.params, "binds");
+            emit_di_container(target, &binds, out);
+        }
+        DisciplineKind::CircuitBreaker => {
+            let max_attempts = num_param(&dd.params, "max_attempts").unwrap_or(3) as u32;
+            emitter.emit_circuit_breaker(target, max_attempts, out);
+            let retry_attempts = num_param(&dd.params, "retry_attempts").unwrap_or(3) as u32;
+            emitter.emit_retry_policy(target, retry_attempts, out);
+        }
+        DisciplineKind::Saga => {
+            // Extract optional `steps: [...]` list
+            let steps = list_param(&dd.params, "steps");
+            emit_saga_with_steps(target, &steps, out);
+        }
+        DisciplineKind::UnitOfWork => {
+            let tables = list_param(&dd.params, "tables");
+            emitter.emit_unit_of_work(target, &tables, out);
+        }
+    }
+}
+
+/// M141: Dependency Injection container — one `{Target}Container` struct that
+/// owns all injected port implementations.
+fn emit_di_container(target: &str, binds: &[String], out: &mut String) {
+    out.push_str(&format!(
+        "// Martin 2003 DI — port-based injection; Fowler 2004 IoC container\n"
+    ));
+
+    // Port method stubs on the container
+    let port_fields: String = binds
+        .iter()
+        .map(|port| {
+            format!(
+                "    pub {field}: Box<dyn {port}>,\n",
+                field = to_snake(port),
+                port = port
+            )
+        })
+        .collect();
+
+    let field_block = if port_fields.is_empty() {
+        "    // add your port fields here\n".to_string()
+    } else {
+        port_fields
+    };
+
+    out.push_str(&format!(
+        "/// Dependency injection container for `{target}`.\n\
+         /// Owns all port implementations; wire at the composition root.\n\
+         pub struct {target}Container {{\n\
+         {field_block}\
+         }}\n\n",
+        target = target,
+        field_block = field_block,
+    ));
+
+    // Trait for each bound port (stub — user fills in the `trait` body)
+    for port in binds {
+        out.push_str(&format!(
+            "// LOOM[di:port]: implement this trait in your adapter layer\n\
+             pub trait {port}: Send + Sync {{\n    \
+             // TODO: declare port methods\n\
+             }}\n\n",
+            port = port
+        ));
+    }
+}
+
+/// M145: Saga with named steps — extends the generic saga coordinator with step types.
+fn emit_saga_with_steps(target: &str, steps: &[String], out: &mut String) {
+    // Emit the generic saga coordinator
+    let emitter = RustEmitter::new();
+    emitter.emit_saga_coordinator(target, out);
+
+    if steps.is_empty() {
+        return;
+    }
+
+    out.push_str(&format!(
+        "// ── {target} saga steps ────────────────────────────────────────\n"
+    ));
+    for step in steps {
+        out.push_str(&format!(
+            "pub struct {step}Step;\n\
+             impl {target}SagaStep for {step}Step {{\n    \
+             type Error = String;\n    \
+             fn execute(&self) -> Result<(), Self::Error> {{ todo!(\"implement {step}\") }}\n    \
+             fn compensate(&self) {{ todo!(\"compensate {step}\") }}\n\
+             }}\n\n",
+            target = target,
+            step = step
+        ));
+    }
+}
+
+/// Extract a `List` param by key name; returns empty vec if absent.
+fn list_param(params: &[(String, DisciplineParam)], key: &str) -> Vec<String> {
+    params.iter().find_map(|(k, v)| {
+        if k == key {
+            if let DisciplineParam::List(items) = v { Some(items.clone()) } else { None }
+        } else {
+            None
+        }
+    }).unwrap_or_default()
+}
+
+/// Extract a `Number` param by key name; returns `None` if absent.
+fn num_param(params: &[(String, DisciplineParam)], key: &str) -> Option<i64> {
+    params.iter().find_map(|(k, v)| {
+        if k == key {
+            if let DisciplineParam::Number(n) = v { Some(*n) } else { None }
+        } else {
+            None
+        }
+    })
+}
+
+/// Convert PascalCase to snake_case for field names.
+fn to_snake(s: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if ch.is_uppercase() && i > 0 {
+            out.push('_');
+        }
+        out.push(ch.to_lowercase().next().unwrap_or(ch));
+    }
+    out
+}
 
 // ── M123-M125: entity codegen ─────────────────────────────────────────────────
 

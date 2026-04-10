@@ -1,0 +1,58 @@
+-- M149: LoomCompilerV2 -- Loom compiler self-described with M131-M145 primitives.
+
+module LoomCompilerV2
+
+telos_function s_realized_convergence
+  statement: "converge compiler correctness score S_realized toward 1.0"
+  measured_by: "CompilerState -> Float"
+  guides: [checker_coverage, proof_density, claim_verification_rate]
+  thresholds:
+    convergence: 0.90
+    warning: 0.75
+    divergence: 0.50
+    propagation: 0.95
+  end
+end
+
+messaging_primitive CheckerPipelineChannel
+  pattern: stream
+  payload: CheckerInput
+  guarantee: ExactlyOnce
+  backpressure: true
+end
+
+messaging_primitive DiagnosticBus
+  pattern: point_to_point
+  payload: LoomError
+  guarantee: AtLeastOnce
+end
+
+discipline CQRS for CompilerRegistry end
+
+discipline DependencyInjection for CompilerContainer
+  binds: [ILexer, IParser, IChecker, ICodegen]
+end
+
+discipline CircuitBreaker for SMTBridge
+  max_attempts: 3
+  timeout_ms: 10000
+end
+
+discipline UnitOfWork for CompilationSession end
+
+fn compile :: LoomSource -> CompiledModule
+  require: source.len > 0
+  ensure: result.error_count >= 0
+  todo
+end
+
+fn check_module_items :: CompiledModule -> Int
+  require: m.item_count >= 0
+  ensure: result >= 0
+  todo
+end
+
+end
+
+
+

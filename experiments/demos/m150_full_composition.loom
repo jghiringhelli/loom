@@ -1,0 +1,76 @@
+-- M150: AnalyticsPlatform -- every M131-M145 primitive in one module.
+--
+-- Gate: if this parses, checks, and emits without error,
+--       M131-M145 composes correctly end-to-end.
+
+module AnalyticsPlatform
+
+telos_function pipeline_health_alignment
+  statement: "converge pipeline state toward zero-error high-throughput operation"
+  measured_by: "PipelineState -> Float"
+  guides: [throughput_rate, error_suppression, latency_reduction]
+  thresholds:
+    convergence: 0.92
+    warning: 0.75
+    divergence: 0.50
+    propagation: 0.95
+  end
+end
+
+messaging_primitive IngestionStream
+  pattern: stream
+  payload: DataPoint
+  guarantee: AtLeastOnce
+  backpressure: true
+end
+
+messaging_primitive QueryChannel
+  pattern: request_response
+  payload: MetricQuery
+  response: MetricResult
+  guarantee: ExactlyOnce
+  timeout: mandatory
+  timeout_ms: 2000
+end
+
+messaging_primitive AlertDelivery
+  pattern: point_to_point
+  payload: Alert
+  guarantee: AtLeastOnce
+end
+
+discipline CQRS for MetricStore end
+
+discipline EventSourcing for MetricStore
+  events: [DataPointIngested, AlertTriggered, PipelineRestarted, ThresholdUpdated]
+end
+
+discipline DependencyInjection for PlatformContainer
+  binds: [IIngestionAdapter, IStorageAdapter, IAlertRouter, IQueryEngine]
+end
+
+discipline CircuitBreaker for StorageAdapter
+  max_attempts: 3
+  timeout_ms: 1000
+end
+
+discipline Saga for PipelineRestartSaga
+  steps: [PauseIngestion, FlushBuffers, RecoverState, ResumeIngestion]
+end
+
+discipline UnitOfWork for MetricWriteSession end
+
+fn ingest :: DataPoint -> Bool
+  require: point.timestamp > 0
+  ensure: result implies point_persisted
+  todo
+end
+
+fn pipeline_score :: Pipeline -> Float
+  require: p.stage_count > 0
+  ensure: result >= 0.0
+  todo
+end
+
+end
+

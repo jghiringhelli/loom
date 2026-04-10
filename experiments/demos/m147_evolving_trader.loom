@@ -1,0 +1,65 @@
+-- M147: EvolvingTrader -- all three messaging patterns + telos_function + disciplines.
+
+module EvolvingTrader
+
+telos_function return_alignment
+  statement: "converge realized PnL toward risk-adjusted target return"
+  measured_by: "TradingState -> Float"
+  guides: [signal_attention, position_sizing, exit_discipline]
+  thresholds:
+    convergence: 0.80
+    warning: 0.55
+    divergence: 0.30
+    propagation: 0.85
+  end
+end
+
+messaging_primitive MarketTickStream
+  pattern: stream
+  payload: MarketTick
+  guarantee: AtMostOnce
+  backpressure: true
+end
+
+messaging_primitive OrderExecutionChannel
+  pattern: request_response
+  payload: OrderRequest
+  response: ExecutionReport
+  guarantee: ExactlyOnce
+  timeout: mandatory
+  timeout_ms: 500
+end
+
+messaging_primitive RiskAlertBus
+  pattern: point_to_point
+  payload: RiskAlert
+  guarantee: AtLeastOnce
+end
+
+discipline CircuitBreaker for BrokerGateway
+  max_attempts: 5
+  timeout_ms: 500
+end
+
+discipline DependencyInjection for TraderContainer
+  binds: [IMarketDataSource, IRiskEngine, IOrderRouter]
+end
+
+discipline UnitOfWork for TradeSession end
+
+fn evaluate_signal :: MarketTick -> Float
+  require: tick.price > 0.0
+  ensure: result >= 0.0
+  todo
+end
+
+fn size_position :: Float -> Float
+  require: sig >= 0.0
+  ensure: result > 0.0
+  todo
+end
+
+end
+
+
+

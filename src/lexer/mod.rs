@@ -403,6 +403,10 @@ pub enum Token {
     #[token("intent_coordinator")]
     IntentCoordinator,
 
+    // ── M141: Explicit forced-discipline declarations ─────────────────────────────
+    #[token("discipline")]
+    Discipline,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

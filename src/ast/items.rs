@@ -748,3 +748,58 @@ pub struct IntentCoordinatorDef {
     pub audit_path: Option<String>,
     pub span: Span,
 }
+
+// ── M141: DisciplineDecl ─────────────────────────────────────────────────────
+
+/// M141: Explicit forced-discipline declaration.
+///
+/// Bridges Loom's architectural disciplines (DI, CQRS, EventSourcing, CircuitBreaker, Saga)
+/// with the type system: a `discipline D for T` block is a compiler-verified promise that
+/// code generated from type `T` will conform to discipline `D`'s structural contracts.
+///
+/// Syntax:
+/// ```loom
+/// discipline CQRS for OrderStore end
+/// discipline EventSourcing for OrderStore events: [OrderCreated, OrderShipped] end
+/// discipline DependencyInjection for PricingEngine binds: [IPriceRepo, IRiskCalc] end
+/// discipline CircuitBreaker for PaymentService max_attempts: 3 timeout_ms: 500 end
+/// discipline Saga for CheckoutFlow steps: [ValidateOrder, ProcessPayment] end
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct DisciplineDecl {
+    /// The discipline kind.
+    pub kind: DisciplineKind,
+    /// The target type/store/module this discipline applies to.
+    pub target: String,
+    /// Keyword arguments (string key → string value) for parameterised disciplines.
+    pub params: Vec<(String, DisciplineParam)>,
+    pub span: Span,
+}
+
+/// Typed parameter values for a discipline declaration.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DisciplineParam {
+    /// A single identifier or string value.
+    Scalar(String),
+    /// A list of identifiers (e.g. `events: [Created, Updated]`).
+    List(Vec<String>),
+    /// A numeric value (e.g. `max_attempts: 3`).
+    Number(i64),
+}
+
+/// The kind of forced architectural discipline.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DisciplineKind {
+    /// Command/Query Responsibility Segregation (Young 2010, Meyer CQS).
+    Cqrs,
+    /// Event Sourcing — state = fold of events (Fowler 2005, Evans DDD).
+    EventSourcing,
+    /// Dependency Injection container — port-based DI (Martin 2003).
+    DependencyInjection,
+    /// Circuit breaker — fault tolerance pattern (Nygard 2007, Fowler).
+    CircuitBreaker,
+    /// Saga — compensating long-running transactions (Garcia-Molina 1987).
+    Saga,
+    /// Unit of Work — batch persistence with commit/rollback (Fowler PoEAA).
+    UnitOfWork,
+}

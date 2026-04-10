@@ -1,0 +1,64 @@
+-- M148: BioiSODemo -- BIOISO upgraded with M131-M145 primitives.
+
+module BioiSODemo
+
+telos_function survival_alignment
+  statement: "converge cellular state toward sustained self-production and replication"
+  measured_by: "CellState -> Float"
+  guides: [membrane_maintenance, energy_metabolism, replication_fidelity]
+  thresholds:
+    convergence: 0.75
+    warning: 0.50
+    divergence: 0.25
+    propagation: 0.80
+  end
+end
+
+telos_function selection_pressure_alignment
+  statement: "converge population fitness distribution toward stable coexistence"
+  measured_by: "PopulationState -> Float"
+  guides: [variant_fitness, resource_competition, drift_correction]
+  thresholds:
+    convergence: 0.70
+    divergence: 0.20
+  end
+end
+
+messaging_primitive ChemicalSignalChannel
+  pattern: stream
+  payload: ChemicalGradient
+  guarantee: AtMostOnce
+  backpressure: true
+end
+
+messaging_primitive DivisionEventBus
+  pattern: stream
+  payload: DivisionEvent
+  guarantee: AtLeastOnce
+  backpressure: false
+end
+
+discipline CQRS for LineageStore end
+
+discipline EventSourcing for LineageStore
+  events: [CellBorn, CellDivided, CellSenescent, CellDied]
+end
+
+discipline Saga for ReplicationSaga
+  steps: [CheckATPThreshold, SynthesizeMembrane, ReplicateGenome, DivideCell]
+end
+
+fn cell_fitness :: Phenotype -> Float
+  require: p.membrane_integrity >= 0.0
+  ensure: result >= 0.0
+  todo
+end
+
+fn genome_fidelity_score :: Genome -> Float
+  require: g.code_fidelity >= 0.0
+  ensure: result >= 0.0
+  todo
+end
+
+end
+

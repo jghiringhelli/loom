@@ -154,4 +154,6 @@ pub enum Item {
     Entity(EntityDef),
     /// M119: Intent coordinator — living intent with human governance.
     IntentCoordinator(IntentCoordinatorDef),
+    /// M141: Explicit forced-discipline declaration.
+    Discipline(DisciplineDecl),
 }

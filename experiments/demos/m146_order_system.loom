@@ -1,0 +1,66 @@
+-- M146: OrderSystem -- discipline + telos_function + messaging composing together.
+
+module OrderSystem
+
+telos_function order_fulfillment_alignment
+  statement: "converge order processing toward zero-latency fulfillment"
+  measured_by: "OrderState -> Float"
+  guides: [routing_accuracy, inventory_reservation, payment_confirmation]
+  thresholds:
+    convergence: 0.90
+    warning: 0.70
+    divergence: 0.40
+  end
+end
+
+messaging_primitive PlaceOrderChannel
+  pattern: request_response
+  payload: OrderRequest
+  response: OrderAck
+  guarantee: AtLeastOnce
+  timeout: mandatory
+  timeout_ms: 5000
+end
+
+messaging_primitive OrderEventBus
+  pattern: stream
+  payload: OrderEvent
+  guarantee: AtLeastOnce
+  backpressure: true
+end
+
+messaging_primitive AlertChannel
+  pattern: point_to_point
+  payload: FulfillmentAlert
+  guarantee: AtLeastOnce
+end
+
+discipline CQRS for OrderStore end
+
+discipline EventSourcing for OrderStore
+  events: [OrderCreated, OrderConfirmed, OrderShipped, OrderCancelled]
+end
+
+discipline CircuitBreaker for PaymentService
+  max_attempts: 3
+  timeout_ms: 2000
+end
+
+discipline Saga for OrderFulfillmentSaga
+  steps: [ValidateInventory, ChargePayment, ReserveStock, DispatchShipment]
+end
+
+fn calculate_order_total :: Order -> Float
+  require: order.item_count > 0
+  ensure: result >= 0.0
+  todo
+end
+
+fn confirm_order :: Order -> Order
+  require: order.is_pending
+  ensure: result.is_confirmed
+  todo
+end
+
+end
+
