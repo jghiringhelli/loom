@@ -29,6 +29,10 @@ pub struct EvolveBlock {
 }
 
 /// Homeostatic regulation block.
+///
+/// Supports two syntaxes:
+/// - Classic: `regulate varname  target: ... bounds: (...) response: | cond -> action end`
+/// - Trigger/action: `regulate:  trigger: condition_expr  action: fn_name end`
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegulateBlock {
     pub variable: String,
@@ -37,6 +41,10 @@ pub struct RegulateBlock {
     pub response: Vec<(String, String)>,
     /// M114: How much this regulation contributes to telos convergence (0.0–1.0).
     pub telos_contribution: Option<f64>,
+    /// Trigger/action syntax: the condition expression that activates this rule.
+    pub trigger: Option<String>,
+    /// Trigger/action syntax: the function to call when trigger fires.
+    pub action: Option<String>,
     pub span: Span,
 }
 
@@ -88,6 +96,12 @@ pub struct SignalAttentionBlock {
     pub prioritize_above: Option<f64>,
     /// Signals with telos_relevance < this threshold are attenuated.
     pub attenuate_below: Option<f64>,
+    /// Named signals that receive priority processing (Uexküll Umwelt declaration).
+    pub prioritize_named: Vec<String>,
+    /// Named signals that are attenuated/damped.
+    pub attenuate_named: Vec<String>,
+    /// Telos relevance: "computed from X" — the function that weights signals by telos.
+    pub telos_relevance: Option<String>,
     pub span: Span,
 }
 
@@ -127,6 +141,21 @@ pub struct SignalDef {
     pub span: Span,
 }
 
+/// Irreversible state transition — tipping point in the ecosystem.
+///
+/// When a threshold condition is crossed, the system undergoes a regime shift.
+/// Scheffer (2009): critical transitions in nature and society.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TippingPoint {
+    /// Name (e.g. "amazon_dieback").
+    pub name: String,
+    /// Condition string (e.g. "vegetation_coverage < 0.60").
+    pub condition: String,
+    /// Action on crossing (e.g. "escalate to human_regulated").
+    pub on_crossing: String,
+    pub span: Span,
+}
+
 /// An ecosystem — a composition of beings with inter-being signaling.
 ///
 /// Expresses how multiple goal-directed entities interact through
@@ -142,6 +171,14 @@ pub struct EcosystemDef {
     /// The combined telos of the ecosystem (emergent purpose).
     pub telos: Option<String>,
     pub quorum_blocks: Vec<QuorumBlock>,
+    /// collective_telos_metric: a function or expression combining all member telos scores.
+    pub collective_telos_metric: Option<String>,
+    /// tipping_points: irreversible state transitions in the ecosystem.
+    pub tipping_points: Vec<TippingPoint>,
+    /// coevolution: true means beings in this ecosystem co-evolve (fitness is relative).
+    pub coevolution: bool,
+    /// coupling: how beings are physically/mathematically coupled.
+    pub coupling: Option<String>,
     pub span: Span,
 }
 
@@ -156,6 +193,8 @@ pub struct EpigeneticBlock {
     pub modifies: String,
     /// Condition under which the modulation reverts.
     pub reverts_when: Option<String>,
+    /// Optional duration before auto-revert (e.g. "18.months", "90.days").
+    pub duration: Option<String>,
     pub span: Span,
 }
 
@@ -202,6 +241,22 @@ pub struct MigrationBlock {
     pub adapter: Option<String>,
     /// Whether this is a breaking change (default: true).
     pub breaking: bool,
+    pub span: Span,
+}
+
+/// Biological propagation — the being can reproduce when telos score is sufficient.
+/// Barbieri (2003): propagation copies both matter (information) AND telos (code/interpretant).
+/// Without propagation, beings cannot evolve populations; with it, natural selection emerges.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropagateBlock {
+    /// Condition string for eligibility (e.g. "telos.score > 0.85").
+    pub condition: String,
+    /// Matter fields the offspring inherits (e.g. ["matter", "telos", "epigenetic_memory"]).
+    pub inherits: Vec<String>,
+    /// Mutations: (field_path, constraint_string) e.g. ("bond_angles", "within quantum_mechanical_bounds").
+    pub mutates: Vec<(String, String)>,
+    /// Optional: what type of being the offspring is (defaults to same type).
+    pub offspring_type: Option<String>,
     pub span: Span,
 }
 
@@ -253,6 +308,8 @@ pub struct BeingDef {
     pub cognitive_memory: Option<CognitiveMemoryBlock>,
     /// M115: Signal attention filter — prioritize/attenuate by telos relevance.
     pub signal_attention: Option<SignalAttentionBlock>,
+    /// Biological propagation — offspring when telos score exceeds threshold.
+    pub propagate_block: Option<PropagateBlock>,
     pub span: Span,
 }
 

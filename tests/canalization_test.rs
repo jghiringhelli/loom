@@ -26,7 +26,10 @@ end"#;
     let being = &m.being_defs[0];
     let can = being.canalization.as_ref().expect("canalization");
     assert_eq!(can.toward, "homeostasis");
-    assert_eq!(can.despite, vec!["temperature_stress", "nutrient_deprivation"]);
+    assert_eq!(
+        can.despite,
+        vec!["temperature_stress", "nutrient_deprivation"]
+    );
 }
 
 // 2. being with canalize + convergence_proof parses
@@ -92,13 +95,14 @@ fn checker_rejects_empty_toward() {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -156,13 +160,14 @@ fn checker_rejects_empty_despite() {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -188,7 +193,11 @@ fn checker_rejects_empty_despite() {
     };
     let result = CanalizationChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
     assert!(msgs.contains("despite"), "expected 'despite' in: {msgs}");
 }
 
@@ -207,5 +216,8 @@ end
 end"#;
     let out = loom::compile(src).expect("compile");
     assert!(out.contains("canalize"), "expected canalize in:\n{out}");
-    assert!(out.contains("homeostasis"), "expected homeostasis in:\n{out}");
+    assert!(
+        out.contains("homeostasis"),
+        "expected homeostasis in:\n{out}"
+    );
 }

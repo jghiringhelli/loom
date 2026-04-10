@@ -15,12 +15,13 @@
 
 #![allow(missing_docs)] // Phase 1: docs are on public items; fields documented in Phase 2
 
-pub mod ast;
 pub mod alx;
+pub mod ast;
 pub mod checker;
 pub mod codegen;
 pub mod error;
 pub mod lexer;
+pub mod lpn;
 pub mod lsp;
 pub mod parser;
 pub mod project;
@@ -46,20 +47,19 @@ pub use error::LoomError;
 /// [`LoomError`]s so the caller can display the complete diagnostic list.
 pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
     use checker::{
-        CheckerStage, RandomnessCheckerAdapter, SafetyCheckerAdapter,
-        StochasticCheckerAdapter, TeleosCheckerAdapter,
-        AlgebraicChecker, AspectChecker, BoundaryChecker, CognitiveMemoryChecker,
-        CriticalityChecker, CategoryChecker, CanalizationChecker, CheckpointChecker,
-        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker,
+        AlgebraicChecker, AspectChecker, BoundaryChecker, CanalizationChecker, CategoryChecker,
+        CheckerStage, CheckpointChecker, CognitiveMemoryChecker, CriticalityChecker,
+        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker, EntityChecker,
         EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
         ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
-        ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker, NicheConstructionChecker,
-        PathwayChecker, PrivacyChecker, ProbabilisticChecker, PropertyChecker,
-        ProvenanceChecker, RefinementChecker, ResonanceChecker, ScenarioChecker,
-        SelfCertChecker, SemiosisChecker, SenescenceChecker, SeparationChecker,
-        SessionChecker, SideChannelChecker, SignalAttentionChecker, StoreChecker, SymbiosisChecker,
-        TensorChecker, TemporalChecker, TypeChecker, TypestateChecker, UmweltChecker,
-        UnitsChecker, UseCaseChecker,
+        ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker,
+        NicheConstructionChecker, PathwayChecker, PrivacyChecker, ProbabilisticChecker,
+        PropertyChecker, ProvenanceChecker, RandomnessCheckerAdapter, RefinementChecker,
+        ResonanceChecker, SafetyCheckerAdapter, ScenarioChecker, SelfCertChecker, SemiosisChecker,
+        SenescenceChecker, SeparationChecker, SessionChecker, SideChannelChecker,
+        SignalAttentionChecker, StochasticCheckerAdapter, StoreChecker, SymbiosisChecker,
+        TeleosCheckerAdapter, TemporalChecker, TensorChecker, TypeChecker, TypestateChecker,
+        UmweltChecker, UnitsChecker, UseCaseChecker,
     };
 
     // ── Stage 1: lex ──────────────────────────────────────────────────────
@@ -121,10 +121,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::hard(CheckpointChecker::new()),
         CheckerStage::hard(SemiosisChecker::new()),
         // Store / persistence
-        CheckerStage::suppressing(
-            StoreChecker::new(),
-            &["[hint]", "[warn]", "[info]"],
-        ),
+        CheckerStage::suppressing(StoreChecker::new(), &["[hint]", "[warn]", "[info]"]),
         // Documentation / contract liveness
         CheckerStage::warn_only(UseCaseChecker::new()),
         CheckerStage::warn_only(ManifestChecker::new()),
@@ -142,6 +139,8 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::hard(SignalAttentionChecker::new()),
         // M116: Messaging primitive validation
         CheckerStage::warn_only(MessagingChecker::new()),
+        // M118: Entity annotation coherence
+        CheckerStage::hard(EntityChecker::new()),
     ];
 
     for stage in pipeline {
@@ -294,8 +293,12 @@ pub fn parse(source: &str) -> Result<ast::Module, Vec<LoomError>> {
 /// Diagrams cannot drift from code because they ARE derived from the code.
 /// C4 model (Simon Brown 2018) + Mermaid (Sveidqvist 2019).
 pub fn compile_mermaid_c4(source: &str) -> Result<String, String> {
-    let tokens = lexer::Lexer::tokenize(source)
-        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let tokens = lexer::Lexer::tokenize(source).map_err(|es| {
+        es.iter()
+            .map(|e| format!("{}", e))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })?;
     let module = parser::Parser::new(&tokens)
         .parse_module()
         .map_err(|e| format!("{}", e))?;
@@ -307,8 +310,12 @@ pub fn compile_mermaid_c4(source: &str) -> Result<String, String> {
 /// Runs lex + parse only. Each session role → participant; Send steps with
 /// duality declarations → `->>` arrows. Honda (1993) session types.
 pub fn compile_mermaid_sequence(source: &str) -> Result<String, String> {
-    let tokens = lexer::Lexer::tokenize(source)
-        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let tokens = lexer::Lexer::tokenize(source).map_err(|es| {
+        es.iter()
+            .map(|e| format!("{}", e))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })?;
     let module = parser::Parser::new(&tokens)
         .parse_module()
         .map_err(|e| format!("{}", e))?;
@@ -320,8 +327,12 @@ pub fn compile_mermaid_sequence(source: &str) -> Result<String, String> {
 /// Runs lex + parse only. Each `lifecycle T :: S1 -> S2 -> S3` becomes
 /// adjacent `S1 --> S2 --> S3` transitions in `stateDiagram-v2` syntax.
 pub fn compile_mermaid_state(source: &str) -> Result<String, String> {
-    let tokens = lexer::Lexer::tokenize(source)
-        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let tokens = lexer::Lexer::tokenize(source).map_err(|es| {
+        es.iter()
+            .map(|e| format!("{}", e))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })?;
     let module = parser::Parser::new(&tokens)
         .parse_module()
         .map_err(|e| format!("{}", e))?;
@@ -333,8 +344,12 @@ pub fn compile_mermaid_state(source: &str) -> Result<String, String> {
 /// Runs lex + parse only. Top-level `fn` items → `flowchart TD` nodes
 /// with sequential edges from Start through each function to End.
 pub fn compile_mermaid_flow(source: &str) -> Result<String, String> {
-    let tokens = lexer::Lexer::tokenize(source)
-        .map_err(|es| es.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("; "))?;
+    let tokens = lexer::Lexer::tokenize(source).map_err(|es| {
+        es.iter()
+            .map(|e| format!("{}", e))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })?;
     let module = parser::Parser::new(&tokens)
         .parse_module()
         .map_err(|e| format!("{}", e))?;

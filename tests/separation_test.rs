@@ -48,12 +48,20 @@ end
 end
 "#;
     let m = parse_module(src);
-    let fns: Vec<_> = m.items.iter().filter_map(|i| {
-        if let Item::Fn(f) = i { Some(f) } else { None }
-    }).collect();
-    let sep = fns[0].separation.as_ref().expect("separation block missing");
+    let fns: Vec<_> = m
+        .items
+        .iter()
+        .filter_map(|i| if let Item::Fn(f) = i { Some(f) } else { None })
+        .collect();
+    let sep = fns[0]
+        .separation
+        .as_ref()
+        .expect("separation block missing");
     assert_eq!(sep.owns, vec!["source", "target"]);
-    assert_eq!(sep.disjoint, vec![("source".to_string(), "target".to_string())]);
+    assert_eq!(
+        sep.disjoint,
+        vec![("source".to_string(), "target".to_string())]
+    );
     assert_eq!(sep.proof, Some("frame_rule_verified".to_string()));
 }
 
@@ -68,9 +76,11 @@ end
 end
 "#;
     let m = parse_module(src);
-    let fns: Vec<_> = m.items.iter().filter_map(|i| {
-        if let Item::Fn(f) = i { Some(f) } else { None }
-    }).collect();
+    let fns: Vec<_> = m
+        .items
+        .iter()
+        .filter_map(|i| if let Item::Fn(f) = i { Some(f) } else { None })
+        .collect();
     assert!(fns[0].separation.is_none());
 }
 
@@ -89,9 +99,11 @@ end
 end
 "#;
     let m = parse_module(src);
-    let fns: Vec<_> = m.items.iter().filter_map(|i| {
-        if let Item::Fn(f) = i { Some(f) } else { None }
-    }).collect();
+    let fns: Vec<_> = m
+        .items
+        .iter()
+        .filter_map(|i| if let Item::Fn(f) = i { Some(f) } else { None })
+        .collect();
     let sep = fns[0].separation.as_ref().unwrap();
     assert_eq!(sep.owns, vec!["order"]);
     assert_eq!(sep.frame, vec!["audit_log"]);
@@ -136,7 +148,8 @@ end
     let msg = errors[0].to_string();
     assert!(
         msg.contains("disjoint") && msg.contains("b"),
-        "Expected disjoint error mentioning 'b', got: {}", msg
+        "Expected disjoint error mentioning 'b', got: {}",
+        msg
     );
 }
 
@@ -160,7 +173,8 @@ end
     let msg = errors[0].to_string();
     assert!(
         msg.contains("frame") && msg.contains("undeclared_resource"),
-        "Expected frame error mentioning 'undeclared_resource', got: {}", msg
+        "Expected frame error mentioning 'undeclared_resource', got: {}",
+        msg
     );
 }
 
@@ -182,15 +196,20 @@ end
     // Prusti import scaffold
     assert!(
         rust.contains("#[cfg(prusti)]") && rust.contains("prusti_contracts"),
-        "Expected prusti_contracts import, got:\n{}", rust
+        "Expected prusti_contracts import, got:\n{}",
+        rust
     );
     // Audit comment always present
     assert!(
         rust.contains("LOOM[contract:Separation]") && rust.contains("Reynolds 2002"),
-        "Expected separation audit comment, got:\n{}", rust
+        "Expected separation audit comment, got:\n{}",
+        rust
     );
     // Proof note is preserved
-    assert!(rust.contains("frame_rule_verified"), "Expected proof note in output");
+    assert!(
+        rust.contains("frame_rule_verified"),
+        "Expected proof note in output"
+    );
 }
 
 // ── 7b. Disjoint pairs emit requires attributes ───────────────────────────────
@@ -210,8 +229,11 @@ end
 "#;
     let rust = loom::compile(src).expect("compile failed");
     assert!(
-        rust.contains("#[cfg_attr(prusti, requires(!std::ptr::eq(source as *const _, target as *const _)))]"),
-        "Expected disjoint Prusti requires for source/target, got:\n{}", rust
+        rust.contains(
+            "#[cfg_attr(prusti, requires(!std::ptr::eq(source as *const _, target as *const _)))]"
+        ),
+        "Expected disjoint Prusti requires for source/target, got:\n{}",
+        rust
     );
 }
 
@@ -234,7 +256,8 @@ end
     // Frame field should produce a Prusti ensures attribute
     assert!(
         rust.contains("#[cfg_attr(prusti, ensures(old(audit_log)"),
-        "Expected frame Prusti ensures for audit_log, got:\n{}", rust
+        "Expected frame Prusti ensures for audit_log, got:\n{}",
+        rust
     );
 }
 

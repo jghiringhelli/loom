@@ -27,7 +27,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("probabilistic") || msg.contains("distribution"), "expected probabilistic error in: {}", msg);
+    assert!(
+        msg.contains("probabilistic") || msg.contains("distribution"),
+        "expected probabilistic error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -44,7 +48,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("convergence") || msg.contains("numeric"), "expected convergence error in: {}", msg);
+    assert!(
+        msg.contains("convergence") || msg.contains("numeric"),
+        "expected convergence error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -75,7 +83,10 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("distribution") || rust_src.contains("normal"), "Expected distribution comment in rust output");
+    assert!(
+        rust_src.contains("distribution") || rust_src.contains("normal"),
+        "Expected distribution comment in rust output"
+    );
 }
 
 #[test]

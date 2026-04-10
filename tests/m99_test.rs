@@ -1,9 +1,9 @@
 // M99: Algebraic Effect Handlers — Plotkin & Pretnar (2009).
 // Tests for effect definition parsing and handler exhaustiveness checking.
 
+use loom::ast::*;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::ast::*;
 
 fn parse(src: &str) -> Result<Module, loom::error::LoomError> {
     let tokens = Lexer::tokenize(src).map_err(|es| es.into_iter().next().unwrap())?;
@@ -21,10 +21,18 @@ module Logging
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "effect with single operation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "effect with single operation should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let effect = module.items.iter().find_map(|i| {
-        if let Item::Effect(e) = i { Some(e) } else { None }
+        if let Item::Effect(e) = i {
+            Some(e)
+        } else {
+            None
+        }
     });
     assert!(effect.is_some(), "should have an Effect item");
     let e = effect.unwrap();
@@ -45,10 +53,18 @@ module StateEffect
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "effect with multiple operations should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "effect with multiple operations should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let effect = module.items.iter().find_map(|i| {
-        if let Item::Effect(e) = i { Some(e) } else { None }
+        if let Item::Effect(e) = i {
+            Some(e)
+        } else {
+            None
+        }
     });
     assert!(effect.is_some());
     let e = effect.unwrap();
@@ -69,10 +85,18 @@ module Polymorphic
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "effect with type parameter should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "effect with type parameter should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     let effect = module.items.iter().find_map(|i| {
-        if let Item::Effect(e) = i { Some(e) } else { None }
+        if let Item::Effect(e) = i {
+            Some(e)
+        } else {
+            None
+        }
     });
     assert!(effect.is_some());
     let e = effect.unwrap();
@@ -99,14 +123,22 @@ module Runner
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "handle block in function should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "handle block in function should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let fn_def = module.items.iter().find_map(|i| {
-        if let Item::Fn(f) = i { Some(f) } else { None }
-    });
+    let fn_def = module
+        .items
+        .iter()
+        .find_map(|i| if let Item::Fn(f) = i { Some(f) } else { None });
     assert!(fn_def.is_some());
     let f = fn_def.unwrap();
-    assert!(f.handle_block.is_some(), "function should have a handle_block");
+    assert!(
+        f.handle_block.is_some(),
+        "function should have a handle_block"
+    );
     let hb = f.handle_block.as_ref().unwrap();
     assert_eq!(hb.computation, "computation");
 }
@@ -140,12 +172,16 @@ end
         result.err()
     );
     let module = result.unwrap();
-    let fn_def = module.items.iter().find_map(|i| {
-        if let Item::Fn(f) = i { Some(f) } else { None }
-    });
+    let fn_def = module
+        .items
+        .iter()
+        .find_map(|i| if let Item::Fn(f) = i { Some(f) } else { None });
     assert!(fn_def.is_some());
     let f = fn_def.unwrap();
-    let hb = f.handle_block.as_ref().expect("handle_block should be present");
+    let hb = f
+        .handle_block
+        .as_ref()
+        .expect("handle_block should be present");
     assert_eq!(hb.handlers.len(), 2);
 }
 

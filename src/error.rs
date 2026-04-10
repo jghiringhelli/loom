@@ -84,21 +84,33 @@ impl LoomError {
 
     /// Convenience constructor for a `LexError`.
     pub fn lex(msg: impl Into<String>, span: Span) -> Self {
-        LoomError::LexError { msg: msg.into(), span }
+        LoomError::LexError {
+            msg: msg.into(),
+            span,
+        }
     }
 
     /// Convenience constructor for a `ParseError`.
     pub fn parse(msg: impl Into<String>, span: Span) -> Self {
-        LoomError::ParseError { msg: msg.into(), span }
+        LoomError::ParseError {
+            msg: msg.into(),
+            span,
+        }
     }
 
     /// Convenience constructor for a `TypeError`.
     pub fn type_err(msg: impl Into<String>, span: Span) -> Self {
-        LoomError::TypeError { msg: msg.into(), span }
+        LoomError::TypeError {
+            msg: msg.into(),
+            span,
+        }
     }
 
     /// Convenience constructor for an `EffectError`.
     pub fn effect(msg: impl Into<String>, span: Span) -> Self {
-        LoomError::EffectError { msg: msg.into(), span }
+        LoomError::EffectError {
+            msg: msg.into(),
+            span,
+        }
     }
 }

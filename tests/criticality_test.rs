@@ -92,13 +92,14 @@ fn checker_rejects_inverted_bounds() {
         }),
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -124,8 +125,15 @@ fn checker_rejects_inverted_bounds() {
     };
     let result = CriticalityChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msgs.contains("upper") && msgs.contains("lower"), "expected bound error in: {msgs}");
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
+    assert!(
+        msgs.contains("upper") && msgs.contains("lower"),
+        "expected bound error in: {msgs}"
+    );
 }
 
 // 5. checker passes valid criticality
@@ -158,13 +166,14 @@ fn checker_passes_valid_criticality() {
         }),
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -205,5 +214,8 @@ being Network
 end
 end"#;
     let out = loom::compile(src).expect("compile");
-    assert!(out.contains("criticality"), "expected criticality in:\n{out}");
+    assert!(
+        out.contains("criticality"),
+        "expected criticality in:\n{out}"
+    );
 }

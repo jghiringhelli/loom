@@ -1,0 +1,63 @@
+-- examples/03-typestate-lifecycle.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Typestate protocols: valid state transitions are checked at
+-- compile time. Calling close() on a Draft, or publish() on a
+-- Published document, is a compile error — not a runtime crash.
+--
+-- Run:  loom compile examples/03-typestate-lifecycle.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module DocumentLifecycle
+describe: "A document publishing workflow with compile-time state safety"
+
+type Document =
+  id:      Int
+  title:   String
+  content: String @gdpr
+  author:  String @pii
+end
+
+-- Typestate protocol: defines the only valid transition sequences.
+-- The emitted Rust uses phantom types to enforce this statically.
+lifecycle Document ::
+  Draft -> Review -> Approved -> Published -> Archived
+
+-- Session-typed channels show the communication protocol between actors.
+-- (Signals require declared being blocks; see examples/05-autonomous-agent.loom)
+
+fn create_draft :: String -> String -> Effect<[DB], Document>
+  require: title != ""
+  require: author != ""
+  ensure:  result.id > 0
+  Document
+end
+
+fn submit_for_review :: Document -> Effect<[DB], Document>
+  require: document.content != ""
+  Document
+end
+
+fn approve :: String -> Document -> Effect<[DB], Document>
+  require: reviewer != ""
+  Document
+end
+
+fn publish @idempotent :: Document -> Effect<[DB, IO@irreversible], Document>
+  require: document.title != ""
+  Document
+end
+
+fn archive :: Document -> Effect<[DB], Unit>
+  Unit
+end
+
+-- Algebraic property: listing is always safe to retry
+fn list_published @idempotent :: Unit -> Effect<[DB], List<Document>>
+  List
+end
+
+invariant published_has_content :: published_document.content != ""
+
+test draft_requires_title ::
+  create_draft("", "alice") = InvalidInput
+end

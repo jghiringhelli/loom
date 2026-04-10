@@ -32,12 +32,19 @@ impl SenescenceChecker {
                 }
                 if sen.degradation.is_empty() {
                     errors.push(LoomError::parse(
-                        format!("being '{}': senescence block has empty degradation", being.name),
+                        format!(
+                            "being '{}': senescence block has empty degradation",
+                            being.name
+                        ),
                         sen.span.clone(),
                     ));
                 }
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }

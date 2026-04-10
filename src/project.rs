@@ -71,10 +71,7 @@ impl ProjectManifest {
 /// Each input path is compiled independently with `loom::compile`.  All errors
 /// are aggregated; on the first file that fails the whole build stops and
 /// returns `Err`.
-pub fn build_project(
-    module_paths: &[&str],
-    output_dir: &str,
-) -> Result<(), Vec<LoomError>> {
+pub fn build_project(module_paths: &[&str], output_dir: &str) -> Result<(), Vec<LoomError>> {
     let out_path = Path::new(output_dir);
     std::fs::create_dir_all(out_path).map_err(|e| {
         vec![LoomError::CodegenError {

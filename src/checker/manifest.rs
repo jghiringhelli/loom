@@ -42,16 +42,36 @@ impl ManifestChecker {
         let mut names = HashSet::new();
         for item in &module.items {
             match item {
-                Item::Fn(f)           => { names.insert(f.name.clone()); }
-                Item::Type(t)         => { names.insert(t.name.clone()); }
-                Item::Enum(e)         => { names.insert(e.name.clone()); }
-                Item::RefinedType(r)  => { names.insert(r.name.clone()); }
-                Item::Session(s)      => { names.insert(s.name.clone()); }
-                Item::Effect(e)       => { names.insert(e.name.clone()); }
-                Item::Store(s)        => { names.insert(s.name.clone()); }
-                Item::Proposition(p)  => { names.insert(p.name.clone()); }
-                Item::Functor(f)      => { names.insert(f.name.clone()); }
-                Item::Monad(m)        => { names.insert(m.name.clone()); }
+                Item::Fn(f) => {
+                    names.insert(f.name.clone());
+                }
+                Item::Type(t) => {
+                    names.insert(t.name.clone());
+                }
+                Item::Enum(e) => {
+                    names.insert(e.name.clone());
+                }
+                Item::RefinedType(r) => {
+                    names.insert(r.name.clone());
+                }
+                Item::Session(s) => {
+                    names.insert(s.name.clone());
+                }
+                Item::Effect(e) => {
+                    names.insert(e.name.clone());
+                }
+                Item::Store(s) => {
+                    names.insert(s.name.clone());
+                }
+                Item::Proposition(p) => {
+                    names.insert(p.name.clone());
+                }
+                Item::Functor(f) => {
+                    names.insert(f.name.clone());
+                }
+                Item::Monad(m) => {
+                    names.insert(m.name.clone());
+                }
                 _ => {}
             }
         }

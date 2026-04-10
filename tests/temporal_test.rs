@@ -110,7 +110,11 @@ end
     let has_temporal = errors.iter().any(|e| {
         matches!(e, loom::LoomError::TypeError { msg, .. } if msg.contains("temporal") || msg.contains("transition"))
     });
-    assert!(has_temporal, "expected temporal violation error, got: {:?}", errors);
+    assert!(
+        has_temporal,
+        "expected temporal violation error, got: {:?}",
+        errors
+    );
 }
 
 #[test]
@@ -135,7 +139,11 @@ end
         matches!(e, loom::LoomError::TypeError { msg, .. }
             if msg.contains("temporal") || msg.contains("precedes") || msg.contains("transition"))
     });
-    assert!(has_temporal, "expected precedes violation, got: {:?}", errors);
+    assert!(
+        has_temporal,
+        "expected precedes violation, got: {:?}",
+        errors
+    );
 }
 
 // ── 3. Multiple temporal properties in one block ────────────────────────────
@@ -176,6 +184,7 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("temporal") || out.contains("invariant") || out.contains("JobInvariants"),
-        "temporal properties should appear in emitted code as documentation:\n{}", out
+        "temporal properties should appear in emitted code as documentation:\n{}",
+        out
     );
 }

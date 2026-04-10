@@ -62,8 +62,8 @@ fn ecosystem_without_signals_fails() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "EmptyEco".to_string(),
@@ -72,6 +72,10 @@ fn ecosystem_without_signals_fails() {
             signals: vec![], // no signals!
             telos: None,
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -79,11 +83,15 @@ fn ecosystem_without_signals_fails() {
         span: Span::synthetic(),
     };
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for ecosystem without signals");
+    assert!(
+        result.is_err(),
+        "expected error for ecosystem without signals"
+    );
     let errs = result.unwrap_err();
     assert!(
         errs.iter().any(|e| e.to_string().contains("no signals")),
-        "expected 'no signals' error, got: {:?}", errs
+        "expected 'no signals' error, got: {:?}",
+        errs
     );
 }
 
@@ -104,8 +112,8 @@ fn ecosystem_signal_unknown_being_fails() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "BadEco".to_string(),
@@ -120,6 +128,10 @@ fn ecosystem_signal_unknown_being_fails() {
             }],
             telos: None,
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -127,11 +139,16 @@ fn ecosystem_signal_unknown_being_fails() {
         span: Span::synthetic(),
     };
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for unknown being in signal");
+    assert!(
+        result.is_err(),
+        "expected error for unknown being in signal"
+    );
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("GhostA") || e.to_string().contains("GhostB")),
-        "expected error mentioning unknown being, got: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("GhostA") || e.to_string().contains("GhostB")),
+        "expected error mentioning unknown being, got: {:?}",
+        errs
     );
 }
 
@@ -223,8 +240,8 @@ fn rust_emit_ecosystem_has_module() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -239,6 +256,10 @@ fn rust_emit_ecosystem_has_module() {
             }],
             telos: Some("sustainable nutrient cycling".to_string()),
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -246,7 +267,10 @@ fn rust_emit_ecosystem_has_module() {
         span: Span::synthetic(),
     };
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub mod forest_ecosystem"), "expected pub mod in:\n{out}");
+    assert!(
+        out.contains("pub mod forest_ecosystem"),
+        "expected pub mod in:\n{out}"
+    );
 }
 
 // ── 7. rust_emit_ecosystem_has_signal_structs ─────────────────────────────────
@@ -266,8 +290,8 @@ fn rust_emit_ecosystem_has_signal_structs() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -291,6 +315,10 @@ fn rust_emit_ecosystem_has_signal_structs() {
             ],
             telos: Some("nutrient cycling".to_string()),
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -298,8 +326,14 @@ fn rust_emit_ecosystem_has_signal_structs() {
         span: Span::synthetic(),
     };
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub struct NutrientFlow"), "expected NutrientFlow struct in:\n{out}");
-    assert!(out.contains("pub struct WasteSignal"), "expected WasteSignal struct in:\n{out}");
+    assert!(
+        out.contains("pub struct NutrientFlow"),
+        "expected NutrientFlow struct in:\n{out}"
+    );
+    assert!(
+        out.contains("pub struct WasteSignal"),
+        "expected WasteSignal struct in:\n{out}"
+    );
 }
 
 // ── 8. rust_emit_ecosystem_has_coordinate_fn ─────────────────────────────────
@@ -319,8 +353,8 @@ fn rust_emit_ecosystem_has_coordinate_fn() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -335,6 +369,10 @@ fn rust_emit_ecosystem_has_coordinate_fn() {
             }],
             telos: Some("sustainable cycling".to_string()),
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -342,7 +380,10 @@ fn rust_emit_ecosystem_has_coordinate_fn() {
         span: Span::synthetic(),
     };
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("fn coordinate"), "expected fn coordinate in:\n{out}");
+    assert!(
+        out.contains("fn coordinate"),
+        "expected fn coordinate in:\n{out}"
+    );
 }
 
 // ── 9. typescript_emit_ecosystem_has_namespace ────────────────────────────────
@@ -362,8 +403,8 @@ fn typescript_emit_ecosystem_has_namespace() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -378,6 +419,10 @@ fn typescript_emit_ecosystem_has_namespace() {
             }],
             telos: Some("sustainable cycling".to_string()),
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -385,7 +430,10 @@ fn typescript_emit_ecosystem_has_namespace() {
         span: Span::synthetic(),
     };
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("export namespace ForestEcosystem"), "expected export namespace in:\n{out}");
+    assert!(
+        out.contains("export namespace ForestEcosystem"),
+        "expected export namespace in:\n{out}"
+    );
 }
 
 // ── 10. openapi_emit_ecosystem_has_x_ecosystems ──────────────────────────────
@@ -405,8 +453,8 @@ fn openapi_emit_ecosystem_has_x_ecosystems() {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![EcosystemDef {
             name: "ForestEcosystem".to_string(),
@@ -421,6 +469,10 @@ fn openapi_emit_ecosystem_has_x_ecosystems() {
             }],
             telos: Some("sustainable cycling".to_string()),
             quorum_blocks: vec![],
+            collective_telos_metric: None,
+            tipping_points: Vec::new(),
+            coevolution: false,
+            coupling: None,
             span: Span::synthetic(),
         }],
         flow_labels: vec![],
@@ -428,6 +480,12 @@ fn openapi_emit_ecosystem_has_x_ecosystems() {
         span: Span::synthetic(),
     };
     let out = OpenApiEmitter::new().emit(&module);
-    assert!(out.contains("x-ecosystems"), "expected x-ecosystems in:\n{out}");
-    assert!(out.contains("ForestEcosystem"), "expected ForestEcosystem in:\n{out}");
+    assert!(
+        out.contains("x-ecosystems"),
+        "expected x-ecosystems in:\n{out}"
+    );
+    assert!(
+        out.contains("ForestEcosystem"),
+        "expected ForestEcosystem in:\n{out}"
+    );
 }

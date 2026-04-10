@@ -126,5 +126,3 @@ pub enum BinOpKind {
     And,
     Or,
 }
-
-

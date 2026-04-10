@@ -51,7 +51,11 @@ module Audit
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "all advice types should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "all advice types should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -90,7 +94,11 @@ module Service
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "compound AND pointcut should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "compound AND pointcut should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -109,7 +117,11 @@ module IO
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "effect-based pointcut should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "effect-based pointcut should parse: {:?}",
+        result
+    );
 }
 
 // ── Checker validation tests ──────────────────────────────────────────────────
@@ -140,14 +152,13 @@ module Payments
 end
 "#;
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "duplicate aspect order should be rejected"
-    );
+    assert!(result.is_err(), "duplicate aspect order should be rejected");
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("duplicate aspect order")),
-        "error should mention duplicate order: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("duplicate aspect order")),
+        "error should mention duplicate order: {:?}",
+        errs
     );
 }
 
@@ -169,8 +180,10 @@ end
     );
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("nonexistent_fn")),
-        "error should name the missing function: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("nonexistent_fn")),
+        "error should name the missing function: {:?}",
+        errs
     );
 }
 
@@ -194,6 +207,7 @@ end
     let code = result.unwrap();
     assert!(
         code.contains("// aspect: SecurityAspect"),
-        "codegen should emit aspect doc comment:\n{}", code
+        "codegen should emit aspect doc comment:\n{}",
+        code
     );
 }

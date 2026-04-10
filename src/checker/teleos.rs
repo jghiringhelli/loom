@@ -8,9 +8,9 @@
 //! - Every `evolve` constraint must assert convergence.
 //! - `gradient_descent` and `derivative_free` are mutually exclusive without `when` conditions.
 
+use crate::ast::Span;
 use crate::ast::{BeingDef, EcosystemDef, EvolveBlock, Module, SearchStrategy, TelosDef};
 use crate::error::LoomError;
-use crate::ast::Span;
 
 /// Run all teleological checks on a module.
 pub fn check(module: &Module) -> Result<(), Vec<LoomError>> {
@@ -55,6 +55,10 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         ));
     }
     for reg in &being.regulate_blocks {
+        // Trigger/action style blocks (new syntax) don't use bounds: — skip the check
+        if reg.trigger.is_some() {
+            continue;
+        }
         if reg.bounds.is_none() {
             errors.push(LoomError::type_err(
                 format!(
@@ -78,17 +82,45 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         check_autopoiesis(being, errors);
     }
 
+    // Feature 1: propagate block requires telos + matter
+    if let Some(_prop) = &being.propagate_block {
+        if being.telos.is_none() {
+            errors.push(LoomError::type_err(
+                format!(
+                    "being '{}' has a propagate: block but no telos: — propagation requires telos to score convergence",
+                    being.name
+                ),
+                being.span.clone(),
+            ));
+        }
+        if being.matter.is_none() {
+            errors.push(LoomError::type_err(
+                format!(
+                    "being '{}' has a propagate: block but no matter: — propagation must copy matter",
+                    being.name
+                ),
+                being.span.clone(),
+            ));
+        }
+    }
+
     // Check epigenetic blocks
     for epi in &being.epigenetic_blocks {
         if epi.signal.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("epigenetic block in being '{}' has empty signal:", being.name),
+                format!(
+                    "epigenetic block in being '{}' has empty signal:",
+                    being.name
+                ),
                 epi.span.clone(),
             ));
         }
         if epi.modifies.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("epigenetic block in being '{}' has empty modifies:", being.name),
+                format!(
+                    "epigenetic block in being '{}' has empty modifies:",
+                    being.name
+                ),
                 epi.span.clone(),
             ));
         }
@@ -98,13 +130,19 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
     for morph in &being.morphogen_blocks {
         if morph.signal.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("morphogen block in being '{}' has empty signal:", being.name),
+                format!(
+                    "morphogen block in being '{}' has empty signal:",
+                    being.name
+                ),
                 morph.span.clone(),
             ));
         }
         if morph.produces.is_empty() {
             errors.push(LoomError::type_err(
-                format!("morphogen with no produces: is inert in being '{}'", being.name),
+                format!(
+                    "morphogen with no produces: is inert in being '{}'",
+                    being.name
+                ),
                 morph.span.clone(),
             ));
         }
@@ -143,13 +181,18 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
         }
         if tel.on_exhaustion.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("telomere on_exhaustion must be non-empty in being '{}'", being.name),
+                format!(
+                    "telomere on_exhaustion must be non-empty in being '{}'",
+                    being.name
+                ),
                 tel.span.clone(),
             ));
         }
         const KNOWN_EXHAUSTION: &[&str] = &["senescence", "apoptosis", "quiescence"];
         if !KNOWN_EXHAUSTION.contains(&tel.on_exhaustion.as_str()) {
-            let fn_names: Vec<&str> = being.function.as_ref()
+            let fn_names: Vec<&str> = being
+                .function
+                .as_ref()
                 .map(|fb| fb.fns.iter().map(|f| f.name.as_str()).collect())
                 .unwrap_or_default();
             if !fn_names.contains(&tel.on_exhaustion.as_str()) {
@@ -190,13 +233,19 @@ fn check_being(being: &BeingDef, errors: &mut Vec<LoomError>) {
     for plasticity in &being.plasticity_blocks {
         if plasticity.trigger.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("plasticity block in being '{}' has empty trigger:", being.name),
+                format!(
+                    "plasticity block in being '{}' has empty trigger:",
+                    being.name
+                ),
                 plasticity.span.clone(),
             ));
         }
         if plasticity.modifies.trim().is_empty() {
             errors.push(LoomError::type_err(
-                format!("plasticity block in being '{}' has empty modifies:", being.name),
+                format!(
+                    "plasticity block in being '{}' has empty modifies:",
+                    being.name
+                ),
                 plasticity.span.clone(),
             ));
         }
@@ -338,7 +387,10 @@ pub fn validate_evolve(evolve: &EvolveBlock, being_name: &str) -> Vec<LoomError>
     // Rule 2: constraint must assert convergence
     if !evolve.constraint.trim().is_empty() {
         let lower = evolve.constraint.to_lowercase();
-        if !lower.contains("decreasing") && !lower.contains("non-increasing") && !lower.contains("converg") {
+        if !lower.contains("decreasing")
+            && !lower.contains("non-increasing")
+            && !lower.contains("converg")
+        {
             errors.push(LoomError::type_err(
                 format!(
                     "evolve constraint in being '{}' must assert convergence \
@@ -351,9 +403,13 @@ pub fn validate_evolve(evolve: &EvolveBlock, being_name: &str) -> Vec<LoomError>
     }
 
     // Rule 3: gradient_descent and derivative_free are mutually exclusive without when conditions
-    let gd_no_when = evolve.search_cases.iter()
+    let gd_no_when = evolve
+        .search_cases
+        .iter()
         .any(|sc| sc.strategy == SearchStrategy::GradientDescent && sc.when.trim().is_empty());
-    let df_no_when = evolve.search_cases.iter()
+    let df_no_when = evolve
+        .search_cases
+        .iter()
         .any(|sc| sc.strategy == SearchStrategy::DerivativeFree && sc.when.trim().is_empty());
     if gd_no_when && df_no_when {
         errors.push(LoomError::type_err(
@@ -385,8 +441,9 @@ fn check_ecosystem(
     known_beings: &std::collections::HashSet<&str>,
     errors: &mut Vec<LoomError>,
 ) {
-    // Rule 1: no signals → error
-    if eco.signals.is_empty() {
+    // Rule 1: no signals → error (relaxed for coevolution ecosystems which use
+    // fitness-based selection rather than explicit signal channels)
+    if eco.signals.is_empty() && !eco.coevolution {
         errors.push(LoomError::type_err(
             format!(
                 "ecosystem '{}' has no signals — beings cannot interact without communication channels",

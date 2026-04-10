@@ -26,7 +26,10 @@ fn read_temperature :: Unit -> Float
 end
 end"#;
     let result = loom::compile(src);
-    assert!(result.is_ok() || result.is_err(), "should not panic on provenance annotation");
+    assert!(
+        result.is_ok() || result.is_err(),
+        "should not panic on provenance annotation"
+    );
 }
 
 /// Test 3: @pii + @provenance on same field → compile error

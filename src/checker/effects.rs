@@ -62,10 +62,7 @@ impl EffectChecker {
 
         for item in &module.items {
             if let Item::Fn(fd) = item {
-                let fn_declared = declared
-                    .get(&fd.name)
-                    .cloned()
-                    .unwrap_or_default();
+                let fn_declared = declared.get(&fd.name).cloned().unwrap_or_default();
 
                 let fn_tier = tiers.get(&fd.name).unwrap_or(&ConsequenceTier::Pure);
                 let is_annotated_pure = fd.annotations.iter().any(|a| a.key == "pure");
@@ -107,10 +104,7 @@ impl EffectChecker {
                             "pure function `{}` calls effectful function(s); \
                              transitive effects: {:?}",
                             fd.name,
-                            transitive_effects
-                                .iter()
-                                .cloned()
-                                .collect::<Vec<_>>()
+                            transitive_effects.iter().cloned().collect::<Vec<_>>()
                         ),
                         fd.span.clone(),
                     ));
@@ -186,16 +180,16 @@ fn effective_tier(fd: &FnDef) -> ConsequenceTier {
 
 fn tier_severity(tier: &ConsequenceTier) -> u8 {
     match tier {
-        ConsequenceTier::Pure         => 0,
-        ConsequenceTier::Reversible   => 1,
+        ConsequenceTier::Pure => 0,
+        ConsequenceTier::Reversible => 1,
         ConsequenceTier::Irreversible => 2,
     }
 }
 
 fn tier_name(tier: &ConsequenceTier) -> &'static str {
     match tier {
-        ConsequenceTier::Pure         => "pure",
-        ConsequenceTier::Reversible   => "reversible",
+        ConsequenceTier::Pure => "pure",
+        ConsequenceTier::Reversible => "reversible",
         ConsequenceTier::Irreversible => "irreversible",
     }
 }

@@ -19,8 +19,8 @@ fn make_module(being: BeingDef) -> loom::ast::Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],
@@ -61,13 +61,14 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -81,10 +82,16 @@ fn evolve_empty_search_fails() {
         span: Span::synthetic(),
     }));
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for evolve with no search cases");
+    assert!(
+        result.is_err(),
+        "expected error for evolve with no search cases"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("no search: cases"), "expected 'no search: cases' in: {msg}");
+    assert!(
+        msg.contains("no search: cases"),
+        "expected 'no search: cases' in: {msg}"
+    );
 }
 
 // 2. constraint with no convergence keyword → checker error
@@ -99,10 +106,16 @@ fn evolve_constraint_no_convergence_word_fails() {
         span: Span::synthetic(),
     }));
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for non-convergence constraint");
+    assert!(
+        result.is_err(),
+        "expected error for non-convergence constraint"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("convergence"), "expected 'convergence' in: {msg}");
+    assert!(
+        msg.contains("convergence"),
+        "expected 'convergence' in: {msg}"
+    );
 }
 
 // 3. gradient_descent and derivative_free both without when → checker error
@@ -110,17 +123,29 @@ fn evolve_constraint_no_convergence_word_fails() {
 fn evolve_gradient_and_derivative_free_no_when_fails() {
     let module = make_module(make_being_with_evolve(EvolveBlock {
         search_cases: vec![
-            SearchCase { strategy: SearchStrategy::GradientDescent, when: "".to_string() },
-            SearchCase { strategy: SearchStrategy::DerivativeFree,  when: "".to_string() },
+            SearchCase {
+                strategy: SearchStrategy::GradientDescent,
+                when: "".to_string(),
+            },
+            SearchCase {
+                strategy: SearchStrategy::DerivativeFree,
+                when: "".to_string(),
+            },
         ],
         constraint: "E[distance_to_telos] decreasing".to_string(),
         span: Span::synthetic(),
     }));
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for gradient_descent + derivative_free without when");
+    assert!(
+        result.is_err(),
+        "expected error for gradient_descent + derivative_free without when"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("mutually exclusive"), "expected 'mutually exclusive' in: {msg}");
+    assert!(
+        msg.contains("mutually exclusive"),
+        "expected 'mutually exclusive' in: {msg}"
+    );
 }
 
 // 4. valid evolve with gradient_descent → no errors
@@ -135,7 +160,11 @@ fn evolve_with_gradient_descent_passes() {
         span: Span::synthetic(),
     }));
     let result = check_teleos(&module);
-    assert!(result.is_ok(), "expected no errors, got: {:?}", result.unwrap_err());
+    assert!(
+        result.is_ok(),
+        "expected no errors, got: {:?}",
+        result.unwrap_err()
+    );
 }
 
 // 5. all 5 strategies with when conditions → no errors
@@ -143,17 +172,36 @@ fn evolve_with_gradient_descent_passes() {
 fn evolve_with_all_strategies_passes() {
     let module = make_module(make_being_with_evolve(EvolveBlock {
         search_cases: vec![
-            SearchCase { strategy: SearchStrategy::GradientDescent,    when: "gradient_available".to_string() },
-            SearchCase { strategy: SearchStrategy::StochasticGradient, when: "noisy_landscape".to_string() },
-            SearchCase { strategy: SearchStrategy::SimulatedAnnealing, when: "local_minima_risk".to_string() },
-            SearchCase { strategy: SearchStrategy::DerivativeFree,     when: "state_space_unknown".to_string() },
-            SearchCase { strategy: SearchStrategy::Mcmc,               when: "posterior_sampling".to_string() },
+            SearchCase {
+                strategy: SearchStrategy::GradientDescent,
+                when: "gradient_available".to_string(),
+            },
+            SearchCase {
+                strategy: SearchStrategy::StochasticGradient,
+                when: "noisy_landscape".to_string(),
+            },
+            SearchCase {
+                strategy: SearchStrategy::SimulatedAnnealing,
+                when: "local_minima_risk".to_string(),
+            },
+            SearchCase {
+                strategy: SearchStrategy::DerivativeFree,
+                when: "state_space_unknown".to_string(),
+            },
+            SearchCase {
+                strategy: SearchStrategy::Mcmc,
+                when: "posterior_sampling".to_string(),
+            },
         ],
         constraint: "E[distance_to_telos] non-increasing".to_string(),
         span: Span::synthetic(),
     }));
     let result = check_teleos(&module);
-    assert!(result.is_ok(), "expected no errors, got: {:?}", result.unwrap_err());
+    assert!(
+        result.is_ok(),
+        "expected no errors, got: {:?}",
+        result.unwrap_err()
+    );
 }
 
 // 6. Rust output contains evolve_gradient_descent method
@@ -168,7 +216,10 @@ fn rust_emit_evolve_has_gradient_method() {
         span: Span::synthetic(),
     }));
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("evolve_gradient_descent"), "expected evolve_gradient_descent in:\n{out}");
+    assert!(
+        out.contains("evolve_gradient_descent"),
+        "expected evolve_gradient_descent in:\n{out}"
+    );
 }
 
 // 7. Rust output contains evolve_step dispatcher
@@ -183,8 +234,14 @@ fn rust_emit_evolve_has_dispatcher() {
         span: Span::synthetic(),
     }));
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn evolve_step"), "expected pub fn evolve_step in:\n{out}");
-    assert!(out.contains("self.evolve_simulated_annealing()"), "expected dispatcher call in:\n{out}");
+    assert!(
+        out.contains("pub fn evolve_step"),
+        "expected pub fn evolve_step in:\n{out}"
+    );
+    assert!(
+        out.contains("self.evolve_simulated_annealing()"),
+        "expected dispatcher call in:\n{out}"
+    );
 }
 
 // 8. Rust output contains constraint string in a comment
@@ -200,7 +257,10 @@ fn rust_emit_evolve_has_constraint_comment() {
         span: Span::synthetic(),
     }));
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains(constraint), "expected constraint string in:\n{out}");
+    assert!(
+        out.contains(constraint),
+        "expected constraint string in:\n{out}"
+    );
 }
 
 // 9. TypeScript output contains camelCase evolveGradientDescent method
@@ -215,7 +275,10 @@ fn typescript_emit_evolve_has_camel_methods() {
         span: Span::synthetic(),
     }));
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("evolveGradientDescent"), "expected evolveGradientDescent in:\n{out}");
+    assert!(
+        out.contains("evolveGradientDescent"),
+        "expected evolveGradientDescent in:\n{out}"
+    );
 }
 
 // 10. TypeScript dispatcher contains convergence loop
@@ -230,5 +293,9 @@ fn typescript_emit_evolve_dispatcher_has_loop() {
         span: Span::synthetic(),
     }));
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("while (distance"), "expected 'while (distance' in:\n{out}");
+    assert!(
+        out.contains("while (distance"),
+        "expected 'while (distance' in:\n{out}"
+    );
 }
+

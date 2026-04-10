@@ -4,9 +4,9 @@
 //! to valid TypeScript: types, functions, enums, interfaces, imports, async effects,
 //! contracts, annotations, and E2E compilation via tsc (if available).
 
+use loom::codegen::typescript::TypeScriptEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::typescript::TypeScriptEmitter;
 
 fn compile_ts(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -24,7 +24,10 @@ fn calc :: Int -> Int
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("export namespace Payments {"), "missing namespace:\n{out}");
+    assert!(
+        out.contains("export namespace Payments {"),
+        "missing namespace:\n{out}"
+    );
 }
 
 // ── Type mappings ─────────────────────────────────────────────────────────────
@@ -48,7 +51,10 @@ fn f :: Bool -> Bool
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("boolean"), "Bool should map to boolean:\n{out}");
+    assert!(
+        out.contains("boolean"),
+        "Bool should map to boolean:\n{out}"
+    );
 }
 
 #[test]
@@ -59,7 +65,10 @@ fn f :: String -> String
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains(": string"), "String should map to string:\n{out}");
+    assert!(
+        out.contains(": string"),
+        "String should map to string:\n{out}"
+    );
 }
 
 // ── Type definitions ───────────────────────────────────────────────────────────
@@ -73,7 +82,10 @@ type Point =
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("export interface Point {"), "expected interface:\n{out}");
+    assert!(
+        out.contains("export interface Point {"),
+        "expected interface:\n{out}"
+    );
     assert!(out.contains("x: number;"), "expected x field:\n{out}");
     assert!(out.contains("y: number;"), "expected y field:\n{out}");
 }
@@ -90,7 +102,10 @@ enum Color =
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("export type Color ="), "expected type union:\n{out}");
+    assert!(
+        out.contains("export type Color ="),
+        "expected type union:\n{out}"
+    );
     assert!(out.contains("\"Red\""), "expected Red variant:\n{out}");
     assert!(out.contains("\"Green\""), "expected Green variant:\n{out}");
 }
@@ -104,8 +119,14 @@ enum Shape =
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("tag: \"Circle\""), "expected tagged union:\n{out}");
-    assert!(out.contains("value: number"), "expected payload type:\n{out}");
+    assert!(
+        out.contains("tag: \"Circle\""),
+        "expected tagged union:\n{out}"
+    );
+    assert!(
+        out.contains("value: number"),
+        "expected payload type:\n{out}"
+    );
 }
 
 // ── Function definitions ───────────────────────────────────────────────────────
@@ -118,7 +139,10 @@ fn add :: Int -> Int -> Int
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("export function add("), "expected export function:\n{out}");
+    assert!(
+        out.contains("export function add("),
+        "expected export function:\n{out}"
+    );
     assert!(out.contains("): number {"), "expected return type:\n{out}");
     assert!(out.contains("return"), "expected return statement:\n{out}");
 }
@@ -131,8 +155,14 @@ fn fetch :: String -> Effect<[IO], String>
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("async function fetch("), "expected async:\n{out}");
-    assert!(out.contains("Promise<string>"), "expected Promise return:\n{out}");
+    assert!(
+        out.contains("async function fetch("),
+        "expected async:\n{out}"
+    );
+    assert!(
+        out.contains("Promise<string>"),
+        "expected Promise return:\n{out}"
+    );
 }
 
 // ── Contracts ─────────────────────────────────────────────────────────────────
@@ -161,8 +191,14 @@ fn abs :: Int -> Int
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("_loomResult"), "expected result capture:\n{out}");
-    assert!(out.contains("throw new Error"), "expected postcondition throw:\n{out}");
+    assert!(
+        out.contains("_loomResult"),
+        "expected result capture:\n{out}"
+    );
+    assert!(
+        out.contains("throw new Error"),
+        "expected postcondition throw:\n{out}"
+    );
 }
 
 // ── Annotations → JSDoc ───────────────────────────────────────────────────────
@@ -176,7 +212,10 @@ fn f :: Int -> Int
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("@deprecated"), "expected @deprecated in output:\n{out}");
+    assert!(
+        out.contains("@deprecated"),
+        "expected @deprecated in output:\n{out}"
+    );
 }
 
 #[test]
@@ -188,7 +227,10 @@ fn f :: Int -> Int
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("Utility module"), "expected describe text in JSDoc:\n{out}");
+    assert!(
+        out.contains("Utility module"),
+        "expected describe text in JSDoc:\n{out}"
+    );
 }
 
 // ── Import declarations ────────────────────────────────────────────────────────
@@ -221,8 +263,14 @@ fn greet :: String -> String
 end
 end"#;
     let out = compile_ts(src);
-    assert!(out.contains("export interface Greeter {"), "expected TS interface:\n{out}");
-    assert!(out.contains("greet("), "expected greet method signature:\n{out}");
+    assert!(
+        out.contains("export interface Greeter {"),
+        "expected TS interface:\n{out}"
+    );
+    assert!(
+        out.contains("greet("),
+        "expected greet method signature:\n{out}"
+    );
 }
 
 #[test]

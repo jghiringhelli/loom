@@ -4,7 +4,9 @@
 // output from parsed Loom AST. Diagrams cannot drift from code because
 // they ARE derived from the code (GS Diagram-emitting property).
 
-use loom::{compile_mermaid_c4, compile_mermaid_flow, compile_mermaid_sequence, compile_mermaid_state};
+use loom::{
+    compile_mermaid_c4, compile_mermaid_flow, compile_mermaid_sequence, compile_mermaid_state,
+};
 
 // ── 1. C4 emits a valid Mermaid block ────────────────────────────────────────
 
@@ -17,7 +19,11 @@ module Minimal
 end
 "#;
     let result = compile_mermaid_c4(src);
-    assert!(result.is_ok(), "compile_mermaid_c4 should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "compile_mermaid_c4 should succeed: {:?}",
+        result.err()
+    );
     let diagram = result.unwrap();
     assert!(
         diagram.contains("```mermaid"),
@@ -49,7 +55,11 @@ module Shop
 end
 "#;
     let result = compile_mermaid_sequence(src);
-    assert!(result.is_ok(), "compile_mermaid_sequence should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "compile_mermaid_sequence should succeed: {:?}",
+        result.err()
+    );
     let diagram = result.unwrap();
     assert!(
         diagram.contains("participant buyer"),
@@ -71,7 +81,11 @@ module Connection
 end
 "#;
     let result = compile_mermaid_state(src);
-    assert!(result.is_ok(), "compile_mermaid_state should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "compile_mermaid_state should succeed: {:?}",
+        result.err()
+    );
     let diagram = result.unwrap();
     assert!(
         diagram.contains("stateDiagram-v2"),
@@ -102,14 +116,24 @@ module Pipeline
 end
 "#;
     let result = compile_mermaid_flow(src);
-    assert!(result.is_ok(), "compile_mermaid_flow should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "compile_mermaid_flow should succeed: {:?}",
+        result.err()
+    );
     let diagram = result.unwrap();
     assert!(
         diagram.contains("flowchart TD"),
         "output must contain flowchart TD declaration"
     );
-    assert!(diagram.contains("validate"), "must include validate fn node");
-    assert!(diagram.contains("transform"), "must include transform fn node");
+    assert!(
+        diagram.contains("validate"),
+        "must include validate fn node"
+    );
+    assert!(
+        diagram.contains("transform"),
+        "must include transform fn node"
+    );
     assert!(diagram.contains("persist"), "must include persist fn node");
     assert!(diagram.contains("Start"), "must have Start node");
     assert!(diagram.contains("End"), "must have End node");
@@ -126,10 +150,22 @@ fn test_m108_empty_program_returns_empty_diagram() {
     let flow = compile_mermaid_flow(src).expect("flow empty module should succeed");
 
     // All should produce valid (but minimal) Mermaid blocks
-    assert!(c4.contains("```mermaid"), "empty c4 must be a valid mermaid block");
-    assert!(seq.contains("```mermaid"), "empty sequence must be a valid mermaid block");
-    assert!(state.contains("```mermaid"), "empty state must be a valid mermaid block");
-    assert!(flow.contains("```mermaid"), "empty flow must be a valid mermaid block");
+    assert!(
+        c4.contains("```mermaid"),
+        "empty c4 must be a valid mermaid block"
+    );
+    assert!(
+        seq.contains("```mermaid"),
+        "empty sequence must be a valid mermaid block"
+    );
+    assert!(
+        state.contains("```mermaid"),
+        "empty state must be a valid mermaid block"
+    );
+    assert!(
+        flow.contains("```mermaid"),
+        "empty flow must be a valid mermaid block"
+    );
 }
 
 // ── 6. C4 includes being names ───────────────────────────────────────────────
@@ -145,7 +181,11 @@ end
 end
 "#;
     let result = compile_mermaid_c4(src);
-    assert!(result.is_ok(), "compile_mermaid_c4 with being should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "compile_mermaid_c4 with being should succeed: {:?}",
+        result.err()
+    );
     let diagram = result.unwrap();
     assert!(
         diagram.contains("PaymentProcessor"),

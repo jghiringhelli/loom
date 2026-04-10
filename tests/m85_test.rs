@@ -18,7 +18,11 @@ module Simulation
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "@pseudo_random alone should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "@pseudo_random alone should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -30,7 +34,11 @@ module Security
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "@crypto_random alone should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "@crypto_random alone should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -42,7 +50,11 @@ module Entropy
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "@true_random alone should compile: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "@true_random alone should compile: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -54,7 +66,10 @@ module Auth
 end
 "#;
     let result = compile(src);
-    assert!(result.is_err(), "@pseudo_random + @requires_auth should be rejected");
+    assert!(
+        result.is_err(),
+        "@pseudo_random + @requires_auth should be rejected"
+    );
     let err_msg = format!("{:?}", result.err());
     assert!(
         err_msg.contains("pseudo_random") || err_msg.contains("security context"),
@@ -90,7 +105,11 @@ module Reproducible
 end
 "#;
     let result = parse(src);
-    assert!(result.is_ok(), "@seeded annotation should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "@seeded annotation should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
     if let loom::ast::Item::Fn(fd) = &module.items[0] {
         let seeded = fd.annotations.iter().find(|a| a.key == "seeded");

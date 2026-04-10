@@ -23,7 +23,11 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("x >= 0 && x < 1000"), "expected '&&', got:\n{}", out);
+    assert!(
+        out.contains("x >= 0 && x < 1000"),
+        "expected '&&', got:\n{}",
+        out
+    );
 }
 
 /// `or` keyword is translated to `||` in emitted Rust.
@@ -75,7 +79,11 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("!x < 0") || out.contains("! x < 0"), "expected '!', got:\n{}", out);
+    assert!(
+        out.contains("!x < 0") || out.contains("! x < 0"),
+        "expected '!', got:\n{}",
+        out
+    );
 }
 
 // ── Edge-case deterministic #[test] ──────────────────────────────────────
@@ -95,9 +103,15 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("#[test]"), "expected #[test]");
-    assert!(out.contains("fn property_positive_edge_cases"), "expected edge_cases fn");
+    assert!(
+        out.contains("fn property_positive_edge_cases"),
+        "expected edge_cases fn"
+    );
     assert!(out.contains("i64"), "expected i64 type");
-    assert!(out.contains("i64::MIN") || out.contains("i64::MAX"), "expected extremes");
+    assert!(
+        out.contains("i64::MIN") || out.contains("i64::MAX"),
+        "expected extremes"
+    );
 }
 
 /// Float property emits f64 edge cases.
@@ -115,7 +129,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("f64"), "expected f64 type");
-    assert!(out.contains("0.0") || out.contains("-1.0"), "expected float edge cases");
+    assert!(
+        out.contains("0.0") || out.contains("-1.0"),
+        "expected float edge cases"
+    );
 }
 
 /// Bool property emits `false, true` as edge cases.
@@ -133,7 +150,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("bool"), "expected bool type");
-    assert!(out.contains("false") && out.contains("true"), "expected both bool values");
+    assert!(
+        out.contains("false") && out.contains("true"),
+        "expected both bool values"
+    );
 }
 
 // ── Proptest random block ─────────────────────────────────────────────────
@@ -152,7 +172,10 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[cfg(loom_proptest)]"), "expected proptest cfg block");
+    assert!(
+        out.contains("#[cfg(loom_proptest)]"),
+        "expected proptest cfg block"
+    );
     assert!(out.contains("proptest!"), "expected proptest! macro");
     assert!(out.contains("prop_assert!"), "expected prop_assert!");
 }
@@ -171,7 +194,10 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("f64::NORMAL") || out.contains("proptest::num::f64"), "expected f64 strategy");
+    assert!(
+        out.contains("f64::NORMAL") || out.contains("proptest::num::f64"),
+        "expected f64 strategy"
+    );
 }
 
 /// The generated `property_*_random` test embeds the translated invariant.
@@ -188,6 +214,12 @@ module M
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("fn property_even_pair_random"), "expected random fn");
-    assert!(out.contains("n >= 0 && n < 10000"), "expected translated invariant");
+    assert!(
+        out.contains("fn property_even_pair_random"),
+        "expected random fn"
+    );
+    assert!(
+        out.contains("n >= 0 && n < 10000"),
+        "expected translated invariant"
+    );
 }

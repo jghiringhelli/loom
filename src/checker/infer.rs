@@ -49,24 +49,27 @@ impl Substitution {
                 None => ty.clone(),
             },
             TypeExpr::Base(_) => ty.clone(),
-            TypeExpr::Generic(name, params) => TypeExpr::Generic(
-                name.clone(),
-                params.iter().map(|p| self.apply(p)).collect(),
-            ),
+            TypeExpr::Generic(name, params) => {
+                TypeExpr::Generic(name.clone(), params.iter().map(|p| self.apply(p)).collect())
+            }
             TypeExpr::Effect(effs, inner) => {
                 TypeExpr::Effect(effs.clone(), Box::new(self.apply(inner)))
             }
             TypeExpr::Option(inner) => TypeExpr::Option(Box::new(self.apply(inner))),
-            TypeExpr::Result(ok, err) => TypeExpr::Result(
-                Box::new(self.apply(ok)),
-                Box::new(self.apply(err)),
-            ),
+            TypeExpr::Result(ok, err) => {
+                TypeExpr::Result(Box::new(self.apply(ok)), Box::new(self.apply(err)))
+            }
             TypeExpr::Tuple(elems) => {
                 TypeExpr::Tuple(elems.iter().map(|e| self.apply(e)).collect())
             }
             TypeExpr::Dynamic => ty.clone(),
             // Tensor — apply substitution to the unit type.
-            TypeExpr::Tensor { rank, shape, unit, span } => TypeExpr::Tensor {
+            TypeExpr::Tensor {
+                rank,
+                shape,
+                unit,
+                span,
+            } => TypeExpr::Tensor {
                 rank: *rank,
                 shape: shape.clone(),
                 unit: Box::new(self.apply(unit)),
@@ -86,7 +89,12 @@ impl Substitution {
 /// Unify `t1` and `t2` under the current `subst`, extending it if needed.
 ///
 /// Returns `Err(UnificationError)` when types cannot be made equal.
-pub fn unify(t1: &TypeExpr, t2: &TypeExpr, subst: &mut Substitution, span: Span) -> Result<(), LoomError> {
+pub fn unify(
+    t1: &TypeExpr,
+    t2: &TypeExpr,
+    subst: &mut Substitution,
+    span: Span,
+) -> Result<(), LoomError> {
     let t1 = subst.apply(t1);
     let t2 = subst.apply(t2);
 
@@ -139,7 +147,9 @@ pub fn unify(t1: &TypeExpr, t2: &TypeExpr, subst: &mut Substitution, span: Span)
         }
 
         // Generic types — name and arity must match, then unify element-wise.
-        (TypeExpr::Generic(n1, p1), TypeExpr::Generic(n2, p2)) if n1 == n2 && p1.len() == p2.len() => {
+        (TypeExpr::Generic(n1, p1), TypeExpr::Generic(n2, p2))
+            if n1 == n2 && p1.len() == p2.len() =>
+        {
             for (a, b) in p1.iter().zip(p2.iter()) {
                 unify(a, b, subst, span.clone())?;
             }
@@ -398,9 +408,12 @@ fn infer_expr(
 
         Expr::Ident(name) => Ok(env.get(name).cloned().unwrap_or_else(|| gen.fresh())),
 
-        Expr::BinOp { op, left, right, span } => {
-            infer_binop(op, left, right, span, env, subst, gen, fns)
-        }
+        Expr::BinOp {
+            op,
+            left,
+            right,
+            span,
+        } => infer_binop(op, left, right, span, env, subst, gen, fns),
 
         Expr::Let { name, value, .. } => {
             let ty = infer_expr(value, env, subst, gen, fns)?;
@@ -409,13 +422,13 @@ fn infer_expr(
             Ok(resolved)
         }
 
-        Expr::Call { func, args, span } => {
-            infer_call(func, args, span, env, subst, gen, fns)
-        }
+        Expr::Call { func, args, span } => infer_call(func, args, span, env, subst, gen, fns),
 
-        Expr::Match { subject, arms, span } => {
-            infer_match(subject, arms, span, env, subst, gen, fns)
-        }
+        Expr::Match {
+            subject,
+            arms,
+            span,
+        } => infer_match(subject, arms, span, env, subst, gen, fns),
 
         // Pipe and field access return fresh TypeVars — resolved in M1.5.
         Expr::Pipe { .. } | Expr::FieldAccess { .. } => Ok(gen.fresh()),
@@ -574,11 +587,7 @@ fn infer_match(
 }
 
 /// Add type bindings for pattern-bound variables to the environment.
-fn collect_pattern_type_bindings(
-    pat: &Pattern,
-    env: &mut TypeEnv,
-    gen: &mut TyVarGen,
-) {
+fn collect_pattern_type_bindings(pat: &Pattern, env: &mut TypeEnv, gen: &mut TyVarGen) {
     match pat {
         Pattern::Ident(name) => {
             env.insert(name.clone(), gen.fresh());
@@ -645,7 +654,8 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
     }
 }
 
-fn collect_free_vars_in_body(body: &[Expr], let_names: &[String]) -> Vec<String> {    use std::collections::HashSet;
+fn collect_free_vars_in_body(body: &[Expr], let_names: &[String]) -> Vec<String> {
+    use std::collections::HashSet;
     let let_set: HashSet<&str> = let_names.iter().map(String::as_str).collect();
     let mut seen: HashSet<String> = HashSet::new();
     let mut ordered: Vec<String> = Vec::new();
@@ -660,7 +670,8 @@ fn collect_free_vars(
     let_bound: &std::collections::HashSet<&str>,
     seen: &mut std::collections::HashSet<String>,
     ordered: &mut Vec<String>,
-) {    match expr {
+) {
+    match expr {
         Expr::Ident(name) => {
             // Skip built-in keyword-like identifiers that are not function parameters.
             const BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
@@ -698,9 +709,7 @@ fn collect_free_vars(
                 collect_free_vars(&arm.body, let_bound, seen, ordered);
             }
         }
-        Expr::FieldAccess { object, .. } => {
-            collect_free_vars(object, let_bound, seen, ordered)
-        }
+        Expr::FieldAccess { object, .. } => collect_free_vars(object, let_bound, seen, ordered),
         Expr::Literal(_) => {}
         Expr::InlineRust(_) => {} // opaque — no free variables
         Expr::As(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
@@ -712,14 +721,18 @@ fn collect_free_vars(
             }
             collect_free_vars(body, &extended, seen, ordered);
         }
-        Expr::ForIn { var, iter, body, .. } => {
+        Expr::ForIn {
+            var, iter, body, ..
+        } => {
             collect_free_vars(iter, let_bound, seen, ordered);
             let mut extended = let_bound.clone();
             extended.insert(var.as_str());
             collect_free_vars(body, &extended, seen, ordered);
         }
         Expr::Tuple(elems, _) => {
-            elems.iter().for_each(|e| collect_free_vars(e, let_bound, seen, ordered));
+            elems
+                .iter()
+                .for_each(|e| collect_free_vars(e, let_bound, seen, ordered));
         }
         Expr::Try(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
     }
@@ -790,7 +803,10 @@ mod tests {
         let recursive = TypeExpr::Generic("List".to_string(), vec![TypeExpr::TypeVar(0)]);
         let result = unify(&v0, &recursive, &mut s, span());
         assert!(result.is_err(), "occurs check should reject a → List<a>");
-        assert!(matches!(result.unwrap_err(), LoomError::UnificationError { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            LoomError::UnificationError { .. }
+        ));
     }
 
     #[test]

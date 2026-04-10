@@ -22,9 +22,16 @@ module Sensor
 end
 "#;
     let result = loom::parse(src);
-    assert!(result.is_ok(), "migration block should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "migration block should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let being = module.being_defs.iter().find(|b| b.name == "TemperatureSensor");
+    let being = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "TemperatureSensor");
     assert!(being.is_some(), "should find TemperatureSensor");
     let b = being.unwrap();
     assert_eq!(b.migrations.len(), 1);
@@ -59,10 +66,15 @@ end
         "non-breaking migration without adapter should be an error"
     );
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("[error]"),
-        "expected [error] in output, got: {}", combined
+        "expected [error] in output, got: {}",
+        combined
     );
 }
 
@@ -96,10 +108,15 @@ end
         "duplicate migration name should be an error"
     );
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("duplicate migration"),
-        "expected duplicate migration error, got: {}", combined
+        "expected duplicate migration error, got: {}",
+        combined
     );
 }
 
@@ -123,9 +140,17 @@ module Sensor
 end
 "#;
     let result = loom::parse(src);
-    assert!(result.is_ok(), "migration without breaking: should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "migration without breaking: should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let being = module.being_defs.iter().find(|b| b.name == "HumiditySensor").unwrap();
+    let being = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "HumiditySensor")
+        .unwrap();
     assert_eq!(being.migrations.len(), 1);
     assert!(
         being.migrations[0].breaking,
@@ -158,9 +183,17 @@ module Sensor
 end
 "#;
     let result = loom::parse(src);
-    assert!(result.is_ok(), "multiple migrations should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "multiple migrations should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let being = module.being_defs.iter().find(|b| b.name == "MultiVersionSensor").unwrap();
+    let being = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "MultiVersionSensor")
+        .unwrap();
     assert_eq!(being.migrations.len(), 2);
     assert_eq!(being.migrations[0].name, "v1_to_v2");
     assert_eq!(being.migrations[1].name, "v2_to_v3");
@@ -180,7 +213,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "being without migration: should compile cleanly: {:?}", result.err()
+        "being without migration: should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -214,7 +248,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "consistent two-step chain should compile cleanly: {:?}", result.err()
+        "consistent two-step chain should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -245,10 +280,15 @@ end
     let result = loom::compile(src);
     assert!(result.is_err(), "broken chain should produce an error");
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("chain broken") || combined.contains("[error]"),
-        "expected chain broken error, got: {}", combined
+        "expected chain broken error, got: {}",
+        combined
     );
 }
 
@@ -279,10 +319,15 @@ end
     let result = loom::compile(src);
     assert!(result.is_err(), "type cycle should produce an error");
     let errs = result.unwrap_err();
-    let combined = errs.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    let combined = errs
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("cycle") || combined.contains("[error]"),
-        "expected cycle error, got: {}", combined
+        "expected cycle error, got: {}",
+        combined
     );
 }
 
@@ -318,7 +363,8 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "three-step consistent chain should compile cleanly: {:?}", result.err()
+        "three-step consistent chain should compile cleanly: {:?}",
+        result.err()
     );
 }
 
@@ -342,9 +388,17 @@ module Sensor
 end
 "#;
     let result = loom::parse(src);
-    assert!(result.is_ok(), "migration with ident adapter should parse: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "migration with ident adapter should parse: {:?}",
+        result.err()
+    );
     let module = result.unwrap();
-    let being = module.being_defs.iter().find(|b| b.name == "AdapterSensor").unwrap();
+    let being = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "AdapterSensor")
+        .unwrap();
     let migration = &being.migrations[0];
     assert_eq!(
         migration.adapter.as_deref(),
@@ -380,6 +434,7 @@ end
     let result = loom::compile(src);
     assert!(
         result.is_ok(),
-        "version-number migrations should compile cleanly: {:?}", result.err()
+        "version-number migrations should compile cleanly: {:?}",
+        result.err()
     );
 }

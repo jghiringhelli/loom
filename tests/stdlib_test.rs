@@ -32,7 +32,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("Vec<String>"), "expected Vec<String> in:\n{}", out);
+    assert!(
+        out.contains("Vec<String>"),
+        "expected Vec<String> in:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -47,7 +51,8 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("HashMap<String, i64>"),
-        "expected HashMap<String, i64> in:\n{}", out
+        "expected HashMap<String, i64> in:\n{}",
+        out
     );
 }
 
@@ -61,7 +66,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("HashSet<bool>"), "expected HashSet<bool> in:\n{}", out);
+    assert!(
+        out.contains("HashSet<bool>"),
+        "expected HashSet<bool> in:\n{}",
+        out
+    );
 }
 
 // ── Import injection ──────────────────────────────────────────────────────────
@@ -78,7 +87,8 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("use std::collections::HashMap"),
-        "expected HashMap import in:\n{}", out
+        "expected HashMap import in:\n{}",
+        out
     );
 }
 
@@ -94,7 +104,8 @@ end
     let out = compile_ok(src);
     assert!(
         out.contains("use std::collections::HashSet"),
-        "expected HashSet import in:\n{}", out
+        "expected HashSet import in:\n{}",
+        out
     );
 }
 
@@ -108,8 +119,16 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(!out.contains("HashMap"), "unexpected HashMap in pure module:\n{}", out);
-    assert!(!out.contains("HashSet"), "unexpected HashSet in pure module:\n{}", out);
+    assert!(
+        !out.contains("HashMap"),
+        "unexpected HashMap in pure module:\n{}",
+        out
+    );
+    assert!(
+        !out.contains("HashSet"),
+        "unexpected HashSet in pure module:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -148,7 +167,12 @@ end
 
 #[test]
 fn all_existing_corpus_still_compiles() {
-    for path in &["corpus/pricing_engine.loom", "corpus/user_service.loom", "corpus/wasm_demo.loom", "corpus/di_demo.loom"] {
+    for path in &[
+        "corpus/pricing_engine.loom",
+        "corpus/user_service.loom",
+        "corpus/wasm_demo.loom",
+        "corpus/di_demo.loom",
+    ] {
         let src = std::fs::read_to_string(path).unwrap();
         loom::compile(&src).unwrap_or_else(|e| panic!("{} failed: {:?}", path, e));
     }

@@ -3,9 +3,9 @@
 //! Tests the pure utility functions (position conversion, diagnostic mapping)
 //! and verifies the server can be instantiated.
 
+use loom::ast::Span;
 use loom::lsp::{byte_offset_to_position_raw, loom_error_to_diagnostic};
 use loom::LoomError;
-use loom::ast::Span;
 
 // ── Position conversion ───────────────────────────────────────────────────────
 
@@ -101,8 +101,8 @@ fn diagnostic_source_is_loom() {
 
 #[tokio::test]
 async fn server_can_be_created() {
-    use tower_lsp::LspService;
     use loom::lsp::LoomLspServer;
+    use tower_lsp::LspService;
 
     let (service, socket) = LspService::build(|client| LoomLspServer::new(client)).finish();
     // Services are created lazily — just verify construction doesn't panic.

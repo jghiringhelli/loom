@@ -42,7 +42,11 @@ impl SimulationEmitter {
 
     fn emit_agent(&self, being: &BeingDef) -> String {
         let mut out = String::new();
-        let telos_desc = being.telos.as_ref().map(|t| t.description.as_str()).unwrap_or("");
+        let telos_desc = being
+            .telos
+            .as_ref()
+            .map(|t| t.description.as_str())
+            .unwrap_or("");
         let describe = being.describe.as_deref().unwrap_or(&being.name);
 
         out.push_str(&format!("class {}(Agent):\n", being.name));
@@ -59,7 +63,9 @@ impl SimulationEmitter {
                 out.push_str(&format!(
                     "        self.{} = None  # {}\n",
                     field.name,
-                    format!("{:?}", field.ty).replace("Base(", "").replace(")", "")
+                    format!("{:?}", field.ty)
+                        .replace("Base(", "")
+                        .replace(")", "")
                 ));
             }
         }
@@ -67,7 +73,9 @@ impl SimulationEmitter {
         out.push_str("        self._distance_to_telos = float('inf')\n\n");
 
         // step method
-        let evolve_constraint = being.evolve_block.as_ref()
+        let evolve_constraint = being
+            .evolve_block
+            .as_ref()
             .map(|e| e.constraint.as_str())
             .unwrap_or("");
         out.push_str("    def step(self):\n");
@@ -85,7 +93,9 @@ impl SimulationEmitter {
         out.push_str("    def _regulate(self):\n");
         out.push_str("        \"\"\"Homeostatic regulation.\n");
         for reg in &being.regulate_blocks {
-            let (low, high) = reg.bounds.as_ref()
+            let (low, high) = reg
+                .bounds
+                .as_ref()
                 .map(|(l, h)| (l.as_str(), h.as_str()))
                 .unwrap_or(("?", "?"));
             out.push_str(&format!(
@@ -140,7 +150,9 @@ impl SimulationEmitter {
 
         // step method
         out.push_str("    def step(self):\n");
-        out.push_str("        \"\"\"Run one timestep: all agents step, then check quorum signals.\"\"\"\n");
+        out.push_str(
+            "        \"\"\"Run one timestep: all agents step, then check quorum signals.\"\"\"\n",
+        );
         out.push_str("        self.schedule.step()\n");
         for sig in &ecosystem.signals {
             let snake = to_snake_case(&sig.name);

@@ -44,7 +44,9 @@ impl JournalChecker {
             ));
         }
 
-        let Some(journal) = &being.journal else { return };
+        let Some(journal) = &being.journal else {
+            return;
+        };
 
         // Rule 3: keep: last 0 is invalid
         if let Some(0) = journal.keep_last {

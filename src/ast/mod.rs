@@ -55,7 +55,6 @@ impl fmt::Display for Span {
     }
 }
 
-
 // ── Top-level structure ───────────────────────────────────────────────────────
 
 /// A compiled Loom module — the top-level compilation unit.
@@ -100,7 +99,6 @@ pub struct Module {
     pub span: Span,
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Fn(FnDef),
@@ -122,7 +120,11 @@ pub enum Item {
     /// Metabolic pathway — M71.
     Pathway(PathwayDef),
     /// Symbiotic import — M72.
-    SymbioticImport { module: String, kind: String, span: Span },
+    SymbioticImport {
+        module: String,
+        kind: String,
+        span: Span,
+    },
     /// Horizontal gene transfer adopt — M75.
     Adopt(AdoptDecl),
     /// Niche construction — M77.
@@ -146,5 +148,10 @@ pub enum Item {
     BoundaryBlock(BoundaryBlock),
     /// M116: Messaging primitive — typed inter-being communication contract.
     MessagingPrimitive(MessagingPrimitiveDef),
+    /// M117: Top-level telos function declaration.
+    TelosFunction(TelosFunctionDef),
+    /// M118: Universal graph/network entity primitive.
+    Entity(EntityDef),
+    /// M119: Intent coordinator — living intent with human governance.
+    IntentCoordinator(IntentCoordinatorDef),
 }
-

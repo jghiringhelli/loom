@@ -1,9 +1,24 @@
 [package]
 name = "loom"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Loom language compiler: transpiles Loom source to Rust"
+description = "Loom — an AI-native functional language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema with built-in correctness guarantees"
 license = "MIT"
+homepage = "https://pragma.works/loom"
+repository = "https://github.com/PragmaWorks/loom"
+documentation = "https://docs.rs/loom"
+readme = "README.md"
+keywords = ["compiler", "language", "ai-native", "correctness", "transpiler"]
+categories = ["compilers", "development-tools", "command-line-utilities"]
+exclude = [
+  "experiments/",
+  "corpus/",
+  "mutants.out/",
+  "mutants.out.old/",
+  "out/",
+  "target/",
+  ".claude/",
+]
 
 [[bin]]
 name = "loom"

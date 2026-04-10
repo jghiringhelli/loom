@@ -136,9 +136,7 @@ impl MigrationChecker {
         }
 
         for field in field_names {
-            let chain: Vec<_> = steps.iter()
-                .filter(|(_, f, _, _)| f == field)
-                .collect();
+            let chain: Vec<_> = steps.iter().filter(|(_, f, _, _)| f == field).collect();
 
             // Rule 5: consecutive links must be type-consistent.
             for pair in chain.windows(2) {
@@ -185,7 +183,10 @@ impl MigrationChecker {
 /// `foo` becomes the string `Ident("foo")`. This helper extracts `foo` from
 /// both that debug representation and from a plain identifier string.
 fn extract_ident_from_debug(s: &str) -> String {
-    if let Some(inner) = s.strip_prefix("Ident(\"").and_then(|t| t.strip_suffix("\")")) {
+    if let Some(inner) = s
+        .strip_prefix("Ident(\"")
+        .and_then(|t| t.strip_suffix("\")"))
+    {
         inner.to_string()
     } else {
         s.to_string()

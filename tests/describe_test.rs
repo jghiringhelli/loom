@@ -9,9 +9,9 @@
 //! - Missing `describe:` / no annotations compile normally (fields are optional)
 //! - Multiple annotations emit in order
 
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
 
 fn compile_src(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -145,7 +145,10 @@ end"#;
     let out = compile_src(src);
     assert!(out.contains("pub mod simple"), "expected module in:\n{out}");
     assert!(out.contains("pub fn id"), "expected fn in:\n{out}");
-    assert!(!out.contains("///"), "no doc comments expected when none declared:\n{out}");
+    assert!(
+        !out.contains("///"),
+        "no doc comments expected when none declared:\n{out}"
+    );
 }
 
 // ── Module-level @annotation ─────────────────────────────────────────────────
@@ -175,7 +178,10 @@ fn documented
 end
 end"#;
     let out = compile_src(src);
-    assert!(out.contains("/// this fn is documented"), "expected describe comment");
+    assert!(
+        out.contains("/// this fn is documented"),
+        "expected describe comment"
+    );
     assert!(out.contains("/// @since: v0.1"), "expected @since comment");
     // describe should come before @annotations
     let desc_pos = out.find("/// this fn is documented").unwrap();

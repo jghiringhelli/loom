@@ -92,13 +92,14 @@ fn checker_rejects_empty_onset() {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -156,13 +157,14 @@ fn checker_passes_valid_senescence() {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -204,5 +206,8 @@ end
 end"#;
     let out = loom::compile(src).expect("compile");
     assert!(out.contains("senescence"), "expected senescence in:\n{out}");
-    assert!(out.contains("limit_reached"), "expected limit_reached in:\n{out}");
+    assert!(
+        out.contains("limit_reached"),
+        "expected limit_reached in:\n{out}"
+    );
 }

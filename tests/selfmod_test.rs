@@ -29,8 +29,8 @@ fn make_module_with_being(being: BeingDef) -> Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],
@@ -53,8 +53,8 @@ fn make_module_with_ecosystem(eco: EcosystemDef) -> Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![],
         ecosystem_defs: vec![eco],
         flow_labels: vec![],
@@ -95,13 +95,14 @@ fn base_being() -> BeingDef {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -148,7 +149,10 @@ fn crispr_empty_target_fails() {
     assert!(result.is_err(), "expected error for empty crispr target");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty target"), "expected 'empty target' in: {msg}");
+    assert!(
+        msg.contains("empty target"),
+        "expected 'empty target' in: {msg}"
+    );
 }
 
 // ── 3. crispr_empty_replace_fails ────────────────────────────────────────────
@@ -167,7 +171,10 @@ fn crispr_empty_replace_fails() {
     assert!(result.is_err(), "expected error for empty crispr replace");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty replace"), "expected 'empty replace' in: {msg}");
+    assert!(
+        msg.contains("empty replace"),
+        "expected 'empty replace' in: {msg}"
+    );
 }
 
 // ── 4. crispr_empty_guide_fails ──────────────────────────────────────────────
@@ -186,7 +193,10 @@ fn crispr_empty_guide_fails() {
     assert!(result.is_err(), "expected error for empty crispr guide");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty guide"), "expected 'empty guide' in: {msg}");
+    assert!(
+        msg.contains("empty guide"),
+        "expected 'empty guide' in: {msg}"
+    );
 }
 
 // ── 5. rust_emit_crispr_has_edit_fn ──────────────────────────────────────────
@@ -202,7 +212,10 @@ fn rust_emit_crispr_has_edit_fn() {
     }];
     let module = make_module_with_being(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn edit_cas_protein"), "expected edit_cas_protein in:\n{out}");
+    assert!(
+        out.contains("pub fn edit_cas_protein"),
+        "expected edit_cas_protein in:\n{out}"
+    );
     assert!(out.contains("CRISPR"), "expected CRISPR comment in:\n{out}");
 }
 
@@ -266,10 +279,16 @@ fn plasticity_empty_trigger_fails() {
     }];
     let module = make_module_with_being(being);
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for empty plasticity trigger");
+    assert!(
+        result.is_err(),
+        "expected error for empty plasticity trigger"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty trigger"), "expected 'empty trigger' in: {msg}");
+    assert!(
+        msg.contains("empty trigger"),
+        "expected 'empty trigger' in: {msg}"
+    );
 }
 
 // ── 9. plasticity_empty_modifies_fails ───────────────────────────────────────
@@ -285,10 +304,16 @@ fn plasticity_empty_modifies_fails() {
     }];
     let module = make_module_with_being(being);
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for empty plasticity modifies");
+    assert!(
+        result.is_err(),
+        "expected error for empty plasticity modifies"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty modifies"), "expected 'empty modifies' in: {msg}");
+    assert!(
+        msg.contains("empty modifies"),
+        "expected 'empty modifies' in: {msg}"
+    );
 }
 
 // ── 10. rust_emit_plasticity_has_update_fn ────────────────────────────────────
@@ -304,7 +329,10 @@ fn rust_emit_plasticity_has_update_fn() {
     }];
     let module = make_module_with_being(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn update_synaptic_weight"), "expected update_synaptic_weight in:\n{out}");
+    assert!(
+        out.contains("pub fn update_synaptic_weight"),
+        "expected update_synaptic_weight in:\n{out}"
+    );
     assert!(out.contains("Hebbian"), "expected Hebbian in:\n{out}");
 }
 
@@ -362,6 +390,10 @@ fn quorum_empty_signal_fails() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -369,7 +401,10 @@ fn quorum_empty_signal_fails() {
     assert!(result.is_err(), "expected error for empty quorum signal");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty signal"), "expected 'empty signal' in: {msg}");
+    assert!(
+        msg.contains("empty signal"),
+        "expected 'empty signal' in: {msg}"
+    );
 }
 
 // ── 13. quorum_empty_action_fails ────────────────────────────────────────────
@@ -394,6 +429,10 @@ fn quorum_empty_action_fails() {
             action: "".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -401,7 +440,10 @@ fn quorum_empty_action_fails() {
     assert!(result.is_err(), "expected error for empty quorum action");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty action"), "expected 'empty action' in: {msg}");
+    assert!(
+        msg.contains("empty action"),
+        "expected 'empty action' in: {msg}"
+    );
 }
 
 // ── 14. quorum_invalid_threshold_fails ───────────────────────────────────────
@@ -426,6 +468,10 @@ fn quorum_invalid_threshold_fails() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
@@ -458,10 +504,20 @@ fn rust_emit_quorum_has_check_fn() {
             action: "biofilm_formation".to_string(),
             span: Span::synthetic(),
         }],
+        collective_telos_metric: None,
+        tipping_points: Vec::new(),
+        coevolution: false,
+        coupling: None,
         span: Span::synthetic(),
     };
     let module = make_module_with_ecosystem(eco);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub fn check_quorum_a_h_l"), "expected check_quorum_a_h_l in:\n{out}");
-    assert!(out.contains("Bassler"), "expected Bassler citation in:\n{out}");
+    assert!(
+        out.contains("pub fn check_quorum_a_h_l"),
+        "expected check_quorum_a_h_l in:\n{out}"
+    );
+    assert!(
+        out.contains("Bassler"),
+        "expected Bassler citation in:\n{out}"
+    );
 }

@@ -35,7 +35,11 @@ impl AlgebraicChecker {
             }
         }
 
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn check_fn(&self, fd: &FnDef, errors: &mut Vec<LoomError>) {
@@ -58,7 +62,9 @@ impl AlgebraicChecker {
         }
 
         // Rule 3: @exactly-once requires an effectful function.
-        if has("exactly-once") && !matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _)) {
+        if has("exactly-once")
+            && !matches!(fd.type_sig.return_type.as_ref(), TypeExpr::Effect(_, _))
+        {
             errors.push(LoomError::type_err(
                 "exactly-once requires an effectful function",
                 fd.span.clone(),

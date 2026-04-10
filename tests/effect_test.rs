@@ -210,14 +210,20 @@ end
 #[test]
 fn pricing_engine_corpus_no_effect_errors() {
     let src = std::fs::read_to_string("corpus/pricing_engine.loom").unwrap();
-    assert!(!has_effect_error(&src), "pricing_engine.loom should have no effect errors");
+    assert!(
+        !has_effect_error(&src),
+        "pricing_engine.loom should have no effect errors"
+    );
 }
 
 #[test]
 fn user_service_corpus_effectful_fns_accepted() {
     let src = std::fs::read_to_string("corpus/user_service.loom").unwrap();
     // user_service declares Effect<[IO], …> — the checker should accept those.
-    assert!(!has_effect_error(&src), "user_service.loom should have no effect errors");
+    assert!(
+        !has_effect_error(&src),
+        "user_service.loom should have no effect errors"
+    );
 }
 
 // ── Additional rejection / contract tests ─────────────────────────────────────
@@ -232,7 +238,11 @@ module App
   end
 end
 "#;
-    assert!(loom::compile(src).is_ok(), "effectful fn with DB should compile: {:?}", loom::compile(src).err());
+    assert!(
+        loom::compile(src).is_ok(),
+        "effectful fn with DB should compile: {:?}",
+        loom::compile(src).err()
+    );
 }
 
 #[test]

@@ -17,8 +17,7 @@ const ALX_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/experiments/alx");
 /// Read an ALX experiment file. Panics with clear message if file is missing.
 fn read_alx(filename: &str) -> String {
     let path = format!("{}/{}", ALX_DIR, filename);
-    fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("Cannot read ALX file {}: {}", path, e))
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("Cannot read ALX file {}: {}", path, e))
 }
 
 /// ALX-1: Full feature matrix must compile without errors.
@@ -151,16 +150,21 @@ fn alx4b_convergence_gate_s_realized() {
     let s_realized = proved as f64 / total as f64;
 
     // Write convergence record
-    eprintln!(
-        "\n╔══════════════════════════════════════════╗"
-    );
+    eprintln!("\n╔══════════════════════════════════════════╗");
     eprintln!("║  ALX-4 Self-Fix Loop — Convergence Gate  ║");
     eprintln!("╠══════════════════════════════════════════╣");
-    eprintln!("║  S_realized = {}/{} = {:.4}          ║", proved, total, s_realized);
+    eprintln!(
+        "║  S_realized = {}/{} = {:.4}          ║",
+        proved, total, s_realized
+    );
     eprintln!("║  Gate threshold: 0.70                    ║");
     eprintln!(
         "║  Status: {}                     ║",
-        if s_realized >= 0.70 { "✅ PASSED" } else { "❌ FAILED" }
+        if s_realized >= 0.70 {
+            "✅ PASSED"
+        } else {
+            "❌ FAILED"
+        }
     );
     eprintln!("╚══════════════════════════════════════════╝\n");
 
@@ -231,15 +235,22 @@ fn alx5b_evolvable_migration_chain_structure() {
         .expect("ALX-5 must parse");
 
     // PriceEvolver should have 5 migrations (3 field-based + 2 version-number)
-    let evolver = module.being_defs.iter().find(|b| b.name == "PriceEvolver")
+    let evolver = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "PriceEvolver")
         .expect("PriceEvolver being must be present");
     assert_eq!(
-        evolver.migrations.len(), 5,
+        evolver.migrations.len(),
+        5,
         "PriceEvolver should have 5 migration blocks"
     );
 
     // EvolvingTradingAgent (autopoietic) should have 3 migrations
-    let agent = module.being_defs.iter().find(|b| b.name == "EvolvingTradingAgent")
+    let agent = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "EvolvingTradingAgent")
         .expect("EvolvingTradingAgent being must be present");
     assert!(
         !agent.migrations.is_empty(),
@@ -282,7 +293,10 @@ fn alx6b_biotrader_ast_structure() {
         .expect("ALX-6 must parse");
 
     // TradingAgent must be autopoietic with signal_attention
-    let agent = module.being_defs.iter().find(|b| b.name == "TradingAgent")
+    let agent = module
+        .being_defs
+        .iter()
+        .find(|b| b.name == "TradingAgent")
         .expect("TradingAgent being must be present");
     assert!(agent.autopoietic, "TradingAgent must be autopoietic");
     assert!(
@@ -295,7 +309,9 @@ fn alx6b_biotrader_ast_structure() {
     );
 
     // Must have at least 3 messaging_primitive items
-    let messaging_count = module.items.iter()
+    let messaging_count = module
+        .items
+        .iter()
         .filter(|i| matches!(i, loom::ast::Item::MessagingPrimitive(_)))
         .count();
     assert!(
@@ -305,6 +321,9 @@ fn alx6b_biotrader_ast_structure() {
     );
 
     // Must have a correctness_report
-    let has_report = module.items.iter().any(|i| matches!(i, loom::ast::Item::CorrectnessReport(_)));
+    let has_report = module
+        .items
+        .iter()
+        .any(|i| matches!(i, loom::ast::Item::CorrectnessReport(_)));
     assert!(has_report, "ALX-6 must have a correctness_report block");
 }

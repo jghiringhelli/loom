@@ -34,10 +34,7 @@ impl PathwayChecker {
                 for step in &pw.steps {
                     if step.from.is_empty() || step.via.is_empty() || step.to.is_empty() {
                         errors.push(LoomError::parse(
-                            format!(
-                                "pathway '{}': step has empty from/via/to",
-                                pw.name
-                            ),
+                            format!("pathway '{}': step has empty from/via/to", pw.name),
                             step.span.clone(),
                         ));
                     }
@@ -53,6 +50,10 @@ impl PathwayChecker {
                 }
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }

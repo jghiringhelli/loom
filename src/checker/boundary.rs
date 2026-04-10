@@ -37,18 +37,25 @@ impl BoundaryChecker {
     }
 
     fn check_boundary(&self, bb: &BoundaryBlock, module: &Module, errors: &mut Vec<LoomError>) {
-        let declared_names: Vec<String> = module.items.iter().filter_map(|item| match item {
-            Item::Fn(fd) => Some(fd.name.clone()),
-            Item::Type(td) => Some(td.name.clone()),
-            Item::Enum(ed) => Some(ed.name.clone()),
-            _ => None,
-        }).collect();
+        let declared_names: Vec<String> = module
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Fn(fd) => Some(fd.name.clone()),
+                Item::Type(td) => Some(td.name.clone()),
+                Item::Enum(ed) => Some(ed.name.clone()),
+                _ => None,
+            })
+            .collect();
 
         // Rule 2: ghost exports
         for export in &bb.exports {
             if !declared_names.contains(export) {
                 errors.push(LoomError::type_err(
-                    format!("[error] boundary: exports '{}' which is not declared in this module", export),
+                    format!(
+                        "[error] boundary: exports '{}' which is not declared in this module",
+                        export
+                    ),
                     bb.span.clone(),
                 ));
             }
@@ -56,7 +63,11 @@ impl BoundaryChecker {
 
         // Rule 1: private type in public fn signature
         for export_fn in &bb.exports {
-            if let Some(Item::Fn(fd)) = module.items.iter().find(|i| matches!(i, Item::Fn(f) if f.name == *export_fn)) {
+            if let Some(Item::Fn(fd)) = module
+                .items
+                .iter()
+                .find(|i| matches!(i, Item::Fn(f) if f.name == *export_fn))
+            {
                 for param_type in &fd.type_sig.params {
                     let type_name = extract_type_name(param_type);
                     if bb.private.contains(&type_name) {
@@ -83,7 +94,12 @@ impl BoundaryChecker {
         }
     }
 
-    fn check_being_boundary(&self, bb: &BoundaryBlock, being: &BeingDef, errors: &mut Vec<LoomError>) {
+    fn check_being_boundary(
+        &self,
+        bb: &BoundaryBlock,
+        being: &BeingDef,
+        errors: &mut Vec<LoomError>,
+    ) {
         let declared_fn_names: Vec<String> = if let Some(func_block) = &being.function {
             func_block.fns.iter().map(|f| f.name.clone()).collect()
         } else {

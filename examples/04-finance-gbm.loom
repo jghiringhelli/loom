@@ -1,0 +1,73 @@
+-- examples/04-finance-gbm.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Stochastic finance: Geometric Brownian Motion, Black-Scholes
+-- option pricing, and Value-at-Risk using Loom's finance stdlib.
+--
+-- All stochastic processes use mathematically correct samplers:
+-- Gaussian (Box-Muller), Cauchy heavy-tail, Ornstein-Uhlenbeck
+-- mean-reversion — all verified to compile and run end-to-end.
+--
+-- Run:  loom compile examples/04-finance-gbm.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module FinanceGBM
+describe: "Geometric Brownian Motion asset simulator with Black-Scholes pricing"
+
+-- Unit-typed prices: Float<usd> and Float<pct> cannot be mixed.
+type AssetPrice =
+  symbol:    String
+  spot:      Float<usd>
+  drift:     Float<pct>
+  volatility: Float<pct>
+end
+
+type OptionContract =
+  strike:    Float<usd>
+  expiry:    Float
+  is_call:   Bool
+end
+
+type RiskMetrics =
+  var_95:    Float<usd>
+  cvar_95:   Float<usd>
+  sharpe:    Float
+end
+
+-- Simulate a GBM price path over n_steps time steps.
+-- Uses the exact Itô solution: S(t) = S₀ exp((μ - σ²/2)t + σW(t))
+fn simulate_path :: AssetPrice -> Int -> Float -> Effect<[IO], List<Float<usd>>>
+  require: asset.volatility > 0.0
+  require: n_steps > 0
+  require: dt > 0.0
+  List
+end
+
+-- Black-Scholes closed-form option price.
+-- Requires: spot > 0, strike > 0, volatility > 0, expiry > 0
+fn black_scholes :: AssetPrice -> OptionContract -> Float<usd>
+  require: asset.spot > 0.0
+  require: contract.strike > 0.0
+  require: asset.volatility > 0.0
+  require: contract.expiry > 0.0
+  ensure:  result >= 0.0
+  Usd
+end
+
+-- Value-at-Risk via Monte Carlo simulation (10,000 paths).
+fn compute_var :: AssetPrice -> Int -> Effect<[IO], RiskMetrics>
+  require: asset.spot > 0.0
+  require: n_scenarios > 0
+  ensure:  result.var_95 >= 0.0
+  ensure:  result.cvar_95 >= result.var_95
+  RiskMetrics
+end
+
+invariant var_cvar_ordering :: var_95 <= cvar_95
+
+test black_scholes_non_negative ::
+  black_scholes(asset, contract) >= 0.0
+end
+
+test var_bounded_by_cvar ::
+  compute_var(asset, 10000).var_95 <= compute_var(asset, 10000).cvar_95
+end

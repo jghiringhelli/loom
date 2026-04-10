@@ -12,9 +12,9 @@
 
 use loom::ast::{LifecycleDef, Span};
 use loom::checker::TypestateChecker;
+use loom::codegen::openapi::OpenApiEmitter;
 use loom::codegen::rust::RustEmitter;
 use loom::codegen::typescript::TypeScriptEmitter;
-use loom::codegen::openapi::OpenApiEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
 
@@ -50,7 +50,10 @@ end"#;
     let module = parse(src);
     let lc = &module.lifecycle_defs[0];
     assert_eq!(lc.type_name, "Connection");
-    assert_eq!(lc.states, vec!["Disconnected", "Connected", "Authenticated", "Closed"]);
+    assert_eq!(
+        lc.states,
+        vec!["Disconnected", "Connected", "Authenticated", "Closed"]
+    );
 }
 
 // ── 3. Valid transition passes checker ────────────────────────────────────────
@@ -82,7 +85,10 @@ end
 end"#;
     let module = parse(src);
     let result = TypestateChecker::new().check(&module);
-    assert!(result.is_err(), "expected Err for invalid lifecycle transition");
+    assert!(
+        result.is_err(),
+        "expected Err for invalid lifecycle transition"
+    );
     let errors = result.unwrap_err();
     assert!(!errors.is_empty());
     let msg = format!("{}", errors[0]);
@@ -104,11 +110,26 @@ end
 end"#;
     let module = parse(src);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("pub struct Disconnected;"), "missing Disconnected struct in:\n{out}");
-    assert!(out.contains("pub struct Connected;"), "missing Connected struct in:\n{out}");
-    assert!(out.contains("pub struct Authenticated;"), "missing Authenticated struct in:\n{out}");
-    assert!(out.contains("pub struct Closed;"), "missing Closed struct in:\n{out}");
-    assert!(out.contains("// Lifecycle states for Connection"), "missing comment in:\n{out}");
+    assert!(
+        out.contains("pub struct Disconnected;"),
+        "missing Disconnected struct in:\n{out}"
+    );
+    assert!(
+        out.contains("pub struct Connected;"),
+        "missing Connected struct in:\n{out}"
+    );
+    assert!(
+        out.contains("pub struct Authenticated;"),
+        "missing Authenticated struct in:\n{out}"
+    );
+    assert!(
+        out.contains("pub struct Closed;"),
+        "missing Closed struct in:\n{out}"
+    );
+    assert!(
+        out.contains("// Lifecycle states for Connection"),
+        "missing comment in:\n{out}"
+    );
 }
 
 // ── 6. TypeScript emission includes state union type ─────────────────────────

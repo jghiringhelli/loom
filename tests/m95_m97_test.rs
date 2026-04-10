@@ -22,7 +22,11 @@ module Chemistry
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "graph store with @provenance should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "graph store with @provenance should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -37,7 +41,11 @@ module Monitoring
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "timeseries store with retention/resolution should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "timeseries store with retention/resolution should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -50,7 +58,11 @@ module Embeddings
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "vector store with HNSW index should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "vector store with HNSW index should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 // ── M96: Local stores ─────────────────────────────────────────────────────────
@@ -67,7 +79,11 @@ module FastPath
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "InMemory store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "InMemory store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -81,7 +97,11 @@ module Science
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "FlatFile Parquet store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "FlatFile Parquet store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -95,7 +115,11 @@ module NeuralData
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "FlatFile HDF5 store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "FlatFile HDF5 store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 // ── M97: Distributed stores ───────────────────────────────────────────────────
@@ -120,7 +144,11 @@ module BigData
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "distributed MapReduce store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "distributed MapReduce store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -137,7 +165,11 @@ module Streaming
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "DistributedLog store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "DistributedLog store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -167,7 +199,11 @@ module Platform
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "polyglot multi-store module should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "polyglot multi-store module should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -181,11 +217,19 @@ end
 "#;
     let module = parse(src).expect("parse failed");
     let errors = loom::checker::StoreChecker::new().check(&module);
-    assert!(!errors.is_empty(), "Vector store without embedding should be rejected");
-    let msgs: String = errors.iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        !errors.is_empty(),
+        "Vector store without embedding should be rejected"
+    );
+    let msgs: String = errors
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msgs.contains("embedding") || msgs.contains("Vector"),
-        "Expected embedding/Vector error, got: {}", msgs
+        "Expected embedding/Vector error, got: {}",
+        msgs
     );
 }
 
@@ -201,7 +245,11 @@ module Streaming
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "DistributedLog store should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "DistributedLog store should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 // ── V5+V7: Store codegen emits complete Rust with audit trail ─────────────────
@@ -221,9 +269,18 @@ module Chem
 end
 "#;
     let rust = compile_to_rust(src).expect("V5 graph store should compile");
-    assert!(rust.contains("pub struct Atom"), "should emit Atom node struct");
-    assert!(rust.contains("pub struct Bond"), "should emit Bond edge struct");
-    assert!(rust.contains("LOOM[store:Graph]"), "V7 audit trail for Graph");
+    assert!(
+        rust.contains("pub struct Atom"),
+        "should emit Atom node struct"
+    );
+    assert!(
+        rust.contains("pub struct Bond"),
+        "should emit Bond edge struct"
+    );
+    assert!(
+        rust.contains("LOOM[store:Graph]"),
+        "V7 audit trail for Graph"
+    );
     assert!(rust.contains("petgraph"), "should recommend petgraph");
 }
 
@@ -237,9 +294,15 @@ module Monitor
 end
 "#;
     let rust = compile_to_rust(src).expect("V5 timeseries store should compile");
-    assert!(rust.contains("pub struct Cpu"), "should emit Cpu event struct");
+    assert!(
+        rust.contains("pub struct Cpu"),
+        "should emit Cpu event struct"
+    );
     assert!(rust.contains("timestamp"), "should inject timestamp field");
-    assert!(rust.contains("LOOM[ts]"), "V7 audit: timestamp auto-injected");
+    assert!(
+        rust.contains("LOOM[ts]"),
+        "V7 audit: timestamp auto-injected"
+    );
 }
 
 #[test]
@@ -253,9 +316,15 @@ module Search
 end
 "#;
     let rust = compile_to_rust(src).expect("V5 vector store should compile");
-    assert!(rust.contains("EmbeddingDbEmbedding"), "should emit typed embedding struct");
+    assert!(
+        rust.contains("EmbeddingDbEmbedding"),
+        "should emit typed embedding struct"
+    );
     assert!(rust.contains("LOOM[vector"), "V7 audit for vector");
-    assert!(rust.contains("nearest"), "should emit similarity search trait");
+    assert!(
+        rust.contains("nearest"),
+        "should emit similarity search trait"
+    );
 }
 
 #[test]
@@ -270,9 +339,18 @@ module Events
 end
 "#;
     let rust = compile_to_rust(src).expect("V5 DistributedLog store should compile");
-    assert!(rust.contains("AppLogProducer"), "should emit typed Producer trait");
-    assert!(rust.contains("AppLogConsumer"), "should emit typed Consumer trait");
-    assert!(rust.contains("LOOM[store:DistributedLog]"), "V7 audit trail");
+    assert!(
+        rust.contains("AppLogProducer"),
+        "should emit typed Producer trait"
+    );
+    assert!(
+        rust.contains("AppLogConsumer"),
+        "should emit typed Consumer trait"
+    );
+    assert!(
+        rust.contains("LOOM[store:DistributedLog]"),
+        "V7 audit trail"
+    );
     assert!(rust.contains("rdkafka"), "should recommend rdkafka");
 }
 
@@ -287,8 +365,14 @@ end
 end
 "#;
     let rust = compile_to_rust(src).expect("contract fn should compile");
-    assert!(rust.contains("LOOM[require]"), "V7 audit: require contract annotated");
-    assert!(rust.contains("debug_assert!"), "precondition must emit debug_assert!");
+    assert!(
+        rust.contains("LOOM[require]"),
+        "V7 audit: require contract annotated"
+    );
+    assert!(
+        rust.contains("debug_assert!"),
+        "precondition must emit debug_assert!"
+    );
 }
 
 #[test]

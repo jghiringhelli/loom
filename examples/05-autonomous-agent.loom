@@ -1,0 +1,136 @@
+-- examples/05-autonomous-agent.loom
+-- ══════════════════════════════════════════════════════════════════
+-- A self-governing biological agent — Loom's most powerful construct.
+--
+-- This is a minimal version of ALX-6 (experiments/alx/ALX-6-biotrader.loom),
+-- the experiment that proved S_realized = 0.9778 across all 116 milestones.
+--
+-- Features demonstrated:
+--   - being: / ecosystem: — biological computation blocks
+--   - matter: / form: / function: / telos: — Aristotle's four causes
+--   - regulate: — homeostatic bounds (Cannon 1932)
+--   - evolve: — directed telos pursuit (gradient_descent)
+--   - epigenetic: — behavioral modulation without genome change (Waddington)
+--   - telomere: — Hayflick finite replication limit
+--   - autopoietic: true — Maturana/Varela operational closure
+--   - @mortal @corrigible @sandboxed — AI safety tripwire (M55)
+--
+-- Run:  loom compile examples/05-autonomous-agent.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module AutonomousAgent
+describe: "A self-governing agent with biological computation and AI safety constraints"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Sensor =
+  reading: Float
+  noise:   Float
+end
+
+type Belief =
+  value:      Float
+  confidence: Float
+end
+
+enum Action =
+  | Explore
+  | Exploit of Float
+  | Rest
+end
+
+type PositiveFloat = Float where self > 0.0
+
+-- ── Session-typed communication channel ───────────────────────────
+-- (declared inside ecosystem so the parser finds it in the right scope)
+
+-- ── Supporting being: Environment ────────────────────────────────
+being Environment
+describe: "The external environment the agent perceives and acts upon"
+
+@sandboxed
+
+matter:
+  step_count: Int
+  state:      Float
+end
+
+telos: "simulate environmental dynamics for agent evaluation within step_count < 10000"
+end
+
+end -- being Environment
+
+-- ── The ecosystem that runs the agent ─────────────────────────────
+ecosystem World
+describe: "An environment that the agent perceives and acts upon"
+
+signal AgentProtocol from Agent to Environment
+  payload: Action
+end
+
+telos: "converge agent_fitness toward equilibrium within step_count < 10000"
+
+end -- ecosystem World
+being Agent
+describe: "A self-governing agent with bounded telos and AI safety constraints"
+
+@mortal
+@corrigible
+@sandboxed
+@transparent
+@bounded_telos
+
+matter:
+  energy:        Float
+  memory:        List<Belief>
+  age:           Int
+  learning_rate: Float
+end
+
+form:
+  type SensorConfig =
+    noise_floor: Float
+  end
+end
+
+telos: "converge expected_reward toward equilibrium within energy > 0.0 and age < 1000 bounds"
+  bounded_by: energy_safety_ok
+  modifiable_by: operator
+end
+
+regulate energy
+  target: energy_equilibrium
+  bounds: (min_energy, max_energy)
+end
+
+regulate learning_rate
+  target: optimal_lr
+  bounds: (min_lr, max_lr)
+end
+
+evolve TowardsTelos
+  toward: telos
+  search:
+    | gradient_descent when energy > 0.5
+    | simulated_annealing when energy <= 0.5
+  constraint: "E[distance_to_telos] decreasing over step_count"
+  rate: 0.01
+end
+
+epigenetic:
+  signal: high_noise
+  modifies: learning_rate
+  reverts_when: low_noise
+end
+
+telomere:
+  limit: 1000
+  on_exhaustion: quiescence
+end
+
+autopoietic: true
+
+end -- being Agent
+
+-- module-level end consumed by the module parser
+end

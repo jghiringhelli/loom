@@ -1,7 +1,7 @@
 //! M45/M46/M47 tests — epigenetic/morphogen/telomere blocks.
 //! Waddington (1957), Turing (1952), Hayflick (1961).
 
-use loom::ast::{BeingDef, EpigeneticBlock, MorphogenBlock, TelomereBlock, Span, TelosDef};
+use loom::ast::{BeingDef, EpigeneticBlock, MorphogenBlock, Span, TelomereBlock, TelosDef};
 use loom::checker::check_teleos;
 use loom::codegen::rust::RustEmitter;
 use loom::codegen::typescript::TypeScriptEmitter;
@@ -27,8 +27,8 @@ fn make_module(being: BeingDef) -> loom::ast::Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],
@@ -69,13 +69,14 @@ fn base_being() -> BeingDef {
         criticality: None,
         umwelt: None,
         resonance: None,
-            manifest: None,
+        manifest: None,
         migrations: vec![],
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -113,14 +114,21 @@ fn epigenetic_empty_signal_fails_checker() {
         signal: "".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for empty epigenetic signal");
+    assert!(
+        result.is_err(),
+        "expected error for empty epigenetic signal"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty signal"), "expected 'empty signal' in: {msg}");
+    assert!(
+        msg.contains("empty signal"),
+        "expected 'empty signal' in: {msg}"
+    );
 }
 
 #[test]
@@ -130,14 +138,21 @@ fn epigenetic_empty_modifies_fails_checker() {
         signal: "Stress".to_string(),
         modifies: "".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for empty epigenetic modifies");
+    assert!(
+        result.is_err(),
+        "expected error for empty epigenetic modifies"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("empty modifies"), "expected 'empty modifies' in: {msg}");
+    assert!(
+        msg.contains("empty modifies"),
+        "expected 'empty modifies' in: {msg}"
+    );
 }
 
 #[test]
@@ -147,12 +162,19 @@ fn rust_emit_being_has_epigenetic_fn() {
         signal: "EnvironmentalStress".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: Some("stress_absent".to_string()),
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("apply_epigenetic_environmental_stress"), "expected apply_epigenetic fn in: {out}");
-    assert!(out.contains("signal_strength: f64"), "expected signal_strength param in: {out}");
+    assert!(
+        out.contains("apply_epigenetic_environmental_stress"),
+        "expected apply_epigenetic fn in: {out}"
+    );
+    assert!(
+        out.contains("signal_strength: f64"),
+        "expected signal_strength param in: {out}"
+    );
 }
 
 #[test]
@@ -162,12 +184,19 @@ fn typescript_emit_being_has_epigenetic_method() {
         signal: "EnvironmentalStress".to_string(),
         modifies: "metabolism.rate".to_string(),
         reverts_when: None,
+        duration: None,
         span: Span::synthetic(),
     });
     let module = make_module(being);
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("applyEpigeneticEnvironmentalStress"), "expected TS epigenetic method in: {out}");
-    assert!(out.contains("signalStrength: number"), "expected signalStrength param in: {out}");
+    assert!(
+        out.contains("applyEpigeneticEnvironmentalStress"),
+        "expected TS epigenetic method in: {out}"
+    );
+    assert!(
+        out.contains("signalStrength: number"),
+        "expected signalStrength param in: {out}"
+    );
 }
 
 // ── Morphogen tests ───────────────────────────────────────────────────────────
@@ -192,8 +221,15 @@ end
     assert_eq!(being.morphogen_blocks.len(), 1);
     let morph = &being.morphogen_blocks[0];
     assert_eq!(morph.signal, "GrowthFactor");
-    assert!(morph.threshold.starts_with("0.8"), "threshold should be 0.8, got: {}", morph.threshold);
-    assert_eq!(morph.produces, vec!["Ribosome".to_string(), "Membrane".to_string()]);
+    assert!(
+        morph.threshold.starts_with("0.8"),
+        "threshold should be 0.8, got: {}",
+        morph.threshold
+    );
+    assert_eq!(
+        morph.produces,
+        vec!["Ribosome".to_string(), "Membrane".to_string()]
+    );
 }
 
 #[test]
@@ -207,7 +243,10 @@ fn morphogen_empty_produces_fails_checker() {
     });
     let module = make_module(being);
     let result = check_teleos(&module);
-    assert!(result.is_err(), "expected error for empty morphogen produces");
+    assert!(
+        result.is_err(),
+        "expected error for empty morphogen produces"
+    );
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
     assert!(msg.contains("inert"), "expected 'inert' in: {msg}");
@@ -227,7 +266,10 @@ fn morphogen_threshold_out_of_range_fails_checker() {
     assert!(result.is_err(), "expected error for threshold out of range");
     let errors = result.unwrap_err();
     let msg = errors.iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msg.contains("out of range") || msg.contains("0.0") || msg.contains("1.0"), "expected range error in: {msg}");
+    assert!(
+        msg.contains("out of range") || msg.contains("0.0") || msg.contains("1.0"),
+        "expected range error in: {msg}"
+    );
 }
 
 #[test]
@@ -241,8 +283,14 @@ fn rust_emit_being_has_differentiate_fn() {
     });
     let module = make_module(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("differentiate_growth_factor"), "expected differentiate fn in: {out}");
-    assert!(out.contains("signal_level: f64"), "expected signal_level param in: {out}");
+    assert!(
+        out.contains("differentiate_growth_factor"),
+        "expected differentiate fn in: {out}"
+    );
+    assert!(
+        out.contains("signal_level: f64"),
+        "expected signal_level param in: {out}"
+    );
 }
 
 #[test]
@@ -256,8 +304,14 @@ fn typescript_emit_being_has_differentiate_method() {
     });
     let module = make_module(being);
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("differentiateGrowthFactor"), "expected TS differentiate method in: {out}");
-    assert!(out.contains("signalLevel: number"), "expected signalLevel param in: {out}");
+    assert!(
+        out.contains("differentiateGrowthFactor"),
+        "expected TS differentiate method in: {out}"
+    );
+    assert!(
+        out.contains("signalLevel: number"),
+        "expected signalLevel param in: {out}"
+    );
 }
 
 // ── Telomere tests ────────────────────────────────────────────────────────────
@@ -310,7 +364,10 @@ fn telomere_rust_emit_has_telomere_count_field() {
     });
     let module = make_module(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("telomere_count: u64"), "expected telomere_count field in: {out}");
+    assert!(
+        out.contains("telomere_count: u64"),
+        "expected telomere_count field in: {out}"
+    );
 }
 
 #[test]
@@ -323,8 +380,14 @@ fn telomere_rust_emit_has_replicate_fn() {
     });
     let module = make_module(being);
     let out = RustEmitter::new().emit(&module);
-    assert!(out.contains("fn replicate"), "expected replicate fn in: {out}");
-    assert!(out.contains("telomere exhausted"), "expected 'telomere exhausted' in: {out}");
+    assert!(
+        out.contains("fn replicate"),
+        "expected replicate fn in: {out}"
+    );
+    assert!(
+        out.contains("telomere exhausted"),
+        "expected 'telomere exhausted' in: {out}"
+    );
 }
 
 #[test]
@@ -337,7 +400,13 @@ fn typescript_emit_telomere_has_limit_field() {
     });
     let module = make_module(being);
     let out = TypeScriptEmitter::new().emit(&module);
-    assert!(out.contains("telomereLimit"), "expected telomereLimit in: {out}");
+    assert!(
+        out.contains("telomereLimit"),
+        "expected telomereLimit in: {out}"
+    );
     assert!(out.contains("50"), "expected limit value 50 in: {out}");
-    assert!(out.contains("replicate"), "expected replicate method in: {out}");
+    assert!(
+        out.contains("replicate"),
+        "expected replicate method in: {out}"
+    );
 }

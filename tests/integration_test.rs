@@ -18,23 +18,27 @@ fn pricing_engine_compiles_successfully() {
     // Struct definitions
     assert!(
         output.contains("pub struct OrderLine"),
-        "output should contain `pub struct OrderLine`:\n{}", output
+        "output should contain `pub struct OrderLine`:\n{}",
+        output
     );
     assert!(
         output.contains("pub struct OrderTotal"),
-        "output should contain `pub struct OrderTotal`:\n{}", output
+        "output should contain `pub struct OrderTotal`:\n{}",
+        output
     );
 
     // Function definition
     assert!(
         output.contains("pub fn compute_total"),
-        "output should contain `pub fn compute_total`:\n{}", output
+        "output should contain `pub fn compute_total`:\n{}",
+        output
     );
 
     // Precondition contracts emit debug_assert!
     assert!(
         output.contains("debug_assert!"),
-        "output should contain `debug_assert!` for require: contracts:\n{}", output
+        "output should contain `debug_assert!` for require: contracts:\n{}",
+        output
     );
 }
 

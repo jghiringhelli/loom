@@ -316,6 +316,44 @@ impl RustEmitter {
                 "// boundary: exports=[{}] private=[{}] sealed=[{}]\n",
                 bb.exports.join(", "), bb.private.join(", "), bb.sealed.join(", ")
             ),
+            Item::TelosFunction(tf) => format!(
+                "// telos_function: {} — guides signal_attention, experiment_selection, resource_allocation\n\
+                 // LOOM[telos_fn]: Peirce interpretant as typed function\n",
+                tf.name
+            ),
+            Item::Entity(ed) => {
+                let node = ed.node_type.as_deref().unwrap_or("_");
+                let edge = ed.edge_type.as_deref().unwrap_or("_");
+                let ann_str = ed.annotations.join(" @");
+                let has_directed = ed.annotations.iter().any(|a| a == "directed");
+                let has_undirected = ed.annotations.iter().any(|a| a == "undirected");
+                let has_acyclic = ed.annotations.iter().any(|a| a == "acyclic");
+                let rust_type = if has_directed || has_acyclic {
+                    format!("petgraph::graph::DiGraph<{}, {}>", node, edge)
+                } else if has_undirected {
+                    format!("petgraph::graph::UnGraph<{}, {}>", node, edge)
+                } else {
+                    format!("petgraph::graph::Graph<{}, {}>", node, edge)
+                };
+                let alias_comment = if let Some(alias) = &ed.alias_of {
+                    format!(" // instance of: {}", alias)
+                } else {
+                    String::new()
+                };
+                format!(
+                    "// LOOM[entity]: {}<{}, {}> — @{}\n\
+                     // Instantiate: {}\n\
+                     pub type {} = {};{}\n",
+                    ed.name, node, edge, ann_str,
+                    rust_type,
+                    ed.name, rust_type, alias_comment
+                )
+            }
+            Item::IntentCoordinator(ic) => format!(
+                "// intent_coordinator: {} — governance gate (GovernanceClass: {:?})\n\
+                 // LOOM[intent_coordinator]: Part IX — intent vivo with human governance\n",
+                ic.name, ic.governance_class
+            ),
             Item::MessagingPrimitive(mp) => {
                 let mut buf = String::new();
                 self.emit_messaging_channel(mp, &mut buf);

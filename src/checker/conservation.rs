@@ -8,13 +8,16 @@ use crate::error::LoomError;
 
 /// Conservation quantity name mapping — used for name-based type matching.
 const CONSERVATION_HINTS: &[(&str, &[&str])] = &[
-    ("Mass",        &["Float", "mass", "Mass", "kg", "g", "mol"]),
-    ("Charge",      &["Charge", "charge", "Float", "coulomb", "C"]),
-    ("Energy",      &["Energy", "energy", "Float", "joule", "J", "eV"]),
-    ("Momentum",    &["Momentum", "momentum", "Float", "kg_m_s"]),
-    ("Value",       &["Float", "usd", "eur", "gbp", "Value", "Price", "Amount"]),
+    ("Mass", &["Float", "mass", "Mass", "kg", "g", "mol"]),
+    ("Charge", &["Charge", "charge", "Float", "coulomb", "C"]),
+    ("Energy", &["Energy", "energy", "Float", "joule", "J", "eV"]),
+    ("Momentum", &["Momentum", "momentum", "Float", "kg_m_s"]),
+    (
+        "Value",
+        &["Float", "usd", "eur", "gbp", "Value", "Price", "Amount"],
+    ),
     ("Information", &["Bit", "bit", "Byte", "entropy", "Info"]),
-    ("AtomCount",   &["atoms", "Atoms", "mol", "Float", "Int"]),
+    ("AtomCount", &["atoms", "Atoms", "mol", "Float", "Int"]),
 ];
 
 /// Conservation law checker.
@@ -94,7 +97,10 @@ impl ConservationChecker {
     }
 
     fn quantity_in_inputs(&self, fd: &FnDef, hints: &[&str]) -> bool {
-        fd.type_sig.params.iter().any(|p| type_matches_any(p, hints))
+        fd.type_sig
+            .params
+            .iter()
+            .any(|p| type_matches_any(p, hints))
     }
 
     fn quantity_in_output(&self, fd: &FnDef, hints: &[&str]) -> bool {
@@ -102,7 +108,9 @@ impl ConservationChecker {
     }
 
     fn quantity_in_contracts(&self, contracts: &[Contract], quantity: &str) -> bool {
-        contracts.iter().any(|c| format!("{:?}", c.expr).contains(quantity))
+        contracts
+            .iter()
+            .any(|c| format!("{:?}", c.expr).contains(quantity))
     }
 }
 
@@ -117,9 +125,13 @@ fn get_hints(quantity: &str) -> &'static [&'static str] {
 
 fn type_matches_any(ty: &TypeExpr, hints: &[&str]) -> bool {
     match ty {
-        TypeExpr::Base(name) => hints.iter().any(|h| name.contains(h) || h.contains(name.as_str())),
+        TypeExpr::Base(name) => hints
+            .iter()
+            .any(|h| name.contains(h) || h.contains(name.as_str())),
         TypeExpr::Generic(name, params) => {
-            hints.iter().any(|h| name.contains(h) || h.contains(name.as_str()))
+            hints
+                .iter()
+                .any(|h| name.contains(h) || h.contains(name.as_str()))
                 || params.iter().any(|p| type_matches_any(p, hints))
         }
         TypeExpr::Effect(_, inner) => type_matches_any(inner, hints),

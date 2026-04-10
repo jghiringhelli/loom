@@ -18,7 +18,11 @@ requires { db: DbConn }
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("MContext"), "expected MContext struct in:\n{}", out);
+    assert!(
+        out.contains("MContext"),
+        "expected MContext struct in:\n{}",
+        out
+    );
     assert!(out.contains("db: DbConn"), "expected db field in:\n{}", out);
 }
 
@@ -30,7 +34,11 @@ requires { db: DbConn, log: Logger }
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("SvcContext"), "expected SvcContext in:\n{}", out);
+    assert!(
+        out.contains("SvcContext"),
+        "expected SvcContext in:\n{}",
+        out
+    );
     assert!(out.contains("db: DbConn"), "expected db field");
     assert!(out.contains("log: Logger"), "expected log field");
 }
@@ -45,7 +53,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(!out.contains("Context"), "unexpected Context struct in:\n{}", out);
+    assert!(
+        !out.contains("Context"),
+        "unexpected Context struct in:\n{}",
+        out
+    );
 }
 
 // ── ctx parameter injection ───────────────────────────────────────────────────
@@ -64,7 +76,11 @@ end
 "#;
     let out = compile_ok(src);
     // The function should receive ctx as its first parameter
-    assert!(out.contains("ctx: &MContext"), "expected ctx param in:\n{}", out);
+    assert!(
+        out.contains("ctx: &MContext"),
+        "expected ctx param in:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -80,8 +96,15 @@ end
 "#;
     let out = compile_ok(src);
     // Pure function should NOT get ctx
-    let fn_line = out.lines().find(|l| l.contains("pub fn pure_fn")).unwrap_or("");
-    assert!(!fn_line.contains("ctx"), "unexpected ctx in pure_fn: {}", fn_line);
+    let fn_line = out
+        .lines()
+        .find(|l| l.contains("pub fn pure_fn"))
+        .unwrap_or("");
+    assert!(
+        !fn_line.contains("ctx"),
+        "unexpected ctx in pure_fn: {}",
+        fn_line
+    );
 }
 
 // ── Validation: undeclared dependency ────────────────────────────────────────
@@ -97,10 +120,14 @@ end
 end
 "#;
     let errors = compile_err(src);
-    let has_undeclared = errors.iter().any(|e| {
-        matches!(e, loom::LoomError::UndeclaredDependency { name, .. } if name == "db")
-    });
-    assert!(has_undeclared, "expected UndeclaredDependency error, got: {:?}", errors);
+    let has_undeclared = errors
+        .iter()
+        .any(|e| matches!(e, loom::LoomError::UndeclaredDependency { name, .. } if name == "db"));
+    assert!(
+        has_undeclared,
+        "expected UndeclaredDependency error, got: {:?}",
+        errors
+    );
 }
 
 #[test]
@@ -116,10 +143,14 @@ end
 end
 "#;
     let errors = compile_err(src);
-    let has_undeclared = errors.iter().any(|e| {
-        matches!(e, loom::LoomError::UndeclaredDependency { name, .. } if name == "cache")
-    });
-    assert!(has_undeclared, "expected UndeclaredDependency for 'cache', got: {:?}", errors);
+    let has_undeclared = errors.iter().any(
+        |e| matches!(e, loom::LoomError::UndeclaredDependency { name, .. } if name == "cache"),
+    );
+    assert!(
+        has_undeclared,
+        "expected UndeclaredDependency for 'cache', got: {:?}",
+        errors
+    );
 }
 
 // ── Corpus regression ─────────────────────────────────────────────────────────

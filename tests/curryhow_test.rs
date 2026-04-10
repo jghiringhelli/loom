@@ -26,7 +26,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("structural_recursion") || msg.contains("recursive") || msg.contains("curry"), "expected curry-howard error in: {}", msg);
+    assert!(
+        msg.contains("structural_recursion") || msg.contains("recursive") || msg.contains("curry"),
+        "expected curry-howard error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -56,7 +60,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err());
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("totality") || msg.contains("match") || msg.contains("curry"), "expected totality error in: {}", msg);
+    assert!(
+        msg.contains("totality") || msg.contains("match") || msg.contains("curry"),
+        "expected totality error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -83,5 +91,8 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("structural_recursion") || rust_src.contains("proof"), "Expected proof comment in codegen");
+    assert!(
+        rust_src.contains("structural_recursion") || rust_src.contains("proof"),
+        "Expected proof comment in codegen"
+    );
 }

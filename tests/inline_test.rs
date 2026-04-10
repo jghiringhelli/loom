@@ -5,7 +5,6 @@
 /// - Existing `todo` bodies still work (no regression)
 /// - Inline bodies survive the full pipeline (lex → parse → check → emit)
 /// - E2E: emitted Rust compiles and runs via rustc
-
 use loom::compile;
 
 // ── Parse + emit tests ────────────────────────────────────────────────────────
@@ -128,7 +127,10 @@ fn e2e(loom_src: &str, expected_stdout: &str) {
 
     // Wrap in a main that calls the module function.
     let mod_name = {
-        let line = rust_src.lines().find(|l| l.contains("pub mod")).unwrap_or("pub mod demo {");
+        let line = rust_src
+            .lines()
+            .find(|l| l.contains("pub mod"))
+            .unwrap_or("pub mod demo {");
         line.trim()
             .strip_prefix("pub mod ")
             .unwrap_or("demo")
@@ -144,7 +146,13 @@ fn e2e(loom_src: &str, expected_stdout: &str) {
     std::fs::write(&rs_path, &main_src).unwrap();
 
     let compile_out = std::process::Command::new(RUSTC)
-        .args(["--edition", "2021", rs_path.to_str().unwrap(), "-o", bin_path.to_str().unwrap()])
+        .args([
+            "--edition",
+            "2021",
+            rs_path.to_str().unwrap(),
+            "-o",
+            bin_path.to_str().unwrap(),
+        ])
         .output()
         .expect("rustc should be available");
 
@@ -157,13 +165,11 @@ fn e2e(loom_src: &str, expected_stdout: &str) {
         );
     }
 
-    let run_out = std::process::Command::new(&bin_path).output().expect("binary should run");
+    let run_out = std::process::Command::new(&bin_path)
+        .output()
+        .expect("binary should run");
     let stdout = String::from_utf8_lossy(&run_out.stdout);
-    assert_eq!(
-        stdout.trim(),
-        expected_stdout,
-        "unexpected runtime output"
-    );
+    assert_eq!(stdout.trim(), expected_stdout, "unexpected runtime output");
 
     std::fs::remove_dir_all(&dir).ok();
 }

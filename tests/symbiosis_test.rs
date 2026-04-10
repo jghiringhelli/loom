@@ -89,8 +89,15 @@ fn checker_rejects_invalid_kind() {
     };
     let result = SymbiosisChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msgs.contains("not valid"), "expected 'not valid' in: {msgs}");
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
+    assert!(
+        msgs.contains("not valid"),
+        "expected 'not valid' in: {msgs}"
+    );
 }
 
 // 5. checker rejects empty module name
@@ -136,5 +143,8 @@ symbiotic:
 end"#;
     let out = loom::compile(src).expect("compile");
     assert!(out.contains("symbiotic"), "expected symbiotic in:\n{out}");
-    assert!(out.contains("mutualistic"), "expected mutualistic in:\n{out}");
+    assert!(
+        out.contains("mutualistic"),
+        "expected mutualistic in:\n{out}"
+    );
 }

@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct DependentChecker;
 
 impl DependentChecker {
-    pub fn new() -> Self { DependentChecker }
+    pub fn new() -> Self {
+        DependentChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -16,14 +18,21 @@ impl DependentChecker {
                 _ => {}
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn check_proposition(&self, prop: &PropositionDef, errors: &mut Vec<LoomError>) {
         match &prop.base_type {
             TypeExpr::Base(name) if name.is_empty() => {
                 errors.push(LoomError::TypeError {
-                    msg: format!("dependent: proposition `{}` has an empty base type", prop.name),
+                    msg: format!(
+                        "dependent: proposition `{}` has an empty base type",
+                        prop.name
+                    ),
                     span: prop.span.clone(),
                 });
             }

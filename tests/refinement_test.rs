@@ -29,7 +29,10 @@ type BoundedInt = Int where self >= 0 and self <= 100
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub struct BoundedInt"), "missing newtype wrapper");
+    assert!(
+        out.contains("pub struct BoundedInt"),
+        "missing newtype wrapper"
+    );
     assert!(out.contains("TryFrom"), "missing TryFrom impl");
 }
 
@@ -41,7 +44,10 @@ type StatusCode = Int where self = 200 or self = 404 or self = 500
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub struct StatusCode"), "missing newtype wrapper");
+    assert!(
+        out.contains("pub struct StatusCode"),
+        "missing newtype wrapper"
+    );
 }
 
 #[test]
@@ -52,7 +58,10 @@ type ValidRange = Int where (self >= 0 and self <= 100) or self = -1
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub struct ValidRange"), "missing newtype wrapper");
+    assert!(
+        out.contains("pub struct ValidRange"),
+        "missing newtype wrapper"
+    );
 }
 
 // ── 2. Refinement checker validates predicates structurally ──────────────────
@@ -66,8 +75,11 @@ end
 "#;
     let out = compile_ok(src);
     // The emitted TryFrom should contain the full compound predicate
-    assert!(out.contains(">=") && out.contains("<="),
-        "compound predicate not fully emitted in TryFrom: {}", out);
+    assert!(
+        out.contains(">=") && out.contains("<="),
+        "compound predicate not fully emitted in TryFrom: {}",
+        out
+    );
 }
 
 // ── 3. Refinement subtyping — refined type is subtype of base ────────────────
@@ -134,7 +146,10 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub struct PositiveInt"), "missing refined type");
+    assert!(
+        out.contains("pub struct PositiveInt"),
+        "missing refined type"
+    );
     assert!(out.contains("increment"), "missing function");
 }
 
@@ -152,8 +167,11 @@ end
 end
 "#;
     let out = loom::compile_openapi(src).unwrap_or_else(|e| panic!("{:?}", e));
-    assert!(out.contains("minimum") || out.contains("x-refinement"),
-        "OpenAPI should emit refinement constraints: {}", out);
+    assert!(
+        out.contains("minimum") || out.contains("x-refinement"),
+        "OpenAPI should emit refinement constraints: {}",
+        out
+    );
 }
 
 // ── 7. JSON Schema emission of refinement constraints ────────────────────────
@@ -170,8 +188,11 @@ end
 end
 "#;
     let out = loom::compile_json_schema(src).unwrap_or_else(|e| panic!("{:?}", e));
-    assert!(out.contains("minimum") || out.contains("x-refinement"),
-        "JSON Schema should emit refinement constraints: {}", out);
+    assert!(
+        out.contains("minimum") || out.contains("x-refinement"),
+        "JSON Schema should emit refinement constraints: {}",
+        out
+    );
 }
 
 // ── 8. TypeScript emission of refinement types ───────────────────────────────
@@ -188,5 +209,8 @@ end
 end
 "#;
     let out = loom::compile_typescript(src).unwrap_or_else(|e| panic!("{:?}", e));
-    assert!(out.contains("PositiveInt"), "missing refined type in TS output");
+    assert!(
+        out.contains("PositiveInt"),
+        "missing refined type in TS output"
+    );
 }

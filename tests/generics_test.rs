@@ -16,7 +16,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub fn identity<T>"), "expected generic fn in:\n{}", out);
+    assert!(
+        out.contains("pub fn identity<T>"),
+        "expected generic fn in:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -29,7 +33,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub fn map_fn<A, B>"), "expected <A, B> in:\n{}", out);
+    assert!(
+        out.contains("pub fn map_fn<A, B>"),
+        "expected <A, B> in:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -42,7 +50,11 @@ end
 end
 "#;
     let out = compile_ok(src);
-    assert!(out.contains("pub fn first<T>"), "expected generic fn in:\n{}", out);
+    assert!(
+        out.contains("pub fn first<T>"),
+        "expected generic fn in:\n{}",
+        out
+    );
     assert!(out.contains("Vec<T>"), "expected Vec<T> in:\n{}", out);
 }
 
@@ -58,7 +70,11 @@ end
     let out = compile_ok(src);
     // The fn signature should not have angle brackets (generics)
     let fn_line = out.lines().find(|l| l.contains("pub fn add")).unwrap_or("");
-    assert!(!fn_line.contains('<'), "unexpected generic in non-generic fn: {}", fn_line);
+    assert!(
+        !fn_line.contains('<'),
+        "unexpected generic in non-generic fn: {}",
+        fn_line
+    );
 }
 
 // ── Type checking: type params in scope ───────────────────────────────────────
@@ -73,7 +89,7 @@ fn wrap<T> :: T -> T
 end
 end
 "#;
-    compile_ok(src);  // just asserting it doesn't panic/fail
+    compile_ok(src); // just asserting it doesn't panic/fail
 }
 
 #[test]

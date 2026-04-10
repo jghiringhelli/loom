@@ -11,7 +11,11 @@ module Auth
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "basic annotation decl should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "basic annotation decl should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -22,7 +26,11 @@ module Transfer
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "annotation with params should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "annotation with params should parse: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -37,7 +45,8 @@ end
     let code = result.unwrap();
     assert!(
         code.contains("// annotation concurrent_transfer"),
-        "codegen should emit annotation comment:\n{}", code
+        "codegen should emit annotation comment:\n{}",
+        code
     );
 }
 
@@ -49,14 +58,13 @@ module Bad
 end
 "#;
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "duplicate param names should be rejected"
-    );
+    assert!(result.is_err(), "duplicate param names should be rejected");
     let errs = result.unwrap_err();
     assert!(
-        errs.iter().any(|e| e.to_string().contains("duplicate parameter")),
-        "error should mention duplicate param: {:?}", errs
+        errs.iter()
+            .any(|e| e.to_string().contains("duplicate parameter")),
+        "error should mention duplicate param: {:?}",
+        errs
     );
 }
 
@@ -72,5 +80,9 @@ module Payments
 end
 "#;
     let result = compile(src);
-    assert!(result.is_ok(), "annotation decl with fns should compile: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "annotation decl with fns should compile: {:?}",
+        result
+    );
 }

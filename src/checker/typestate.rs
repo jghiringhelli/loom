@@ -55,11 +55,7 @@ fn valid_transitions(lc: &LifecycleDef) -> HashSet<(String, String)> {
 ///
 /// Looks for parameters of type `TypeName<StateA>` and a return type containing
 /// `TypeName<StateB>`, then validates the (StateA, StateB) pair.
-fn check_fn(
-    fd: &FnDef,
-    lc: &LifecycleDef,
-    valid: &HashSet<(String, String)>,
-) -> Option<LoomError> {
+fn check_fn(fd: &FnDef, lc: &LifecycleDef, valid: &HashSet<(String, String)>) -> Option<LoomError> {
     // Collect all input states from parameters.
     let input_states: Vec<String> = fd
         .type_sig

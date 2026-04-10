@@ -13,9 +13,7 @@
 use loom::compile;
 
 fn emit(src: &str) -> String {
-    compile(src).unwrap_or_else(|errs| {
-        panic!("compile failed: {:?}", errs)
-    })
+    compile(src).unwrap_or_else(|errs| panic!("compile failed: {:?}", errs))
 }
 
 // 1. A function with require: and ensure: emits a kani::proof harness.

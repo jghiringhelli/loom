@@ -14,7 +14,11 @@ module Stats
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "Gaussian family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "Gaussian family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -28,7 +32,11 @@ module Events
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "Poisson family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "Poisson family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -43,7 +51,11 @@ module Bayesian
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "Beta family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "Beta family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -77,7 +89,11 @@ module Finance
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "LogNormal family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "LogNormal family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -91,7 +107,11 @@ module Simulation
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "Uniform family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "Uniform family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -108,7 +128,11 @@ module Legacy
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "Old model: string syntax must still parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "Old model: string syntax must still parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -122,7 +146,11 @@ module Finance
   end
 end
 "#;
-    assert!(parse(src).is_ok(), "GeometricBrownian family should parse: {:?}", parse(src).err());
+    assert!(
+        parse(src).is_ok(),
+        "GeometricBrownian family should parse: {:?}",
+        parse(src).err()
+    );
 }
 
 #[test]
@@ -139,11 +167,23 @@ module Finance
 end
 "#;
     let result = loom::compile(src);
-    assert!(result.is_err(), "Cauchy + CLT convergence should be rejected by checker");
-    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
     assert!(
-        msgs.contains("Cauchy") || msgs.contains("central_limit") || msgs.contains("mean") || msgs.contains("variance"),
-        "Expected Cauchy/CLT error, got: {}", msgs
+        result.is_err(),
+        "Cauchy + CLT convergence should be rejected by checker"
+    );
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        msgs.contains("Cauchy")
+            || msgs.contains("central_limit")
+            || msgs.contains("mean")
+            || msgs.contains("variance"),
+        "Expected Cauchy/CLT error, got: {}",
+        msgs
     );
 }
 
@@ -161,10 +201,19 @@ module Stats
 end
 "#;
     let result = loom::compile(src);
-    assert!(result.is_err(), "std_dev=0.0 should be rejected (must be > 0)");
-    let msgs = result.unwrap_err().iter().map(|e| format!("{}", e)).collect::<Vec<_>>().join("\n");
+    assert!(
+        result.is_err(),
+        "std_dev=0.0 should be rejected (must be > 0)"
+    );
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{}", e))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msgs.contains("std_dev") || msgs.contains("Gaussian"),
-        "Expected std_dev/Gaussian error, got: {}", msgs
+        "Expected std_dev/Gaussian error, got: {}",
+        msgs
     );
 }

@@ -30,11 +30,23 @@ pub enum TemporalProperty {
     /// `always: <predicate>` — holds in every reachable state.
     Always { predicate: Expr, span: Span },
     /// `eventually: <type> reaches <state>` — some future state is reached.
-    Eventually { type_name: String, target_state: String, span: Span },
+    Eventually {
+        type_name: String,
+        target_state: String,
+        span: Span,
+    },
     /// `never: <state> transitions to <state>` — forbidden transition.
-    Never { from_state: String, to_state: String, span: Span },
+    Never {
+        from_state: String,
+        to_state: String,
+        span: Span,
+    },
     /// `precedes: <state> before <state>` — ordering constraint.
-    Precedes { first: String, second: String, span: Span },
+    Precedes {
+        first: String,
+        second: String,
+        span: Span,
+    },
 }
 
 /// An information-flow label declaration (`flow secret :: TypeA, TypeB`).
@@ -130,7 +142,6 @@ pub struct EffectHandler {
     pub span: Span,
 }
 
-
 // ── M78-M82: Biosemiotic signal infrastructure ────────────────────────────────
 
 /// M80: Umwelt block — perceptual world declaration (Uexküll 1909).
@@ -189,7 +200,6 @@ pub struct SenseDef {
     pub derived: Option<String>,
     pub span: Span,
 }
-
 
 // ── M66: Aspect-Oriented Specification ───────────────────────────────────────
 
@@ -484,25 +494,55 @@ pub struct StoreDef {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StoreSchemaEntry {
     /// `table Name ... end` — relational table
-    Table { name: String, fields: Vec<FieldDef>, span: Span },
+    Table {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `node Name :: { ... }` — graph node type
-    Node { name: String, fields: Vec<FieldDef>, span: Span },
+    Node {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `edge Name :: Source -> Target { ... }` — graph edge type
-    Edge { name: String, source: String, target: String, fields: Vec<FieldDef>, span: Span },
+    Edge {
+        name: String,
+        source: String,
+        target: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `key: Type` — key-value key declaration
     KeyType { ty: TypeExpr, span: Span },
     /// `value: Type` — key-value value declaration
     ValueType { ty: TypeExpr, span: Span },
     /// `event Name :: { ... }` — time series event
-    Event { name: String, fields: Vec<FieldDef>, span: Span },
+    Event {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `embedding :: { ... }` — vector embedding
     EmbeddingEntry { fields: Vec<FieldDef>, span: Span },
     /// `fact Name :: { ... }` — OLAP fact table
-    Fact { name: String, fields: Vec<FieldDef>, span: Span },
+    Fact {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `dimension Name :: { ... }` — OLAP dimension
-    DimensionEntry { name: String, fields: Vec<FieldDef>, span: Span },
+    DimensionEntry {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `schema Name :: { ... }` — document collection schema
-    Collection { name: String, fields: Vec<FieldDef>, span: Span },
+    Collection {
+        name: String,
+        fields: Vec<FieldDef>,
+        span: Span,
+    },
     /// `mapreduce Name ... end` — MapReduce job (M97)
     MapReduceJob(MapReduceDef),
     /// `consumer Name :: offset: value` — DistributedLog consumer (M97)
@@ -541,7 +581,6 @@ pub struct StoreConfigEntry {
     pub value: String,
     pub span: Span,
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Provides {
@@ -620,3 +659,90 @@ pub struct MessagingPrimitiveDef {
     pub span: Span,
 }
 
+// ── M117: TelosFunctionDef ───────────────────────────────────────────────────
+
+/// M117: Top-level telos function declaration — telos as typed function, not just string.
+///
+/// Bridges Peirce semiotics (interpretant as function), Barbieri code biology (propagation
+/// carries the interpretant), and Loom's type system (TelosMetric is a typed function).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TelosFunctionDef {
+    pub name: String,
+    /// Human-readable statement (e.g. "converge risk-adjusted PnL toward equilibrium").
+    pub statement: Option<String>,
+    /// Formal constraint (e.g. a function reference).
+    pub bounded_by: Option<String>,
+    /// Typed metric function signature (e.g. "BeingState -> SignalSet -> Float").
+    pub measured_by: Option<String>,
+    /// Convergence thresholds.
+    pub thresholds: Option<TelosThresholds>,
+    /// Decision axes this telos guides.
+    pub guides: Vec<String>,
+    pub span: Span,
+}
+
+// ── M118: EntityDef ──────────────────────────────────────────────────────────
+
+/// M118: Universal graph/network primitive — entity<N, E, Annotations>.
+///
+/// All computation structures are instances of entity:
+/// - MarkovChain = entity<State, Transition, @stochastic @finite>
+/// - DAG = entity<Node, Edge, @directed @acyclic>
+/// - NeuralNet = entity<Neuron, Weight, @directed @weighted @learnable>
+/// - KnowledgeGraph = entity<Concept, Relation, @undirected @semantic>
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityDef {
+    pub name: String,
+    /// Node type parameter (e.g. "State", "Neuron", "ClimateRegion").
+    pub node_type: Option<String>,
+    /// Edge type parameter (e.g. "Transition", "Weight", "Coupling").
+    pub edge_type: Option<String>,
+    /// All annotations combined: structural + semantic + verification + behavior.
+    pub annotations: Vec<String>,
+    /// Optional describe string.
+    pub describe: Option<String>,
+    /// Optional alias: what well-known structure this is an instance of.
+    pub alias_of: Option<String>,
+    pub span: Span,
+}
+
+// ── M119: IntentCoordinatorDef ───────────────────────────────────────────────
+
+/// Governance class for intent changes (Part IX — Intent Vivo with Governance).
+#[derive(Debug, Clone, PartialEq)]
+pub enum GovernanceClass {
+    Automatic,
+    AiProposes,
+    HumanOnly,
+    Blocked,
+}
+
+/// A signal source for intent inference.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntentSignalSource {
+    pub name: String,
+    pub trust_level: Option<String>,
+}
+
+/// M119: Intent Coordinator — living intent with human governance.
+///
+/// The third mode between static production code and full BIOISO:
+/// intent that can adapt based on usage behavior and market context,
+/// subject to governance gates that classify each change by required approval level.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntentCoordinatorDef {
+    pub name: String,
+    /// Telomere on the coordinator (e.g. 90 days before re-evaluation).
+    pub telomere_days: Option<u64>,
+    /// Default governance class for changes.
+    pub governance_class: GovernanceClass,
+    /// Signal sources that feed the coordinator.
+    pub signals: Vec<IntentSignalSource>,
+    /// Rollback condition.
+    pub rollback_on: Option<String>,
+    /// Minimum confidence score to propose a change (0.0–1.0).
+    pub min_confidence: Option<f64>,
+    /// Audit trail: emit changes to this path.
+    pub audit_path: Option<String>,
+    pub span: Span,
+}

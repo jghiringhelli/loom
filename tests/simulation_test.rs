@@ -175,5 +175,8 @@ fn compile_simulation_entry_point_works() {
         result
     );
     let out = result.unwrap();
-    assert!(out.contains("from mesa import Agent"), "expected mesa import in output");
+    assert!(
+        out.contains("from mesa import Agent"),
+        "expected mesa import in output"
+    );
 }

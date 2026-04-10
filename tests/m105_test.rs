@@ -98,7 +98,8 @@ end
             let msg = format!("{}", e);
             msg.contains("empty") && !msg.contains("[warn]")
         }),
-        "empty then: should produce an error: {:?}", errors
+        "empty then: should produce an error: {:?}",
+        errors
     );
 }
 
@@ -121,14 +122,12 @@ module Trade
 end
 "#;
     let result = compile(src);
-    assert!(
-        result.is_err(),
-        "within: 0 must be a compile error"
-    );
+    assert!(result.is_err(), "within: 0 must be a compile error");
     let errors = result.unwrap_err();
     assert!(
         errors.iter().any(|e| format!("{}", e).contains("zero")),
-        "should mention zero within: {:?}", errors
+        "should mention zero within: {:?}",
+        errors
     );
 }
 
@@ -183,10 +182,12 @@ end
     let output = result.unwrap();
     assert!(
         output.contains("#[test]"),
-        "codegen should emit #[test] for scenario: {:?}", &output[..output.len().min(500)]
+        "codegen should emit #[test] for scenario: {:?}",
+        &output[..output.len().min(500)]
     );
     assert!(
         output.contains("scenario_signal_triggers_trade"),
-        "codegen should emit scenario function name: {:?}", &output[..output.len().min(500)]
+        "codegen should emit scenario function name: {:?}",
+        &output[..output.len().min(500)]
     );
 }

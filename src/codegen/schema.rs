@@ -28,7 +28,9 @@ use crate::ast::*;
 pub struct JsonSchemaEmitter;
 
 impl JsonSchemaEmitter {
-    pub fn new() -> Self { JsonSchemaEmitter }
+    pub fn new() -> Self {
+        JsonSchemaEmitter
+    }
 
     /// Emit a full JSON Schema document for all types in a [`Module`].
     ///
@@ -36,7 +38,9 @@ impl JsonSchemaEmitter {
     /// one schema per type/enum/refined-type definition.
     pub fn emit(&self, module: &Module) -> String {
         // Build sensitivity map from flow_labels.
-        let sensitivity_map: std::collections::HashMap<String, String> = module.flow_labels.iter()
+        let sensitivity_map: std::collections::HashMap<String, String> = module
+            .flow_labels
+            .iter()
             .flat_map(|fl| fl.types.iter().map(move |t| (t.clone(), fl.label.clone())))
             .collect();
 
@@ -89,12 +93,20 @@ impl JsonSchemaEmitter {
 
     // ── Type definitions ──────────────────────────────────────────────────
 
-    pub fn emit_type_def_pub(&self, td: &TypeDef) -> String { self.emit_type_def(td) }
-    pub fn emit_enum_def_pub(&self, ed: &EnumDef) -> String { self.emit_enum_def(ed) }
-    pub fn emit_refined_type_pub(&self, rt: &RefinedType) -> String { self.emit_refined_type(rt) }
+    pub fn emit_type_def_pub(&self, td: &TypeDef) -> String {
+        self.emit_type_def(td)
+    }
+    pub fn emit_enum_def_pub(&self, ed: &EnumDef) -> String {
+        self.emit_enum_def(ed)
+    }
+    pub fn emit_refined_type_pub(&self, rt: &RefinedType) -> String {
+        self.emit_refined_type(rt)
+    }
 
     fn emit_type_def(&self, td: &TypeDef) -> String {
-        let props: Vec<String> = td.fields.iter()
+        let props: Vec<String> = td
+            .fields
+            .iter()
             .map(|f| {
                 let mut schema = self.type_expr_to_schema(&f.ty);
                 // Inject x-privacy extensions when annotations are present.
@@ -111,9 +123,7 @@ impl JsonSchemaEmitter {
                 format!("        {:?}: {}", f.name, schema)
             })
             .collect();
-        let required: Vec<String> = td.fields.iter()
-            .map(|f| format!("{:?}", f.name))
-            .collect();
+        let required: Vec<String> = td.fields.iter().map(|f| format!("{:?}", f.name)).collect();
         format!(
             "{{\"type\":\"object\",\"properties\":{{{}}},\"required\":[{}]}}",
             props.join(", "),
@@ -152,10 +162,7 @@ impl JsonSchemaEmitter {
             // Merge base schema with extracted constraints
             let base_trimmed = base.trim_start_matches('{').trim_end_matches('}');
             let constraint_str = constraints.join(",");
-            format!(
-                "{{{},{}}}",
-                base_trimmed, constraint_str
-            )
+            format!("{{{},{}}}", base_trimmed, constraint_str)
         }
     }
 
@@ -211,12 +218,12 @@ impl JsonSchemaEmitter {
 
     fn base_type_schema(&self, name: &str) -> String {
         match name {
-            "Int"  => "{\"type\":\"integer\"}".to_string(),
+            "Int" => "{\"type\":\"integer\"}".to_string(),
             "Float" => "{\"type\":\"number\"}".to_string(),
             "String" | "Str" => "{\"type\":\"string\"}".to_string(),
-            "Bool"  => "{\"type\":\"boolean\"}".to_string(),
-            "Unit"  => "{\"type\":\"null\"}".to_string(),
-            other   => format!("{{\"$ref\":\"#/$defs/{}\"}}", other),
+            "Bool" => "{\"type\":\"boolean\"}".to_string(),
+            "Unit" => "{\"type\":\"null\"}".to_string(),
+            other => format!("{{\"$ref\":\"#/$defs/{}\"}}", other),
         }
     }
 }
@@ -248,35 +255,35 @@ fn extract_constraints(predicate: &Expr) -> Vec<String> {
 
 fn collect_constraints(expr: &Expr, out: &mut Vec<String>) {
     match expr {
-        Expr::BinOp { op, left, right, .. } => {
-            match op {
-                BinOpKind::And => {
-                    collect_constraints(left, out);
-                    collect_constraints(right, out);
-                }
-                BinOpKind::Ge if is_self(left) => {
-                    if let Some(n) = extract_int_literal(right) {
-                        out.push(format!("\"minimum\":{}", n));
-                    }
-                }
-                BinOpKind::Le if is_self(left) => {
-                    if let Some(n) = extract_int_literal(right) {
-                        out.push(format!("\"maximum\":{}", n));
-                    }
-                }
-                BinOpKind::Gt if is_self(left) => {
-                    if let Some(n) = extract_int_literal(right) {
-                        out.push(format!("\"exclusiveMinimum\":{}", n));
-                    }
-                }
-                BinOpKind::Lt if is_self(left) => {
-                    if let Some(n) = extract_int_literal(right) {
-                        out.push(format!("\"exclusiveMaximum\":{}", n));
-                    }
-                }
-                _ => {}
+        Expr::BinOp {
+            op, left, right, ..
+        } => match op {
+            BinOpKind::And => {
+                collect_constraints(left, out);
+                collect_constraints(right, out);
             }
-        }
+            BinOpKind::Ge if is_self(left) => {
+                if let Some(n) = extract_int_literal(right) {
+                    out.push(format!("\"minimum\":{}", n));
+                }
+            }
+            BinOpKind::Le if is_self(left) => {
+                if let Some(n) = extract_int_literal(right) {
+                    out.push(format!("\"maximum\":{}", n));
+                }
+            }
+            BinOpKind::Gt if is_self(left) => {
+                if let Some(n) = extract_int_literal(right) {
+                    out.push(format!("\"exclusiveMinimum\":{}", n));
+                }
+            }
+            BinOpKind::Lt if is_self(left) => {
+                if let Some(n) = extract_int_literal(right) {
+                    out.push(format!("\"exclusiveMaximum\":{}", n));
+                }
+            }
+            _ => {}
+        },
         _ => {}
     }
 }
@@ -289,7 +296,12 @@ fn extract_int_literal(expr: &Expr) -> Option<i64> {
     match expr {
         Expr::Literal(Literal::Int(n)) => Some(*n),
         // Handle unary minus: 0 - n
-        Expr::BinOp { op: BinOpKind::Sub, left, right, .. } => {
+        Expr::BinOp {
+            op: BinOpKind::Sub,
+            left,
+            right,
+            ..
+        } => {
             if let (Expr::Literal(Literal::Int(0)), Expr::Literal(Literal::Int(n))) =
                 (left.as_ref(), right.as_ref())
             {

@@ -100,8 +100,14 @@ type PositiveInt = Int where n > 0
 end
 end"#;
     let out = loom::compile(src).expect("compile");
-    assert!(out.contains("on_violation"), "expected on_violation in:\n{out}");
-    assert!(out.contains("clamp_to_one"), "expected clamp_to_one in:\n{out}");
+    assert!(
+        out.contains("on_violation"),
+        "expected on_violation in:\n{out}"
+    );
+    assert!(
+        out.contains("clamp_to_one"),
+        "expected clamp_to_one in:\n{out}"
+    );
 }
 
 // 6. codegen emits repair_fn comment
@@ -114,5 +120,8 @@ end
 end"#;
     let out = loom::compile(src).expect("compile");
     assert!(out.contains("repair_fn"), "expected repair_fn in:\n{out}");
-    assert!(out.contains("normalize_email"), "expected normalize_email in:\n{out}");
+    assert!(
+        out.contains("normalize_email"),
+        "expected normalize_email in:\n{out}"
+    );
 }

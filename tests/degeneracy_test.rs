@@ -123,8 +123,15 @@ fn checker_rejects_identical_primary_fallback() {
     };
     let result = DegeneracyChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msgs.contains("identical"), "expected 'identical' in: {msgs}");
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
+    assert!(
+        msgs.contains("identical"),
+        "expected 'identical' in: {msgs}"
+    );
 }
 
 // 5. checker rejects empty primary
@@ -256,7 +263,10 @@ end
 end
 end"#;
     let out = loom::compile(src).expect("compile");
-    assert!(out.contains("degenerate"), "expected degenerate comment in:\n{out}");
+    assert!(
+        out.contains("degenerate"),
+        "expected degenerate comment in:\n{out}"
+    );
     assert!(out.contains("fast_path"), "expected fast_path in:\n{out}");
     assert!(out.contains("slow_path"), "expected slow_path in:\n{out}");
 }

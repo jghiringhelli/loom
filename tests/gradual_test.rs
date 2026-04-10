@@ -16,7 +16,11 @@ gradual:
 end
 end
 end"#;
-    assert!(compile(src).is_ok(), "expected OK but got: {:?}", compile(src));
+    assert!(
+        compile(src).is_ok(),
+        "expected OK but got: {:?}",
+        compile(src)
+    );
 }
 
 #[test]
@@ -29,7 +33,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_err(), "expected error for missing gradual block");
     let msg = result.unwrap_err()[0].to_string();
-    assert!(msg.contains("gradual") || msg.contains("dynamic"), "expected gradual error in: {}", msg);
+    assert!(
+        msg.contains("gradual") || msg.contains("dynamic"),
+        "expected gradual error in: {}",
+        msg
+    );
 }
 
 #[test]
@@ -94,7 +102,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("gradual typing") || rust_src.contains("gradual"), "Expected gradual comment in: {}", &rust_src[..rust_src.len().min(500)]);
+    assert!(
+        rust_src.contains("gradual typing") || rust_src.contains("gradual"),
+        "Expected gradual comment in: {}",
+        &rust_src[..rust_src.len().min(500)]
+    );
 }
 
 #[test]
@@ -111,7 +123,11 @@ end"#;
     let result = compile(src);
     assert!(result.is_ok());
     let rust_src = result.unwrap();
-    assert!(rust_src.contains("Box<dyn std::any::Any>"), "Expected Box<dyn Any> in: {}", &rust_src[..rust_src.len().min(500)]);
+    assert!(
+        rust_src.contains("Box<dyn std::any::Any>"),
+        "Expected Box<dyn Any> in: {}",
+        &rust_src[..rust_src.len().min(500)]
+    );
 }
 
 #[test]

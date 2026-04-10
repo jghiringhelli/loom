@@ -79,8 +79,15 @@ fn checker_rejects_empty_pathway() {
     };
     let result = PathwayChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
-    assert!(msgs.contains("at least one step"), "expected 'at least one step' in: {msgs}");
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
+    assert!(
+        msgs.contains("at least one step"),
+        "expected 'at least one step' in: {msgs}"
+    );
 }
 
 // 4. checker rejects step with identical from/to

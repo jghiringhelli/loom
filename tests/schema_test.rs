@@ -6,10 +6,10 @@
 //! - OpenAPI emitter: paths from functions, HTTP method inference, annotations,
 //!   request body schema, response schema, async (Effect) flag, components/schemas.
 
+use loom::codegen::openapi::OpenApiEmitter;
+use loom::codegen::schema::JsonSchemaEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::schema::JsonSchemaEmitter;
-use loom::codegen::openapi::OpenApiEmitter;
 
 fn json_schema(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -37,7 +37,10 @@ fn f :: Int -> Int
 end
 end"#;
     let out = json_schema(src);
-    assert!(out.contains("json-schema.org/draft/2020-12"), "missing schema URL:\n{out}");
+    assert!(
+        out.contains("json-schema.org/draft/2020-12"),
+        "missing schema URL:\n{out}"
+    );
 }
 
 #[test]
@@ -62,7 +65,10 @@ type Point =
 end
 end"#;
     let out = json_schema(src);
-    assert!(out.contains("\"type\":\"object\""), "expected object type:\n{out}");
+    assert!(
+        out.contains("\"type\":\"object\""),
+        "expected object type:\n{out}"
+    );
     assert!(out.contains("\"x\""), "expected x field:\n{out}");
     assert!(out.contains("\"y\""), "expected y field:\n{out}");
     assert!(out.contains("\"required\""), "expected required:\n{out}");
@@ -112,9 +118,15 @@ end
 end"#;
     let out = json_schema(src);
     assert!(out.contains("\"tag\""), "expected tag property:\n{out}");
-    assert!(out.contains("\"const\":\"Circle\""), "expected Circle tag:\n{out}");
+    assert!(
+        out.contains("\"const\":\"Circle\""),
+        "expected Circle tag:\n{out}"
+    );
     assert!(out.contains("\"value\""), "expected value property:\n{out}");
-    assert!(out.contains("\"type\":\"number\""), "expected Float→number:\n{out}");
+    assert!(
+        out.contains("\"type\":\"number\""),
+        "expected Float→number:\n{out}"
+    );
 }
 
 // ── refined types ─────────────────────────────────────────────────────────────
@@ -128,7 +140,10 @@ end
 end"#;
     let out = json_schema(src);
     assert!(out.contains("\"allOf\""), "expected allOf:\n{out}");
-    assert!(out.contains("Email"), "expected Email in description:\n{out}");
+    assert!(
+        out.contains("Email"),
+        "expected Email in description:\n{out}"
+    );
 }
 
 // ── generic types ─────────────────────────────────────────────────────────────
@@ -141,7 +156,10 @@ type Bag =
 end
 end"#;
     let out = json_schema(src);
-    assert!(out.contains("\"type\":\"array\""), "expected array type:\n{out}");
+    assert!(
+        out.contains("\"type\":\"array\""),
+        "expected array type:\n{out}"
+    );
     assert!(out.contains("\"items\""), "expected items:\n{out}");
 }
 
@@ -153,8 +171,14 @@ type Wrapper =
 end
 end"#;
     let out = json_schema(src);
-    assert!(out.contains("\"oneOf\""), "expected oneOf for Option:\n{out}");
-    assert!(out.contains("\"type\":\"null\""), "expected null alternative:\n{out}");
+    assert!(
+        out.contains("\"oneOf\""),
+        "expected oneOf for Option:\n{out}"
+    );
+    assert!(
+        out.contains("\"type\":\"null\""),
+        "expected null alternative:\n{out}"
+    );
 }
 
 #[test]
@@ -165,7 +189,10 @@ type Container =
 end
 end"#;
     let out = json_schema(src);
-    assert!(out.contains("\"$ref\":\"#/$defs/Point\""), "expected $ref:\n{out}");
+    assert!(
+        out.contains("\"$ref\":\"#/$defs/Point\""),
+        "expected $ref:\n{out}"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -182,7 +209,10 @@ fn f :: Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"openapi\": \"3.0.3\""), "missing openapi version:\n{out}");
+    assert!(
+        out.contains("\"openapi\": \"3.0.3\""),
+        "missing openapi version:\n{out}"
+    );
 }
 
 #[test]
@@ -193,7 +223,10 @@ fn get_user :: Int -> String
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"title\": \"UserService\""), "missing title:\n{out}");
+    assert!(
+        out.contains("\"title\": \"UserService\""),
+        "missing title:\n{out}"
+    );
 }
 
 #[test]
@@ -205,7 +238,10 @@ fn pay :: Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("Handles payments"), "missing description:\n{out}");
+    assert!(
+        out.contains("Handles payments"),
+        "missing description:\n{out}"
+    );
 }
 
 // ── path generation ───────────────────────────────────────────────────────────
@@ -221,8 +257,14 @@ fn charge :: Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"paths\""), "OpenAPI output should contain paths section:\n{out}");
-    assert!(out.contains("\"operationId\": \"charge\""), "charge operation should be emitted:\n{out}");
+    assert!(
+        out.contains("\"paths\""),
+        "OpenAPI output should contain paths section:\n{out}"
+    );
+    assert!(
+        out.contains("\"operationId\": \"charge\""),
+        "charge operation should be emitted:\n{out}"
+    );
 }
 
 #[test]
@@ -246,7 +288,10 @@ fn create :: String -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"post\""), "expected POST for fn with params:\n{out}");
+    assert!(
+        out.contains("\"post\""),
+        "expected POST for fn with params:\n{out}"
+    );
 }
 
 #[test]
@@ -257,7 +302,10 @@ fn ping :: Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"get\""), "expected GET for fn with no params:\n{out}");
+    assert!(
+        out.contains("\"get\""),
+        "expected GET for fn with no params:\n{out}"
+    );
 }
 
 #[test]
@@ -268,7 +316,10 @@ fn list @method("GET") @path("/items") :: String -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"get\""), "expected GET from annotation:\n{out}");
+    assert!(
+        out.contains("\"get\""),
+        "expected GET from annotation:\n{out}"
+    );
 }
 
 // ── request body ─────────────────────────────────────────────────────────────
@@ -281,8 +332,14 @@ fn create :: String -> Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"requestBody\""), "expected requestBody:\n{out}");
-    assert!(out.contains("\"application/json\""), "expected content type:\n{out}");
+    assert!(
+        out.contains("\"requestBody\""),
+        "expected requestBody:\n{out}"
+    );
+    assert!(
+        out.contains("\"application/json\""),
+        "expected content type:\n{out}"
+    );
 }
 
 // ── response schema ───────────────────────────────────────────────────────────
@@ -296,7 +353,10 @@ end
 end"#;
     let out = openapi(src);
     assert!(out.contains("\"200\""), "expected 200 response:\n{out}");
-    assert!(out.contains("\"type\":\"integer\""), "expected integer response schema:\n{out}");
+    assert!(
+        out.contains("\"type\":\"integer\""),
+        "expected integer response schema:\n{out}"
+    );
 }
 
 #[test]
@@ -307,7 +367,10 @@ fn fetch :: String -> Effect<[IO], Int>
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("x-loom-async"), "expected x-loom-async extension:\n{out}");
+    assert!(
+        out.contains("x-loom-async"),
+        "expected x-loom-async extension:\n{out}"
+    );
 }
 
 // ── components/schemas ────────────────────────────────────────────────────────
@@ -324,7 +387,10 @@ fn process :: Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"components\""), "expected components:\n{out}");
+    assert!(
+        out.contains("\"components\""),
+        "expected components:\n{out}"
+    );
     assert!(out.contains("\"schemas\""), "expected schemas:\n{out}");
     assert!(out.contains("\"Order\""), "expected Order schema:\n{out}");
 }
@@ -341,7 +407,10 @@ fn get_status :: Int -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"Status\""), "expected Status enum in schemas:\n{out}");
+    assert!(
+        out.contains("\"Status\""),
+        "expected Status enum in schemas:\n{out}"
+    );
 }
 
 // ── operation id and summary ──────────────────────────────────────────────────
@@ -354,7 +423,10 @@ fn create_order :: String -> Int
 end
 end"#;
     let out = openapi(src);
-    assert!(out.contains("\"operationId\": \"create_order\""), "expected operationId:\n{out}");
+    assert!(
+        out.contains("\"operationId\": \"create_order\""),
+        "expected operationId:\n{out}"
+    );
 }
 
 #[test]
@@ -367,7 +439,10 @@ end
 end"#;
     let out = openapi(src);
     // Module describe used as description; fn name as summary fallback
-    assert!(out.contains("create_order"), "expected fn name in output:\n{out}");
+    assert!(
+        out.contains("create_order"),
+        "expected fn name in output:\n{out}"
+    );
 }
 
 // ── pipeline entry points ─────────────────────────────────────────────────────

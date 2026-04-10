@@ -5,7 +5,9 @@ use crate::error::LoomError;
 pub struct GradualChecker;
 
 impl GradualChecker {
-    pub fn new() -> Self { GradualChecker }
+    pub fn new() -> Self {
+        GradualChecker
+    }
 
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
         let mut errors = Vec::new();
@@ -14,7 +16,11 @@ impl GradualChecker {
                 self.check_fn(fd, &mut errors);
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     fn uses_dynamic_type(ty: &TypeExpr) -> bool {
@@ -23,7 +29,9 @@ impl GradualChecker {
             TypeExpr::Generic(_, params) => params.iter().any(Self::uses_dynamic_type),
             TypeExpr::Effect(_, inner) => Self::uses_dynamic_type(inner),
             TypeExpr::Option(inner) => Self::uses_dynamic_type(inner),
-            TypeExpr::Result(ok, err) => Self::uses_dynamic_type(ok) || Self::uses_dynamic_type(err),
+            TypeExpr::Result(ok, err) => {
+                Self::uses_dynamic_type(ok) || Self::uses_dynamic_type(err)
+            }
             TypeExpr::Tuple(elems) => elems.iter().any(Self::uses_dynamic_type),
             _ => false,
         }

@@ -78,7 +78,10 @@ fn positive :: Int -> Bool
 end
 end
 "#;
-    assert!(compile(src).is_ok(), "comparison expression should infer as Bool");
+    assert!(
+        compile(src).is_ok(),
+        "comparison expression should infer as Bool"
+    );
 }
 
 #[test]
@@ -107,7 +110,10 @@ fn answer :: Int -> Int
 end
 end
 "#;
-    assert!(compile(src).is_ok(), "literal body matching return type should pass");
+    assert!(
+        compile(src).is_ok(),
+        "literal body matching return type should pass"
+    );
 }
 
 #[test]
@@ -119,7 +125,10 @@ fn always_true :: Int -> Bool
 end
 end
 "#;
-    assert!(compile(src).is_ok(), "bool literal matching Bool return type should pass");
+    assert!(
+        compile(src).is_ok(),
+        "bool literal matching Bool return type should pass"
+    );
 }
 
 // ── Failing cases (type mismatches) ──────────────────────────────────────────
@@ -186,5 +195,9 @@ module App
 end
 "#;
     // describe: is metadata (not a body expression) — inference skips empty body
-    assert!(loom::parse(src).is_ok(), "annotated fn should parse: {:?}", loom::parse(src).err());
+    assert!(
+        loom::parse(src).is_ok(),
+        "annotated fn should parse: {:?}",
+        loom::parse(src).err()
+    );
 }

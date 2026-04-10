@@ -1,0 +1,90 @@
+-- MinimalLife: satisfies all 3 classic definitions of life in Loom.
+--
+-- 1. Schrödinger (1944): life resists entropy increase; it builds order.
+-- 2. Maturana & Varela (1972): autopoiesis — self-produces its own components.
+-- 3. Barbieri (2007): code biology — contains a SEMANTIC code (matter→function).
+--
+-- This is the simplest Loom program that satisfies all three simultaneously.
+
+module MinimalLife
+
+-- ── The being ───────────────────────────────────────────────────────────────
+
+being ProtoCell @mortal @sandboxed
+  describe: "A protocell that maintains its own boundary, converts energy,
+             and carries a hereditary code — satisfying three definitions of life"
+
+  -- Schrödinger: bounded compartment that concentrates free energy (negentropy)
+  matter:
+    lipid_bilayer: Float   -- boundary integrity (0.0 = collapsed)
+    atp_pool: Float        -- free energy store
+    code_fidelity: Float   -- hereditary code copy fidelity
+  end
+
+  -- 3. Barbieri: the telos expressed through the code
+  telos:
+    statement: "maintain membrane integrity, replicate hereditary code, build ATP"
+    bounded_by: survival_score
+    measured_by: "membrane_integrity * atp_efficiency * code_fidelity"
+    thresholds:
+      convergence: 0.75
+      divergence: 0.25
+    end
+  end
+
+  -- Maturana & Varela: autopoietic self-production
+  autopoietic: true
+
+  -- Directed self-modification: improve code fidelity toward telos
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  -- Autopoietic production loop: synthesize own boundary components
+  regulate:
+    trigger: atp_pool < 0.3
+    action: synthesize_lipids
+  end
+
+  regulate:
+    trigger: lipid_bilayer < 0.5
+    action: repair_membrane
+  end
+
+  -- 1. Schrödinger: epigenetic response to entropy gradient
+  epigenetic:
+    signal: entropy_gradient
+    modifies: metabolite_ordering
+    reverts_when: entropy_gradient < baseline
+  end
+
+  -- Barbieri: propagate — copy BOTH matter AND code to offspring
+  propagate:
+    condition: atp_pool > 0.8 and lipid_bilayer > 0.9
+    inherits: [matter, telos, epigenetic_memory]
+    mutates: code_fidelity within quantum_noise_bounds
+    offspring_type: ProtoCell
+  end
+
+  -- Telomere: max generations before senescence
+  telomere:
+    max_generations: 1000
+    senescence_trigger: lipid_bilayer < 0.1
+  end
+
+end
+
+-- ── Helper functions ────────────────────────────────────────────────────────
+
+fn survival_score :: ProtoCell -> Float
+  require: cell.atp_pool >= 0.0
+  require: cell.lipid_bilayer >= 0.0
+  ensure: result >= 0.0
+  let membrane = cell.lipid_bilayer
+  let energy = cell.atp_pool
+  membrane * 0.5 + energy * 0.5
+end
+
+end

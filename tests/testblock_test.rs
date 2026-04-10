@@ -8,9 +8,9 @@
 //! - Module without test_defs has no `#[cfg(test)]` block
 //! - E2E: emitted test module compiles and tests pass
 
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
 
 fn compile(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -69,10 +69,7 @@ end"#;
         out.contains("#[cfg(test)]"),
         "expected #[cfg(test)] in:\n{out}"
     );
-    assert!(
-        out.contains("mod tests"),
-        "expected mod tests in:\n{out}"
-    );
+    assert!(out.contains("mod tests"), "expected mod tests in:\n{out}");
 }
 
 #[test]

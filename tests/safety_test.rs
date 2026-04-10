@@ -2,7 +2,7 @@
 //!
 //! The Three Laws of Robotics as a type system (Asimov 1942, S→1 edition).
 
-use loom::ast::{Annotation, BeingDef, Module, Span, TelosDef, TelomereBlock};
+use loom::ast::{Annotation, BeingDef, Module, Span, TelomereBlock, TelosDef};
 use loom::checker::SafetyChecker;
 
 fn make_module(being: BeingDef) -> Module {
@@ -19,8 +19,8 @@ fn make_module(being: BeingDef) -> Module {
         invariants: vec![],
         test_defs: vec![],
         lifecycle_defs: vec![],
-            temporal_defs: vec![],
-            aspect_defs: vec![],
+        temporal_defs: vec![],
+        aspect_defs: vec![],
         being_defs: vec![being],
         ecosystem_defs: vec![],
         flow_labels: vec![],
@@ -30,7 +30,10 @@ fn make_module(being: BeingDef) -> Module {
 }
 
 fn ann(key: &str) -> Annotation {
-    Annotation { key: key.to_string(), value: String::new() }
+    Annotation {
+        key: key.to_string(),
+        value: String::new(),
+    }
 }
 
 fn base_being() -> BeingDef {
@@ -70,8 +73,9 @@ fn base_being() -> BeingDef {
         journal: None,
         scenarios: vec![],
         boundary: None,
-            cognitive_memory: None,
+        cognitive_memory: None,
         signal_attention: None,
+        propagate_block: None,
         span: Span::synthetic(),
     }
 }
@@ -97,8 +101,11 @@ fn autopoietic_without_mortal_errors() {
     };
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
-        errors.iter().any(|e| format!("{e}").contains("missing @mortal")),
-        "expected @mortal error, got: {:?}", errors
+        errors
+            .iter()
+            .any(|e| format!("{e}").contains("missing @mortal")),
+        "expected @mortal error, got: {:?}",
+        errors
     );
 }
 
@@ -117,8 +124,11 @@ fn autopoietic_without_sandboxed_errors() {
     };
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
-        errors.iter().any(|e| format!("{e}").contains("missing @sandboxed")),
-        "expected @sandboxed error, got: {:?}", errors
+        errors
+            .iter()
+            .any(|e| format!("{e}").contains("missing @sandboxed")),
+        "expected @sandboxed error, got: {:?}",
+        errors
     );
 }
 
@@ -149,8 +159,11 @@ fn mortal_without_telomere_errors() {
     };
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
-        errors.iter().any(|e| format!("{e}").contains("@mortal requires telomere")),
-        "expected telomere error, got: {:?}", errors
+        errors
+            .iter()
+            .any(|e| format!("{e}").contains("@mortal requires telomere")),
+        "expected telomere error, got: {:?}",
+        errors
     );
 }
 
@@ -185,8 +198,11 @@ fn corrigible_without_modifiable_by_errors() {
     };
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
-        errors.iter().any(|e| format!("{e}").contains("modifiable_by")),
-        "expected modifiable_by error, got: {:?}", errors
+        errors
+            .iter()
+            .any(|e| format!("{e}").contains("modifiable_by")),
+        "expected modifiable_by error, got: {:?}",
+        errors
     );
 }
 
@@ -233,7 +249,8 @@ fn bounded_telos_rejects_maximize() {
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
         errors.iter().any(|e| format!("{e}").contains("maximize")),
-        "expected 'maximize' error, got: {:?}", errors
+        "expected 'maximize' error, got: {:?}",
+        errors
     );
 }
 
@@ -258,7 +275,8 @@ fn bounded_telos_rejects_unlimited() {
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
         errors.iter().any(|e| format!("{e}").contains("unlimited")),
-        "expected 'unlimited' error, got: {:?}", errors
+        "expected 'unlimited' error, got: {:?}",
+        errors
     );
 }
 
@@ -283,7 +301,8 @@ fn bounded_telos_without_bounded_by_errors() {
     let errors = SafetyChecker::check(&make_module(being));
     assert!(
         errors.iter().any(|e| format!("{e}").contains("bounded_by")),
-        "expected bounded_by error, got: {:?}", errors
+        "expected bounded_by error, got: {:?}",
+        errors
     );
 }
 
@@ -313,5 +332,9 @@ fn bounded_telos_with_bounded_by_ok() {
 #[test]
 fn non_autopoietic_being_no_safety_errors() {
     let errors = SafetyChecker::check(&make_module(base_being()));
-    assert!(errors.is_empty(), "expected no errors for plain being, got: {:?}", errors);
+    assert!(
+        errors.is_empty(),
+        "expected no errors for plain being, got: {:?}",
+        errors
+    );
 }

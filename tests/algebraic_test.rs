@@ -1,5 +1,4 @@
 /// Tests for M21 — Algebraic Operation Properties.
-
 use loom::{compile, compile_openapi, compile_typescript};
 
 // ── AlgebraicChecker tests ────────────────────────────────────────────────────
@@ -40,7 +39,11 @@ end
     let result = compile(src);
     assert!(result.is_err(), "1-param @commutative should error");
     let errs = result.unwrap_err();
-    let msg = errs.iter().map(|e| format!("{e}")).collect::<Vec<_>>().join("\n");
+    let msg = errs
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msg.contains("commutative requires at least 2 parameters"),
         "expected commutative error, got: {msg}"
@@ -57,9 +60,16 @@ module Demo
 end
 "#;
     let result = compile(src);
-    assert!(result.is_err(), "@at-most-once + @exactly-once should error");
+    assert!(
+        result.is_err(),
+        "@at-most-once + @exactly-once should error"
+    );
     let errs = result.unwrap_err();
-    let msg = errs.iter().map(|e| format!("{e}")).collect::<Vec<_>>().join("\n");
+    let msg = errs
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msg.contains("conflicting multiplicity annotations"),
         "expected conflicting multiplicity error, got: {msg}"
@@ -78,7 +88,11 @@ end
     let result = compile(src);
     assert!(result.is_err(), "@idempotent + @exactly-once should error");
     let errs = result.unwrap_err();
-    let msg = errs.iter().map(|e| format!("{e}")).collect::<Vec<_>>().join("\n");
+    let msg = errs
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msg.contains("idempotent and exactly-once are contradictory"),
         "expected contradictory error, got: {msg}"
@@ -97,7 +111,11 @@ end
     let result = compile(src);
     assert!(result.is_err(), "@exactly-once on pure fn should error");
     let errs = result.unwrap_err();
-    let msg = errs.iter().map(|e| format!("{e}")).collect::<Vec<_>>().join("\n");
+    let msg = errs
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         msg.contains("exactly-once requires an effectful function"),
         "expected exactly-once effectful error, got: {msg}"
@@ -246,4 +264,3 @@ end
         "expected x-associative in OpenAPI, got:\n{out}"
     );
 }
-

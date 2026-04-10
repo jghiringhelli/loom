@@ -111,7 +111,11 @@ fn checker_rejects_empty_affects() {
     };
     let result = NicheConstructionChecker::new().check(&module);
     assert!(result.is_err());
-    let msgs = result.unwrap_err().iter().map(|e| format!("{e}")).collect::<String>();
+    let msgs = result
+        .unwrap_err()
+        .iter()
+        .map(|e| format!("{e}"))
+        .collect::<String>();
     assert!(msgs.contains("affects"), "expected 'affects' in: {msgs}");
 }
 
@@ -158,6 +162,12 @@ niche_construction:
 end
 end"#;
     let out = loom::compile(src).expect("compile");
-    assert!(out.contains("niche_construction"), "expected niche_construction in:\n{out}");
-    assert!(out.contains("soil_chemistry"), "expected soil_chemistry in:\n{out}");
+    assert!(
+        out.contains("niche_construction"),
+        "expected niche_construction in:\n{out}"
+    );
+    assert!(
+        out.contains("soil_chemistry"),
+        "expected soil_chemistry in:\n{out}"
+    );
 }
