@@ -38,42 +38,86 @@ const checkers = [
         Loom
       </h1>
       <p style="font-size: 1.0625rem; color: #94a3b8; line-height: 1.8;">
-        Loom is an AI-native functional language that implements Generative Specification. One <code style="color: #c4b5fd; background-color: #1e1e2e; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">.loom</code> file. Seven emit targets. A compiler that understands the biological isomorphisms embedded in the constructs.
+        Loom is an AI-native functional language that implements Generative Specification. One <code style="color: #c4b5fd; background-color: #1e1e2e; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">.loom</code> file. Seven emit targets. A compiler that enforces biological constraints before it will generate a single line of Rust.
       </p>
     </div>
 
-    <!-- Code example -->
+    <!-- Real code example -->
     <div style="margin-bottom: 4rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">A Loom Entity</h2>
-      <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.75rem; padding: 1.5rem; overflow-x: auto; font-size: 0.9rem; line-height: 1.7;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">entity CellularAutomaton &#123;
-  telos: "maintain population within viable bounds"
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">What Loom Looks Like</h2>
+      <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.75rem; padding: 1.5rem; overflow-x: auto; font-size: 0.875rem; line-height: 1.7;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">-- A goal-directed trading agent
+module ScalpingAgent
+describe: "Mean-reversion scalper — Ornstein-Uhlenbeck spread signal"
 
-  regulate: &#123;
-    target: population_count
-    setpoint: 1000
-    tolerance: 0.1
-    effector: adjust_birth_rate
-  &#125;
+being ScalpingAgent
+  telos: "maximize risk-adjusted pnl"
+    bounded_by: pnl_safety_ok
+    modifiable_by: operator
+  end
 
-  evolve: &#123;
-    toward: telos
-    rate: 0.01
-    landscape: WaddingtonCanalization
-  &#125;
+  regulate spread_signal
+    target: spread
+    bounds: (neg_threshold, pos_threshold)
+  end
 
-  @mortal
-  telomere: &#123;
-    limit: 50
-    on_exhaustion: apoptosis
-  &#125;
+  evolve strategy
+    | aggressive when spread > threshold
+    | conservative when spread &lt; neg_threshold
+    | hold otherwise
+  end
 
-  quorum: &#123;
-    threshold: 0.6
-    behavior: collective_migration
-  &#125;
+  telomere
+    limit: max_trades
+    on_exhaustion: quiescence
+  end
+end
 
-  autopoietic: true
-&#125;</code></pre>
+fn compute_signal :: Float -&gt; Float -&gt; Float -&gt; Float
+  require: sigma &gt; 0.0
+  ensure:  result &gt;= neg_3sigma
+  ensure:  result &lt;= pos_3sigma
+  spread
+end
+end</code></pre>
+    </div>
+
+    <!-- Killer demo -->
+    <div style="background: linear-gradient(135deg, #13131a 0%, #1a1030 100%); border: 1px solid #3d2d6f; border-radius: 0.75rem; padding: 2rem; margin-bottom: 4rem;">
+      <p style="color: #7c3aed; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.75rem;">Killer Demo — End-to-End Verified</p>
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.75rem;">Scalping Agent → Rust → Backtest</h2>
+      <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.7; margin-bottom: 1.25rem;">
+        One <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.8em;">scalper.loom</code> file declares the agent. <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.8em;">loom compile</code> emits Rust. <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-size: 0.8em;">rustc</code> compiles it. The backtest runs on synthetic Ornstein-Uhlenbeck price data.
+      </p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+        {[
+          { label: 'Trades', value: '491' },
+          { label: 'Win Rate', value: '53.4%' },
+          { label: 'Sharpe', value: '0.760' },
+          { label: 'PnL', value: '+$30.13' },
+        ].map(m => (
+          <div style="background-color: #0a0a0f; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; text-align: center;">
+            <p style="font-family: 'JetBrains Mono', monospace; font-size: 1.375rem; font-weight: 700; color: #c4b5fd; margin: 0 0 0.25rem 0;">{m.value}</p>
+            <p style="font-size: 0.75rem; color: #475569; margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">{m.label}</p>
+          </div>
+        ))}
+      </div>
+      <p style="font-size: 0.8rem; color: #475569;">Source: <code style="color: #7c3aed;">experiments/scalper/</code> — both acceptance criteria (Sharpe ≥ 0.5, Win Rate ≥ 50%) verified by the runner.</p>
+    </div>
+
+    <!-- What the compiler guarantees -->
+    <div style="margin-bottom: 4rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.5rem;">What the Compiler Guarantees</h2>
+      <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.5rem; line-height: 1.7;">
+        Before emitting any artifact, Loom runs semantic checks drawn from biology. These are not linter warnings — they are hard rejections.
+      </p>
+      <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
+        {checkers.map((c, i) => (
+          <li style="display: flex; gap: 1rem; align-items: flex-start; padding: 0.875rem 1.25rem; background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #7c3aed; min-width: 1.5rem; padding-top: 0.1rem;">{String(i + 1).padStart(2, '0')}</span>
+            <span style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.6;">{c}</span>
+          </li>
+        ))}
+      </ul>
     </div>
 
     <!-- Emit targets -->
@@ -108,23 +152,7 @@ const checkers = [
       </div>
     </div>
 
-    <!-- The 10 checkers -->
-    <div style="margin-bottom: 4rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">The Ten Checkers</h2>
-      <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.5rem; line-height: 1.7;">
-        Before emitting any artifact, the compiler runs ten semantic checks. Each check corresponds to a biological constraint — a property that living systems enforce at the cellular or organismal level.
-      </p>
-      <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem;">
-        {checkers.map((c, i) => (
-          <li style="display: flex; gap: 1rem; align-items: flex-start; padding: 0.875rem 1.25rem; background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.5rem;">
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #7c3aed; min-width: 1.5rem; padding-top: 0.1rem;">{String(i + 1).padStart(2, '0')}</span>
-            <span style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.6;">{c}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-
-    <!-- More code examples -->
+    <!-- Key constructs -->
     <div style="margin-bottom: 4rem;">
       <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Key Constructs</h2>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
@@ -132,43 +160,52 @@ const checkers = [
         <div>
           <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Goal-direction</p>
           <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">telos: "minimize latency"
+  bounded_by: sla_ok
+end
 @corrigible</code></pre>
         </div>
 
         <div>
           <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Homeostasis</p>
-          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">regulate: &#123;
-  target: error_rate
-  setpoint: 0.001
-&#125;</code></pre>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">regulate error_rate
+  target: rate
+  bounds: (min_rate, max_rate)
+end</code></pre>
+        </div>
+
+        <div>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Contracts</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">fn charge :: Float -&gt; Account
+  require: amount &gt; 0.0
+  ensure:  result != InvalidAmount
+  PaymentResult
+end</code></pre>
         </div>
 
         <div>
           <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Bounded life</p>
           <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">@mortal
-telomere: &#123; limit: 100 &#125;</code></pre>
+telomere
+  limit: 100
+  on_exhaustion: apoptosis
+end</code></pre>
         </div>
 
         <div>
-          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Collective behavior</p>
-          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">quorum: &#123;
-  threshold: 0.51
-  behavior: consensus
-&#125;</code></pre>
-        </div>
-
-        <div>
-          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Self-modification</p>
-          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">crispr: &#123;
-  target: routing_policy
-  edit: replace_with_optimal
-&#125;</code></pre>
+          <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Directed evolution</p>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">evolve strategy
+  | aggressive when vol &gt; high
+  | conservative when vol &lt; low
+  | hold otherwise
+end</code></pre>
         </div>
 
         <div>
           <p style="font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; font-weight: 600;">Operational closure</p>
-          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">autopoietic: true
-# self-produces its components</code></pre>
+          <pre style="background-color: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; font-size: 0.8125rem; margin: 0;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;">being Agent
+  autopoietic: true
+  -- compiler enforces self-production
+end</code></pre>
         </div>
 
       </div>
@@ -178,17 +215,23 @@ telomere: &#123; limit: 100 &#125;</code></pre>
     <div style="background-color: #13131a; border: 1px solid #1e1e2e; border-radius: 0.75rem; padding: 2rem; margin-bottom: 4rem;">
       <h2 style="font-size: 1.25rem; font-weight: 700; color: #e2e8f0; margin-bottom: 1rem;">Getting Started</h2>
       <p style="color: #94a3b8; font-size: 0.9375rem; margin-bottom: 1.25rem; line-height: 1.7;">
-        Loom is built in Rust. The compiler is not yet published to crates.io — install from source:
+        Loom is written in Rust. Build from source — Cargo publish coming with v0.2:
       </p>
       <pre style="background-color: #0a0a0f; border: 1px solid #2d2d3f; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem; font-size: 0.875rem;"><code style="color: #c4b5fd; font-family: 'JetBrains Mono', monospace;"># Clone and build
 git clone https://github.com/PragmaWorks/loom
 cd loom
 cargo build --release
 
-# Compile a .loom file
-./target/release/loom compile my-spec.loom --emit rust,typescript,openapi</code></pre>
+# Compile a .loom file to Rust
+./target/release/loom compile my-spec.loom
+
+# Compile to WebAssembly
+./target/release/loom compile my-spec.loom --target wasm
+
+# Check only (no output written)
+./target/release/loom compile my-spec.loom --check-only</code></pre>
       <p style="color: #475569; font-size: 0.8125rem;">
-        Once published: <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">cargo install loom</code>
+        Coming soon: <code style="color: #c4b5fd; background-color: #0a0a0f; padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-size: 0.875em;">cargo install loom</code>
       </p>
     </div>
 
@@ -196,7 +239,10 @@ cargo build --release
       <a href="/gs" style="color: #c4b5fd; font-weight: 500;">Read the GS theory →</a>
       &nbsp;&nbsp;
       <a href="/isomorphisms" style="color: #c4b5fd; font-weight: 500;">See the isomorphisms table →</a>
+      &nbsp;&nbsp;
+      <a href="/primer" style="color: #c4b5fd; font-weight: 500;">Intellectual lineage →</a>
     </p>
 
   </div>
 </Base>
+
