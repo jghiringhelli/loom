@@ -53,6 +53,40 @@ const BINARY_PERSIST_TRAIT: &str = r#"
     }
 "#;
 
+// ── M152: CompressedBinaryPersist trait ───────────────────────────────────────
+//
+// Extends BinaryPersist with gzip compression (flate2 crate).
+// Compressed snapshots are typically 3-10× smaller — ideal for large stores.
+// Deps: flate2 = "1" (in addition to bincode + serde)
+const COMPRESSED_BINARY_PERSIST_TRAIT: &str = r#"
+    // LOOM[persist:compressed]: M152 — gzip-compressed binary snapshot persistence
+    // Deps: flate2 = "1" (add to serde + bincode from M151)
+    // File extension convention: use `.snap.gz` for compressed snapshots.
+    pub trait CompressedBinaryPersist: BinaryPersist {
+        /// Serialize and gzip-compress this snapshot to disk.
+        fn save_compressed(&self, path: &std::path::Path) -> std::io::Result<()> {
+            use std::io::Write;
+            let bytes = bincode::serialize(self)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            let file = std::fs::File::create(path)?;
+            let mut encoder =
+                flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            encoder.write_all(&bytes)?;
+            encoder.finish().map(|_| ())
+        }
+        /// Decompress and deserialize a snapshot from a gzip file.
+        fn load_compressed(path: &std::path::Path) -> std::io::Result<Self> {
+            use std::io::Read;
+            let file = std::fs::File::open(path)?;
+            let mut decoder = flate2::read::GzDecoder::new(file);
+            let mut bytes = Vec::new();
+            decoder.read_to_end(&mut bytes)?;
+            bincode::deserialize(&bytes)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        }
+    }
+"#;
+
 // ── Emitter ───────────────────────────────────────────────────────────────────
 
 /// Stateless Rust source emitter.
@@ -101,10 +135,11 @@ impl RustEmitter {
         if body.contains("HashSet") {
             out.push_str("    use std::collections::HashSet;\n");
         }
-        // Inject BinaryPersist trait once if any stores are present.
+        // Inject BinaryPersist + CompressedBinaryPersist traits once if any stores are present.
         let has_stores = module.items.iter().any(|i| matches!(i, Item::Store(_)));
         if has_stores {
             out.push_str(BINARY_PERSIST_TRAIT);
+            out.push_str(COMPRESSED_BINARY_PERSIST_TRAIT);
         }
         for item in &module.items {
             if let Item::Enum(ed) = item {

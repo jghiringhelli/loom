@@ -97,7 +97,9 @@ impl RustEmitter {
 
         out.push_str(&format!(
             "}}\n\
-             impl BinaryPersist for {s}Snapshot {{}}\n\n",
+             impl BinaryPersist for {s}Snapshot {{}}\n\
+             // LOOM[persist:compressed]: M152 — gzip-compressed snapshot (dep: flate2 = \"1\")\n\
+             impl CompressedBinaryPersist for {s}Snapshot {{}}\n\n",
             s = store.name
         ));
     }
