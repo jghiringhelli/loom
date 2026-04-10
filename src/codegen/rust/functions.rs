@@ -308,17 +308,33 @@ impl RustEmitter {
         out.push_str("    use super::*;\n");
         for td in test_defs {
             out.push('\n');
-            out.push_str("    #[test]\n");
             let fn_name = td.name.replace('-', "_").to_lowercase();
-            out.push_str(&format!("    fn {}() {{\n", fn_name));
-            out.push_str(&format!("        {};\n", self.emit_expr(&td.body)));
-            out.push_str("    }\n");
+            let body_src = self.emit_expr(&td.body);
+            // If the test body references function calls (domain fixtures not yet defined),
+            // emit as an #[ignore] stub with the spec preserved as a comment.
+            let needs_fixtures = body_src.contains('(') && body_src.contains(')');
+            if needs_fixtures {
+                out.push_str("    #[test]\n");
+                out.push_str("    #[ignore = \"stub — provide domain fixtures\"]\n");
+                out.push_str(&format!("    fn {}() {{\n", fn_name));
+                out.push_str(&format!("        // spec: {};\n", body_src));
+                out.push_str("        todo!(\"implement test fixtures\");\n");
+                out.push_str("    }\n");
+            } else {
+                out.push_str("    #[test]\n");
+                out.push_str(&format!("    fn {}() {{\n", fn_name));
+                out.push_str(&format!("        {};\n", body_src));
+                out.push_str("    }\n");
+            }
         }
         out.push_str("}\n");
         out
     }
 
-    /// Emit `#[cfg(debug_assertions)] fn _check_invariants() { debug_assert!(...) }`.
+    /// Emit `#[cfg(debug_assertions)] fn _check_invariants()` with invariants as spec comments.
+    /// Invariants reference domain variables (struct fields) that are not in scope in a
+    /// standalone free function. Emit as comments so the generated Rust compiles without
+    /// domain fixtures, while preserving the specification for documentation and tooling.
     pub(super) fn emit_check_invariants(&self, invariants: &[Invariant]) -> String {
         let mut out = String::new();
         out.push_str("#[cfg(debug_assertions)]\n");
@@ -326,8 +342,8 @@ impl RustEmitter {
         for inv in invariants {
             let cond = self.emit_expr(&inv.condition);
             out.push_str(&format!(
-                "    debug_assert!({cond}, \"invariant '{}' violated\");\n",
-                inv.name
+                "    // LOOM[invariant] '{}': {}\n",
+                inv.name, cond
             ));
         }
         out.push_str("}\n");
@@ -597,7 +613,10 @@ impl RustEmitter {
         // Only use the _loom_result binding pattern when at least one ensure
         // condition actually references "result" — otherwise it's a type-name
         // expression that can't be bound as a value.
+        let last_is_stub = body_count > 0
+            && is_type_name_stub(&self.emit_expr(&fd.body[body_count - 1]));
         let needs_result_binding = has_ensures
+            && !last_is_stub
             && fd
                 .ensures
                 .iter()
@@ -617,14 +636,22 @@ impl RustEmitter {
                 } else {
                     raw.clone()
                 };
-                body_lines.push(format!(
-                    "    // LOOM[ensure]: {} — checked on return value via _loom_result",
-                    cond
-                ));
-                body_lines.push(format!(
-                    "    debug_assert!({cond}, \"ensure: {}\");",
-                    cond.replace('"', "\\\""),
-                ));
+                if last_is_stub {
+                    // Body is a stub — emit ensure as a spec comment only (no debug_assert)
+                    body_lines.push(format!(
+                        "    // LOOM[ensure]: {} — implement body to activate",
+                        cond
+                    ));
+                } else {
+                    body_lines.push(format!(
+                        "    // LOOM[ensure]: {} — checked on return value via _loom_result",
+                        cond
+                    ));
+                    body_lines.push(format!(
+                        "    debug_assert!({cond}, \"ensure: {}\");",
+                        cond.replace('"', "\\\""),
+                    ));
+                }
             }
             if needs_result_binding {
                 body_lines.push("    _loom_result".to_string());

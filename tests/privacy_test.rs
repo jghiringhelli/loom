@@ -49,9 +49,12 @@ fn field_def_annotations_contain_pii_and_gdpr() {
 fn rust_emission_includes_loom_pii_attribute() {
     let src = "module M type User = id: Int email: String @pii end end";
     let out = compile(src).expect("compile failed");
+    // Privacy attributes are emitted as cfg_attr so generated code compiles
+    // standalone without the loom_runtime proc-macro crate.
+    // Pass --cfg loom_runtime when using the full runtime to activate them.
     assert!(
-        out.contains("#[loom_pii]"),
-        "expected #[loom_pii] in Rust output:\n{}",
+        out.contains("#[cfg_attr(loom_runtime, loom_pii)]"),
+        "expected #[cfg_attr(loom_runtime, loom_pii)] in Rust output:\n{}",
         out
     );
 }

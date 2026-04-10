@@ -41,13 +41,11 @@ end"#;
         out.contains("_check_invariants"),
         "expected _check_invariants fn in:\n{out}"
     );
+    // Invariants reference domain variables (struct fields) not in scope in a free fn.
+    // They are emitted as LOOM[invariant] spec comments to keep generated Rust compilable.
     assert!(
-        out.contains("debug_assert!((amount >= 0)"),
-        "expected debug_assert! for invariant in:\n{out}"
-    );
-    assert!(
-        out.contains("\"invariant 'non_negative' violated\""),
-        "expected invariant name in panic message:\n{out}"
+        out.contains("LOOM[invariant] 'non_negative': (amount >= 0)"),
+        "expected LOOM[invariant] spec comment in:\n{out}"
     );
 }
 

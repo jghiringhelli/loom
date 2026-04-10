@@ -96,6 +96,15 @@ impl RustEmitter {
                 "impl std::ops::Mul<f64> for {0} {{ type Output = {0}; fn mul(self, rhs: f64) -> {0} {{ {0}(self.0 * rhs) }} }}\n",
                 tn
             ));
+            // Allow contracts to compare against f64 literals (e.g. `amount > 0.0`)
+            out.push_str(&format!(
+                "impl PartialEq<f64> for {0} {{ fn eq(&self, rhs: &f64) -> bool {{ self.0 == *rhs }} }}\n",
+                tn
+            ));
+            out.push_str(&format!(
+                "impl PartialOrd<f64> for {0} {{ fn partial_cmp(&self, rhs: &f64) -> Option<std::cmp::Ordering> {{ self.0.partial_cmp(rhs) }} }}\n",
+                tn
+            ));
             out.push('\n');
         }
         out

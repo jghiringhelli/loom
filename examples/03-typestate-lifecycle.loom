@@ -22,47 +22,42 @@ end
 lifecycle Document ::
   Draft -> Review -> Approved -> Published -> Archived
 
--- Session-typed channel: the exact message sequence is protocol-enforced.
-signal PublishProtocol from Editor to Publisher
-  submit_for_review :: Document
-  request_changes   :: String
-  approve           :: Document
-  publish           :: Document
-end
+-- Session-typed channels show the communication protocol between actors.
+-- (Signals require declared being blocks; see examples/05-autonomous-agent.loom)
 
-fn create_draft :: String -> String -> Effect<[DB], Document]
+fn create_draft :: String -> String -> Effect<[DB], Document>
   require: title != ""
   require: author != ""
   ensure:  result.id > 0
   Document
 end
 
-fn submit_for_review :: Document -> Effect<[DB], Document]
+fn submit_for_review :: Document -> Effect<[DB], Document>
   require: document.content != ""
   Document
 end
 
-fn approve :: Document -> String -> Effect<[DB], Document]
+fn approve :: String -> Document -> Effect<[DB], Document>
   require: reviewer != ""
   Document
 end
 
-fn publish @idempotent :: Document -> Effect<[DB, IO@irreversible], Document]
+fn publish @idempotent :: Document -> Effect<[DB, IO@irreversible], Document>
   require: document.title != ""
   Document
 end
 
-fn archive :: Document -> Effect<[DB], Unit]
+fn archive :: Document -> Effect<[DB], Unit>
   Unit
 end
 
 -- Algebraic property: listing is always safe to retry
-fn list_published @idempotent :: Unit -> Effect<[DB], List<Document>]
+fn list_published @idempotent :: Unit -> Effect<[DB], List<Document>>
   List
 end
 
 invariant published_has_content :: published_document.content != ""
 
 test draft_requires_title ::
-  create_draft("", "alice") == InvalidInput
+  create_draft("", "alice") = InvalidInput
 end

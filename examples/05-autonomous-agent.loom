@@ -42,13 +42,35 @@ end
 type PositiveFloat = Float where self > 0.0
 
 -- ── Session-typed communication channel ───────────────────────────
-signal AgentProtocol from Agent to Environment
-  observe :: Sensor
-  act     :: Action
-  report  :: Belief
+-- (declared inside ecosystem so the parser finds it in the right scope)
+
+-- ── Supporting being: Environment ────────────────────────────────
+being Environment
+describe: "The external environment the agent perceives and acts upon"
+
+@sandboxed
+
+matter:
+  step_count: Int
+  state:      Float
 end
 
--- ── The biological agent ───────────────────────────────────────────
+telos: "simulate environmental dynamics for agent evaluation within step_count < 10000"
+end
+
+end -- being Environment
+
+-- ── The ecosystem that runs the agent ─────────────────────────────
+ecosystem World
+describe: "An environment that the agent perceives and acts upon"
+
+signal AgentProtocol from Agent to Environment
+  payload: Action
+end
+
+telos: "converge agent_fitness toward equilibrium within step_count < 10000"
+
+end -- ecosystem World
 being Agent
 describe: "A self-governing agent with bounded telos and AI safety constraints"
 
@@ -59,62 +81,56 @@ describe: "A self-governing agent with bounded telos and AI safety constraints"
 @bounded_telos
 
 matter:
-  energy:     Float
-  memory:     List<Belief>
-  age:        Int
+  energy:        Float
+  memory:        List<Belief>
+  age:           Int
+  learning_rate: Float
 end
 
 form:
-  sensor_noise:   Float
-  learning_rate:  Float
-  telos_weight:   Float
+  type SensorConfig =
+    noise_floor: Float
+  end
 end
 
-function:
-  perceive: fn :: Sensor -> Belief
-  act:      fn :: Belief -> Action
-  learn:    fn :: Action -> Float -> Unit
+telos: "converge expected_reward toward equilibrium within energy > 0.0 and age < 1000 bounds"
+  bounded_by: energy_safety_ok
+  modifiable_by: operator
 end
 
-telos:
-  maximize: "expected_reward"
-  bounded_by: "energy > 0.0 && age < 1000"
-  modifiable_by: "operator"
+regulate energy
+  target: energy_equilibrium
+  bounds: (min_energy, max_energy)
 end
 
-regulate Homeostasis
-  energy between 0.1 and 100.0
-  sensor_noise between 0.0 and 1.0
-  learning_rate between 0.001 and 0.1
+regulate learning_rate
+  target: optimal_lr
+  bounds: (min_lr, max_lr)
 end
 
 evolve TowardsTelos
-  method: gradient_descent
-  constraint: "energy > 0.0"
+  toward: telos
+  search:
+    | gradient_descent when energy > 0.5
+    | simulated_annealing when energy <= 0.5
+  constraint: "E[distance_to_telos] decreasing over step_count"
   rate: 0.01
 end
 
-epigenetic AdaptToNoise
-  trigger: sensor_noise > 0.5
-  response: learning_rate = learning_rate * 0.5
+epigenetic:
+  signal: high_noise
+  modifies: learning_rate
+  reverts_when: low_noise
 end
 
 telomere:
   limit: 1000
-  on_exhaustion: Rest
+  on_exhaustion: quiescence
 end
 
 autopoietic: true
 
 end -- being Agent
 
--- ── The ecosystem that runs the agent ─────────────────────────────
-ecosystem World
-describe: "An environment that the agent perceives and acts upon"
-
-telos:
-  maximize: "agent_fitness"
-  bounded_by: "step_count < 10000"
+-- module-level end consumed by the module parser
 end
-
-end -- ecosystem World

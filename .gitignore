@@ -15,6 +15,14 @@ Thumbs.db
 # Generated corpus outputs
 corpus/*.rs
 
+# Generated Rust output from `loom compile`
+out/*.rs
+
+# Standalone compiled binaries (rustc direct output)
+*.exe
+*.pdb
+*.rlib
+
 # Website build artifacts
 website/node_modules/
 website/dist/
