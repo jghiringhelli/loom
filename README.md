@@ -4,7 +4,7 @@
 
 It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
 
-**904 tests · 5 emission targets · 116 milestones complete · LPN AI-to-AI protocol**
+**904 tests · 5 emission targets · 116 milestones complete · LPN AI-to-AI protocol · all examples rustc-verified ✓**
 
 ---
 
@@ -44,19 +44,19 @@ type Pair<A,B> = first: A, second: B end                       -- generics
 
 ### Functions and contracts
 ```loom
-fn transfer :: Float<usd> -> Account -> Effect<[DB], Account]
+fn transfer :: Float<usd> -> Account -> Effect<[DB], Account>
   require: amount > 0.0
   ensure:  result.balance >= 0.0
   amount
 end
 ```
-Contracts emit as `debug_assert!` in Rust. They are also the input for Kani formal proofs.
+Contracts emit as `debug_assert!` in Rust when the body is implemented. They are also the input for Kani formal proofs.
 
 ### Effect tracking
 ```loom
-fn fetch_user  :: Int  -> Effect<[IO, DB], User]
+fn fetch_user  :: Int  -> Effect<[IO, DB], User>
 fn pure_add    :: Int  -> Int -> Int                       -- no effects, pure
-fn send_email  :: User -> Effect<[IO@irreversible], Unit]  -- consequence tier
+fn send_email  :: User -> Effect<[IO@irreversible], Unit>  -- consequence tier
 ```
 
 ### Semantic type constructs
@@ -101,8 +101,8 @@ module PaymentService
 describe: "Handles payment processing"
 
 interface Repository
-  fn find :: Int -> Effect<[DB], User]
-  fn save :: User -> Effect<[DB], Unit]
+  fn find :: Int -> Effect<[DB], User>
+  fn save :: User -> Effect<[DB], Unit>
 end
 
 import UserRepository
@@ -130,10 +130,10 @@ end
 Loom derives full REST semantics from type signatures — no annotations required:
 
 ```loom
-fn get_order    :: Int   -> Effect<[DB], Order]        -- GET  /orders/{id}
-fn create_order :: Order -> Effect<[DB], Order]        -- POST /orders  (201)
-fn delete_order :: Int   -> Effect<[DB], Unit]         -- DELETE /orders/{id}
-fn list_orders  :: Unit  -> Effect<[DB], List<Order>]  -- GET  /orders
+fn get_order    :: Int   -> Effect<[DB], Order>        -- GET  /orders/{id}
+fn create_order :: Order -> Effect<[DB], Order>        -- POST /orders  (201)
+fn delete_order :: Int   -> Effect<[DB], Unit>         -- DELETE /orders/{id}
+fn list_orders  :: Unit  -> Effect<[DB], List<Order>>  -- GET  /orders
 ```
 
 `@idempotent` on POST promotes it to PUT. `@exactly-once` emits `x-retry-policy: never`.
@@ -255,3 +255,5 @@ Loom welcomes contributions in:
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
