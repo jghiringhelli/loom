@@ -13,8 +13,7 @@ describe: "A greeting function that proves its own correctness"
 -- The compiler checks that the type is correct and the
 -- contract is syntactically well-formed.
 fn add_positive :: Int -> Int -> Int
-  require: a > 0
-  require: b > 0
+  require: a > 0 and b > 0
   ensure:  result > 0
   a + b
 end
@@ -25,8 +24,15 @@ type PositiveInt = Int where self > 0
 
 fn safe_divide :: Float -> Float -> Float
   require: divisor != 0.0
-  ensure:  result != 0.0 || numerator = 0.0
+  ensure:  result != 0.0 or numerator = 0.0
   numerator / divisor
+end
+
+-- Contract with compound predicate and negation
+fn clamp :: Int -> Int -> Int -> Int
+  require: lo <= hi
+  ensure:  result >= lo and result <= hi
+  todo
 end
 
 -- Inline test: compiled to a #[test] in the emitted Rust.

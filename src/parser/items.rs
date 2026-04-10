@@ -1028,6 +1028,25 @@ impl<'src> crate::parser::Parser<'src> {
                         ))
                     }
                 }
+                // If a sub-block follows the string (e.g. `bounded_by: X ... end`), consume
+                // tokens until the closing `end` and consume that `end`.
+                // A "top-level" token signals we're back at the ecosystem body — no sub-block.
+                let at_toplevel = self.at(&Token::End)
+                    || self.at(&Token::Signal)
+                    || self.at(&Token::Members)
+                    || self.at(&Token::Quorum)
+                    || self.at(&Token::Telos)
+                    || self.peek().is_none()
+                    || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
+                        if matches!(n.as_str(), "coevolution" | "collective_telos_metric" | "tipping_points" | "coupling"));
+                if !at_toplevel {
+                    while !self.at(&Token::End) && self.peek().is_some() {
+                        self.advance();
+                    }
+                    if self.at(&Token::End) {
+                        self.advance(); // consume the telos sub-block's `end`
+                    }
+                }
             } else if self.at(&Token::Quorum) {
                 let sec_start = self.current_span();
                 self.advance(); // consume `quorum`

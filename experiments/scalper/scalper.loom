@@ -319,14 +319,51 @@ end
 
 end -- ecosystem Market
 
--- ── VIII. MODULE INVARIANTS ───────────────────────────────────────
+-- ── VIII. IN-MEMORY MARKET DATA STORE ────────────────────────────
+--
+-- Tick history held in memory, persisted to JSON on shutdown.
+-- On startup: load from scalper_state.json if present, else warm
+-- from live market data (Yahoo Finance public API).
+--
+-- TimeSeries store holds ordered tick history (last 1000 ticks).
+-- FlatFile store holds trade records persisted between sessions.
+
+store TickHistory :: TimeSeries
+  event Tick :: { symbol: String, bid: Float, ask: Float, mid: Float, timestamp: Int }
+  retention: 1000
+end
+
+store TradeHistory :: FlatFile
+  format: json
+  schema TradeRecord :: { symbol: String, entry_price: Float, exit_price: Float, pnl: Float, timestamp: Int, direction: String }
+end
+
+fn save_state @file_io :: String -> Bool
+  require: path != ""
+  ensure:  result = true
+  todo
+end
+
+fn load_state @file_io :: String -> Bool
+  require: path != ""
+  todo
+end
+
+fn fetch_market_data @network @file_io :: String -> Int -> Bool
+  require: symbol != ""
+  require: max_ticks > 0
+  ensure:  result = true
+  todo
+end
+
+-- ── IX. MODULE INVARIANTS ─────────────────────────────────────────
 
 invariant spread_always_positive  :: ask >= bid
 invariant cash_never_negative     :: cash >= 0.0
 invariant pnl_trade_count_bounded :: pnl.trade_count <= 100
 invariant telos_bounded_by_safety :: pnl.realized >= -500.0
 
--- ── IX. INLINE TESTS ─────────────────────────────────────────────
+-- ── X. INLINE TESTS ──────────────────────────────────────────────
 
 test spread_bps_zero_when_equal ::
   spread_bps(100.0, 100.0) = 0.0

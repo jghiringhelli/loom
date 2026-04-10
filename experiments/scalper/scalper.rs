@@ -1,8 +1,9 @@
 #![allow(unused)]
 use std::convert::TryFrom;
 // == LOOM AUDIT: ScalpingAgent ==
-// Functions  : 8
-// Contracts  : 5 fn(s) → debug_assert!(runtime) + #[cfg(kani)] proof harness
+// Functions  : 11
+// Contracts  : 8 fn(s) → debug_assert!(runtime) + #[cfg(kani)] proof harness
+// Stores     : 2 → typed persistence + CRUD + HATEOAS
 // Stochastic : 2 process(es) → Wiener/GBM/OU/Poisson/Markov struct
 // Distr      : 3 → rejection-sampling; verify with proptest
 // LOOM[v7:audit]: do not edit manually. Each LOOM[...] comment records a decision.
@@ -19,6 +20,8 @@ pub mod scalping_agent {
     impl std::ops::Add for Usd { type Output = Usd; fn add(self, rhs: Usd) -> Usd { Usd(self.0 + rhs.0) } }
     impl std::ops::Sub for Usd { type Output = Usd; fn sub(self, rhs: Usd) -> Usd { Usd(self.0 - rhs.0) } }
     impl std::ops::Mul<f64> for Usd { type Output = Usd; fn mul(self, rhs: f64) -> Usd { Usd(self.0 * rhs) } }
+    impl PartialEq<f64> for Usd { fn eq(&self, rhs: &f64) -> bool { self.0 == *rhs } }
+    impl PartialOrd<f64> for Usd { fn partial_cmp(&self, rhs: &f64) -> Option<std::cmp::Ordering> { self.0.partial_cmp(rhs) } }
 
 
 // Lifecycle states for Order
@@ -330,6 +333,168 @@ pub struct Settled;
     }
 
 
+    // LOOM[store:TimeSeries]: TickHistory — V5 struct translation
+    // config: retention=1000
+    // Add #[derive(serde::Serialize, serde::Deserialize)] with feature "serde"
+    // Ecosystem: influxdb2 | timeseries-rs | tdengine
+    // LOOM[store:TimeSeries]: events have mandatory timestamp; ordered by time
+
+    // TimeSeries event: Tick
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Tick {
+        pub symbol: String,
+        pub bid: f64,
+        pub ask: f64,
+        pub mid: f64,
+        pub timestamp: i64,
+    }
+
+    // LOOM[ts:retention]: 1000
+
+    // LOOM[implicit:EventSourcing]: TickHistory — Fowler 2005, Evans DDD Aggregate
+    // Ecosystem: eventstore, sqlx event table, axum-streams
+
+    #[derive(Debug, Clone)]
+    pub enum TickHistoryEvent {
+        Tick(Tick),
+    }
+
+    pub trait TickHistoryEventStore {
+        type Error;
+    fn append(&self, stream: &str, events: Vec<TickHistoryEvent>) -> Result<u64, Self::Error>;
+    fn load(&self, stream: &str, from: u64) -> Result<Vec<TickHistoryEvent>, Self::Error>;
+    }
+
+    // LOOM[implicit:Aggregate]: TickHistory — state = fold of events
+    pub trait TickHistoryAggregate: Sized + Default {
+    fn apply(&mut self, event: &TickHistoryEvent);
+    fn load_from_events(events: &[TickHistoryEvent]) -> Self {
+    let mut agg = Self::default();
+    for ev in events { agg.apply(ev); }
+    agg
+        }
+    }
+
+    // LOOM[implicit:DomainEventBus]: TickHistory — Evans 2003 domain events
+    // Ecosystem: tokio::sync::broadcast, eventbus crate
+
+    pub trait TickHistoryEventHandler: Send + Sync {
+        fn handle(&self, event: &TickHistoryEvent);
+    }
+
+    #[derive(Default)]
+    pub struct TickHistoryEventBus {
+        handlers: Vec<Box<dyn TickHistoryEventHandler>>,
+    }
+    impl TickHistoryEventBus {
+    pub fn subscribe(&mut self, h: Box<dyn TickHistoryEventHandler>) { self.handlers.push(h); }
+    pub fn publish(&self, event: &TickHistoryEvent) { for h in &self.handlers { h.handle(event); } }
+    }
+
+
+    // LOOM[store:FlatFile]: TradeHistory — V5 struct translation
+    // config: format=json
+    // Add #[derive(serde::Serialize, serde::Deserialize)] with feature "serde"
+    // Ecosystem: arrow2 (Parquet/Arrow) | hdf5 | csv | polars
+    // LOOM[store:FlatFile]: columnar row struct for Parquet/CSV/HDF5 serialization
+
+    // LOOM[flatfile:format]: json
+
+    // FlatFile row: TradeRecord
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct TradeRecord {
+        pub symbol: String,
+        pub entry_price: f64,
+        pub exit_price: f64,
+        pub pnl: f64,
+        pub timestamp: i64,
+        pub direction: String,
+    }
+
+
+    /// @file_io: 
+    pub fn save_state(path: String) -> bool {
+        // LOOM[require]: (path != "") — debug_assert! (runtime, debug builds only)
+        debug_assert!((path != ""), "precondition violated: (path != \"\")");
+        let _loom_result = todo!();
+        // LOOM[ensure]: (_loom_result == true) — checked on return value via _loom_result
+        debug_assert!((_loom_result == true), "ensure: (_loom_result == true)");
+        _loom_result
+    }
+
+    // LOOM[V2:Kani]: save_state — SAT-bounded formal proof (Kani 2021)
+    // Proves require:/ensure: hold for ALL inputs within solver bounds.
+    // Install: cargo install --locked kani-verifier   Run: cargo kani
+    #[cfg(kani)]
+    #[kani::proof]
+    fn kani_verify_save_state() {
+        let path: i64 = kani::any();
+        // Preconditions — restrict symbolic input domain
+        kani::assume((path != ""));
+        let result = save_state(path);
+        // Postconditions — Kani proves these for all valid inputs
+        kani::assert!((result == true), "(result == true)");
+    }
+
+
+    /// @file_io: 
+    pub fn load_state(path: String) -> bool {
+        // LOOM[require]: (path != "") — debug_assert! (runtime, debug builds only)
+        debug_assert!((path != ""), "precondition violated: (path != \"\")");
+        todo!()
+    }
+
+    // LOOM[V2:Kani]: load_state — SAT-bounded formal proof (Kani 2021)
+    // Proves require:/ensure: hold for ALL inputs within solver bounds.
+    // Install: cargo install --locked kani-verifier   Run: cargo kani
+    #[cfg(kani)]
+    #[kani::proof]
+    fn kani_verify_load_state() {
+        let path: i64 = kani::any();
+        // Preconditions — restrict symbolic input domain
+        kani::assume((path != ""));
+        let result = load_state(path);
+    }
+
+
+    /// @network: 
+    /// @file_io: 
+    pub fn fetch_market_data(symbol: String, max_ticks: i64) -> bool {
+        // LOOM[require]: (symbol != "") — debug_assert! (runtime, debug builds only)
+        debug_assert!((symbol != ""), "precondition violated: (symbol != \"\")");
+        // LOOM[require]: (max_ticks > 0) — debug_assert! (runtime, debug builds only)
+        debug_assert!((max_ticks > 0), "precondition violated: (max_ticks > 0)");
+        let _loom_result = todo!();
+        // LOOM[ensure]: (_loom_result == true) — checked on return value via _loom_result
+        debug_assert!((_loom_result == true), "ensure: (_loom_result == true)");
+        _loom_result
+    }
+
+    // LOOM[V2:Kani]: fetch_market_data — SAT-bounded formal proof (Kani 2021)
+    // Proves require:/ensure: hold for ALL inputs within solver bounds.
+    // Install: cargo install --locked kani-verifier   Run: cargo kani
+    #[cfg(kani)]
+    #[kani::proof]
+    fn kani_verify_fetch_market_data() {
+        let symbol: i64 = kani::any();
+        let max_ticks: i64 = kani::any();
+        // Preconditions — restrict symbolic input domain
+        kani::assume((symbol != ""));
+        kani::assume((max_ticks > 0));
+        let result = fetch_market_data(symbol, max_ticks);
+        // Postconditions — Kani proves these for all valid inputs
+        kani::assert!((result == true), "(result == true)");
+    }
+
+
+    #[cfg(debug_assertions)]
+    pub fn _check_invariants() {
+        // LOOM[invariant] 'spread_always_positive': (ask >= bid)
+        // LOOM[invariant] 'cash_never_negative': (cash >= 0.0)
+        // LOOM[invariant] 'pnl_trade_count_bounded': (pnl.trade_count <= 100)
+        // LOOM[invariant] 'telos_bounded_by_safety': (pnl.realized >= (0 - 500.0))
+    }
+
     // Being: ScalpingAgent
     // telos: "converge risk-adjusted PnL toward equilibrium within safety bounds"
     /// OU mean-reversion scalper — enter on spread widening, exit on reversion
@@ -409,12 +574,6 @@ pub struct Settled;
     ScalpingAgentConvergenceState::Diverging
     }
     }
-
-        /// Homeostatic regulation: spread_threshold_bps → target spread_equilibrium within [min_spread_bps, max_spread_bps]
-        pub fn regulate_spread_threshold_bps(&mut self) {
-            // target: spread_equilibrium, bounds: (min_spread_bps, max_spread_bps)
-            todo!("implement homeostatic regulation for spread_threshold_bps")
-        }
 
         /// Homeostatic regulation: stop_loss_bps → target risk_floor within [min_stop_bps, max_stop_bps]
         pub fn regulate_stop_loss_bps(&mut self) {
@@ -579,6 +738,18 @@ pub struct Settled;
         /// telos: maximize price discovery within bounded simulation steps
         pub fn coordinate() {
             todo!("implement ecosystem coordination toward telos")
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        #[ignore = "stub — provide domain fixtures"]
+        fn spread_bps_zero_when_equal() {
+            // spec: (spread_bps(100.0, 100.0) == 0.0);
+            todo!("implement test fixtures");
         }
     }
 }
