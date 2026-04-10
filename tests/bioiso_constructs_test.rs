@@ -359,6 +359,325 @@ end
     }
 }
 
+// ── M120-M125: entity 3-dimension checker tests ───────────────────────────────
+
+fn parse_expect_err(src: &str) -> Vec<String> {
+    let tokens = Lexer::tokenize(src).expect("lex failed");
+    let module = Parser::new(&tokens).parse_module().expect("parse failed");
+    use loom::checker::{EntityChecker, LoomChecker};
+    EntityChecker::new()
+        .check_module(&module)
+        .into_iter()
+        .map(|e| e.to_string())
+        .collect()
+}
+
+// ── Dimension 1: Structural rules ────────────────────────────────────────────
+
+#[test]
+fn entity_directed_undirected_conflict_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @directed @undirected end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @directed @undirected");
+    assert!(errors[0].contains("mutually exclusive"));
+}
+
+#[test]
+fn entity_acyclic_without_directionality_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @acyclic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @acyclic without direction");
+    assert!(errors[0].contains("@acyclic requires"));
+}
+
+#[test]
+fn entity_layered_without_directed_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @layered end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @layered without @directed");
+    assert!(errors[0].contains("@layered requires @directed"));
+}
+
+#[test]
+fn entity_hierarchical_without_directed_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @hierarchical @acyclic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @hierarchical without @directed");
+    assert!(errors.iter().any(|e| e.contains("@hierarchical requires @directed")));
+}
+
+#[test]
+fn entity_hierarchical_without_acyclic_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @directed @hierarchical end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @hierarchical without @acyclic");
+    assert!(errors.iter().any(|e| e.contains("@hierarchical requires @acyclic")));
+}
+
+#[test]
+fn entity_weighted_without_edge_type_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Node> @directed @weighted end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @weighted without edge type");
+    assert!(errors[0].contains("@weighted requires an edge type"));
+}
+
+#[test]
+fn entity_valid_dag_accepted() {
+    let errors = parse_expect_err(r#"
+module T
+entity DepGraph<Module, Import> @directed @acyclic end
+end
+"#);
+    assert!(errors.is_empty(), "valid DAG should produce no errors: {:?}", errors);
+}
+
+#[test]
+fn entity_valid_hierarchical_tree_accepted() {
+    let errors = parse_expect_err(r#"
+module T
+entity OrgTree<Person, Reports> @directed @acyclic @hierarchical end
+end
+"#);
+    assert!(errors.is_empty(), "valid tree should produce no errors: {:?}", errors);
+}
+
+// ── Dimension 2: Formal constraint rules ──────────────────────────────────────
+
+#[test]
+fn entity_stochastic_deterministic_conflict_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<State, Float> @directed @stochastic @deterministic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @stochastic @deterministic");
+    assert!(errors.iter().any(|e| e.contains("mutually exclusive")));
+}
+
+#[test]
+fn entity_stochastic_without_edge_type_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<State> @directed @stochastic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @stochastic without edge type");
+    assert!(errors.iter().any(|e| e.contains("@stochastic requires an edge type")));
+}
+
+#[test]
+fn entity_learnable_without_weighted_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Node, Edge> @directed @learnable end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @learnable without @weighted");
+    assert!(errors[0].contains("@learnable requires @weighted"));
+}
+
+#[test]
+fn entity_causal_without_directed_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Event, Rel> @causal @acyclic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @causal without @directed");
+    assert!(errors.iter().any(|e| e.contains("@causal requires @directed")));
+}
+
+#[test]
+fn entity_causal_without_acyclic_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Event, Rel> @directed @causal end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @causal without @acyclic");
+    assert!(errors.iter().any(|e| e.contains("@causal requires @acyclic")));
+}
+
+#[test]
+fn entity_temporal_without_directed_rejected() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Event, Duration> @temporal end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @temporal without @directed");
+    assert!(errors[0].contains("@temporal requires @directed"));
+}
+
+#[test]
+fn entity_valid_markov_chain_accepted() {
+    let errors = parse_expect_err(r#"
+module T
+entity Weather<State, Float> @directed @stochastic @finite end
+end
+"#);
+    assert!(errors.is_empty(), "valid Markov chain should produce no errors: {:?}", errors);
+}
+
+#[test]
+fn entity_valid_neural_net_accepted() {
+    let errors = parse_expect_err(r#"
+module T
+entity Net<Neuron, Float> @directed @weighted @learnable end
+end
+"#);
+    assert!(errors.is_empty(), "valid neural net should produce no errors: {:?}", errors);
+}
+
+#[test]
+fn entity_valid_causal_graph_accepted() {
+    let errors = parse_expect_err(r#"
+module T
+entity Causes<Event, Strength> @directed @acyclic @causal end
+end
+"#);
+    assert!(errors.is_empty(), "valid causal graph should produce no errors: {:?}", errors);
+}
+
+// ── Dimension 3: Orthogonality rules ─────────────────────────────────────────
+
+#[test]
+fn entity_hierarchical_undirected_orthogonal_conflict() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad @undirected @hierarchical @acyclic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @hierarchical @undirected");
+    assert!(errors.iter().any(|e| e.contains("orthogonally incompatible")));
+}
+
+#[test]
+fn entity_causal_stochastic_orthogonal_conflict() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Event, Float> @directed @acyclic @causal @stochastic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @causal @stochastic");
+    assert!(errors.iter().any(|e| e.contains("orthogonally incompatible")));
+}
+
+#[test]
+fn entity_learnable_deterministic_orthogonal_conflict() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Node, Float> @directed @weighted @learnable @deterministic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @learnable @deterministic");
+    assert!(errors.iter().any(|e| e.contains("orthogonally incompatible")));
+}
+
+#[test]
+fn entity_telos_guided_deterministic_orthogonal_conflict() {
+    let errors = parse_expect_err(r#"
+module T
+entity Bad<Node, Edge> @directed @telos_guided @deterministic end
+end
+"#);
+    assert!(!errors.is_empty(), "should reject @telos_guided @deterministic");
+    assert!(errors.iter().any(|e| e.contains("orthogonally incompatible")));
+}
+
+// ── M123-M125: entity codegen — known type aliases ────────────────────────────
+
+fn compile_entity_emit(src: &str) -> String {
+    use loom::codegen::rust::RustEmitter;
+    let tokens = Lexer::tokenize(src).expect("lex failed");
+    let module = Parser::new(&tokens).parse_module().expect("parse failed");
+    RustEmitter::new().emit(&module)
+}
+
+#[test]
+fn entity_codegen_dag_emits_digraph() {
+    let out = compile_entity_emit(r#"
+module T
+entity DepGraph<Module, Import> @directed @acyclic end
+end
+"#);
+    assert!(out.contains("DiGraph<Module, Import>"), "DAG should emit DiGraph: {}", out);
+    assert!(out.contains("pub type DepGraph"), "should emit pub type");
+}
+
+#[test]
+fn entity_codegen_undirected_emits_ungraph() {
+    let out = compile_entity_emit(r#"
+module T
+entity KG<Concept, Rel> @undirected @semantic end
+end
+"#);
+    assert!(out.contains("UnGraph<Concept, Rel>"), "undirected should emit UnGraph: {}", out);
+}
+
+#[test]
+fn entity_codegen_stochastic_emits_guidance_comment() {
+    let out = compile_entity_emit(r#"
+module T
+entity Markov<State, Float> @directed @stochastic @finite end
+end
+"#);
+    assert!(out.contains("LOOM[stochastic]"), "stochastic entity should emit guidance: {}", out);
+}
+
+#[test]
+fn entity_codegen_learnable_emits_guidance_comment() {
+    let out = compile_entity_emit(r#"
+module T
+entity Net<Neuron, Float> @directed @weighted @learnable end
+end
+"#);
+    assert!(out.contains("LOOM[learnable]"), "learnable entity should emit guidance: {}", out);
+}
+
+#[test]
+fn entity_codegen_alias_of_emits_description() {
+    let src = r#"
+module T
+entity WeatherModel<State, Float>
+  @directed @stochastic @finite
+  alias_of: MarkovChain
+end
+end
+"#;
+    let out = compile_entity_emit(src);
+    assert!(out.contains("instance of: MarkovChain"), "should emit alias comment: {}", out);
+}
+
+#[test]
+fn entity_codegen_causal_emits_guidance_comment() {
+    let out = compile_entity_emit(r#"
+module T
+entity CauseEffect<Event, Strength> @directed @acyclic @causal end
+end
+"#);
+    assert!(out.contains("LOOM[causal]"), "causal entity should emit guidance: {}", out);
+}
+
 #[test]
 fn intent_coordinator_governance_classes() {
     let src = r#"

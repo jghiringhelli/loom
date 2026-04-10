@@ -321,34 +321,7 @@ impl RustEmitter {
                  // LOOM[telos_fn]: Peirce interpretant as typed function\n",
                 tf.name
             ),
-            Item::Entity(ed) => {
-                let node = ed.node_type.as_deref().unwrap_or("_");
-                let edge = ed.edge_type.as_deref().unwrap_or("_");
-                let ann_str = ed.annotations.join(" @");
-                let has_directed = ed.annotations.iter().any(|a| a == "directed");
-                let has_undirected = ed.annotations.iter().any(|a| a == "undirected");
-                let has_acyclic = ed.annotations.iter().any(|a| a == "acyclic");
-                let rust_type = if has_directed || has_acyclic {
-                    format!("petgraph::graph::DiGraph<{}, {}>", node, edge)
-                } else if has_undirected {
-                    format!("petgraph::graph::UnGraph<{}, {}>", node, edge)
-                } else {
-                    format!("petgraph::graph::Graph<{}, {}>", node, edge)
-                };
-                let alias_comment = if let Some(alias) = &ed.alias_of {
-                    format!(" // instance of: {}", alias)
-                } else {
-                    String::new()
-                };
-                format!(
-                    "// LOOM[entity]: {}<{}, {}> — @{}\n\
-                     // Instantiate: {}\n\
-                     pub type {} = {};{}\n",
-                    ed.name, node, edge, ann_str,
-                    rust_type,
-                    ed.name, rust_type, alias_comment
-                )
-            }
+            Item::Entity(ed) => emit_entity(ed),
             Item::IntentCoordinator(ic) => format!(
                 "// intent_coordinator: {} — governance gate (GovernanceClass: {:?})\n\
                  // LOOM[intent_coordinator]: Part IX — intent vivo with human governance\n",
@@ -364,6 +337,141 @@ impl RustEmitter {
 }
 
 // ── Helpers used across submodules ────────────────────────────────────────────
+
+// ── M123-M125: entity codegen ─────────────────────────────────────────────────
+
+/// Known structural patterns and their mathematical descriptions.
+/// Keyed by `alias_of` name (lowercase). Used to emit richer doc comments.
+fn known_alias_description(alias: &str) -> Option<&'static str> {
+    match alias.to_lowercase().as_str() {
+        "markovchain" | "markov_chain" => Some(
+            "Discrete-time Markov chain: transition probabilities form a row-stochastic matrix. \
+             Each row must sum to 1.0."
+        ),
+        "dag" => Some(
+            "Directed Acyclic Graph: topological ordering always exists. \
+             Enables dependency resolution and causal reasoning."
+        ),
+        "tree" => Some(
+            "Rooted tree: every node has exactly one parent except the root. \
+             Encodes hierarchical containment."
+        ),
+        "fsm" | "finitestate" | "finite_state_machine" => Some(
+            "Finite State Machine: finite set of states, deterministic transition function. \
+             Accepts exactly the strings in a regular language."
+        ),
+        "neuralnet" | "neural_net" | "neuralnetwork" => Some(
+            "Neural network: directed weighted graph where weights are updated via gradient descent. \
+             Forward pass: f(x) = activation(W·x + b)."
+        ),
+        "knowledgegraph" | "knowledge_graph" => Some(
+            "Knowledge graph: undirected semantic network of concepts and relations. \
+             Supports inference via graph traversal."
+        ),
+        "causalgraph" | "causal_graph" => Some(
+            "Causal graph: DAG encoding cause→effect relationships. \
+             Supports do-calculus (Pearl 2000) and counterfactual reasoning."
+        ),
+        _ => None,
+    }
+}
+
+/// M123-M125: Emit a rich Rust type alias + doc comments for an `entity<N, E>` declaration.
+///
+/// Chooses the appropriate petgraph backing type based on structural annotations,
+/// emits known-alias mathematical descriptions, and adds guidance comments for
+/// semantic annotations (`@stochastic`, `@learnable`, `@telos_guided`).
+fn emit_entity(ed: &crate::ast::EntityDef) -> String {
+    let node = ed.node_type.as_deref().unwrap_or("()");
+    let edge = ed.edge_type.as_deref().unwrap_or("()");
+    let ann = &ed.annotations;
+    let has = |s: &str| ann.iter().any(|a| a == s);
+
+    // Choose petgraph backing type
+    let rust_type = if has("directed") || has("acyclic") || has("hierarchical") || has("causal") || has("temporal") {
+        format!("petgraph::graph::DiGraph<{}, {}>", node, edge)
+    } else if has("undirected") || has("semantic") {
+        format!("petgraph::graph::UnGraph<{}, {}>", node, edge)
+    } else {
+        format!("petgraph::graph::Graph<{}, {}>", node, edge)
+    };
+
+    let ann_str = if ann.is_empty() {
+        String::new()
+    } else {
+        format!(" @{}", ann.join(" @"))
+    };
+
+    let mut buf = String::new();
+
+    // Doc comment
+    buf.push_str(&format!("/// `entity<{}, {}>{}`\n", node, edge, ann_str));
+
+    // Known alias description
+    if let Some(alias) = &ed.alias_of {
+        if let Some(desc) = known_alias_description(alias) {
+            buf.push_str(&format!("///\n/// **{alias}**: {desc}\n"));
+        } else {
+            buf.push_str(&format!("/// Instance of: {alias}\n"));
+        }
+    }
+
+    // Describe string
+    if let Some(desc) = &ed.describe {
+        buf.push_str(&format!("/// {desc}\n"));
+    }
+
+    // Semantic guidance comments
+    if has("stochastic") {
+        buf.push_str(
+            "// LOOM[stochastic]: edge weights must be probabilities in [0.0, 1.0];\n\
+             //   per-node outgoing weights must sum to 1.0 (row-stochastic).\n"
+        );
+    }
+    if has("learnable") {
+        buf.push_str(
+            "// LOOM[learnable]: implement a weight-update method (e.g. gradient descent);\n\
+             //   edge weights are free parameters optimised during training.\n"
+        );
+    }
+    if has("telos_guided") {
+        buf.push_str(
+            "// LOOM[telos_guided]: edge activation is modulated by a telos score;\n\
+             //   high-telos paths are reinforced, low-telos paths are pruned over time.\n"
+        );
+    }
+    if has("causal") {
+        buf.push_str(
+            "// LOOM[causal]: supports Pearl do-calculus — \
+             use petgraph topological_sort for causal ordering.\n"
+        );
+    }
+    if has("temporal") {
+        buf.push_str(
+            "// LOOM[temporal]: edges encode temporal precedence; \
+             topological order yields event sequence.\n"
+        );
+    }
+
+    buf.push_str(&format!(
+        "// LOOM[entity]: {}<{}, {}>{}\n",
+        ed.name, node, edge, ann_str
+    ));
+
+    let alias_comment = match &ed.alias_of {
+        Some(a) => format!(" // instance of: {a}"),
+        None => String::new(),
+    };
+
+    buf.push_str(&format!(
+        "pub type {} = {};{}\n",
+        ed.name, rust_type, alias_comment
+    ));
+
+    buf
+}
+
+
 
 /// V7: Emit a dynamic audit header that honestly records what the module declares
 /// and what verification tier backs each claim.
