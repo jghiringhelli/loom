@@ -199,6 +199,223 @@ fn compile_error_message_contains_file_name() {
     let _ = fs::remove_file(&tmp);
 }
 
+// ── loom compile --target typescript ─────────────────────────────────────────
+
+#[test]
+fn compile_typescript_target_writes_ts_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_ts_out.ts");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "typescript",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "typescript compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "typescript output file not created");
+    let content = fs::read_to_string(&tmp).unwrap();
+    assert!(
+        !content.is_empty(),
+        "typescript output should not be empty"
+    );
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_typescript_alias_ts_works() {
+    let tmp = std::env::temp_dir().join("loom_cli_ts_alias.ts");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "ts",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "ts alias failed: {}",
+        stderr(&out)
+    );
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_typescript_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "typescript",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "typescript check-only failed: {}",
+        stderr(&out)
+    );
+}
+
+// ── loom compile --target openapi ────────────────────────────────────────────
+
+#[test]
+fn compile_openapi_target_writes_yaml_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_openapi_out.yaml");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "openapi",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "openapi compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "openapi output file not created");
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_openapi_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "openapi",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "openapi check-only failed: {}",
+        stderr(&out)
+    );
+}
+
+// ── loom compile --target json-schema ────────────────────────────────────────
+
+#[test]
+fn compile_json_schema_target_writes_json_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_schema_out.json");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "json-schema",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "json-schema compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "json-schema output file not created");
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_json_schema_alias_schema() {
+    let tmp = std::env::temp_dir().join("loom_cli_schema_alias.json");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "schema",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "schema alias failed: {}",
+        stderr(&out)
+    );
+    let _ = fs::remove_file(&tmp);
+}
+
+// ── loom compile --target mermaid-* ──────────────────────────────────────────
+
+#[test]
+fn compile_mermaid_c4_target_writes_md_file() {
+    let tmp = std::env::temp_dir().join("loom_cli_c4_out.md");
+    let _ = fs::remove_file(&tmp);
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "mermaid-c4",
+        "--output",
+        tmp.to_str().unwrap(),
+    ]);
+    assert!(
+        out.status.success(),
+        "mermaid-c4 compile failed: {}",
+        stderr(&out)
+    );
+    assert!(tmp.exists(), "mermaid-c4 output file not created");
+    let _ = fs::remove_file(&tmp);
+}
+
+#[test]
+fn compile_mermaid_sequence_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "mermaid-sequence",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "mermaid-sequence check-only failed: {}",
+        stderr(&out)
+    );
+}
+
+#[test]
+fn compile_mermaid_state_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "mermaid-state",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "mermaid-state check-only failed: {}",
+        stderr(&out)
+    );
+}
+
+#[test]
+fn compile_mermaid_flow_check_only() {
+    let out = run(&[
+        "compile",
+        "corpus/pricing_engine.loom",
+        "--target",
+        "mermaid-flow",
+        "--check-only",
+    ]);
+    assert!(
+        out.status.success(),
+        "mermaid-flow check-only failed: {}",
+        stderr(&out)
+    );
+}
+
 // ── loom build ────────────────────────────────────────────────────────────────
 
 #[test]

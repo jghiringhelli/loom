@@ -27,13 +27,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Compile a Loom source file to Rust or WASM.
+    /// Compile a Loom source file to one of the supported targets.
     Compile {
         /// Path to the `.loom` source file.
         input: PathBuf,
 
         /// Path for the generated output file.
-        /// Defaults to the input path with the extension replaced by `.rs` or `.wat`.
+        /// Defaults to the input path with the extension replaced by the
+        /// target-appropriate extension.
         #[arg(short, long)]
         output: Option<PathBuf>,
 
@@ -41,7 +42,18 @@ enum Commands {
         #[arg(long)]
         check_only: bool,
 
-        /// Compilation target: `rust` (default) or `wasm` (WAT output).
+        /// Compilation target (default: rust).
+        ///
+        /// Supported targets:
+        ///   rust       — Rust source (.rs)
+        ///   typescript — TypeScript source (.ts)
+        ///   wasm       — WebAssembly text format (.wat)
+        ///   openapi    — OpenAPI 3.0 YAML (.openapi.yaml)
+        ///   json-schema — JSON Schema (.schema.json)
+        ///   mermaid-c4  — Mermaid C4 context diagram (.c4.md)
+        ///   mermaid-sequence — Mermaid sequence diagram (.seq.md)
+        ///   mermaid-state    — Mermaid state diagram (.state.md)
+        ///   mermaid-flow     — Mermaid flow diagram (.flow.md)
         #[arg(long, default_value = "rust")]
         target: String,
     },
@@ -100,8 +112,38 @@ fn main() {
             };
 
             // Determine compile function and default extension from target.
-            let (default_ext, compile_result) = match target.as_str() {
+            // Returns (extension, compile_result).
+            // Mermaid targets return Result<String, String> — wrap into the common error shape.
+            type CompileResult = Result<String, Vec<loom::error::LoomError>>;
+
+            fn mermaid_err(msg: String) -> Vec<loom::error::LoomError> {
+                vec![loom::error::LoomError::CodegenError {
+                    msg,
+                    span: loom::ast::Span::synthetic(),
+                }]
+            }
+
+            let (default_ext, compile_result): (&str, CompileResult) = match target.as_str() {
+                "typescript" | "ts" => ("ts", loom::compile_typescript(&source)),
                 "wasm" => ("wat", loom::compile_wasm(&source)),
+                "openapi" | "openapi3" => ("openapi.yaml", loom::compile_openapi(&source)),
+                "json-schema" | "schema" => ("schema.json", loom::compile_json_schema(&source)),
+                "mermaid-c4" | "c4" => (
+                    "c4.md",
+                    loom::compile_mermaid_c4(&source).map_err(mermaid_err),
+                ),
+                "mermaid-sequence" | "sequence" => (
+                    "seq.md",
+                    loom::compile_mermaid_sequence(&source).map_err(mermaid_err),
+                ),
+                "mermaid-state" | "state" => (
+                    "state.md",
+                    loom::compile_mermaid_state(&source).map_err(mermaid_err),
+                ),
+                "mermaid-flow" | "flow" => (
+                    "flow.md",
+                    loom::compile_mermaid_flow(&source).map_err(mermaid_err),
+                ),
                 _ => ("rs", loom::compile(&source)),
             };
 
