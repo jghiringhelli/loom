@@ -26,6 +26,7 @@ mod functions;
 mod stores;
 mod structures;
 pub(crate) mod template;
+mod telos;
 mod types;
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
@@ -316,11 +317,7 @@ impl RustEmitter {
                 "// boundary: exports=[{}] private=[{}] sealed=[{}]\n",
                 bb.exports.join(", "), bb.private.join(", "), bb.sealed.join(", ")
             ),
-            Item::TelosFunction(tf) => format!(
-                "// telos_function: {} — guides signal_attention, experiment_selection, resource_allocation\n\
-                 // LOOM[telos_fn]: Peirce interpretant as typed function\n",
-                tf.name
-            ),
+            Item::TelosFunction(tf) => telos::emit_telos_function(tf),
             Item::Entity(ed) => emit_entity(ed),
             Item::IntentCoordinator(ic) => format!(
                 "// intent_coordinator: {} — governance gate (GovernanceClass: {:?})\n\

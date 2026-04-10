@@ -64,6 +64,7 @@ pub mod umwelt;
 pub mod units;
 pub mod usecase;
 pub mod entity;
+pub mod telos_fn;
 
 pub use algebraic::AlgebraicChecker;
 pub use aspect::AspectChecker;
@@ -126,3 +127,4 @@ pub use umwelt::UmweltChecker;
 pub use units::UnitsChecker;
 pub use usecase::UseCaseChecker;
 pub use entity::EntityChecker;
+pub use telos_fn::TelosFunctionChecker;
