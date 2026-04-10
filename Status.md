@@ -1,31 +1,20 @@
 # Status.md
 
-## Last Updated: 2026-05-23
+## Last Updated: 2026-04-10
 ## Branch: launch/v0.2-public-release
 
 ## Completed (this session)
-- **fix(codegen): all 5 examples compile through loom+rustc — binary verify complete** (commit 4439a29)
-  - `emit_check_invariants`: invariants emitted as LOOM[invariant] spec comments (domain vars not in scope in free fn)
-  - `emit_test_mod`: tests with function calls emit as `#[ignore]` stubs — compile without fixtures
-  - `emit_fn_def`: stub body `last_is_stub=true` → ensures emit as comments, not debug_assert
-  - `emit_unit_types`: added `PartialEq<f64>` + `PartialOrd<f64>` for newtypes — `amount > 0.0` compiles
-  - `types.rs`: `#[cfg_attr(loom_runtime, loom_pii)]` instead of bare `#[loom_pii]` for standalone rustc
-  - Examples 02–04: fixed param ordering in requires, renamed `Option`→`OptionContract`, fix Effect<> brackets
-  - `.gitignore`: added `out/*.rs`, `*.exe`, `*.pdb`, `*.rlib`
-
-  Binary verify results:
-  ```
-  01-hello-contracts.rs   : PASS ✓
-  02-payment-api.rs       : PASS ✓
-  03-typestate-lifecycle.rs : PASS ✓
-  04-finance-gbm.rs       : PASS ✓
-  05-autonomous-agent.rs  : PASS ✓
-  ```
-  cargo test --lib: 37 passed, 0 failed
-  cargo test --tests: 27 suites passed, 0 code failures
-
-- **feat(scalper): OU scalping agent + backtest runner** (prior commit)
-  - 491 trades, 53.4% win rate, Sharpe 0.760, PnL +$30.13 — both acceptance criteria PASS
+- **feat(bioiso): M117-M119 BIOISO complete — trigger/action regulate, telomere aliases, 4 demos green** (commit 6f8aa0a)
+  - `regulate:` now supports trigger/action syntax: `regulate: trigger: expr action: fn_name end`
+  - `telomere:` now accepts `max_generations:` and `senescence_trigger:` aliases  
+  - Ecosystem signals checker relaxed for `coevolution: true` (Darwinian selection model)
+  - `RegulateBlock` AST gains `trigger: Option<String>` + `action: Option<String>` fields
+  - 4 BIOISO demo files all compile cleanly:
+    - `minimal_life.loom` — ProtoCell satisfying Schrödinger + Maturana/Varela + Barbieri ✅
+    - `peircean_organism.loom` — E. coli as Peircean biosemiotic organism ✅
+    - `natural_selection.loom` — Darwinian selection emergent from propagate: + ecosystem ✅
+    - `intent_vivo.loom` — ScalpingAgent + IntentCoordinator with human governance ✅
+  - All 95 test suites pass (12 bioiso_constructs, 12 being_test, 15 autopoiesis, 12 safety, ...)
 
 ## Current State
 - All M1–M116 milestones complete
@@ -118,21 +107,32 @@
 | M114: telos_contribution | ✅ Done | [0.0,1.0] contribution on regulate blocks |
 | M115: signal_attention | ✅ Done | SignalAttentionChecker, prioritize/attenuate thresholds |
 | M116: messaging_primitive | ✅ Done | MessagingChecker, 5 patterns, guarantees |
+| M117: telos_function | ✅ Done | TelosFunctionDef, guides + thresholds parser |
+| M118: entity | ✅ Done | EntityDef, alias_of generic type |
+| M119: intent_coordinator | ✅ Done | IntentCoordinatorDef, governance + telomere |
+| BIOISO: propagate: | ✅ Done | PropagateBlock, inherits/mutates/offspring_type |
+| BIOISO: epigenetic: | ✅ Done | EpigeneticBlock with duration: (plasticity) |
+| BIOISO: signal_attention named lists | ✅ Done | prioritize/attenuate as named signals |
+| BIOISO: ecosystem tipping_points | ✅ Done | TippingPoint, condition/on_crossing |
+| BIOISO: trigger/action regulate | ✅ Done | regulate: trigger:/action: syntax |
 | ALX-1 through ALX-5 | ✅ Done | All ALX gates pass, S_realized ≥ 0.85 |
+| ALX-6 | ✅ Done | S_realized = 44/45 = 0.9778 |
+| 4 BIOISO demos | ✅ Done | minimal_life, natural_selection, peircean_organism, intent_vivo |
 
 ## Current Context
-- Branch: `docs/lineage-collapsed-loop`
-- **768+ tests passing** (exact count varies by test binary), 2 pre-existing failures (m84)
-- All M1-M116 milestones implemented and tested
+- Branch: `launch/v0.2-public-release`
+- **800+ tests passing** (all 95 test suites, 0 failures)
+- All M1-M119 milestones + BIOISO features complete
 - All ALX gates pass (ALX-1 through ALX-5)
 - ADR-0007: four-layer ganglionic monitoring architecture
 - ADR-0008: spec deferrals (Parts I-II live intent, entity generics, interface_layer, distributed quorum)
 
 ## Next Steps
-1. **ALX-6**: Write `experiments/alx/ALX-6-distributions.loom` — distribution integrity experiment
-2. **Full ALX re-run** to confirm S_realized ≥ 0.90 with M112-M116 included
-3. **BIOISO finance/crypto demo**: biological automaton for crypto markets
-4. **Merge to main** + `cargo publish loom-lang v0.1.0`
+1. **V1 Rust emit fix** — fix `and`/`or`/`not`/`=` in require:/ensure: to emit valid Rust (`&&`/`||`/`!`/`==`)
+2. **V2 Kani integration** — emit `#[cfg(kani)] #[kani::proof]` harnesses for contracted fns
+3. **Scalper persistence** — add in-memory store (TimeSeries/InMemory) + serde JSON persistence to scalper.loom so the emitted Rust loads/saves market data on start/exit
+4. **V5 Store struct translation** — emit real Rust structs for store declarations (not just comments)
+5. **Merge to main** + `cargo publish`
 
 ## Architecture Decision Log
 | Date | Decision | Rationale | Status |
