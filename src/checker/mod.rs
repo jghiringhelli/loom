@@ -65,6 +65,7 @@ pub mod units;
 pub mod usecase;
 pub mod entity;
 pub mod telos_fn;
+pub mod discipline;
 
 pub use algebraic::AlgebraicChecker;
 pub use aspect::AspectChecker;
@@ -128,3 +129,4 @@ pub use units::UnitsChecker;
 pub use usecase::UseCaseChecker;
 pub use entity::EntityChecker;
 pub use telos_fn::TelosFunctionChecker;
+pub use discipline::DisciplineChecker;

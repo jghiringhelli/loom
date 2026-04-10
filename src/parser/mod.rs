@@ -513,6 +513,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::NicheConstruction(self.parse_niche_construction()?));
             } else if self.at(&Token::MessagingPrimitive) {
                 items.push(Item::MessagingPrimitive(self.parse_messaging_primitive()?));
+            } else if self.at(&Token::Discipline) {
+                items.push(Item::Discipline(self.parse_discipline_decl()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -711,6 +713,7 @@ impl<'src> Parser<'src> {
             Some(Token::TelosFunction) => Ok(Item::TelosFunction(self.parse_telos_function_def()?)),
             Some(Token::Entity) => Ok(Item::Entity(self.parse_entity_def()?)),
             Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(self.parse_intent_coordinator_def()?)),
+            Some(Token::Discipline) => Ok(Item::Discipline(self.parse_discipline_decl()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1087,6 +1090,99 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         if self.at(&Token::End) { self.advance(); }
         Ok(IntentCoordinatorDef { name, telomere_days, governance_class, signals, rollback_on, min_confidence, audit_path, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M141–M145: Parse a `discipline Kind for Target [params...] end` declaration.
+    ///
+    /// Syntax examples:
+    /// ```loom
+    /// discipline CQRS for OrderStore end
+    /// discipline EventSourcing for OrderStore events: [OrderCreated, OrderShipped] end
+    /// discipline DependencyInjection for PricingEngine binds: [IPriceRepo, IRiskCalc] end
+    /// discipline CircuitBreaker for PaymentService max_attempts: 3 timeout_ms: 500 end
+    /// discipline Saga for CheckoutFlow steps: [ValidateOrder, ProcessPayment] end
+    /// discipline UnitOfWork for Checkout tables: [Orders, LineItems] end
+    /// ```
+    pub(in crate::parser) fn parse_discipline_decl(&mut self) -> Result<DisciplineDecl, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Discipline)?;
+
+        // Kind name — must be an ident
+        let (kind_str, _) = self.expect_ident()?;
+        let kind = match kind_str.to_lowercase().as_str() {
+            "cqrs" => DisciplineKind::Cqrs,
+            "eventsourcing" | "event_sourcing" => DisciplineKind::EventSourcing,
+            "dependencyinjection" | "dependency_injection" | "di" => DisciplineKind::DependencyInjection,
+            "circuitbreaker" | "circuit_breaker" => DisciplineKind::CircuitBreaker,
+            "saga" => DisciplineKind::Saga,
+            "unitofwork" | "unit_of_work" => DisciplineKind::UnitOfWork,
+            other => return Err(LoomError::parse(
+                format!(
+                    "unknown discipline kind '{}' — expected one of: CQRS, EventSourcing, \
+                     DependencyInjection, CircuitBreaker, Saga, UnitOfWork",
+                    other
+                ),
+                start,
+            )),
+        };
+
+        // `for` keyword — accepts both Token::For and a "for" ident
+        if self.at(&Token::For) {
+            self.advance();
+        } else if let Some(k) = self.token_as_ident() {
+            if k == "for" { self.advance(); }
+        }
+
+        // Target name
+        let (target, _) = self.expect_ident()?;
+
+        // Keyword params until `end`
+        let mut params: Vec<(String, DisciplineParam)> = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) { self.advance(); }
+
+                // List param: `key: [A, B, C]`
+                if self.at(&Token::LBracket) {
+                    self.advance();
+                    let mut items = Vec::new();
+                    while !self.at(&Token::RBracket) && self.peek().is_some() {
+                        if let Some(v) = self.token_as_ident() {
+                            self.advance();
+                            items.push(v);
+                        } else {
+                            self.advance();
+                        }
+                        if self.at(&Token::Comma) { self.advance(); }
+                    }
+                    if self.at(&Token::RBracket) { self.advance(); }
+                    params.push((key, DisciplineParam::List(items)));
+                }
+                // Numeric param: `key: 42`
+                else if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                    let n = *n;
+                    self.pos += 1;
+                    params.push((key, DisciplineParam::Number(n)));
+                }
+                // Scalar/string param: `key: SomeValue` or `key: "string"`
+                else if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                    let s = s.clone();
+                    self.pos += 1;
+                    params.push((key, DisciplineParam::Scalar(s)));
+                } else if let Some(v) = self.token_as_ident() {
+                    self.advance();
+                    params.push((key, DisciplineParam::Scalar(v)));
+                }
+                // else: param with no value — skip
+            } else {
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); }
+        Ok(DisciplineDecl { kind, target, params, span: Span::merge(&start, &end_span) })
     }
 }
 
