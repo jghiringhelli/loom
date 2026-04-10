@@ -116,6 +116,7 @@ impl RustEmitter {
     fn codegen_relational_store(&self, store: &StoreDef, out: &mut String) {
         out.push_str("// Ecosystem: sqlx (compile-time query verification) | diesel | sea-orm\n");
         out.push_str("// LOOM[store:Relational]: tables → typed structs, PK/FK annotated\n\n");
+        self.emit_store_error(&store.name, out);
         let mut tables: Vec<String> = Vec::new();
         for entry in &store.schema {
             if let StoreSchemaEntry::Table { name, fields, .. } = entry {
@@ -123,18 +124,18 @@ impl RustEmitter {
                     .iter()
                     .find(|f| f.annotations.iter().any(|a| a.key == "primary_key"))
                     .map(|f| f.name.as_str())
-                    .unwrap_or("(none)");
+                    .unwrap_or("id");
                 out.push_str(&format!("// Table `{}` — primary key: {}\n", name, pk));
                 self.emit_named_struct(name, fields, out);
-                self.emit_crud_trait_impl(&store.name, name, pk, out);
+                self.emit_repository_port(&store.name, name, pk, out);
                 self.emit_crud_in_memory_impl(&store.name, name, pk, out);
+                self.emit_postgres_adapter(&store.name, name, pk, out);
                 self.emit_specification_pattern(name, out);
                 self.emit_pagination_cursor(name, out);
                 self.emit_openapi_hints(name, out);
                 tables.push(name.clone());
             }
         }
-        // Store-level patterns
         if !tables.is_empty() {
             self.emit_unit_of_work(&store.name, &tables, out);
         }
@@ -142,34 +143,65 @@ impl RustEmitter {
         self.emit_cqrs_for_store(&store.name, out);
     }
 
-    /// Emit a simple repository trait stub for a relational table.
-    fn emit_crud_trait_impl(
+    /// M126: Emit a typed `StoreError` enum for this store.
+    ///
+    /// Replaces bare `String` errors — callers can match on variant and
+    /// the port interface remains independent of any backend error type.
+    fn emit_store_error(&self, store_name: &str, out: &mut String) {
+        out.push_str(&format!(
+            "// LOOM[port:StoreError]: {s} — typed error hierarchy (M126)\n\
+             #[derive(Debug, Clone, PartialEq)]\n\
+             pub enum {s}StoreError {{\n\
+             \x20\x20\x20\x20NotFound(String),\n\
+             \x20\x20\x20\x20Conflict(String),\n\
+             \x20\x20\x20\x20Connection(String),\n\
+             \x20\x20\x20\x20Constraint(String),\n\
+             \x20\x20\x20\x20Other(String),\n\
+             }}\n\
+             impl std::fmt::Display for {s}StoreError {{\n\
+             \x20\x20\x20\x20fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20match self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Self::NotFound(m) | Self::Conflict(m) | Self::Connection(m)\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20| Self::Constraint(m) | Self::Other(m) => write!(f, \"{{}}\", m),\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\
+             impl std::error::Error for {s}StoreError {{}}\n\n",
+            s = store_name
+        ));
+    }
+
+    /// M126: Emit the repository port — dependency inversion boundary.
+    ///
+    /// Domain layer declares this trait; all adapters (InMemory, Postgres, Redis,
+    /// SQLite, TimescaleDB) implement it.  Callers depend only on the trait.
+    fn emit_repository_port(
         &self,
         store_name: &str,
         table: &str,
         pk_field: &str,
         out: &mut String,
     ) {
-        let store_snake = to_snake_case(store_name);
-        let table_snake = to_snake_case(table);
         out.push_str(&format!(
-            "// LOOM[implicit:CRUD]: {table} CRUD trait — wire to your sqlx pool\n"
+            "// LOOM[port:Repository]: {table} — dependency inversion port (M126)\n\
+             // Domain declares this trait; adapters implement it. Callers depend only on dyn {table}Repository.\n\
+             pub trait {table}Repository: Send + Sync {{\n\
+             \x20\x20\x20\x20/// Find by primary key `{pk}`.\n\
+             \x20\x20\x20\x20fn find_by_id(&self, id: &str) -> Result<Option<{table}>, {s}StoreError>;\n\
+             \x20\x20\x20\x20/// List entities with limit/offset pagination.\n\
+             \x20\x20\x20\x20fn find_all(&self, limit: usize, offset: usize) -> Result<Vec<{table}>, {s}StoreError>;\n\
+             \x20\x20\x20\x20/// Persist a new or updated entity (upsert semantics).\n\
+             \x20\x20\x20\x20fn save(&self, entity: {table}) -> Result<{table}, {s}StoreError>;\n\
+             \x20\x20\x20\x20/// Remove by primary key.\n\
+             \x20\x20\x20\x20fn delete(&self, id: &str) -> Result<(), {s}StoreError>;\n\
+             \x20\x20\x20\x20/// Check existence without loading the full entity.\n\
+             \x20\x20\x20\x20fn exists(&self, id: &str) -> Result<bool, {s}StoreError>;\n\
+             }}\n\n",
+            table = table,
+            pk = pk_field,
+            s = store_name,
         ));
-        out.push_str(&format!("pub trait {table}Repository {{\n"));
-        out.push_str(&format!("    /// Find by primary key `{pk_field}`.\n"));
-        out.push_str(&format!(
-            "    fn find_by_id(&self, id: &str) -> Option<{table}>;\n"
-        ));
-        out.push_str(&format!("    /// Persist a new `{table}`.\n"));
-        out.push_str(&format!(
-            "    fn save(&self, entity: {table}) -> Result<{table}, String>;\n"
-        ));
-        out.push_str(&format!("    /// Remove by primary key.\n"));
-        out.push_str(&format!(
-            "    fn delete(&self, id: &str) -> Result<(), String>;\n"
-        ));
-        out.push_str("}\n\n");
-        let _ = (store_snake, table_snake);
+        let _ = store_name;
     }
 
     // ── Key-Value ─────────────────────────────────────────────────────────────
@@ -177,6 +209,7 @@ impl RustEmitter {
     fn codegen_keyvalue_store(&self, store: &StoreDef, out: &mut String) {
         out.push_str("// Ecosystem: dashmap (concurrent HashMap) | sled (embedded KV) | redis\n");
         out.push_str("// LOOM[store:KeyValue]: typed entry struct, get/put/del trait\n\n");
+        self.emit_store_error(&store.name, out);
 
         let key_type = store
             .schema
@@ -209,19 +242,31 @@ impl RustEmitter {
         out.push_str(&format!("    pub value: {},\n", value_type));
         out.push_str("}\n\n");
 
-        // Typed KV trait
-        out.push_str("// LOOM[implicit:KV]: typed get/put/del trait\n");
-        out.push_str(&format!("pub trait {}Store {{\n", store.name));
+        // Typed KV port trait
         out.push_str(&format!(
-            "    fn get(&self, key: &{key_type}) -> Option<{value_type}>;\n"
+            "// LOOM[port:KVStore]: {} — dependency inversion port (M128)\n",
+            store.name
+        ));
+        out.push_str(&format!("pub trait {}Store: Send + Sync {{\n", store.name));
+        out.push_str(&format!(
+            "    fn get(&self, key: &{key_type}) -> Result<Option<{value_type}>, {s}StoreError>;\n",
+            s = store.name
         ));
         out.push_str(&format!(
-            "    fn put(&self, key: {key_type}, value: {value_type}) -> Result<(), String>;\n"
+            "    fn put(&self, key: {key_type}, value: {value_type}) -> Result<(), {s}StoreError>;\n",
+            s = store.name
         ));
         out.push_str(&format!(
-            "    fn del(&self, key: &{key_type}) -> Result<(), String>;\n"
+            "    fn del(&self, key: &{key_type}) -> Result<(), {s}StoreError>;\n",
+            s = store.name
+        ));
+        out.push_str(&format!(
+            "    fn exists(&self, key: &{key_type}) -> Result<bool, {s}StoreError>;\n",
+            s = store.name
         ));
         out.push_str("}\n\n");
+
+        self.emit_redis_adapter(&store.name, &key_type, &value_type, out);
     }
 
     // ── Document ──────────────────────────────────────────────────────────────
@@ -354,15 +399,16 @@ impl RustEmitter {
     // ── TimeSeries ────────────────────────────────────────────────────────────
 
     fn codegen_timeseries_store(&self, store: &StoreDef, out: &mut String) {
-        out.push_str("// Ecosystem: influxdb2 | timeseries-rs | tdengine\n");
+        out.push_str("// Ecosystem: TimescaleDB (Postgres extension) | influxdb2 | timeseries-rs\n");
         out.push_str(
-            "// LOOM[store:TimeSeries]: events have mandatory timestamp; ordered by time\n\n",
+            "// LOOM[store:TimeSeries]: events have mandatory timestamp; ordered by time (M130)\n\n",
         );
+        self.emit_store_error(&store.name, out);
 
+        let mut event_types: Vec<String> = Vec::new();
         for entry in &store.schema {
             if let StoreSchemaEntry::Event { name, fields, .. } = entry {
                 out.push_str(&format!("// TimeSeries event: {}\n", name));
-                // Inject timestamp if not already present
                 let has_ts = fields
                     .iter()
                     .any(|f| f.name == "timestamp" || f.name == "ts");
@@ -376,10 +422,10 @@ impl RustEmitter {
                 }
                 self.emit_struct_fields(fields, out);
                 out.push_str("}\n\n");
+                event_types.push(name.clone());
             }
         }
 
-        // Emit a typed retention accessor
         let retention = store
             .config
             .iter()
@@ -387,20 +433,9 @@ impl RustEmitter {
             .map(|c| c.value.as_str())
             .unwrap_or("unbounded");
         out.push_str(&format!("// LOOM[ts:retention]: {}\n\n", retention));
-        // Discipline: Event Sourcing + Domain Event Bus
-        let event_types: Vec<String> = store
-            .schema
-            .iter()
-            .filter_map(|e| {
-                if let StoreSchemaEntry::Event { name, .. } = e {
-                    Some(name.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
         self.emit_event_sourcing(&store.name, &event_types, out);
         self.emit_domain_event_bus(&store.name, out);
+        self.emit_timescale_adapter(&store.name, &event_types, out);
     }
 
     // ── Vector ────────────────────────────────────────────────────────────────

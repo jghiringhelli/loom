@@ -54,19 +54,21 @@ use crate::ast::*;
 // ═══════════════════════════════════════════════════════════════════════════
 
 impl RustEmitter {
-    /// CRUD in-memory repository impl — Fowler 2002 Repository + Fake Object.
-    /// Concrete testable fake using Mutex<HashMap<String, Entity>>.
-    /// Replace with a sqlx/diesel/sea-orm adapter at the composition root.
+    /// M126: In-memory repository fake — Fowler 2002 Repository + Fake Object.
+    ///
+    /// Uses `StoreError` (not `String`) to match the port interface.
+    /// Replace at the composition root with a Postgres/Redis/SQLite adapter.
     pub(super) fn emit_crud_in_memory_impl(
         &self,
-        _store: &str,
+        store_name: &str,
         table: &str,
         pk_field: &str,
         out: &mut String,
     ) {
         out.push_str(&ts(
             r#"
-// LOOM[implicit:CRUD:InMemory]: InMemory{T}Repository — testable fake (Fowler 2002)
+// LOOM[adapter:InMemory]: InMemory{T}Repository — testable fake (M126, Fowler 2002)
+// Implements {T}Repository port. Swap for Postgres/SQLite adapter at the composition root.
 pub struct InMemory{T}Repository {
     store: std::sync::Mutex<std::collections::HashMap<String, {T}>>,
 }
@@ -74,21 +76,193 @@ impl Default for InMemory{T}Repository {
     fn default() -> Self { Self { store: std::sync::Mutex::new(std::collections::HashMap::new()) } }
 }
 impl {T}Repository for InMemory{T}Repository {
-    fn find_by_id(&self, id: &str) -> Option<{T}> {
-        self.store.lock().unwrap().get(id).cloned()
+    fn find_by_id(&self, id: &str) -> Result<Option<{T}>, {S}StoreError> {
+        Ok(self.store.lock().unwrap().get(id).cloned())
     }
-    fn save(&self, entity: {T}) -> Result<{T}, String> {
+    fn find_all(&self, limit: usize, offset: usize) -> Result<Vec<{T}>, {S}StoreError> {
+        let guard = self.store.lock().unwrap();
+        Ok(guard.values().skip(offset).take(limit).cloned().collect())
+    }
+    fn save(&self, entity: {T}) -> Result<{T}, {S}StoreError> {
         let key = format!("{:?}", entity.{pk});
         self.store.lock().unwrap().insert(key, entity.clone());
         Ok(entity)
     }
-    fn delete(&self, id: &str) -> Result<(), String> {
+    fn delete(&self, id: &str) -> Result<(), {S}StoreError> {
         self.store.lock().unwrap().remove(id); Ok(())
     }
+    fn exists(&self, id: &str) -> Result<bool, {S}StoreError> {
+        Ok(self.store.lock().unwrap().contains_key(id))
+    }
 }"#,
-            &[("T", table), ("pk", pk_field)],
+            &[("T", table), ("pk", pk_field), ("S", store_name)],
+        ));
+        out.push_str("\n\n");
+    }
+
+    /// M127: Postgres adapter stub — sqlx PgPool (M127).
+    ///
+    /// Emitted as commented-out code. Uncomment and add sqlx to Cargo.toml.
+    /// `cargo add sqlx --features postgres,runtime-tokio-rustls,macros`
+    pub(super) fn emit_postgres_adapter(
+        &self,
+        store_name: &str,
+        table: &str,
+        pk_field: &str,
+        out: &mut String,
+    ) {
+        let table_lower = to_snake_case(table);
+        out.push_str(&format!(
+            "// LOOM[adapter:Postgres]: {table} — sqlx PgPool (M127)\n\
+             // Uncomment + cargo add sqlx --features postgres,runtime-tokio-rustls,macros\n\
+             //\n\
+             // pub struct Postgres{table}Repository {{ pub pool: sqlx::PgPool }}\n\
+             // impl Postgres{table}Repository {{\n\
+             //     pub fn new(pool: sqlx::PgPool) -> Self {{ Self {{ pool }} }}\n\
+             // }}\n\
+             // impl {table}Repository for Postgres{table}Repository {{\n\
+             //     fn find_by_id(&self, id: &str) -> Result<Option<{table}>, {s}StoreError> {{\n\
+             //         // let row = sqlx::query_as!(/* ... */, \"SELECT * FROM {tbl} WHERE {pk} = $1\", id)\n\
+             //         //     .fetch_optional(&self.pool).await?;\n\
+             //         // Ok(row.map(Into::into))\n\
+             //         todo!(\"Postgres {table}Repository::find_by_id\")\n\
+             //     }}\n\
+             //     fn find_all(&self, limit: usize, offset: usize) -> Result<Vec<{table}>, {s}StoreError> {{\n\
+             //         // sqlx::query_as!(/* ... */, \"SELECT * FROM {tbl} LIMIT $1 OFFSET $2\", limit as i64, offset as i64)\n\
+             //         todo!(\"Postgres {table}Repository::find_all\")\n\
+             //     }}\n\
+             //     fn save(&self, entity: {table}) -> Result<{table}, {s}StoreError> {{ todo!() }}\n\
+             //     fn delete(&self, id: &str) -> Result<(), {s}StoreError> {{ todo!() }}\n\
+             //     fn exists(&self, id: &str) -> Result<bool, {s}StoreError> {{ todo!() }}\n\
+             // }}\n\n",
+            table = table,
+            tbl = table_lower,
+            pk = pk_field,
+            s = store_name,
         ));
     }
+
+    /// M128: Redis adapter stub — redis-rs client (M128).
+    ///
+    /// Emitted as commented-out code for KeyValue stores.
+    /// `cargo add redis --features tokio-comp`
+    pub(super) fn emit_redis_adapter(
+        &self,
+        store_name: &str,
+        key_type: &str,
+        value_type: &str,
+        out: &mut String,
+    ) {
+        out.push_str(&format!(
+            "// LOOM[adapter:Redis]: {s} — redis-rs client (M128)\n\
+             // Uncomment + cargo add redis --features tokio-comp\n\
+             //\n\
+             // pub struct Redis{s}Adapter {{ client: redis::Client }}\n\
+             // impl Redis{s}Adapter {{\n\
+             //     pub fn new(url: &str) -> Result<Self, redis::RedisError> {{\n\
+             //         Ok(Self {{ client: redis::Client::open(url)? }})\n\
+             //     }}\n\
+             // }}\n\
+             // impl {s}Store for Redis{s}Adapter {{\n\
+             //     fn get(&self, key: &{k}) -> Result<Option<{v}>, {s}StoreError> {{\n\
+             //         let mut con = self.client.get_connection()\n\
+             //             .map_err(|e| {s}StoreError::Connection(e.to_string()))?;\n\
+             //         let val: Option<String> = redis::cmd(\"GET\").arg(format!(\"{{:?}}\", key))\n\
+             //             .query(&mut con).map_err(|e| {s}StoreError::Other(e.to_string()))?;\n\
+             //         Ok(val.map(|_v| todo!(\"deserialize {v}\")))\n\
+             //     }}\n\
+             //     fn put(&self, _key: {k}, _value: {v}) -> Result<(), {s}StoreError> {{ todo!() }}\n\
+             //     fn del(&self, _key: &{k}) -> Result<(), {s}StoreError> {{ todo!() }}\n\
+             //     fn exists(&self, _key: &{k}) -> Result<bool, {s}StoreError> {{ todo!() }}\n\
+             // }}\n\n",
+            s = store_name,
+            k = key_type,
+            v = value_type,
+        ));
+    }
+
+    /// M129: SQLite adapter stub — rusqlite (M129).
+    ///
+    /// Emitted for InMemory stores and lightweight relational use.
+    /// `cargo add rusqlite --features bundled`
+    pub(super) fn emit_sqlite_adapter(
+        &self,
+        store_name: &str,
+        table: &str,
+        pk_field: &str,
+        out: &mut String,
+    ) {
+        out.push_str(&format!(
+            "// LOOM[adapter:SQLite]: {table} — rusqlite (M129)\n\
+             // Uncomment + cargo add rusqlite --features bundled\n\
+             //\n\
+             // pub struct Sqlite{table}Repository {{\n\
+             //     conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>,\n\
+             // }}\n\
+             // impl Sqlite{table}Repository {{\n\
+             //     pub fn new(path: &str) -> Result<Self, rusqlite::Error> {{\n\
+             //         let conn = rusqlite::Connection::open(path)?;\n\
+             //         Ok(Self {{ conn: std::sync::Arc::new(std::sync::Mutex::new(conn)) }})\n\
+             //     }}\n\
+             // }}\n\
+             // impl {table}Repository for Sqlite{table}Repository {{\n\
+             //     fn find_by_id(&self, id: &str) -> Result<Option<{table}>, {s}StoreError> {{\n\
+             //         // conn.query_row(\"SELECT * FROM {tbl} WHERE {pk} = ?1\", [id], ...)\n\
+             //         todo!(\"SQLite {table}Repository::find_by_id\")\n\
+             //     }}\n\
+             //     fn find_all(&self, _limit: usize, _offset: usize) -> Result<Vec<{table}>, {s}StoreError> {{ todo!() }}\n\
+             //     fn save(&self, _entity: {table}) -> Result<{table}, {s}StoreError> {{ todo!() }}\n\
+             //     fn delete(&self, _id: &str) -> Result<(), {s}StoreError> {{ todo!() }}\n\
+             //     fn exists(&self, _id: &str) -> Result<bool, {s}StoreError> {{ todo!() }}\n\
+             // }}\n\n",
+            table = table,
+            tbl = to_snake_case(table),
+            pk = pk_field,
+            s = store_name,
+        ));
+    }
+
+    /// M130: TimescaleDB adapter stub — sqlx PgPool with hypertable hint (M130).
+    ///
+    /// TimescaleDB is Postgres with time-series extensions.
+    /// `cargo add sqlx --features postgres,runtime-tokio-rustls`
+    pub(super) fn emit_timescale_adapter(
+        &self,
+        store_name: &str,
+        event_types: &[String],
+        out: &mut String,
+    ) {
+        let events_list = if event_types.is_empty() {
+            "Event".to_string()
+        } else {
+            event_types.join(", ")
+        };
+        out.push_str(&format!(
+            "// LOOM[adapter:TimescaleDB]: {s} — sqlx PgPool with hypertable (M130)\n\
+             // Uncomment + cargo add sqlx --features postgres,runtime-tokio-rustls\n\
+             // SQL setup:\n\
+             //   CREATE EXTENSION IF NOT EXISTS timescaledb;\n\
+             //   SELECT create_hypertable('<table>', 'timestamp');\n\
+             // Event types: {events}\n\
+             //\n\
+             // pub struct Timescale{s}Repository {{ pub pool: sqlx::PgPool }}\n\
+             // impl Timescale{s}Repository {{\n\
+             //     pub fn new(pool: sqlx::PgPool) -> Self {{ Self {{ pool }} }}\n\
+             //     // fn append_event(&self, event: &{s}Event) -> Result<(), {s}StoreError> {{\n\
+             //     //     sqlx::query!(\"INSERT INTO {s_lower}_events ...\", ...)\n\
+             //     //         .execute(&self.pool).await?; Ok(())\n\
+             //     // }}\n\
+             //     // fn range_query(&self, from: i64, to: i64) -> Result<Vec<{s}Event>, {s}StoreError> {{\n\
+             //     //     sqlx::query_as!(/* ... */, \"SELECT * FROM {s_lower}_events WHERE timestamp BETWEEN $1 AND $2\", from, to)\n\
+             //     //         .fetch_all(&self.pool).await.map_err(|e| {s}StoreError::Connection(e.to_string()))\n\
+             //     // }}\n\
+             // }}\n\n",
+            s = store_name,
+            s_lower = to_snake_case(store_name),
+            events = events_list,
+        ));
+    }
+
 
     /// Unit of Work — atomic transaction scope grouping multiple repositories (Fowler 2002).
     pub(super) fn emit_unit_of_work(&self, store_name: &str, tables: &[String], out: &mut String) {

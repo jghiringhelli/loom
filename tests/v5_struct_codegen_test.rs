@@ -321,3 +321,137 @@ end
         out
     );
 }
+
+// ── M126-M130: DB adapter tests ───────────────────────────────────────────
+
+/// M126: StoreError typed enum is emitted for relational stores.
+#[test]
+fn m126_relational_emits_store_error() {
+    let out = compile(relational_src());
+    assert!(
+        out.contains("OrdersStoreError") || out.contains("StoreError"),
+        "expected StoreError enum\n{}",
+        out
+    );
+    assert!(out.contains("NotFound"), "expected NotFound variant");
+    assert!(out.contains("Connection"), "expected Connection variant");
+}
+
+/// M126: Repository port uses StoreError, not String.
+#[test]
+fn m126_repository_port_uses_store_error() {
+    let out = compile(relational_src());
+    assert!(
+        out.contains("StoreError"),
+        "expected StoreError in repository trait\n{}",
+        out
+    );
+    // Should NOT use bare String in the port signature
+    assert!(
+        !out.contains("Result<Order, String>"),
+        "repository port should not use String error\n{}", out
+    );
+}
+
+/// M126: Repository port has find_all and exists methods.
+#[test]
+fn m126_repository_port_has_full_interface() {
+    let out = compile(relational_src());
+    assert!(out.contains("fn find_all"), "expected find_all\n{}", out);
+    assert!(out.contains("fn exists"), "expected exists\n{}", out);
+    assert!(out.contains("Send + Sync"), "expected Send + Sync bounds\n{}", out);
+}
+
+/// M126: InMemory adapter uses StoreError (not String) in method signatures.
+#[test]
+fn m126_in_memory_adapter_uses_store_error() {
+    let out = compile(relational_src());
+    assert!(
+        out.contains("InMemoryOrderRepository"),
+        "expected InMemoryOrderRepository\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn find_all"),
+        "expected find_all in InMemory impl\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn exists"),
+        "expected exists in InMemory impl\n{}",
+        out
+    );
+}
+
+/// M127: Postgres adapter stub is emitted for relational stores.
+#[test]
+fn m127_relational_emits_postgres_adapter_stub() {
+    let out = compile(relational_src());
+    assert!(
+        out.contains("Postgres") || out.contains("sqlx"),
+        "expected Postgres/sqlx adapter stub\n{}",
+        out
+    );
+    assert!(
+        out.contains("PgPool") || out.contains("postgres"),
+        "expected PgPool in adapter stub\n{}",
+        out
+    );
+}
+
+/// M128: Redis adapter stub is emitted for KeyValue stores.
+#[test]
+fn m128_keyvalue_emits_redis_adapter_stub() {
+    let src = r#"
+module M
+  store SessionCache :: KeyValue
+    key: String
+    value: String
+  end
+end
+"#;
+    let out = compile(src);
+    assert!(
+        out.contains("Redis") || out.contains("redis"),
+        "expected Redis adapter stub\n{}",
+        out
+    );
+    assert!(
+        out.contains("StoreError") || out.contains("SessionCacheStoreError"),
+        "expected StoreError in KV store\n{}",
+        out
+    );
+}
+
+/// M128: KeyValue port has typed StoreError.
+#[test]
+fn m128_keyvalue_port_has_store_error() {
+    let src = r#"
+module M
+  store SessionCache :: KeyValue
+    key: String
+    value: String
+  end
+end
+"#;
+    let out = compile(src);
+    assert!(out.contains("StoreError"), "expected StoreError\n{}", out);
+    assert!(out.contains("fn exists"), "expected exists in KV port\n{}", out);
+}
+
+/// M130: TimescaleDB adapter stub is emitted for TimeSeries stores.
+#[test]
+fn m130_timeseries_emits_timescale_adapter_stub() {
+    let out = compile(timeseries_src());
+    assert!(
+        out.contains("Timescale") || out.contains("timescaledb") || out.contains("hypertable"),
+        "expected TimescaleDB adapter stub\n{}",
+        out
+    );
+    assert!(
+        out.contains("StoreError") || out.contains("MetricsStoreError"),
+        "expected StoreError in timeseries store\n{}",
+        out
+    );
+}
+
