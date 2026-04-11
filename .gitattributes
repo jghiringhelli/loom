@@ -1,0 +1,13 @@
+# Force LF for shell scripts — Windows autocrlf must not corrupt them
+*.sh text eol=lf
+
+# Rust and TOML: normalize to LF
+*.rs text eol=lf
+*.toml text eol=lf
+
+# Markdown: normalize to LF
+*.md text eol=lf
+
+# Windows binaries: no conversion
+*.exe binary
+*.dll binary
