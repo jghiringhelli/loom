@@ -430,28 +430,6 @@ impl {N}TransitionMatrix {
     }
 
     /// M159: Emit a top-level `pipeline` item as a named processing chain.
-    ///
-    /// Each step emits a stub `fn` with a `todo!()` body and a `LOOM[pipeline:step]`
-    /// audit comment. The `process()` method chains all steps in declaration order.
-    ///
-    /// ```loom
-    /// pipeline DataCleaner
-    ///   step normalize :: String -> String
-    ///   step trim :: String -> String
-    ///   step validate :: String -> Bool
-    /// end
-    /// ```
-    ///
-    /// Emits:
-    /// ```rust
-    /// pub struct DataCleanerPipeline;
-    /// impl DataCleanerPipeline {
-    ///     pub fn normalize(&self, input: String) -> String { todo!() }
-    ///     pub fn trim(&self, input: String) -> String { todo!() }
-    ///     pub fn validate(&self, input: String) -> bool { todo!() }
-    ///     pub fn process(&self, input: String) -> bool { ... }
-    /// }
-    /// ```
     pub(super) fn emit_pipeline_def(&self, pd: &PipelineDef, out: &mut String) {
         let struct_name = format!("{}Pipeline", pd.name);
 
@@ -466,7 +444,7 @@ impl {N}TransitionMatrix {
             let rust_in = loom_type_to_rust(&step.input_ty);
             let rust_out = loom_type_to_rust(&step.output_ty);
             out.push_str(&format!(
-                "    // LOOM[pipeline:step]: {step_name} — {in_ty} → {out_ty}\n\
+                "    // LOOM[pipeline:step]: {step_name} — {in_ty} \u{2192} {out_ty}\n\
                      pub fn {step_name}(&self, input: {rust_in}) -> {rust_out} {{\n\
                  \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement {step_name}\")\n\
                  \x20\x20\x20\x20}}\n",
@@ -476,7 +454,6 @@ impl {N}TransitionMatrix {
             ));
         }
 
-        // Emit chained `process()` — threads input through all steps in order.
         if let Some(first) = pd.steps.first() {
             let rust_in = loom_type_to_rust(&first.input_ty);
             let final_step = pd.steps.last().unwrap();
@@ -497,6 +474,101 @@ impl {N}TransitionMatrix {
                  \x20\x20\x20\x20pub fn process(&self, input: {rust_in}) -> {rust_out} {{\n\
                  \x20\x20\x20\x20\x20\x20\x20\x20{chain}\n\
                  \x20\x20\x20\x20}}\n",
+            ));
+        }
+
+        out.push_str("}\n\n");
+    }
+
+    /// M160: Emit a top-level `saga` item as a distributed transaction coordinator.
+    ///
+    /// Reference: Garcia-Molina & Salem, "SAGAS" (SIGMOD 1987).
+    pub(super) fn emit_saga_def(&self, sd: &SagaDef, out: &mut String) {
+        // sd.name is the user-provided name, e.g. "OrderSaga" or "Deploy".
+        // Struct name = sd.name (user already decides whether to include "Saga" suffix).
+        // Error enum = {Name}Error (avoids "OrderSagaSagaError" double-suffix).
+        let struct_name = &sd.name;
+        let error_name = format!("{}Error", sd.name);
+
+        let error_variants: String = sd
+            .steps
+            .iter()
+            .map(|s| {
+                format!(
+                    "    // LOOM[saga:error]: step {} failed\n    {step}Failed,\n",
+                    s.name,
+                    step = to_pascal_case(&s.name),
+                )
+            })
+            .collect();
+
+        out.push_str(&format!(
+            "// LOOM[saga:item]: {name} — distributed transaction saga (M160, Garcia-Molina 1987)\n\
+             pub struct {struct_name};\n\n\
+             #[derive(Debug)]\n\
+             pub enum {error_name} {{\n\
+             {error_variants}\
+             }}\n\n\
+             impl {struct_name} {{\n",
+            name = sd.name,
+        ));
+
+        for step in &sd.steps {
+            let rust_in = loom_type_to_rust(&step.input_ty);
+            let rust_out = loom_type_to_rust(&step.output_ty);
+            out.push_str(&format!(
+                "    // LOOM[saga:step]: {step_name} — forward transaction\n\
+                     pub fn {step_name}(&self, input: {rust_in}) -> Result<{rust_out}, {error_name}> {{\n\
+                 \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement {step_name}\")\n\
+                 \x20\x20\x20\x20}}\n",
+                step_name = step.name,
+                error_name = error_name,
+            ));
+
+            if let Some(comp) = &step.compensate {
+                let comp_in = loom_type_to_rust(&comp.input_ty);
+                let comp_out = loom_type_to_rust(&comp.output_ty);
+                out.push_str(&format!(
+                    "    // LOOM[saga:compensate]: {step_name} — compensating transaction (rollback)\n\
+                         pub fn {step_name}_compensate(&self, input: {comp_in}) -> {comp_out} {{\n\
+                     \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement {step_name} compensation\")\n\
+                     \x20\x20\x20\x20}}\n",
+                    step_name = comp.step_name,
+                    comp_out = comp_out,
+                ));
+            }
+        }
+
+        if let Some(first) = sd.steps.first() {
+            let rust_in = loom_type_to_rust(&first.input_ty);
+            let last = sd.steps.last().unwrap();
+            let rust_out = loom_type_to_rust(&last.output_ty);
+
+            let mut body_lines = vec![format!(
+                "        let step0 = self.{}(input)?;",
+                first.name
+            )];
+            for (i, step) in sd.steps.iter().enumerate().skip(1) {
+                body_lines.push(format!(
+                    "        let step{i} = self.{}(step{})?;",
+                    step.name,
+                    i - 1
+                ));
+            }
+            let last_var = if sd.steps.len() == 1 {
+                "step0".to_string()
+            } else {
+                format!("step{}", sd.steps.len() - 1)
+            };
+            body_lines.push(format!("        Ok({last_var})"));
+            let body = body_lines.join("\n");
+
+            out.push_str(&format!(
+                "\n    /// Execute the full saga. On failure, invoke compensating transactions.\n\
+                 \x20\x20\x20\x20pub fn execute(&self, input: {rust_in}) -> Result<{rust_out}, {error_name}> {{\n\
+                 {body}\n\
+                 \x20\x20\x20\x20}}\n",
+                error_name = error_name,
             ));
         }
 

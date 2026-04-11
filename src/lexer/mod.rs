@@ -431,6 +431,12 @@ pub enum Token {
     #[token("step")]
     Step,
 
+    // ── M160: saga as first-class item ───────────────────────────────────────────
+    #[token("saga")]
+    SagaKw,
+    #[token("compensate")]
+    Compensate,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

@@ -336,6 +336,8 @@ impl<'src> Parser<'src> {
             Some((Token::Const, _)) => Some("const".to_string()),
             Some((Token::PipelineKw, _)) => Some("pipeline".to_string()),
             Some((Token::Step, _)) => Some("step".to_string()),
+            Some((Token::SagaKw, _)) => Some("saga".to_string()),
+            Some((Token::Compensate, _)) => Some("compensate".to_string()),
             _ => None,
         }
     }
@@ -422,6 +424,8 @@ impl<'src> Parser<'src> {
             Some((Token::Const, _)) => Some("const".to_string()),
             Some((Token::PipelineKw, _)) => Some("pipeline".to_string()),
             Some((Token::Step, _)) => Some("step".to_string()),
+            Some((Token::SagaKw, _)) => Some("saga".to_string()),
+            Some((Token::Compensate, _)) => Some("compensate".to_string()),
             _ => None,
         }
     }
@@ -541,6 +545,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Const(self.parse_const_def()?));
             } else if self.at(&Token::PipelineKw) {
                 items.push(Item::Pipeline(self.parse_pipeline_def()?));
+            } else if self.at(&Token::SagaKw) {
+                items.push(Item::Saga(self.parse_saga_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -744,6 +750,7 @@ impl<'src> Parser<'src> {
             Some(Token::DagKw) => Ok(Item::Dag(self.parse_dag_def()?)),
             Some(Token::Const) => Ok(Item::Const(self.parse_const_def()?)),
             Some(Token::PipelineKw) => Ok(Item::Pipeline(self.parse_pipeline_def()?)),
+            Some(Token::SagaKw) => Ok(Item::Saga(self.parse_saga_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1435,6 +1442,72 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(PipelineDef { name, steps, span: Span::merge(&start, &end_span) })
+    }
+
+    // ── M160: saga item ───────────────────────────────────────────────────────
+
+    /// Parse a `saga Name step a :: In -> Out [compensate a :: In -> Out] ... end`.
+    ///
+    /// Steps and compensating transactions are declared in order. A `compensate`
+    /// clause must follow the `step` it compensates. Steps without a compensate
+    /// clause are non-compensable (all-or-nothing semantics for that step).
+    ///
+    /// Produces a [`SagaDef`] with ordered [`SagaStep`]s, each optionally bearing
+    /// a [`SagaCompensate`].
+    fn parse_saga_def(&mut self) -> Result<SagaDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::SagaKw)?;
+        let (name, _) = self.expect_ident()?;
+
+        let mut steps: Vec<SagaStep> = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if self.at(&Token::Step) {
+                let step_start = self.current_span();
+                self.expect(Token::Step)?;
+                let (step_name, _) = self.expect_ident()?;
+                self.expect(Token::ColonColon)?;
+                let (input_ty, _) = self.expect_ident()?;
+                self.expect(Token::Arrow)?;
+                let (output_ty, _) = self.expect_ident()?;
+                let step_end = self.current_span();
+
+                // Check for optional compensate on the *next* token
+                let compensate = if self.at(&Token::Compensate) {
+                    let comp_start = self.current_span();
+                    self.expect(Token::Compensate)?;
+                    let (comp_step_name, _) = self.expect_ident()?;
+                    self.expect(Token::ColonColon)?;
+                    let (comp_in, _) = self.expect_ident()?;
+                    self.expect(Token::Arrow)?;
+                    let (comp_out, _) = self.expect_ident()?;
+                    let comp_end = self.current_span();
+                    Some(SagaCompensate {
+                        step_name: comp_step_name,
+                        input_ty: comp_in,
+                        output_ty: comp_out,
+                        span: Span::merge(&comp_start, &comp_end),
+                    })
+                } else {
+                    None
+                };
+
+                steps.push(SagaStep {
+                    name: step_name,
+                    input_ty,
+                    output_ty,
+                    compensate,
+                    span: Span::merge(&step_start, &step_end),
+                });
+            } else {
+                // Unexpected token inside saga — advance to avoid infinite loop
+                self.advance();
+            }
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SagaDef { name, steps, span: Span::merge(&start, &end_span) })
     }
 }
 

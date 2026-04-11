@@ -164,4 +164,6 @@ pub enum Item {
     Const(ConstDef),
     /// M159: Named sequential data-transformation pipeline — first-class module-level item.
     Pipeline(PipelineDef),
+    /// M160: Distributed transaction saga — first-class module-level item.
+    Saga(SagaDef),
 }

@@ -418,6 +418,11 @@ impl RustEmitter {
                 self.emit_pipeline_def(pd, &mut buf);
                 buf
             }
+            Item::Saga(sd) => {
+                let mut buf = String::new();
+                self.emit_saga_def(sd, &mut buf);
+                buf
+            }
         }
     }
 }

@@ -898,6 +898,57 @@ pub struct PipelineStep {
     pub span: Span,
 }
 
+// ── M160: SagaDef ─────────────────────────────────────────────────────────────
+
+/// M160: Named distributed transaction saga — first-class module-level item.
+///
+/// A saga is a sequence of forward steps, each paired with an optional compensating
+/// transaction for rollback on failure (Garcia-Molina 1987, "SAGAS").
+///
+/// Syntax:
+/// ```loom
+/// saga OrderSaga
+///   step reserve :: Order -> Reservation
+///   step charge :: Reservation -> Payment
+///   compensate charge :: Payment -> Unit
+///   step fulfill :: Payment -> Fulfillment
+///   compensate fulfill :: Fulfillment -> Unit
+/// end
+/// ```
+///
+/// Emits:
+/// - `{Name}Saga` struct (unit struct)
+/// - `{Name}SagaError` enum with one variant per step
+/// - `impl {Name}Saga { pub fn execute(&self, input: {In}) -> Result<{Out}, {Name}SagaError> }`
+/// - Per-step `fn` stub + per-compensate `fn` stub (both `todo!()`)
+/// - `LOOM[saga:step]` + `LOOM[saga:compensate]` audit comments
+#[derive(Debug, Clone, PartialEq)]
+pub struct SagaDef {
+    pub name: String,
+    pub steps: Vec<SagaStep>,
+    pub span: Span,
+}
+
+/// A single step in a saga, with an optional compensating transaction.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SagaStep {
+    pub name: String,
+    pub input_ty: String,
+    pub output_ty: String,
+    /// Compensating transaction, if declared. Re-uses the same name + `_compensate` suffix.
+    pub compensate: Option<SagaCompensate>,
+    pub span: Span,
+}
+
+/// A compensating transaction for a saga step.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SagaCompensate {
+    pub step_name: String,
+    pub input_ty: String,
+    pub output_ty: String,
+    pub span: Span,
+}
+
 /// M157: Named constant as a first-class module-level item.
 ///
 /// Syntax:
