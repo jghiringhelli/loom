@@ -1116,3 +1116,19 @@ pub struct RetryDef {
     pub on_error: String,
     pub span: Span,
 }
+
+// ── M165: rate_limiter (token bucket) ──────────────────────────────────────────
+
+/// `rate_limiter Name requests: N per: N burst: N end`
+/// Generates a token-bucket `{Name}RateLimiter` struct with `allow()` method.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RateLimiterDef {
+    pub name: String,
+    /// Max requests allowed in the window (default: 100).
+    pub requests: u64,
+    /// Window size in seconds (default: 60).
+    pub per: u64,
+    /// Burst capacity — extra tokens above rate (default: 0 = no burst).
+    pub burst: u64,
+    pub span: Span,
+}

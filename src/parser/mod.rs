@@ -344,6 +344,7 @@ impl<'src> Parser<'src> {
             Some((Token::CircuitBreakerKw, _)) => Some("circuit_breaker".to_string()),
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
+            Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
             _ => None,
         }
     }
@@ -438,6 +439,7 @@ impl<'src> Parser<'src> {
             Some((Token::CircuitBreakerKw, _)) => Some("circuit_breaker".to_string()),
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
+            Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
             _ => None,
         }
     }
@@ -569,6 +571,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::CircuitBreaker(self.parse_circuit_breaker_def()?));
             } else if self.at(&Token::RetryKw) {
                 items.push(Item::Retry(self.parse_retry_def()?));
+            } else if self.at(&Token::RateLimiterKw) {
+                items.push(Item::RateLimiter(self.parse_rate_limiter_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -778,6 +782,7 @@ impl<'src> Parser<'src> {
             Some(Token::QueryKw) => Ok(Item::Query(self.parse_query_def()?)),
             Some(Token::CircuitBreakerKw) => Ok(Item::CircuitBreaker(self.parse_circuit_breaker_def()?)),
             Some(Token::RetryKw) => Ok(Item::Retry(self.parse_retry_def()?)),
+            Some(Token::RateLimiterKw) => Ok(Item::RateLimiter(self.parse_rate_limiter_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1713,6 +1718,55 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(RetryDef { name, max_attempts, base_delay, multiplier, on_error, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M165: Parse `rate_limiter Name [requests: N] [per: N] [burst: N] end`
+    ///
+    /// Implements token bucket rate limiting (Anderson 1990).
+    /// All configuration keys are optional — defaults: requests=100, per=60, burst=0.
+    fn parse_rate_limiter_def(&mut self) -> Result<RateLimiterDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::RateLimiterKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut requests: u64 = 100;
+        let mut per: u64 = 60;
+        let mut burst: u64 = 0;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "requests" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                requests = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "per" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                per = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "burst" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                burst = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(RateLimiterDef { name, requests, per, burst, span: Span::merge(&start, &end_span) })
     }
 }
 

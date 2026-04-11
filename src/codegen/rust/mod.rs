@@ -448,6 +448,11 @@ impl RustEmitter {
                 self.emit_retry_def(rd, &mut buf);
                 buf
             }
+            Item::RateLimiter(rl) => {
+                let mut buf = String::new();
+                self.emit_rate_limiter_def(rl, &mut buf);
+                buf
+            }
         }
     }
 }

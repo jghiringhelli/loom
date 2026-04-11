@@ -176,4 +176,6 @@ pub enum Item {
     CircuitBreaker(CircuitBreakerDef),
     /// M164: Named retry policy — first-class module-level resilience item.
     Retry(RetryDef),
+    /// M165: Named rate limiter (token bucket) — first-class module-level item.
+    RateLimiter(RateLimiterDef),
 }

@@ -455,6 +455,10 @@ pub enum Token {
     #[token("retry")]
     RetryKw,
 
+    // ── M165: rate_limiter token bucket as first-class item ───────────────────────
+    #[token("rate_limiter")]
+    RateLimiterKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

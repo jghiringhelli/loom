@@ -712,6 +712,33 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M165: Emit `{Name}RateLimiter` struct + `allow()` method (token bucket, Anderson 1990).
+    pub(super) fn emit_rate_limiter_def(&self, rl: &RateLimiterDef, out: &mut String) {
+        let name = &rl.name;
+        let requests = rl.requests;
+        let per = rl.per;
+        let burst = rl.burst;
+        out.push_str(&format!(
+            "// LOOM[rate_limiter:resilience]: {name} — M165 token bucket (Anderson 1990)\n\
+             // requests: {requests} per {per}s, burst: {burst}\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}RateLimiter {{\n\
+             \x20\x20\x20\x20pub requests_per_window: u64,\n\
+             \x20\x20\x20\x20pub window_secs: u64,\n\
+             \x20\x20\x20\x20pub burst_capacity: u64,\n\
+             }}\n\n\
+             impl {name}RateLimiter {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ requests_per_window: {requests}, window_secs: {per}, burst_capacity: {burst} }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[rate_limiter:allow]: token bucket admission check\n\
+             \x20\x20\x20\x20pub fn allow(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement token bucket allow()\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
