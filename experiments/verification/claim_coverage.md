@@ -301,3 +301,19 @@ _+9 PROVED rows. Session total: 154 tracked, 129 PROVED (84%)._
 | both items parse cleanly alongside other module items | Integration | rustc | PROVED | m181/m182 tests |
 
 _+9 PROVED rows. Session total: 163 tracked, 138 PROVED (85%)._
+
+## M183-M184: Lifecycle items (resource / lease)
+
+| Claim | Tier | Tool | Status | Evidence |
+|---|---|---|---|---|
+| resource emits {Name}Resource struct with AtomicBool | Structural | rustc | PROVED | m183_resource_item_test.rs |
+| resource acquire uses compare_exchange for atomicity | Behavioral | rustc | PROVED | m183_resource_item_test.rs |
+| resource release/is_acquired methods generated | Behavioral | rustc | PROVED | m183_resource_item_test.rs |
+| lease emits {Name}Lease struct with ttl_secs + Option<Instant> | Structural | rustc | PROVED | m184_lease_item_test.rs |
+| lease default TTL is 60 seconds | Behavioral | rustc | PROVED | m184_lease_item_test.rs |
+| lease custom ttl: N config respected | Behavioral | rustc | PROVED | m184_lease_item_test.rs |
+| lease is_expired checks elapsed >= ttl_secs | Behavioral | rustc | PROVED | m184_lease_item_test.rs |
+| lease is_valid = held and not expired | Behavioral | rustc | PROVED | m184_lease_item_test.rs |
+| resource and lease coexist in same module | Integration | rustc | PROVED | m183/m184 tests |
+
+_+9 PROVED rows. Running total: 172 tracked, 147 PROVED (85%)._
