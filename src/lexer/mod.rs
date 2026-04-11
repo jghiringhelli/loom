@@ -505,6 +505,14 @@ pub enum Token {
     #[token("barrier")]
     BarrierKw,
 
+    // ── M179: event_bus (pub/sub event dispatcher) as first-class item ───────────
+    #[token("event_bus")]
+    EventBusKw,
+
+    // ── M180: state_machine (explicit FSM) as first-class item ───────────────────
+    #[token("state_machine")]
+    StateMachineKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

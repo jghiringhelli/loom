@@ -1157,6 +1157,71 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M179: `event_bus Name [element_type: T] end`
+    /// Emits `{Name}EventBus<E>` with subscribe/publish/drain.
+    pub(super) fn emit_event_bus_def(&self, eb: &EventBusDef, out: &mut String) {
+        let name = &eb.name;
+        let ty = &eb.element_type;
+        out.push_str(&format!(
+            "// LOOM[event_bus:reactive]: {name} — M179 pub/sub event dispatcher (element: {ty})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}EventBus<E = {ty}> {{\n\
+             \x20\x20\x20\x20subscribers: std::vec::Vec<Box<dyn Fn(&E)>>,\n\
+             \x20\x20\x20\x20pending: std::collections::VecDeque<E>,\n\
+             }}\n\n\
+             impl<E: std::fmt::Debug> {name}EventBus<E> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ subscribers: std::vec::Vec::new(), pending: std::collections::VecDeque::new() }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[event_bus:subscribe]: register a subscriber callback\n\
+             \x20\x20\x20\x20pub fn subscribe(&mut self, handler: impl Fn(&E) + 'static) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.subscribers.push(Box::new(handler));\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[event_bus:publish]: dispatch event to all subscribers\n\
+             \x20\x20\x20\x20pub fn publish(&self, event: &E) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20for handler in &self.subscribers {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20handler(event);\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[event_bus:drain]: enqueue event and drain pending\n\
+             \x20\x20\x20\x20pub fn drain(&mut self) -> std::vec::Vec<E> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.pending.drain(..).collect()\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M180: `state_machine Name [initial: S] end`
+    /// Emits `{Name}State` enum + `{Name}Machine` struct with transition/current.
+    pub(super) fn emit_state_machine_def(&self, sm: &StateMachineDef, out: &mut String) {
+        let name = &sm.name;
+        let init = &sm.initial_state;
+        out.push_str(&format!(
+            "// LOOM[state_machine:fsm]: {name} — M180 finite state machine (initial: {init})\n\
+             #[derive(Debug, Clone, PartialEq)]\n\
+             pub enum {name}State {{\n\
+             \x20\x20\x20\x20{init},\n\
+             }}\n\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Machine {{\n\
+             \x20\x20\x20\x20state: {name}State,\n\
+             }}\n\n\
+             impl {name}Machine {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ state: {name}State::{init} }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[state_machine:current]: return the current state\n\
+             \x20\x20\x20\x20pub fn current(&self) -> &{name}State {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20&self.state\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[state_machine:transition]: move to a new state\n\
+             \x20\x20\x20\x20pub fn transition(&mut self, next: {name}State) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.state = next;\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

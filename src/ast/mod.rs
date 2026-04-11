@@ -204,4 +204,8 @@ pub enum Item {
     Actor(ActorDef),
     /// M178: Named synchronization barrier — first-class module-level item.
     Barrier(BarrierDef),
+    /// M179: Named pub/sub event dispatcher — first-class module-level item.
+    EventBus(EventBusDef),
+    /// M180: Named finite state machine — first-class module-level item.
+    StateMachine(StateMachineDef),
 }

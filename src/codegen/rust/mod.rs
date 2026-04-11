@@ -518,6 +518,16 @@ impl RustEmitter {
                 self.emit_barrier_def(bd, &mut buf);
                 buf
             }
+            Item::EventBus(eb) => {
+                let mut buf = String::new();
+                self.emit_event_bus_def(eb, &mut buf);
+                buf
+            }
+            Item::StateMachine(sm) => {
+                let mut buf = String::new();
+                self.emit_state_machine_def(sm, &mut buf);
+                buf
+            }
         }
     }
 }

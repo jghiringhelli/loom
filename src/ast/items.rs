@@ -1306,3 +1306,29 @@ pub struct BarrierDef {
     pub count: u64,
     pub span: Span,
 }
+
+// ── M179: EventBusDef ─────────────────────────────────────────────────────────
+
+/// `event_bus Name [element_type: T] end`
+///
+/// First-class pub/sub event dispatcher item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventBusDef {
+    pub name: String,
+    /// Element type carried by events (default: "String").
+    pub element_type: String,
+    pub span: Span,
+}
+
+// ── M180: StateMachineDef ─────────────────────────────────────────────────────
+
+/// `state_machine Name [initial: S] end`
+///
+/// First-class finite state machine item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StateMachineDef {
+    pub name: String,
+    /// Name of the initial state (default: "Initial").
+    pub initial_state: String,
+    pub span: Span,
+}

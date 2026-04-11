@@ -357,6 +357,8 @@ impl<'src> Parser<'src> {
             Some((Token::SemaphoreKw, _)) => Some("semaphore".to_string()),
             Some((Token::Actor, _)) => Some("actor".to_string()),
             Some((Token::BarrierKw, _)) => Some("barrier".to_string()),
+            Some((Token::EventBusKw, _)) => Some("event_bus".to_string()),
+            Some((Token::StateMachineKw, _)) => Some("state_machine".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -465,6 +467,8 @@ impl<'src> Parser<'src> {
             Some((Token::SemaphoreKw, _)) => Some("semaphore".to_string()),
             Some((Token::Actor, _)) => Some("actor".to_string()),
             Some((Token::BarrierKw, _)) => Some("barrier".to_string()),
+            Some((Token::EventBusKw, _)) => Some("event_bus".to_string()),
+            Some((Token::StateMachineKw, _)) => Some("state_machine".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -625,6 +629,10 @@ impl<'src> Parser<'src> {
                 items.push(Item::Actor(self.parse_actor_def()?));
             } else if self.at(&Token::BarrierKw) {
                 items.push(Item::Barrier(self.parse_barrier_def()?));
+            } else if self.at(&Token::EventBusKw) {
+                items.push(Item::EventBus(self.parse_event_bus_def()?));
+            } else if self.at(&Token::StateMachineKw) {
+                items.push(Item::StateMachine(self.parse_state_machine_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -848,6 +856,8 @@ impl<'src> Parser<'src> {
             Some(Token::SemaphoreKw) => Ok(Item::Semaphore(self.parse_semaphore_def()?)),
             Some(Token::Actor) => Ok(Item::Actor(self.parse_actor_def()?)),
             Some(Token::BarrierKw) => Ok(Item::Barrier(self.parse_barrier_def()?)),
+            Some(Token::EventBusKw) => Ok(Item::EventBus(self.parse_event_bus_def()?)),
+            Some(Token::StateMachineKw) => Ok(Item::StateMachine(self.parse_state_machine_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2286,6 +2296,64 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(BarrierDef { name, count, span: Span::merge(&start, &end_span) })
     }
+
+    /// M179: Parse `event_bus Name [element_type: T] end`
+    fn parse_event_bus_def(&mut self) -> Result<EventBusDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::EventBusKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut element_type = "String".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "element_type" || key == "type" {
+                        if let Some(t) = self.token_as_ident() {
+                            element_type = t;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(EventBusDef { name, element_type, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M180: Parse `state_machine Name [initial: S] end`
+    fn parse_state_machine_def(&mut self) -> Result<StateMachineDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::StateMachineKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut initial_state = "Initial".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "initial" {
+                        if let Some(s) = self.token_as_ident() {
+                            initial_state = s;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(StateMachineDef { name, initial_state, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ─────────────────────────────────────────────────────────────────
@@ -2426,6 +2494,8 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::SemaphoreKw => Some("semaphore"),
         Token::Actor => Some("actor"),
         Token::BarrierKw => Some("barrier"),
+        Token::EventBusKw => Some("event_bus"),
+        Token::StateMachineKw => Some("state_machine"),
         _ => None,
     }
 }
