@@ -94,6 +94,15 @@
 | M155: transitions pre-initialized in new() | Static   | rustc       | PROVED   | m155_chain_item_test    |
 | M156: dag item → Node enum + DagItem struct| Static   | rustc       | PROVED   | m156_dag_item_test      |
 | M156: edges pre-initialized + Kahn sort    | Static   | rustc       | PROVED   | m156_dag_item_test      |
+| M157: const item → pub const UPPER_SNAKE   | Static   | rustc       | PROVED   | m157_const_item_test    |
+| M157: type inference from annotation/value | Static   | rustc       | PROVED   | m157_const_item_test    |
+| M158: type alias → pub type Name = Ty      | Static   | rustc       | PROVED   | m158_type_alias_test    |
+| M158: alias round-trips through codegen    | Static   | rustc       | PROVED   | m158_type_alias_test    |
+| M159: pipeline item → {Name} struct        | Static   | rustc       | PROVED   | m159_pipeline_item_test |
+| M159: step fns chained via process()       | Static   | rustc       | PROVED   | m159_pipeline_item_test |
+| M160: saga item → {Name} unit struct       | Static   | rustc       | PROVED   | m160_saga_item_test     |
+| M160: execute() chains steps with ?        | Static   | rustc       | PROVED   | m160_saga_item_test     |
+| M160: compensate fn stub emitted per step  | Static   | rustc       | PROVED   | m160_saga_item_test     |
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |

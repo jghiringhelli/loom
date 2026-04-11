@@ -1,9 +1,25 @@
 # Status.md
 
-## Last Updated: 2026-04-11
+## Last Updated: 2026-04-12
 ## Branch: docs/lineage-collapsed-loop
 
 ## Completed (this session)
+- **M158: `type alias` item — tests for existing feature** (commit `1f3c7a2`)
+  - `type X = SomeType` has existed since M87 (Item::TypeAlias); 9 tests added pinning the behavior
+- **M159: `pipeline` item — named sequential transformation chain** (commit `5479e30`)
+  - `pipeline Name step a :: In -> Out ... end` syntax
+  - Lexer: `Token::PipelineKw`, `Token::Step`; AST: `PipelineDef`, `PipelineStep`, `Item::Pipeline`
+  - Codegen: `emit_pipeline_def()` → `{Name}` struct + per-step fn stubs + `process()` chaining; `loom_type_to_rust()` helper
+  - 12 tests — all passing
+- **M160: `saga` item — distributed transaction coordinator** (commit `499c4fd`)
+  - `saga Name step a :: In -> Out [compensate a :: In -> Out] ... end` syntax
+  - Lexer: `Token::SagaKw`, `Token::Compensate`; AST: `SagaDef`, `SagaStep`, `SagaCompensate`, `Item::Saga`
+  - Codegen: `emit_saga_def()` → unit struct + `{Name}Error` enum + step/compensate fn stubs + `execute()` chaining
+  - 12 tests — all passing
+- **fix: keyword collisions** (commit `7901642`)
+  - `pipeline` as module name in M156 tests → renamed to `etl`
+  - Pathway parser: accepts `Token::Compensate` (not just `Ident`) for `compensate:` field
+- **claim_coverage.md updated**: 84 total claims, 59 PROVED (70.2%)
 - **M152: Compressed binary snapshots** (commit `c3f17f3`)
   - `CompressedBinaryPersist` trait with `save_compressed`/`load_compressed` via flate2 gzip
   - `.snap.gz` extension convention; 12 tests — all passing
@@ -29,19 +45,29 @@
   - 13 tests — all passing
 - **claim_coverage.md updated**: 75 total claims, 50 PROVED (67%)
 
+## Completed (continued)
+- **M157: `const` item — named constant as first-class module item** (commit `a4d0fb9`)
+  - `const Name: Type = value` syntax; type annotation optional (inferred from literal)
+  - Lexer: `Token::Const`; AST: `ConstDef + Item::Const`
+  - Codegen: `emit_const_def()` → `pub const UPPER_SNAKE: RustType = value;` + `LOOM[const:item]`
+  - `to_upper_snake()` helper; 12 tests — all passing
+- **claim_coverage.md updated**: 77 total claims, 52 PROVED (67.5%)
+
 ## Current State
 - **Branch: docs/lineage-collapsed-loop**
-- All M1–M156 milestones complete
-- Verification pipeline V1–V9: 50 PROVED, 19 EMITTED, 4 PENDING
-- **1100+ tests across 110+ test suites — 0 failures**
+- All M1–M160 milestones complete
+- Verification pipeline V1–V9: 59 PROVED, 19 EMITTED, 4 PENDING (70.2% proved)
+- **1148+ tests across 116+ test suites — 0 failures**
 - CLI exposes all 10 compile targets with aliases
 - Binary verify: all 5 examples compile end-to-end (loom → rustc)
 
 ## Next
+- **M161**: `event` item — domain event declaration → `{Name}Event` struct + `{Name}EventHandler` trait
+- **M162**: `query` / `command` items — CQRS split as first-class items
+- **M163**: `circuit_breaker` item — Nygard 2007 resilience pattern
 - **Hygiene**: fix pre-commit hook (syntax error at line 107)
 - **being.rs field parser fix** — bare `Token::Ident` match prevents soft-keyword field names in `being` blocks
 - **cargo publish** — `loom-lang v0.2.0` ready
-- **M157+**: decide next first-class item (enum, record, pipeline, saga, etc.)
 
 ## Known Limitations
 - `evolve_test` fails on Windows with OS error 5 (Windows Defender blocks test binary) — pre-existing, passes on Ubuntu CI
