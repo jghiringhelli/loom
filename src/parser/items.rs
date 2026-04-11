@@ -1283,7 +1283,7 @@ impl<'src> crate::parser::Parser<'src> {
                 ensures.push(self.parse_contract()?);
             } else if self.at(&Token::With) {
                 self.advance();
-                let (dep, _) = self.expect_ident()?;
+                let (dep, _) = self.expect_any_name()?;
                 with_deps.push(dep);
             } else if self.at(&Token::Separation) {
                 separation = Some(self.parse_separation_block()?);

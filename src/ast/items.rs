@@ -1188,3 +1188,41 @@ pub struct FallbackItemDef {
     pub value: String,
     pub span: Span,
 }
+
+// ── M170: observer (GoF Observable) ────────────────────────────────────────────
+
+/// `observer Name type: T end`
+/// Generates a `{Name}Observer<T>` struct with subscribe/notify/get.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObserverDef {
+    pub name: String,
+    /// Observed value type (default: "String").
+    pub observed_type: String,
+    pub span: Span,
+}
+
+// ── M171: pool (object/connection pool) ────────────────────────────────────────
+
+/// `pool Name size: N end`
+/// Generates a `{Name}Pool<T>` struct with acquire/release.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PoolDef {
+    pub name: String,
+    /// Pool capacity (default: 10).
+    pub size: u64,
+    pub span: Span,
+}
+
+// ── M172: scheduler (periodic task) ────────────────────────────────────────────
+
+/// `scheduler Name interval: N unit: ms|s|min end`
+/// Generates a `{Name}Scheduler` struct with run/stop methods.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SchedulerDef {
+    pub name: String,
+    /// Repeat interval value (default: 1).
+    pub interval: u64,
+    /// Time unit: "ms", "s", or "min" (default: "s").
+    pub unit: String,
+    pub span: Span,
+}

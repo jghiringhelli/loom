@@ -186,4 +186,10 @@ pub enum Item {
     Timeout(TimeoutDef),
     /// M169: Named fallback value — first-class module-level item.
     FallbackItem(FallbackItemDef),
+    /// M170: Named observer (GoF Observable) — first-class module-level item.
+    Observer(ObserverDef),
+    /// M171: Named object/connection pool — first-class module-level item.
+    Pool(PoolDef),
+    /// M172: Named periodic scheduler — first-class module-level item.
+    Scheduler(SchedulerDef),
 }

@@ -473,6 +473,21 @@ impl RustEmitter {
                 self.emit_fallback_item_def(fd, &mut buf);
                 buf
             }
+            Item::Observer(od) => {
+                let mut buf = String::new();
+                self.emit_observer_def(od, &mut buf);
+                buf
+            }
+            Item::Pool(pd) => {
+                let mut buf = String::new();
+                self.emit_pool_def(pd, &mut buf);
+                buf
+            }
+            Item::Scheduler(sd) => {
+                let mut buf = String::new();
+                self.emit_scheduler_def(sd, &mut buf);
+                buf
+            }
         }
     }
 }

@@ -348,6 +348,10 @@ impl<'src> Parser<'src> {
             Some((Token::CacheKw, _)) => Some("cache".to_string()),
             Some((Token::BulkheadKw, _)) => Some("bulkhead".to_string()),
             Some((Token::TimeoutKw, _)) => Some("timeout".to_string()),
+            Some((Token::ObserverKw, _)) => Some("observer".to_string()),
+            Some((Token::PoolKw, _)) => Some("pool".to_string()),
+            Some((Token::SchedulerKw, _)) => Some("scheduler".to_string()),
+            Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
     }
@@ -446,6 +450,10 @@ impl<'src> Parser<'src> {
             Some((Token::CacheKw, _)) => Some("cache".to_string()),
             Some((Token::BulkheadKw, _)) => Some("bulkhead".to_string()),
             Some((Token::TimeoutKw, _)) => Some("timeout".to_string()),
+            Some((Token::ObserverKw, _)) => Some("observer".to_string()),
+            Some((Token::PoolKw, _)) => Some("pool".to_string()),
+            Some((Token::SchedulerKw, _)) => Some("scheduler".to_string()),
+            Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
     }
@@ -587,6 +595,12 @@ impl<'src> Parser<'src> {
                 items.push(Item::Timeout(self.parse_timeout_def()?));
             } else if self.at(&Token::Fallback) && self.peek_next_as_ident().is_some() {
                 items.push(Item::FallbackItem(self.parse_fallback_item_def()?));
+            } else if self.at(&Token::ObserverKw) {
+                items.push(Item::Observer(self.parse_observer_def()?));
+            } else if self.at(&Token::PoolKw) {
+                items.push(Item::Pool(self.parse_pool_def()?));
+            } else if self.at(&Token::SchedulerKw) {
+                items.push(Item::Scheduler(self.parse_scheduler_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -801,6 +815,9 @@ impl<'src> Parser<'src> {
             Some(Token::BulkheadKw) => Ok(Item::Bulkhead(self.parse_bulkhead_def()?)),
             Some(Token::TimeoutKw) => Ok(Item::Timeout(self.parse_timeout_def()?)),
             Some(Token::Fallback) => Ok(Item::FallbackItem(self.parse_fallback_item_def()?)),
+            Some(Token::ObserverKw) => Ok(Item::Observer(self.parse_observer_def()?)),
+            Some(Token::PoolKw) => Ok(Item::Pool(self.parse_pool_def()?)),
+            Some(Token::SchedulerKw) => Ok(Item::Scheduler(self.parse_scheduler_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -893,7 +910,7 @@ impl<'src> Parser<'src> {
                 while !self.at(&Token::End) && self.peek().is_some() {
                     let at_field = matches!(self.tokens.get(self.pos),
                         Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
-                        || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _)));
+                        || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _) | (Token::TimeoutKw, _)));
                     if at_field {
                         break;
                     }
@@ -906,6 +923,7 @@ impl<'src> Parser<'src> {
                     }
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout")
+                || matches!(self.tokens.get(self.pos), Some((Token::TimeoutKw, _)))
             {
                 self.advance();
                 self.expect(Token::Colon)?;
@@ -1961,6 +1979,103 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(FallbackItemDef { name, value, span: Span::merge(&start, &end_span) })
     }
+
+    /// M170: Parse `observer Name [type: T] end`
+    fn parse_observer_def(&mut self) -> Result<ObserverDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::ObserverKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut observed_type = "String".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "type" {
+                        if let Some(t) = self.token_as_ident() {
+                            observed_type = t;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(ObserverDef { name, observed_type, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M171: Parse `pool Name [size: N] end`
+    fn parse_pool_def(&mut self) -> Result<PoolDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::PoolKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut size: u64 = 10;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "size" {
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            size = *n as u64;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(PoolDef { name, size, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M172: Parse `scheduler Name [interval: N] [unit: ms|s|min] end`
+    fn parse_scheduler_def(&mut self) -> Result<SchedulerDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::SchedulerKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut interval: u64 = 1;
+        let mut unit = "s".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "interval" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                interval = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "unit" => {
+                            if let Some(u) = self.token_as_ident() {
+                                unit = u;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SchedulerDef { name, interval, unit, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ─────────────────────────────────────────────────────────────────
@@ -2087,6 +2202,14 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Process => Some("process"),
         Token::Plasticity => Some("plasticity"),
         Token::Telomere => Some("telomere"),
+        Token::RetryKw => Some("retry"),
+        Token::RateLimiterKw => Some("rate_limiter"),
+        Token::CacheKw => Some("cache"),
+        Token::BulkheadKw => Some("bulkhead"),
+        Token::TimeoutKw => Some("timeout"),
+        Token::ObserverKw => Some("observer"),
+        Token::PoolKw => Some("pool"),
+        Token::SchedulerKw => Some("scheduler"),
         _ => None,
     }
 }

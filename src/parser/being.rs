@@ -1658,7 +1658,7 @@ impl<'src> crate::parser::Parser<'src> {
         self.expect(Token::LBrace)?;
         let mut deps = Vec::new();
         while !self.at(&Token::RBrace) && self.peek().is_some() {
-            let (dep_name, _) = self.expect_ident()?;
+            let (dep_name, _) = self.expect_any_name()?;
             self.expect(Token::Colon)?;
             let ty = self.parse_type_expr()?;
             deps.push((dep_name, ty));

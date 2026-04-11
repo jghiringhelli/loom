@@ -860,6 +860,94 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M170: Emit `{Name}Observer<T>` struct + subscribe/notify/get (GoF Observer).
+    pub(super) fn emit_observer_def(&self, od: &ObserverDef, out: &mut String) {
+        let name = &od.name;
+        let ty = &od.observed_type;
+        out.push_str(&format!(
+            "// LOOM[observer:behavioral]: {name} — M170 observable value (GoF Observer)\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Observer<T = {ty}> {{\n\
+             \x20\x20\x20\x20pub value: T,\n\
+             }}\n\n\
+             impl<T: Clone> {name}Observer<T> {{\n\
+             \x20\x20\x20\x20pub fn new(initial: T) -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ value: initial }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[observer:get]: read the current observed value\n\
+             \x20\x20\x20\x20pub fn get(&self) -> &T {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20&self.value\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[observer:notify]: update value and notify subscribers\n\
+             \x20\x20\x20\x20pub fn notify(&mut self, new_value: T) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.value = new_value;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"notify subscribers\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[observer:subscribe]: register a callback\n\
+             \x20\x20\x20\x20pub fn subscribe<F: Fn(&T)>(&mut self, _callback: F) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"register subscriber\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M171: Emit `{Name}Pool<T>` struct + acquire/release (object pool pattern).
+    pub(super) fn emit_pool_def(&self, pd: &PoolDef, out: &mut String) {
+        let name = &pd.name;
+        let size = pd.size;
+        out.push_str(&format!(
+            "// LOOM[pool:performance]: {name} — M171 object pool (Gamma et al. 1994)\n\
+             // capacity: {size}\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Pool<T> {{\n\
+             \x20\x20\x20\x20pub capacity: usize,\n\
+             \x20\x20\x20\x20_phantom: std::marker::PhantomData<T>,\n\
+             }}\n\n\
+             impl<T> {name}Pool<T> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ capacity: {size}, _phantom: std::marker::PhantomData }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[pool:acquire]: get an item from the pool\n\
+             \x20\x20\x20\x20pub fn acquire(&mut self) -> Option<T> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement pool acquire\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[pool:release]: return an item to the pool\n\
+             \x20\x20\x20\x20pub fn release(&mut self, _item: T) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement pool release\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M172: Emit `{Name}Scheduler` struct + run/stop methods.
+    pub(super) fn emit_scheduler_def(&self, sd: &SchedulerDef, out: &mut String) {
+        let name = &sd.name;
+        let interval = sd.interval;
+        let unit = &sd.unit;
+        out.push_str(&format!(
+            "// LOOM[scheduler:behavioral]: {name} — M172 periodic scheduler\n\
+             // interval: {interval}{unit}\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Scheduler {{\n\
+             \x20\x20\x20\x20pub interval: u64,\n\
+             \x20\x20\x20\x20pub unit: &'static str,\n\
+             }}\n\n\
+             impl {name}Scheduler {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ interval: {interval}, unit: \"{unit}\" }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[scheduler:run]: start the periodic task\n\
+             \x20\x20\x20\x20pub fn run<F: Fn()>(&self, _task: F) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement scheduler run\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[scheduler:stop]: halt the periodic task\n\
+             \x20\x20\x20\x20pub fn stop(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement scheduler stop\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -471,6 +471,18 @@ pub enum Token {
     #[token("timeout")]
     TimeoutKw,
 
+    // ── M170: observer (GoF Observable) as first-class item ──────────────────────
+    #[token("observer")]
+    ObserverKw,
+
+    // ── M171: pool (object/connection pool) as first-class item ──────────────────
+    #[token("pool")]
+    PoolKw,
+
+    // ── M172: scheduler (periodic task) as first-class item ──────────────────────
+    #[token("scheduler")]
+    SchedulerKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
