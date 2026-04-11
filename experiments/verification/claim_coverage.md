@@ -138,6 +138,15 @@
 | M172: scheduler → {Name}Scheduler struct   | Static   | rustc       | PROVED   | m172_scheduler_item_test|
 | M172: run/stop/next_run methods emitted    | Static   | rustc       | PROVED   | m172_scheduler_item_test|
 | M172: cron expression stored correctly     | Static   | rustc       | PROVED   | m172_scheduler_item_test|
+| M173: queue → {Name}Queue<T> struct        | Static   | rustc       | PROVED   | m173_queue_item_test    |
+| M173: enqueue/dequeue/is_empty emitted     | Static   | rustc       | PROVED   | m173_queue_item_test    |
+| M173: capacity bounds + VecDeque inner     | Static   | rustc       | PROVED   | m173_queue_item_test    |
+| M174: lock → {Name}Lock + AtomicBool       | Static   | rustc       | PROVED   | m174_lock_item_test     |
+| M174: acquire/release/is_locked emitted    | Static   | rustc       | PROVED   | m174_lock_item_test     |
+| M174: acquire uses compare_exchange        | Static   | rustc       | PROVED   | m174_lock_item_test     |
+| M175: channel → {Name}Channel<T> struct    | Static   | rustc       | PROVED   | m175_channel_item_test  |
+| M175: send/recv methods + PhantomData      | Static   | rustc       | PROVED   | m175_channel_item_test  |
+| M175: default T=String; custom type works  | Static   | rustc       | PROVED   | m175_channel_item_test  |
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |
@@ -189,18 +198,17 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 127
-PROVED  (machine/type-system verified): 102  (80%)
-EMITTED (scaffold ready, tool separate):  19  (15%)
-DECLARED (annotation only, no scaffold):   2   (2%)
+Total Loom claims tracked: 136
+PROVED  (machine/type-system verified): 111  (82%)
+EMITTED (scaffold ready, tool separate):  19  (14%)
+DECLARED (annotation only, no scaffold):   2   (1%)
 PENDING (implementation required):         4   (3%)
 
-Changes from M169 (M170–M172):
-- M170: 3 new PROVED claims for observer<T> item (subject/observer behavioral pattern)
-- M171: 3 new PROVED claims for pool<T> item (typed worker pool with acquire/release)
-- M172: 3 new PROVED claims for scheduler item (cron-style task scheduler)
-- keyword-as-ident fixes: Token::Type, new KW tokens added to token_as_ident/token_keyword_str
-- requires{} deps and fn-with deps now use expect_any_name() for keyword-named bindings
+Changes from M172 (M173–M175):
+- M173: 3 new PROVED claims for queue<T> item (FIFO/LIFO + enqueue/dequeue/is_empty)
+- M174: 3 new PROVED claims for lock item (AtomicBool + acquire/release/is_locked)
+- M175: 3 new PROVED claims for channel<T> item (MPSC scaffold + PhantomData)
+- separation block owns/disjoint/frame/proof now use expect_any_name() for keywords
 
 Changes from M151-M155:
 - M153: 3 new PROVED claims for CRUD service layer + SQLite wiring:
