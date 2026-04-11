@@ -186,8 +186,10 @@ impl RustEmitter {
                 out.push_str(&format!("// Table `{}` — primary key: {}\n", name, pk));
                 self.emit_named_struct(name, fields, out);
                 self.emit_repository_port(&store.name, name, pk, out);
+                self.emit_crud_service(&store.name, name, pk, out);
                 self.emit_crud_in_memory_impl(&store.name, name, pk, out);
                 self.emit_postgres_adapter(&store.name, name, pk, out);
+                self.emit_sqlite_adapter(&store.name, name, pk, out);
                 self.emit_specification_pattern(name, out);
                 self.emit_pagination_cursor(name, out);
                 self.emit_openapi_hints(name, out);

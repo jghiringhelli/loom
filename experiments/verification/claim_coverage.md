@@ -136,19 +136,27 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 60
-PROVED  (machine/type-system verified):  35  (58%)
-EMITTED (scaffold ready, tool separate):  19  (32%)
+Total Loom claims tracked: 66
+PROVED  (machine/type-system verified):  41  (62%)
+EMITTED (scaffold ready, tool separate):  19  (29%)
 DECLARED (annotation only, no scaffold):   2   (3%)
-PENDING (implementation required):         4   (7%)
+PENDING (implementation required):         4   (6%)
 
-Changes from v8:
+Changes from v9:
+- M151: 4 new PROVED claims for binary persistence:
+  `#[derive(serde::Serialize, serde::Deserialize)]` on all store entity structs,
+  `BinaryPersist` trait with `save_snapshot`/`load_snapshot` via bincode,
+  `{Name}Snapshot` struct with typed entity fields per store,
+  `impl BinaryPersist for {Name}Snapshot {}` per store kind
+- M152: 2 new PROVED claims for compressed persistence:
+  `CompressedBinaryPersist` trait with `save_compressed`/`load_compressed` via flate2 gzip,
+  `impl CompressedBinaryPersist for {Name}Snapshot {}` per store kind
+
+Prior changes:
 - V9: dependent types upgraded DECLARED → EMITTED (Dafny scaffolds for all 4 proof strategies)
   {FN}_DAFNY_PROOF const emitted for structural_recursion, totality, induction, contradiction
   5 new claim rows added (+4 EMITTED, +1 PROVED for const presence)
   Only 2 DECLARED remain: proptest random sampling (RUSTFLAGS needed) + Kani CBMC (tool install)
-
-Prior changes:
 - V5: 8 store discipline claims → PROVED (UnitOfWork, Specification, Pagination,
   HATEOAS, CQRS, OpenAPI, EventStore, Aggregate, EventBus, Saga, all wired to codegen)
 - V3: proptest block emission → PROVED (v3_proptest_codegen_test, 10 tests)

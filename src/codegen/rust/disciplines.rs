@@ -54,6 +54,72 @@ use crate::ast::*;
 // ═══════════════════════════════════════════════════════════════════════════
 
 impl RustEmitter {
+    /// M153: CRUD service layer — orchestrates repository port with validation stubs.
+    ///
+    /// Sits between the API layer and the repository port. Depends only on the port
+    /// interface (`dyn {T}Repository`) — swappable at the composition root.
+    /// Contains `create`, `get`, `list`, `update`, `delete` — each with validation hooks.
+    pub(super) fn emit_crud_service(
+        &self,
+        store_name: &str,
+        table: &str,
+        pk_field: &str,
+        out: &mut String,
+    ) {
+        out.push_str(&ts(
+            r#"
+// LOOM[service:CRUD]: {T}Service — orchestration layer above repository (M153)
+// Depends on dyn {T}Repository — swap adapter at composition root, never here.
+pub struct {T}Service {
+    repo: Box<dyn {T}Repository>,
+}
+impl {T}Service {
+    /// Construct a service with the given repository adapter.
+    pub fn new(repo: Box<dyn {T}Repository>) -> Self { Self { repo } }
+
+    /// Validate and create a new {T}. Add domain rules here (uniqueness, constraints).
+    pub fn create(&self, entity: {T}) -> Result<{T}, {S}StoreError> {
+        // LOOM[validation:pre_create]: add pre-conditions before persistence
+        self.repo.save(entity)
+    }
+
+    /// Retrieve by primary key `{pk}`. Returns NotFound if absent.
+    pub fn get(&self, id: &str) -> Result<{T}, {S}StoreError> {
+        self.repo
+            .find_by_id(id)?
+            .ok_or_else(|| {S}StoreError::NotFound(format!("{T} '{{}}' not found", id)))
+    }
+
+    /// List with limit/offset pagination.
+    pub fn list(&self, limit: usize, offset: usize) -> Result<Vec<{T}>, {S}StoreError> {
+        self.repo.find_all(limit, offset)
+    }
+
+    /// Validate and persist an updated {T}. Fails if entity does not exist.
+    pub fn update(&self, entity: {T}) -> Result<{T}, {S}StoreError> {
+        let id = format!("{:?}", entity.{pk});
+        if !self.repo.exists(&id)? {
+            return Err({S}StoreError::NotFound(format!("{T} '{{}}' not found", id)));
+        }
+        // LOOM[validation:pre_update]: add invariant guards before persistence
+        self.repo.save(entity)
+    }
+
+    /// Delete by primary key. Idempotent — does not error if absent.
+    pub fn delete(&self, id: &str) -> Result<(), {S}StoreError> {
+        self.repo.delete(id)
+    }
+
+    /// Returns true if an entity with the given key exists.
+    pub fn exists(&self, id: &str) -> Result<bool, {S}StoreError> {
+        self.repo.exists(id)
+    }
+}"#,
+            &[("T", table), ("pk", pk_field), ("S", store_name)],
+        ));
+        out.push_str("\n\n");
+    }
+
     /// M126: In-memory repository fake — Fowler 2002 Repository + Fake Object.
     ///
     /// Uses `StoreError` (not `String`) to match the port interface.
