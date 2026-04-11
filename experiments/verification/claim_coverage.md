@@ -103,6 +103,14 @@
 | M160: saga item → {Name} unit struct       | Static   | rustc       | PROVED   | m160_saga_item_test     |
 | M160: execute() chains steps with ?        | Static   | rustc       | PROVED   | m160_saga_item_test     |
 | M160: compensate fn stub emitted per step  | Static   | rustc       | PROVED   | m160_saga_item_test     |
+| M161: event item → {Name}Event struct      | Static   | rustc       | PROVED   | m161_event_item_test    |
+| M161: {Name}EventHandler trait emitted     | Static   | rustc       | PROVED   | m161_event_item_test    |
+| M162: command item → {Name}Command struct  | Static   | rustc       | PROVED   | m162_command_query_test |
+| M162: {Name}Handler trait emitted          | Static   | rustc       | PROVED   | m162_command_query_test |
+| M162: query item → {Name}Query struct      | Static   | rustc       | PROVED   | m162_command_query_test |
+| M162: {Name}QueryHandler<R> generic trait  | Static   | rustc       | PROVED   | m162_command_query_test |
+| M163: circuit_breaker → state enum + struct| Static   | rustc       | PROVED   | m163_circuit_breaker_test|
+| M163: call<F,T>() + fallback fn emitted    | Static   | rustc       | PROVED   | m163_circuit_breaker_test|
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |

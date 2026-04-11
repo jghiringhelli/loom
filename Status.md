@@ -4,7 +4,20 @@
 ## Branch: docs/lineage-collapsed-loop
 
 ## Completed (this session)
-- **M158: `type alias` item — tests for existing feature** (commit `1f3c7a2`)
+- **M161: `event` item — named domain event** (commit `68d80ee`)
+  - `event Name field: Type ... end` → `{Name}Event` struct + `{Name}EventHandler` trait
+  - 12 tests — all passing
+- **M162: `command`/`query` items — CQRS split** (commit `7a81320`)
+  - `command` → `{Name}Command` struct + `{Name}Handler` trait (Result<(),String>)
+  - `query` → `{Name}Query` struct + `{Name}QueryHandler<R>` generic trait
+  - Fixed schema_test regression: `query` in fn body now valid as expression ident
+  - 12 tests — all passing
+- **M163: `circuit_breaker` item — resilience pattern** (commit `383d8bf`)
+  - `circuit_breaker Name threshold: N timeout: N fallback: name end`
+  - `{Name}CircuitState` enum + `{Name}CircuitBreaker` struct + `new()` + `call<F,T>()` + `fallback_{name}()`
+  - Fixed `Token::Threshold` shadowing ident match in parser
+  - 12 tests — all passing
+- **claim_coverage.md updated**: 95 total claims, 70 PROVED (73.7%)
   - `type X = SomeType` has existed since M87 (Item::TypeAlias); 9 tests added pinning the behavior
 - **M159: `pipeline` item — named sequential transformation chain** (commit `5479e30`)
   - `pipeline Name step a :: In -> Out ... end` syntax
@@ -55,18 +68,17 @@
 
 ## Current State
 - **Branch: docs/lineage-collapsed-loop**
-- All M1–M160 milestones complete
-- Verification pipeline V1–V9: 59 PROVED, 19 EMITTED, 4 PENDING (70.2% proved)
-- **1148+ tests across 116+ test suites — 0 failures**
+- All M1–M163 milestones complete
+- Verification pipeline V1–V9: 70 PROVED, 19 EMITTED, 4 PENDING (73.7% proved)
+- **1184+ tests across 120+ test suites — 0 failures**
 - CLI exposes all 10 compile targets with aliases
-- Binary verify: all 5 examples compile end-to-end (loom → rustc)
 
 ## Next
-- **M161**: `event` item — domain event declaration → `{Name}Event` struct + `{Name}EventHandler` trait
-- **M162**: `query` / `command` items — CQRS split as first-class items
-- **M163**: `circuit_breaker` item — Nygard 2007 resilience pattern
+- **M164**: `retry` item — exponential backoff decorator
+- **M165**: `rate_limiter` item — token bucket / leaky bucket
+- **M166**: `cache` item — typed cache with TTL
 - **Hygiene**: fix pre-commit hook (syntax error at line 107)
-- **being.rs field parser fix** — bare `Token::Ident` match prevents soft-keyword field names in `being` blocks
+- **being.rs field parser fix** — bare `Token::Ident` match prevents soft-keyword field names
 - **cargo publish** — `loom-lang v0.2.0` ready
 
 ## Known Limitations
