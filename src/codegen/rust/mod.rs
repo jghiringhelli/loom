@@ -403,6 +403,11 @@ impl RustEmitter {
                 self.emit_chain_item(chain, &mut buf);
                 buf
             }
+            Item::Dag(dag) => {
+                let mut buf = String::new();
+                self.emit_dag_item(dag, &mut buf);
+                buf
+            }
         }
     }
 }

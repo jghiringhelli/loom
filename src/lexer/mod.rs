@@ -413,6 +413,14 @@ pub enum Token {
     #[token("states")]
     States,
 
+    // ── M156: DAG as first-class item ─────────────────────────────────────────────
+    #[token("dag")]
+    DagKw,
+    #[token("nodes")]
+    Nodes,
+    #[token("edges")]
+    Edges,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

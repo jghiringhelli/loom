@@ -274,6 +274,90 @@ impl {N}TransitionMatrix {
             inits = init_transitions,
         ));
     }
+
+    /// M156: Emit a top-level DAG item (`dag Name nodes: [...] edges: [...] end`).
+    ///
+    /// Produces `{Name}Node` enum from declared nodes, and a `{Name}DagItem` struct
+    /// with typed `add_edge(from: {Name}Node, to: {Name}Node)` and pre-initialized
+    /// edges in `new()`, plus Kahn topological sort.
+    pub(super) fn emit_dag_item(&self, dag: &DagDef, out: &mut String) {
+        let n = to_pascal_case(&dag.name);
+
+        // Node enum
+        let node_variants = dag
+            .nodes
+            .iter()
+            .map(|s| format!("    {},", to_pascal_case(s)))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Pre-initialized edges in new()
+        let init_edges = dag
+            .edges
+            .iter()
+            .map(|(from, to)| {
+                format!(
+                    "        g.add_typed_edge({n}Node::{f}, {n}Node::{t});",
+                    n = n,
+                    f = to_pascal_case(from),
+                    t = to_pascal_case(to)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        out.push_str(&format!(
+            "// LOOM[dag:item]: {name} — Directed Acyclic Graph (Kahn 1962, M156)\n\
+             // Ecosystem: petgraph. Kahn's algorithm: topological_sort() → None if cycle.\n\
+             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n\
+             pub enum {n}Node {{\n{nodes}\n}}\n\
+             #[derive(Debug, Clone, Default)]\n\
+             pub struct {n}DagItem {{\n\
+             \x20\x20\x20\x20adjacency: std::collections::HashMap<{n}Node, Vec<{n}Node>>,\n\
+             }}\n\
+             impl {n}DagItem {{\n\
+             \x20\x20\x20\x20/// Create a DAG pre-initialized from the `dag {name}` declaration.\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut g = Self::default();\n\
+             {inits}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20g\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20/// Add a typed directed edge from `from` to `to`.\n\
+             \x20\x20\x20\x20pub fn add_typed_edge(&mut self, from: {n}Node, to: {n}Node) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.adjacency.entry(from).or_default().push(to);\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20/// Successors of a given node.\n\
+             \x20\x20\x20\x20pub fn successors(&self, node: {n}Node) -> &[{n}Node] {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.adjacency.get(&node).map(Vec::as_slice).unwrap_or(&[])\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20/// Kahn's algorithm: topological sort. Returns None if a cycle is detected.\n\
+             \x20\x20\x20\x20pub fn topological_sort(&self) -> Option<Vec<{n}Node>> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::collections::{{HashMap, VecDeque}};\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut in_degree: HashMap<{n}Node, usize> = HashMap::new();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20for (&node, children) in &self.adjacency {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20in_degree.entry(node).or_default();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20for &c in children {{ *in_degree.entry(c).or_default() += 1; }}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut queue: VecDeque<{n}Node> = in_degree.iter()\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.filter_map(|(&n, &d)| if d == 0 {{ Some(n) }} else {{ None }}).collect();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut result = Vec::new();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20while let Some(node) = queue.pop_front() {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20result.push(node);\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20for &c in self.adjacency.get(&node).unwrap_or(&vec![]) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20let d = in_degree.entry(c).or_default();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20*d -= 1;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20if *d == 0 {{ queue.push_back(c); }}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20if result.len() == in_degree.len() {{ Some(result) }} else {{ None }}\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n",
+            name = dag.name,
+            n = n,
+            nodes = node_variants,
+            inits = init_edges,
+        ));
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

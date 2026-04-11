@@ -330,6 +330,9 @@ impl<'src> Parser<'src> {
             Some((Token::Payload, _)) => Some("payload".to_string()),
             Some((Token::States, _)) => Some("states".to_string()),
             Some((Token::ChainKw, _)) => Some("chain".to_string()),
+            Some((Token::DagKw, _)) => Some("dag".to_string()),
+            Some((Token::Nodes, _)) => Some("nodes".to_string()),
+            Some((Token::Edges, _)) => Some("edges".to_string()),
             _ => None,
         }
     }
@@ -410,6 +413,9 @@ impl<'src> Parser<'src> {
             Some((Token::Payload, _)) => Some("payload".to_string()),
             Some((Token::States, _)) => Some("states".to_string()),
             Some((Token::ChainKw, _)) => Some("chain".to_string()),
+            Some((Token::DagKw, _)) => Some("dag".to_string()),
+            Some((Token::Nodes, _)) => Some("nodes".to_string()),
+            Some((Token::Edges, _)) => Some("edges".to_string()),
             _ => None,
         }
     }
@@ -523,6 +529,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Discipline(self.parse_discipline_decl()?));
             } else if self.at(&Token::ChainKw) {
                 items.push(Item::Chain(self.parse_chain_def()?));
+            } else if self.at(&Token::DagKw) {
+                items.push(Item::Dag(self.parse_dag_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -723,6 +731,7 @@ impl<'src> Parser<'src> {
             Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(self.parse_intent_coordinator_def()?)),
             Some(Token::Discipline) => Ok(Item::Discipline(self.parse_discipline_decl()?)),
             Some(Token::ChainKw) => Ok(Item::Chain(self.parse_chain_def()?)),
+            Some(Token::DagKw) => Ok(Item::Dag(self.parse_dag_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1270,8 +1279,65 @@ impl<'src> Parser<'src> {
         match self.tokens.get(self.pos) {
             Some((Token::Ident(s), _)) => s == kw,
             Some((Token::States, _)) => kw == "states",
+            Some((Token::Nodes, _)) => kw == "nodes",
+            Some((Token::Edges, _)) => kw == "edges",
             _ => false,
         }
+    }
+
+    /// Parse `dag Name nodes: [A, B, C] edges: [A -> B, B -> C] end` — M156 DAG item.
+    ///
+    /// Both `nodes:` and `edges:` sections are optional.
+    pub(in crate::parser) fn parse_dag_def(&mut self) -> Result<DagDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::DagKw)?;
+        let name = match self.token_as_ident() {
+            Some(n) => { self.advance(); n }
+            None => return Err(LoomError::parse("expected dag name", self.current_span())),
+        };
+
+        let mut nodes: Vec<String> = Vec::new();
+        let mut edges: Vec<(String, String)> = Vec::new();
+
+        // Parse optional `nodes: [A, B, C]`
+        if self.at_keyword("nodes") {
+            self.advance();
+            if self.at(&Token::Colon) { self.advance(); }
+            self.expect(Token::LBracket)?;
+            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                if let Some(n) = self.token_as_ident() {
+                    self.advance();
+                    nodes.push(n);
+                }
+                if self.at(&Token::Comma) { self.advance(); }
+            }
+            self.expect(Token::RBracket)?;
+        }
+
+        // Parse optional `edges: [A -> B, B -> C]`
+        if self.at_keyword("edges") {
+            self.advance();
+            if self.at(&Token::Colon) { self.advance(); }
+            self.expect(Token::LBracket)?;
+            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                let from = match self.token_as_ident() {
+                    Some(s) => { self.advance(); s }
+                    None => break,
+                };
+                self.expect(Token::Arrow)?;
+                let to = match self.token_as_ident() {
+                    Some(s) => { self.advance(); s }
+                    None => break,
+                };
+                edges.push((from, to));
+                if self.at(&Token::Comma) { self.advance(); }
+            }
+            self.expect(Token::RBracket)?;
+        }
+
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); }
+        Ok(DagDef { name, nodes, edges, span: Span::merge(&start, &end_span) })
     }
 }
 

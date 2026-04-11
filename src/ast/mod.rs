@@ -158,4 +158,6 @@ pub enum Item {
     Discipline(DisciplineDecl),
     /// M155: Discrete-time Markov chain — first-class module-level item.
     Chain(ChainDef),
+    /// M156: Directed Acyclic Graph — first-class module-level item.
+    Dag(DagDef),
 }

@@ -835,3 +835,28 @@ pub struct ChainDef {
     pub transitions: Vec<(String, String, f64)>,
     pub span: Span,
 }
+
+// ── M156: DagDef ─────────────────────────────────────────────────────────────
+
+/// M156: Directed Acyclic Graph as a first-class module-level item.
+///
+/// Syntax:
+/// ```loom
+/// dag Pipeline
+///   nodes: [Ingest, Transform, Validate, Load]
+///   edges: [Ingest -> Transform, Transform -> Validate, Validate -> Load]
+/// end
+/// ```
+///
+/// Emits a `{Name}Node` enum, a `{Name}Dag` struct with typed nodes/edges,
+/// Kahn topological sort, and cycle detection.
+/// Reference: Kahn (1962) — BFS-based topological ordering.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DagDef {
+    pub name: String,
+    /// Declared node names (form the Node enum variants).
+    pub nodes: Vec<String>,
+    /// Declared edges as (from_node, to_node).
+    pub edges: Vec<(String, String)>,
+    pub span: Span,
+}
