@@ -120,6 +120,15 @@
 | M166: cache item → {Name}Cache<K,V> struct | Static   | rustc       | PROVED   | m166_cache_item_test    |
 | M166: get()/set()/evict() methods emitted  | Static   | rustc       | PROVED   | m166_cache_item_test    |
 | M166: PhantomData + K/V bounds correct     | Static   | rustc       | PROVED   | m166_cache_item_test    |
+| M167: bulkhead → {Name}Bulkhead struct     | Static   | rustc       | PROVED   | m167_bulkhead_item_test |
+| M167: execute(FnOnce) + available() emitted| Static   | rustc       | PROVED   | m167_bulkhead_item_test |
+| M167: defaults (10/0) when omitted         | Static   | rustc       | PROVED   | m167_bulkhead_item_test |
+| M168: timeout → {Name}Timeout struct       | Static   | rustc       | PROVED   | m168_timeout_item_test  |
+| M168: execute<F,T>(FnOnce)->Result emitted | Static   | rustc       | PROVED   | m168_timeout_item_test  |
+| M168: unit stored as &'static str          | Static   | rustc       | PROVED   | m168_timeout_item_test  |
+| M169: fallback → {Name}Fallback<T=String>  | Static   | rustc       | PROVED   | m169_fallback_item_test |
+| M169: get() returns &self.value            | Static   | rustc       | PROVED   | m169_fallback_item_test |
+| M169: reuses Token::Fallback (no new token)| Static   | rustc       | PROVED   | m169_fallback_item_test |
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |
@@ -171,16 +180,17 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 106
-PROVED  (machine/type-system verified):  81  (76%)
-EMITTED (scaffold ready, tool separate):  19  (18%)
+Total Loom claims tracked: 118
+PROVED  (machine/type-system verified):  93  (79%)
+EMITTED (scaffold ready, tool separate):  19  (16%)
 DECLARED (annotation only, no scaffold):   2   (2%)
-PENDING (implementation required):         4   (4%)
+PENDING (implementation required):         4   (3%)
 
-Changes from M163:
-- M164: 3 new PROVED claims for retry item (exponential backoff policy)
-- M165: 3 new PROVED claims for rate_limiter item (token bucket)
-- M166: 3 new PROVED claims for cache item (typed TTL-aware generic cache)
+Changes from M166:
+- M167: 3 new PROVED claims for bulkhead item (concurrency isolation)
+- M168: 3 new PROVED claims for timeout item (deadline enforcement)
+- M169: 3 new PROVED claims for fallback item (static value; reuses Token::Fallback)
+- Resilience quintet M164–M169 now complete
 
 Changes from M151-M155:
 - M153: 3 new PROVED claims for CRUD service layer + SQLite wiring:
