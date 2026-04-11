@@ -238,24 +238,24 @@ impl<'src> crate::parser::Parser<'src> {
             if self.at(&Token::Owns) {
                 self.advance();
                 self.expect(Token::Colon)?;
-                let (name, _) = self.expect_ident()?;
+                let (name, _) = self.expect_any_name()?;
                 owns.push(name);
             } else if self.at(&Token::Disjoint) {
                 self.advance();
                 self.expect(Token::Colon)?;
-                let (left, _) = self.expect_ident()?;
+                let (left, _) = self.expect_any_name()?;
                 self.expect(Token::Star)?;
-                let (right, _) = self.expect_ident()?;
+                let (right, _) = self.expect_any_name()?;
                 disjoint.push((left, right));
             } else if self.at(&Token::Frame) {
                 self.advance();
                 self.expect(Token::Colon)?;
-                let (name, _) = self.expect_ident()?;
+                let (name, _) = self.expect_any_name()?;
                 frame.push(name);
             } else if self.at(&Token::Proof) {
                 self.advance();
                 self.expect(Token::Colon)?;
-                let (assertion, _) = self.expect_ident()?;
+                let (assertion, _) = self.expect_any_name()?;
                 proof = Some(assertion);
             } else {
                 return Err(LoomError::parse(

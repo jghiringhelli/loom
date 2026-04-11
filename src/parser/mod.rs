@@ -351,6 +351,9 @@ impl<'src> Parser<'src> {
             Some((Token::ObserverKw, _)) => Some("observer".to_string()),
             Some((Token::PoolKw, _)) => Some("pool".to_string()),
             Some((Token::SchedulerKw, _)) => Some("scheduler".to_string()),
+            Some((Token::QueueKw, _)) => Some("queue".to_string()),
+            Some((Token::LockKw, _)) => Some("lock".to_string()),
+            Some((Token::ChannelKw, _)) => Some("channel".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -453,6 +456,9 @@ impl<'src> Parser<'src> {
             Some((Token::ObserverKw, _)) => Some("observer".to_string()),
             Some((Token::PoolKw, _)) => Some("pool".to_string()),
             Some((Token::SchedulerKw, _)) => Some("scheduler".to_string()),
+            Some((Token::QueueKw, _)) => Some("queue".to_string()),
+            Some((Token::LockKw, _)) => Some("lock".to_string()),
+            Some((Token::ChannelKw, _)) => Some("channel".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -601,6 +607,12 @@ impl<'src> Parser<'src> {
                 items.push(Item::Pool(self.parse_pool_def()?));
             } else if self.at(&Token::SchedulerKw) {
                 items.push(Item::Scheduler(self.parse_scheduler_def()?));
+            } else if self.at(&Token::QueueKw) {
+                items.push(Item::Queue(self.parse_queue_def()?));
+            } else if self.at(&Token::LockKw) {
+                items.push(Item::Lock(self.parse_lock_def()?));
+            } else if self.at(&Token::ChannelKw) {
+                items.push(Item::Channel(self.parse_channel_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -818,6 +830,9 @@ impl<'src> Parser<'src> {
             Some(Token::ObserverKw) => Ok(Item::Observer(self.parse_observer_def()?)),
             Some(Token::PoolKw) => Ok(Item::Pool(self.parse_pool_def()?)),
             Some(Token::SchedulerKw) => Ok(Item::Scheduler(self.parse_scheduler_def()?)),
+            Some(Token::QueueKw) => Ok(Item::Queue(self.parse_queue_def()?)),
+            Some(Token::LockKw) => Ok(Item::Lock(self.parse_lock_def()?)),
+            Some(Token::ChannelKw) => Ok(Item::Channel(self.parse_channel_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2076,6 +2091,99 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(SchedulerDef { name, interval, unit, span: Span::merge(&start, &end_span) })
     }
+
+    /// M173: Parse `queue Name [capacity: N] [kind: fifo|lifo] end`
+    fn parse_queue_def(&mut self) -> Result<QueueDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::QueueKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut capacity: u64 = 0;
+        let mut kind = "fifo".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "capacity" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                capacity = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "kind" => {
+                            if let Some(k) = self.token_as_ident() {
+                                kind = k;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(QueueDef { name, capacity, kind, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M174: Parse `lock Name end`
+    fn parse_lock_def(&mut self) -> Result<LockDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::LockKw)?;
+        let (name, _) = self.expect_ident()?;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(LockDef { name, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M175: Parse `channel Name [type: T] [capacity: N] end`
+    fn parse_channel_def(&mut self) -> Result<ChannelDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::ChannelKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut element_type = "String".to_string();
+        let mut capacity: u64 = 0;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "type" => {
+                            if let Some(t) = self.token_as_ident() {
+                                element_type = t;
+                                self.advance();
+                            }
+                        }
+                        "capacity" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                capacity = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(ChannelDef { name, element_type, capacity, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ─────────────────────────────────────────────────────────────────
@@ -2210,6 +2318,9 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::ObserverKw => Some("observer"),
         Token::PoolKw => Some("pool"),
         Token::SchedulerKw => Some("scheduler"),
+        Token::QueueKw => Some("queue"),
+        Token::LockKw => Some("lock"),
+        Token::ChannelKw => Some("channel"),
         _ => None,
     }
 }

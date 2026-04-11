@@ -192,4 +192,10 @@ pub enum Item {
     Pool(PoolDef),
     /// M172: Named periodic scheduler — first-class module-level item.
     Scheduler(SchedulerDef),
+    /// M173: Named FIFO/LIFO queue — first-class module-level item.
+    Queue(QueueDef),
+    /// M174: Named mutex-style lock — first-class module-level item.
+    Lock(LockDef),
+    /// M175: Named typed MPSC channel — first-class module-level item.
+    Channel(ChannelDef),
 }

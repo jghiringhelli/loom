@@ -483,6 +483,18 @@ pub enum Token {
     #[token("scheduler")]
     SchedulerKw,
 
+    // ── M173: queue (FIFO/LIFO named queue) as first-class item ─────────────────
+    #[token("queue")]
+    QueueKw,
+
+    // ── M174: lock (named mutex-style lock) as first-class item ─────────────────
+    #[token("lock")]
+    LockKw,
+
+    // ── M175: channel (typed MPSC channel) as first-class item ──────────────────
+    #[token("channel")]
+    ChannelKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

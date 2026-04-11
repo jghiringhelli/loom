@@ -488,6 +488,21 @@ impl RustEmitter {
                 self.emit_scheduler_def(sd, &mut buf);
                 buf
             }
+            Item::Queue(qd) => {
+                let mut buf = String::new();
+                self.emit_queue_def(qd, &mut buf);
+                buf
+            }
+            Item::Lock(ld) => {
+                let mut buf = String::new();
+                self.emit_lock_def(ld, &mut buf);
+                buf
+            }
+            Item::Channel(cd) => {
+                let mut buf = String::new();
+                self.emit_channel_def(cd, &mut buf);
+                buf
+            }
         }
     }
 }

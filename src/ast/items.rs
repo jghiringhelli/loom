@@ -1226,3 +1226,44 @@ pub struct SchedulerDef {
     pub unit: String,
     pub span: Span,
 }
+
+// ── M173: QueueDef ────────────────────────────────────────────────────────────
+
+/// `queue Name capacity: N kind: fifo|lifo end`
+///
+/// First-class FIFO/LIFO named queue item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QueueDef {
+    pub name: String,
+    /// Maximum capacity (0 = unbounded, default: 0).
+    pub capacity: u64,
+    /// Queue discipline: "fifo" or "lifo" (default: "fifo").
+    pub kind: String,
+    pub span: Span,
+}
+
+// ── M174: LockDef ─────────────────────────────────────────────────────────────
+
+/// `lock Name end`
+///
+/// First-class named mutex-style lock item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LockDef {
+    pub name: String,
+    pub span: Span,
+}
+
+// ── M175: ChannelDef ──────────────────────────────────────────────────────────
+
+/// `channel Name type: T capacity: N end`
+///
+/// First-class typed MPSC channel item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChannelDef {
+    pub name: String,
+    /// Element type (default: "String").
+    pub element_type: String,
+    /// Bounded capacity (0 = unbounded, default: 0).
+    pub capacity: u64,
+    pub span: Span,
+}

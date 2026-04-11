@@ -948,6 +948,115 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M173: Emit `{Name}Queue<T>` — FIFO/LIFO named queue.
+    pub(super) fn emit_queue_def(&self, qd: &QueueDef, out: &mut String) {
+        let name = &qd.name;
+        let capacity = qd.capacity;
+        let kind = &qd.kind;
+        let cap_comment = if capacity == 0 {
+            "unbounded".to_string()
+        } else {
+            format!("capacity: {capacity}")
+        };
+        out.push_str(&format!(
+            "// LOOM[queue:concurrency]: {name} — M173 {kind} queue ({cap_comment})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Queue<T> {{\n\
+             \x20\x20\x20\x20inner: std::collections::VecDeque<T>,\n\
+             \x20\x20\x20\x20pub capacity: usize,\n\
+             }}\n\n\
+             impl<T> {name}Queue<T> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ inner: std::collections::VecDeque::new(), capacity: {capacity} }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[queue:enqueue]: add item\n\
+             \x20\x20\x20\x20pub fn enqueue(&mut self, item: T) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20if self.capacity > 0 && self.inner.len() >= self.capacity {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20return false;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.inner.push_back(item);\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20true\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[queue:dequeue]: remove and return next item\n\
+             \x20\x20\x20\x20pub fn dequeue(&mut self) -> Option<T> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.inner.pop_front()\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[queue:is_empty]: true when no items\n\
+             \x20\x20\x20\x20pub fn is_empty(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.inner.is_empty()\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M174: Emit `{Name}Lock` — named mutex-style lock.
+    pub(super) fn emit_lock_def(&self, ld: &LockDef, out: &mut String) {
+        let name = &ld.name;
+        out.push_str(&format!(
+            "// LOOM[lock:concurrency]: {name} — M174 named mutex-style lock\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Lock {{\n\
+             \x20\x20\x20\x20locked: std::sync::atomic::AtomicBool,\n\
+             }}\n\n\
+             impl {name}Lock {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ locked: std::sync::atomic::AtomicBool::new(false) }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lock:acquire]: acquire the lock; returns false if already held\n\
+             \x20\x20\x20\x20pub fn acquire(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.locked\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.is_ok()\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lock:release]: release the lock\n\
+             \x20\x20\x20\x20pub fn release(&self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.locked.store(false, Ordering::Release);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lock:is_locked]: true when currently held\n\
+             \x20\x20\x20\x20pub fn is_locked(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.locked.load(Ordering::Relaxed)\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M175: Emit `{Name}Channel<T>` — typed MPSC channel.
+    pub(super) fn emit_channel_def(&self, cd: &ChannelDef, out: &mut String) {
+        let name = &cd.name;
+        let ty = &cd.element_type;
+        let capacity = cd.capacity;
+        let cap_comment = if capacity == 0 {
+            "unbounded".to_string()
+        } else {
+            format!("capacity: {capacity}")
+        };
+        out.push_str(&format!(
+            "// LOOM[channel:concurrency]: {name} — M175 MPSC channel ({cap_comment})\n\
+             // element type: {ty}\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Channel<T = {ty}> {{\n\
+             \x20\x20\x20\x20pub capacity: usize,\n\
+             \x20\x20\x20\x20_phantom: std::marker::PhantomData<T>,\n\
+             }}\n\n\
+             impl<T> {name}Channel<T> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ capacity: {capacity}, _phantom: std::marker::PhantomData }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[channel:send]: send a value into the channel\n\
+             \x20\x20\x20\x20pub fn send(&self, _value: T) -> Result<(), String> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement channel send\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[channel:recv]: receive the next value\n\
+             \x20\x20\x20\x20pub fn recv(&self) -> Option<T> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement channel recv\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
