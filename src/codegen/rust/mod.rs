@@ -438,6 +438,11 @@ impl RustEmitter {
                 self.emit_query_def(qd, &mut buf);
                 buf
             }
+            Item::CircuitBreaker(cb) => {
+                let mut buf = String::new();
+                self.emit_circuit_breaker_def(cb, &mut buf);
+                buf
+            }
         }
     }
 }

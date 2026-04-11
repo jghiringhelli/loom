@@ -393,6 +393,14 @@ impl<'src> crate::parser::Parser<'src> {
                 self.advance();
                 Ok(Expr::Ident("process".to_string()))
             }
+            Some((Token::QueryKw, _)) => {
+                self.advance();
+                Ok(Expr::Ident("query".to_string()))
+            }
+            Some((Token::CommandKw, _)) => {
+                self.advance();
+                Ok(Expr::Ident("command".to_string()))
+            }
             Some((Token::LParen, _)) => {
                 let start = self.current_span();
                 self.advance();

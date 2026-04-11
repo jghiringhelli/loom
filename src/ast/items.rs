@@ -1048,3 +1048,37 @@ pub struct QueryDef {
     pub fields: Vec<(String, String)>,
     pub span: Span,
 }
+
+// ── M163: CircuitBreakerDef ───────────────────────────────────────────────────
+
+/// M163: Named circuit breaker — first-class module-level resilience item.
+///
+/// Implements the Circuit Breaker pattern (Nygard 2007, "Release It!").
+/// A circuit breaker wraps remote calls and opens after repeated failures,
+/// preventing cascading failures across service boundaries.
+///
+/// Syntax:
+/// ```loom
+/// circuit_breaker PaymentGateway
+///   threshold: 5
+///   timeout: 30
+///   fallback: use_cache
+/// end
+/// ```
+///
+/// Emits:
+/// - `{Name}CircuitState` enum: `Closed`, `Open`, `HalfOpen`
+/// - `{Name}CircuitBreaker` struct with `failure_threshold`, `timeout_secs`, `state`
+/// - `impl {Name}CircuitBreaker` with `new()`, `call<F,T>()`, `fallback_{fallback}()`
+/// - `LOOM[circuit_breaker:resilience]` + M163 audit comment
+#[derive(Debug, Clone, PartialEq)]
+pub struct CircuitBreakerDef {
+    pub name: String,
+    /// Number of consecutive failures before opening (default: 5).
+    pub threshold: u32,
+    /// Seconds before attempting half-open (default: 30).
+    pub timeout: u64,
+    /// Fallback function name (snake_case). Empty string = no fallback.
+    pub fallback: String,
+    pub span: Span,
+}

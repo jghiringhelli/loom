@@ -172,4 +172,6 @@ pub enum Item {
     Command(CommandDef),
     /// M162: Named CQRS query — first-class module-level item.
     Query(QueryDef),
+    /// M163: Named circuit breaker — first-class module-level resilience item.
+    CircuitBreaker(CircuitBreakerDef),
 }

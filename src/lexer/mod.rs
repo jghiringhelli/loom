@@ -447,6 +447,10 @@ pub enum Token {
     #[token("query")]
     QueryKw,
 
+    // ── M163: circuit_breaker resilience pattern as first-class item ──────────────
+    #[token("circuit_breaker")]
+    CircuitBreakerKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

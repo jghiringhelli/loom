@@ -637,6 +637,51 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M163: Emit circuit breaker struct + state enum + impl (Nygard 2007).
+    pub(super) fn emit_circuit_breaker_def(&self, cb: &CircuitBreakerDef, out: &mut String) {
+        let name = &cb.name;
+        let threshold = cb.threshold;
+        let timeout = cb.timeout;
+        out.push_str(&format!(
+            "// LOOM[circuit_breaker:resilience]: {name} — M163 (Nygard 2007, \"Release It!\")\n\
+             #[derive(Debug, Clone, PartialEq)]\n\
+             pub enum {name}CircuitState {{ Closed, Open, HalfOpen }}\n\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}CircuitBreaker {{\n\
+             \x20\x20\x20\x20pub failure_threshold: u32,\n\
+             \x20\x20\x20\x20pub timeout_secs: u64,\n\
+             \x20\x20\x20\x20pub state: {name}CircuitState,\n\
+             \x20\x20\x20\x20failures: u32,\n\
+             }}\n\n\
+             impl {name}CircuitBreaker {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20failure_threshold: {threshold},\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20timeout_secs: {timeout},\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20state: {name}CircuitState::Closed,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20failures: 0,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[circuit_breaker:call]: wraps a remote call, tracks failures\n\
+             \x20\x20\x20\x20pub fn call<F, T>(&mut self, f: F) -> Result<T, String>\n\
+             \x20\x20\x20\x20where\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20F: FnOnce() -> Result<T, String>,\n\
+             \x20\x20\x20\x20{{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement circuit breaker call logic\")\n\
+             \x20\x20\x20\x20}}\n"
+        ));
+        if !cb.fallback.is_empty() {
+            let fb = &cb.fallback;
+            out.push_str(&format!(
+                "\n\x20\x20\x20\x20// LOOM[circuit_breaker:fallback]: {fb} — invoked when circuit is open\n\
+                 \x20\x20\x20\x20pub fn fallback_{fb}(&self) -> Result<(), String> {{\n\
+                 \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement fallback: {fb}\")\n\
+                 \x20\x20\x20\x20}}\n"
+            ));
+        }
+        out.push_str("}\n\n");
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
