@@ -156,4 +156,6 @@ pub enum Item {
     IntentCoordinator(IntentCoordinatorDef),
     /// M141: Explicit forced-discipline declaration.
     Discipline(DisciplineDecl),
+    /// M155: Discrete-time Markov chain — first-class module-level item.
+    Chain(ChainDef),
 }

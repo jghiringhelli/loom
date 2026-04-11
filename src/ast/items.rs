@@ -803,3 +803,35 @@ pub enum DisciplineKind {
     /// Unit of Work — batch persistence with commit/rollback (Fowler PoEAA).
     UnitOfWork,
 }
+
+// ── M155: ChainDef ───────────────────────────────────────────────────────────
+
+/// M155: Discrete-time Markov chain as a first-class module-level item.
+///
+/// Syntax:
+/// ```loom
+/// chain Weather
+///   states: [Sunny, Cloudy, Rainy]
+///   transitions:
+///     Sunny -> Cloudy: 0.3
+///     Sunny -> Rainy: 0.1
+///     Cloudy -> Sunny: 0.4
+///     Cloudy -> Rainy: 0.2
+///     Rainy -> Sunny: 0.15
+///     Rainy -> Cloudy: 0.35
+///   end
+/// end
+/// ```
+///
+/// Emits a `WeatherTransitionMatrix` struct with the transitions pre-initialized
+/// and a `validate()` method that asserts row-stochastic property.
+/// Reference: Markov (1906) — P(X_{n+1}|X_n).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChainDef {
+    pub name: String,
+    /// Named states in the Markov chain (form the State enum).
+    pub states: Vec<String>,
+    /// Transitions as (from, to, probability).
+    pub transitions: Vec<(String, String, f64)>,
+    pub span: Span,
+}

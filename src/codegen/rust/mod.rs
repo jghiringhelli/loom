@@ -398,6 +398,11 @@ impl RustEmitter {
                 emit_discipline(dd, &mut buf);
                 buf
             }
+            Item::Chain(chain) => {
+                let mut buf = String::new();
+                self.emit_chain_item(chain, &mut buf);
+                buf
+            }
         }
     }
 }

@@ -204,6 +204,76 @@ impl {N}TransitionMatrix {
         ));
         out.push_str("\n\n");
     }
+
+    /// M155: Emit a top-level Markov chain item (`chain Name ... end`).
+    ///
+    /// Produces `{Name}State` enum, `{Name}TransitionMatrix` struct with
+    /// transitions pre-initialized from the `chain` declaration, and a
+    /// `validate()` assertion on the row-stochastic property.
+    pub(super) fn emit_chain_item(&self, chain: &ChainDef, out: &mut String) {
+        let n = to_pascal_case(&chain.name);
+        let states_enum = chain
+            .states
+            .iter()
+            .map(|s| format!("    {},", to_pascal_case(s)))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let init_transitions = chain
+            .transitions
+            .iter()
+            .map(|(from, to, prob)| {
+                format!(
+                    "        m.set({n}State::{f}, {n}State::{t}, {p:.9});",
+                    n = n,
+                    f = to_pascal_case(from),
+                    t = to_pascal_case(to),
+                    p = prob
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        out.push_str(&format!(
+            "// LOOM[chain:Markov]: {name} — TransitionMatrix (Markov 1906, M155)\n\
+             // P(X_{{n+1}}|X_n): memoryless discrete-state chain.\n\
+             // Ecosystem: ndarray (dense), petgraph (sparse), statrs\n\
+             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n\
+             pub enum {n}State {{\n{states}\n}}\n\
+             #[derive(Debug, Clone, Default)]\n\
+             pub struct {n}TransitionMatrix {{\n\
+             \x20\x20\x20\x20transitions: std::collections::HashMap<({n}State, {n}State), f64>,\n\
+             }}\n\
+             impl {n}TransitionMatrix {{\n\
+             \x20\x20\x20\x20/// Create a matrix pre-initialized from the `chain {name}` declaration.\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut m = Self::default();\n\
+             {inits}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20m\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20pub fn set(&mut self, from: {n}State, to: {n}State, prob: f64) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20debug_assert!((0.0..=1.0).contains(&prob), \"prob must be in [0,1]\");\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.transitions.insert((from, to), prob);\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20pub fn next_states(&self, state: {n}State) -> Vec<({n}State, f64)> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.transitions.iter()\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.filter_map(|(&(f, t), &p)| if f == state {{ Some((t, p)) }} else {{ None }})\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.collect()\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20/// Verify row-stochastic property: outgoing probs sum to 1.0 per state.\n\
+             \x20\x20\x20\x20pub fn validate(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::collections::HashMap;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut sums: HashMap<{n}State, f64> = HashMap::new();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20for (&(from, _), &p) in &self.transitions {{ *sums.entry(from).or_default() += p; }}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20sums.values().all(|&s| (s - 1.0).abs() < 1e-9)\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n",
+            name = chain.name,
+            n = n,
+            states = states_enum,
+            inits = init_transitions,
+        ));
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

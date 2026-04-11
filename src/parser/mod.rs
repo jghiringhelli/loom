@@ -328,6 +328,8 @@ impl<'src> Parser<'src> {
             Some((Token::Entity, _)) => Some("entity".to_string()),
             Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
             Some((Token::Payload, _)) => Some("payload".to_string()),
+            Some((Token::States, _)) => Some("states".to_string()),
+            Some((Token::ChainKw, _)) => Some("chain".to_string()),
             _ => None,
         }
     }
@@ -406,6 +408,8 @@ impl<'src> Parser<'src> {
             Some((Token::Entity, _)) => Some("entity".to_string()),
             Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
             Some((Token::Payload, _)) => Some("payload".to_string()),
+            Some((Token::States, _)) => Some("states".to_string()),
+            Some((Token::ChainKw, _)) => Some("chain".to_string()),
             _ => None,
         }
     }
@@ -517,6 +521,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::MessagingPrimitive(self.parse_messaging_primitive()?));
             } else if self.at(&Token::Discipline) {
                 items.push(Item::Discipline(self.parse_discipline_decl()?));
+            } else if self.at(&Token::ChainKw) {
+                items.push(Item::Chain(self.parse_chain_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -716,6 +722,7 @@ impl<'src> Parser<'src> {
             Some(Token::Entity) => Ok(Item::Entity(self.parse_entity_def()?)),
             Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(self.parse_intent_coordinator_def()?)),
             Some(Token::Discipline) => Ok(Item::Discipline(self.parse_discipline_decl()?)),
+            Some(Token::ChainKw) => Ok(Item::Chain(self.parse_chain_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1185,6 +1192,86 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         if self.at(&Token::End) { self.advance(); }
         Ok(DisciplineDecl { kind, target, params, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `chain Name ... end` — M155 Markov chain item.
+    ///
+    /// ```loom
+    /// chain Weather
+    ///   states: [Sunny, Cloudy, Rainy]
+    ///   transitions:
+    ///     Sunny -> Cloudy: 0.3
+    ///     Sunny -> Rainy: 0.1
+    ///   end
+    /// end
+    /// ```
+    pub(in crate::parser) fn parse_chain_def(&mut self) -> Result<ChainDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::ChainKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut states: Vec<String> = Vec::new();
+        let mut transitions: Vec<(String, String, f64)> = Vec::new();
+
+        // Parse optional `states: [A, B, C]`
+        if self.at_keyword("states") {
+            self.advance(); // consume `states`
+            self.expect(Token::Colon)?;
+            self.expect(Token::LBracket)?;
+            while !self.at(&Token::RBracket) && self.peek().is_some() {
+                if let Some(state) = self.token_as_ident() {
+                    self.advance();
+                    states.push(state);
+                } else {
+                    break;
+                }
+                if self.at(&Token::Comma) { self.advance(); }
+            }
+            self.expect(Token::RBracket)?;
+        }
+
+        // Parse optional `transitions: ... end`
+        if self.at(&Token::Transitions) {
+            self.advance(); // consume `transitions`
+            if self.at(&Token::Colon) { self.advance(); }
+            // Parse `FromState -> ToState: 0.3` lines until `end`
+            while !self.at(&Token::End) && self.peek().is_some() {
+                let from = match self.token_as_ident() {
+                    Some(s) => { self.advance(); s }
+                    None => break,
+                };
+                self.expect(Token::Arrow)?;
+                let to = match self.token_as_ident() {
+                    Some(s) => { self.advance(); s }
+                    None => break,
+                };
+                self.expect(Token::Colon)?;
+                let prob = self.parse_float_literal().unwrap_or(0.0);
+                transitions.push((from, to, prob));
+            }
+            if self.at(&Token::End) { self.advance(); } // consume inner `end`
+        }
+
+        let end_span = self.current_span();
+        if self.at(&Token::End) { self.advance(); } // consume outer `end`
+        Ok(ChainDef { name, states, transitions, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse a floating-point literal at the current position.
+    fn parse_float_literal(&mut self) -> Option<f64> {
+        match self.tokens.get(self.pos) {
+            Some((Token::FloatLit(f), _)) => { let v = *f; self.pos += 1; Some(v) }
+            Some((Token::IntLit(i), _)) => { let v = *i as f64; self.pos += 1; Some(v) }
+            _ => None,
+        }
+    }
+
+    /// Returns true if the current token is an identifier with the given text.
+    fn at_keyword(&self, kw: &str) -> bool {
+        match self.tokens.get(self.pos) {
+            Some((Token::Ident(s), _)) => s == kw,
+            Some((Token::States, _)) => kw == "states",
+            _ => false,
+        }
     }
 }
 

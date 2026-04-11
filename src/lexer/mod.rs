@@ -407,6 +407,12 @@ pub enum Token {
     #[token("discipline")]
     Discipline,
 
+    // ── M155: Markov chain as first-class item ────────────────────────────────────
+    #[token("chain")]
+    ChainKw,
+    #[token("states")]
+    States,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
