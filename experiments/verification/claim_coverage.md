@@ -198,8 +198,8 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 145
-PROVED  (machine/type-system verified): 120  (83%)
+Total Loom claims tracked: 154
+PROVED  (machine/type-system verified): 129  (84%)
 EMITTED (scaffold ready, tool separate):  19  (14%)
 DECLARED (annotation only, no scaffold):   2   (1%)
 PENDING (implementation required):         4   (3%)
@@ -265,3 +265,21 @@ The DECLARED category is the honest gap: formal proofs via Prusti/TLA+/Dafny.
 | barrier struct name = {Name}Barrier | Structural | rustc | PROVED | m178_barrier_item_test.rs |
 
 _+9 PROVED rows. Session total: 145 tracked, 120 PROVED (83%)._
+
+
+
+## M179–M180: Reactive & FSM items (event_bus / state_machine)
+
+| Claim | Dimension | Tool | Status | Test |
+|---|---|---|---|---|
+| event_bus emits Vec subscribers field | Structural | rustc | PROVED | m179_event_bus_item_test.rs |
+| event_bus subscribe/publish/drain methods generated | Behavioral | rustc | PROVED | m179_event_bus_item_test.rs |
+| event_bus struct name = {Name}EventBus<E> | Structural | rustc | PROVED | m179_event_bus_item_test.rs |
+| state_machine emits {Name}State enum | Structural | rustc | PROVED | m180_state_machine_item_test.rs |
+| state_machine emits {Name}Machine struct | Structural | rustc | PROVED | m180_state_machine_item_test.rs |
+| state_machine new/current/transition methods generated | Behavioral | rustc | PROVED | m180_state_machine_item_test.rs |
+| state_machine initial state defaults to Initial | Behavioral | rustc | PROVED | m180_state_machine_item_test.rs |
+| state_machine configurable initial: key | Behavioral | rustc | PROVED | m180_state_machine_item_test.rs |
+| both items parse cleanly with other module items | Integration | rustc | PROVED | m179/m180 tests |
+
+_+9 PROVED rows. Session total: 154 tracked, 129 PROVED (84%)._
