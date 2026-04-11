@@ -491,6 +491,34 @@ impl RustEmitter {
                      agg\n    }}\n}}\n\n",
             s = store_name
         ));
+        // M154: snapshot bridge — connect M151/M152 binary/compressed persistence to
+        // EventStore for the full append → snapshot → replay pattern.
+        out.push_str(&format!(
+            "// LOOM[persist:snapshot-bridge]: M154 — EventStore + BinaryPersist snapshot bridge\n\
+             // Snapshot captures current aggregate state. Replay starts from snapshot + remaining events.\n\
+             // Usage: snapshot_to(path) after N events; resume_from(path, store) to replay.\n\
+             pub trait {s}SnapshotBridge: {s}Aggregate + BinaryPersist {{\n\
+             \x20\x20\x20\x20/// Serialize current aggregate state to a snapshot file.\n\
+             \x20\x20\x20\x20/// Use with load_compressed for production snapshots (CompressedBinaryPersist).\n\
+             \x20\x20\x20\x20fn snapshot_to(&self, path: &std::path::Path) -> std::io::Result<()> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.save_snapshot(path)\n\
+             \x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20/// Load snapshot then replay remaining events from the event store.\n\
+             \x20\x20\x20\x20fn resume_from<S: {s}EventStore<Error = std::io::Error>>(\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20path: &std::path::Path,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20store: &S,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20stream: &str,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20from_seq: u64,\n\
+             \x20\x20\x20\x20) -> std::io::Result<Self> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut agg = Self::load_snapshot(path)?;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let events = store.load(stream, from_seq)\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, format!(\"{{:?}}\", e)))?;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20for ev in &events {{ agg.apply(ev); }}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Ok(agg)\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n",
+            s = store_name
+        ));
     }
 
     /// Domain Event bus — typed broadcast channel (Evans 2003).

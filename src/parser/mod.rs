@@ -327,6 +327,7 @@ impl<'src> Parser<'src> {
             Some((Token::TelosFunction, _)) => Some("telos_function".to_string()),
             Some((Token::Entity, _)) => Some("entity".to_string()),
             Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
+            Some((Token::Payload, _)) => Some("payload".to_string()),
             _ => None,
         }
     }
@@ -404,6 +405,7 @@ impl<'src> Parser<'src> {
             Some((Token::TelosFunction, _)) => Some("telos_function".to_string()),
             Some((Token::Entity, _)) => Some("entity".to_string()),
             Some((Token::IntentCoordinator, _)) => Some("intent_coordinator".to_string()),
+            Some((Token::Payload, _)) => Some("payload".to_string()),
             _ => None,
         }
     }

@@ -1623,13 +1623,11 @@ impl<'src> crate::parser::Parser<'src> {
         let mut fields = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             let field_start = self.current_span();
-            let field_name = match self.tokens.get(self.pos) {
-                Some((Token::Ident(n), _)) => {
-                    let n = n.clone();
-                    self.pos += 1;
-                    n
-                }
-                _ => break,
+            let field_name = if let Some(n) = self.token_as_ident() {
+                self.pos += 1;
+                n
+            } else {
+                break;
             };
             if !self.at(&Token::Colon) {
                 break;
