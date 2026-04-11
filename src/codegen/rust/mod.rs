@@ -538,6 +538,16 @@ impl RustEmitter {
                 self.emit_projection_def(pd, &mut buf);
                 buf
             }
+            Item::Resource(rd) => {
+                let mut buf = String::new();
+                self.emit_resource_def(rd, &mut buf);
+                buf
+            }
+            Item::Lease(ld) => {
+                let mut buf = String::new();
+                self.emit_lease_def(ld, &mut buf);
+                buf
+            }
         }
     }
 }

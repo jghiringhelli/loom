@@ -1290,6 +1290,73 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M183: `resource Name end` → `{Name}Resource` with AtomicBool + acquire/release/is_acquired
+    pub(super) fn emit_resource_def(&self, rd: &ResourceDef, out: &mut String) {
+        let n = to_pascal_case(&rd.name);
+        out.push_str(&format!(
+            "// LOOM[resource:{n}]: exclusive resource with atomic acquire/release\n\
+             pub struct {n}Resource {{\n\
+             \x20\x20\x20\x20acquired: std::sync::atomic::AtomicBool,\n\
+             }}\n\n\
+             impl {n}Resource {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ acquired: std::sync::atomic::AtomicBool::new(false) }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[resource:acquire]: attempt atomic acquire\n\
+             \x20\x20\x20\x20pub fn acquire(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired.compare_exchange(false, true,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20std::sync::atomic::Ordering::Acquire,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20std::sync::atomic::Ordering::Relaxed).is_ok()\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[resource:release]: release the resource\n\
+             \x20\x20\x20\x20pub fn release(&self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired.store(false, std::sync::atomic::Ordering::Release);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[resource:is_acquired]: query current state\n\
+             \x20\x20\x20\x20pub fn is_acquired(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired.load(std::sync::atomic::Ordering::Relaxed)\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M184: `lease Name [ttl: N] end` → `{Name}Lease` with ttl + Instant + acquire/release/is_expired/is_valid
+    pub(super) fn emit_lease_def(&self, ld: &LeaseDef, out: &mut String) {
+        let n = to_pascal_case(&ld.name);
+        let ttl = ld.ttl;
+        out.push_str(&format!(
+            "// LOOM[lease:{n}]: time-bounded lease with {ttl}s TTL\n\
+             pub struct {n}Lease {{\n\
+             \x20\x20\x20\x20ttl_secs: u64,\n\
+             \x20\x20\x20\x20acquired_at: Option<std::time::Instant>,\n\
+             }}\n\n\
+             impl {n}Lease {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ ttl_secs: {ttl}, acquired_at: None }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lease:acquire]: claim the lease, recording acquisition time\n\
+             \x20\x20\x20\x20pub fn acquire(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired_at = Some(std::time::Instant::now());\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lease:release]: relinquish the lease\n\
+             \x20\x20\x20\x20pub fn release(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired_at = None;\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lease:is_expired]: true if TTL has elapsed since acquisition\n\
+             \x20\x20\x20\x20pub fn is_expired(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20match self.acquired_at {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Some(t) => t.elapsed().as_secs() >= self.ttl_secs,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20None => false,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[lease:is_valid]: true if held and not yet expired\n\
+             \x20\x20\x20\x20pub fn is_valid(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.acquired_at.is_some() && !self.is_expired()\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

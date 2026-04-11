@@ -212,4 +212,8 @@ pub enum Item {
     Workflow(WorkflowDef),
     /// M182: Named read-model projection from events — first-class module-level item.
     Projection(ProjectionDef),
+    /// M183: Named lifecycle-managed resource — first-class module-level item.
+    Resource(ResourceDef),
+    /// M184: Named time-bounded lease — first-class module-level item.
+    Lease(LeaseDef),
 }

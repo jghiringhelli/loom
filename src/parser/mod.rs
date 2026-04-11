@@ -361,6 +361,8 @@ impl<'src> Parser<'src> {
             Some((Token::StateMachineKw, _)) => Some("state_machine".to_string()),
             Some((Token::WorkflowKw, _)) => Some("workflow".to_string()),
             Some((Token::ProjectionKw, _)) => Some("projection".to_string()),
+            Some((Token::ResourceKw, _)) => Some("resource".to_string()),
+            Some((Token::LeaseKw, _)) => Some("lease".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -472,6 +474,8 @@ impl<'src> Parser<'src> {
             Some((Token::StateMachineKw, _)) => Some("state_machine".to_string()),
             Some((Token::WorkflowKw, _)) => Some("workflow".to_string()),
             Some((Token::ProjectionKw, _)) => Some("projection".to_string()),
+            Some((Token::ResourceKw, _)) => Some("resource".to_string()),
+            Some((Token::LeaseKw, _)) => Some("lease".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -481,7 +485,7 @@ impl<'src> Parser<'src> {
     pub fn parse_module(&mut self) -> Result<Module, LoomError> {
         let start = self.current_span();
         self.expect(Token::Module)?;
-        let (name, _) = self.expect_ident()?;
+        let (name, _) = self.expect_any_name()?;
 
         // Optional describe: and @annotations in the module header
         let describe = self.parse_describe();
@@ -640,6 +644,10 @@ impl<'src> Parser<'src> {
                 items.push(Item::Workflow(self.parse_workflow_def()?));
             } else if self.at(&Token::ProjectionKw) {
                 items.push(Item::Projection(self.parse_projection_def()?));
+            } else if self.at(&Token::ResourceKw) {
+                items.push(Item::Resource(self.parse_resource_def()?));
+            } else if self.at(&Token::LeaseKw) {
+                items.push(Item::Lease(self.parse_lease_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -867,6 +875,8 @@ impl<'src> Parser<'src> {
             Some(Token::StateMachineKw) => Ok(Item::StateMachine(self.parse_state_machine_def()?)),
             Some(Token::WorkflowKw) => Ok(Item::Workflow(self.parse_workflow_def()?)),
             Some(Token::ProjectionKw) => Ok(Item::Projection(self.parse_projection_def()?)),
+            Some(Token::ResourceKw) => Ok(Item::Resource(self.parse_resource_def()?)),
+            Some(Token::LeaseKw) => Ok(Item::Lease(self.parse_lease_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2408,6 +2418,50 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(ProjectionDef { name, element_type, span: Span::merge(&start, &end_span) })
     }
+
+    /// M183: Parse `resource Name end`
+    fn parse_resource_def(&mut self) -> Result<ResourceDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::ResourceKw)?;
+        let (name, _) = self.expect_ident()?;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(ResourceDef { name, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M184: Parse `lease Name [ttl: N] end`
+    fn parse_lease_def(&mut self) -> Result<LeaseDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::LeaseKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut ttl: u64 = 60;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "ttl" {
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            ttl = *n as u64;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(LeaseDef { name, ttl, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ─────────────────────────────────────────────────────────────────
@@ -2552,6 +2606,8 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::StateMachineKw => Some("state_machine"),
         Token::WorkflowKw => Some("workflow"),
         Token::ProjectionKw => Some("projection"),
+        Token::ResourceKw => Some("resource"),
+        Token::LeaseKw => Some("lease"),
         _ => None,
     }
 }

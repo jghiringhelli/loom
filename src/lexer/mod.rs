@@ -521,6 +521,14 @@ pub enum Token {
     #[token("projection")]
     ProjectionKw,
 
+    // ── M183: resource (lifecycle-managed resource) as first-class item ──────────
+    #[token("resource")]
+    ResourceKw,
+
+    // ── M184: lease (time-bounded resource lease with TTL) as first-class item ───
+    #[token("lease")]
+    LeaseKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

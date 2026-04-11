@@ -1356,3 +1356,27 @@ pub struct ProjectionDef {
     pub element_type: String,
     pub span: Span,
 }
+
+// ── M183: ResourceDef ─────────────────────────────────────────────────────────
+
+/// `resource Name end`
+///
+/// First-class lifecycle-managed resource with acquire/release/is_acquired.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceDef {
+    pub name: String,
+    pub span: Span,
+}
+
+// ── M184: LeaseDef ────────────────────────────────────────────────────────────
+
+/// `lease Name [ttl: N] end`
+///
+/// First-class time-bounded resource lease with TTL and expiry check.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LeaseDef {
+    pub name: String,
+    /// Time-to-live in seconds (default: 60).
+    pub ttl: u64,
+    pub span: Span,
+}
