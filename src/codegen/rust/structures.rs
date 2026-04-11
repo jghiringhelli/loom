@@ -47,8 +47,47 @@ fn ensure_float_lit(s: &str) -> String {
     }
 }
 
+/// Convert a PascalCase or camelCase name to UPPER_SNAKE_CASE.
+fn to_upper_snake(name: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in name.chars().enumerate() {
+        if ch.is_uppercase() && i > 0 {
+            out.push('_');
+        }
+        out.push(ch.to_ascii_uppercase());
+    }
+    out
+}
+
+/// Map a Loom type + raw value pair to `(rust_type, rust_value)` strings.
+fn map_const_type_value<'a>(ty: &'a str, value: &'a str) -> (&'a str, std::borrow::Cow<'a, str>) {
+    match ty {
+        "Int" | "Integer" | "Nat" | "Index" | "Count" => ("i64", std::borrow::Cow::Borrowed(value)),
+        "Float" | "Double" | "Real" => {
+            if value.contains('.') {
+                ("f64", std::borrow::Cow::Borrowed(value))
+            } else {
+                ("f64", std::borrow::Cow::Owned(format!("{value}.0")))
+            }
+        }
+        "Bool" | "Boolean" => ("bool", std::borrow::Cow::Borrowed(value)),
+        "String" | "Str" | "Text" => ("&str", std::borrow::Cow::Borrowed(value)),
+        // Infer from value when type is omitted
+        _ => {
+            if value.starts_with('"') {
+                ("&str", std::borrow::Cow::Borrowed(value))
+            } else if value.contains('.') {
+                ("f64", std::borrow::Cow::Borrowed(value))
+            } else if value == "true" || value == "false" {
+                ("bool", std::borrow::Cow::Borrowed(value))
+            } else {
+                ("i64", std::borrow::Cow::Borrowed(value))
+            }
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// STOCHASTIC PROCESSES
 // ═══════════════════════════════════════════════════════════════════════════
 
 impl RustEmitter {
@@ -356,6 +395,26 @@ impl {N}TransitionMatrix {
             n = n,
             nodes = node_variants,
             inits = init_edges,
+        ));
+    }
+
+    /// M157: Emit a top-level `const` item.
+    ///
+    /// Maps Loom type annotations to Rust types and converts the constant name
+    /// to UPPER_SNAKE_CASE. String values become `&'static str`.
+    ///
+    /// ```loom
+    /// const MaxRetries: Int = 3          → pub const MAX_RETRIES: i64 = 3;
+    /// const Timeout: Float = 30.0        → pub const TIMEOUT: f64 = 30.0;
+    /// const ServiceName: String = "api"  → pub const SERVICE_NAME: &str = "api";
+    /// ```
+    pub(super) fn emit_const_def(&self, cd: &ConstDef, out: &mut String) {
+        let rust_name = to_upper_snake(&cd.name);
+        let (rust_type, rust_value) = map_const_type_value(&cd.ty, &cd.value);
+        out.push_str(&format!(
+            "// LOOM[const:item]: {name} — named constant (M157)\n\
+             pub const {rust_name}: {rust_type} = {rust_value};\n\n",
+            name = cd.name,
         ));
     }
 }

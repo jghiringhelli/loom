@@ -160,4 +160,6 @@ pub enum Item {
     Chain(ChainDef),
     /// M156: Directed Acyclic Graph — first-class module-level item.
     Dag(DagDef),
+    /// M157: Named constant — first-class module-level item.
+    Const(ConstDef),
 }

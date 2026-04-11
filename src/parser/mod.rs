@@ -333,6 +333,7 @@ impl<'src> Parser<'src> {
             Some((Token::DagKw, _)) => Some("dag".to_string()),
             Some((Token::Nodes, _)) => Some("nodes".to_string()),
             Some((Token::Edges, _)) => Some("edges".to_string()),
+            Some((Token::Const, _)) => Some("const".to_string()),
             _ => None,
         }
     }
@@ -416,6 +417,7 @@ impl<'src> Parser<'src> {
             Some((Token::DagKw, _)) => Some("dag".to_string()),
             Some((Token::Nodes, _)) => Some("nodes".to_string()),
             Some((Token::Edges, _)) => Some("edges".to_string()),
+            Some((Token::Const, _)) => Some("const".to_string()),
             _ => None,
         }
     }
@@ -531,6 +533,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Chain(self.parse_chain_def()?));
             } else if self.at(&Token::DagKw) {
                 items.push(Item::Dag(self.parse_dag_def()?));
+            } else if self.at(&Token::Const) {
+                items.push(Item::Const(self.parse_const_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -732,6 +736,7 @@ impl<'src> Parser<'src> {
             Some(Token::Discipline) => Ok(Item::Discipline(self.parse_discipline_decl()?)),
             Some(Token::ChainKw) => Ok(Item::Chain(self.parse_chain_def()?)),
             Some(Token::DagKw) => Ok(Item::Dag(self.parse_dag_def()?)),
+            Some(Token::Const) => Ok(Item::Const(self.parse_const_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1338,6 +1343,52 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         if self.at(&Token::End) { self.advance(); }
         Ok(DagDef { name, nodes, edges, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `const Name: Type = value` — M157 constant item.
+    ///
+    /// The value may be an integer literal, float literal, bool literal, or
+    /// a quoted string literal. No expression parsing — constants are simple literals.
+    pub(in crate::parser) fn parse_const_def(&mut self) -> Result<ConstDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Const)?;
+        let name = match self.token_as_ident() {
+            Some(n) => { self.advance(); n }
+            None => return Err(LoomError::parse("expected constant name", self.current_span())),
+        };
+
+        // Optional `:`
+        let ty = if self.at(&Token::Colon) {
+            self.advance();
+            match self.token_as_ident() {
+                Some(t) => { self.advance(); t }
+                None => return Err(LoomError::parse("expected type after ':'", self.current_span())),
+            }
+        } else {
+            String::new()
+        };
+
+        self.expect(Token::Eq)?;
+
+        // Collect the value: int, float, bool, or string literal
+        let value = match self.tokens.get(self.pos) {
+            Some((Token::IntLit(n), _)) => { let v = n.to_string(); self.advance(); v }
+            Some((Token::FloatLit(f), _)) => { let v = f.to_string(); self.advance(); v }
+            Some((Token::BoolLit(b), _)) => { let v = b.to_string(); self.advance(); v }
+            Some((Token::StrLit(s), _)) => { let v = format!("\"{}\"", s.clone()); self.advance(); v }
+            _ => {
+                // Fallback: collect until newline or End token
+                match self.token_as_ident() {
+                    Some(s) => { self.advance(); s }
+                    None => return Err(LoomError::parse(
+                        "expected literal value for const", self.current_span(),
+                    )),
+                }
+            }
+        };
+
+        let end_span = self.current_span();
+        Ok(ConstDef { name, ty, value, span: Span::merge(&start, &end_span) })
     }
 }
 

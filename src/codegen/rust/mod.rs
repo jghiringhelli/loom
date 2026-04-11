@@ -408,6 +408,11 @@ impl RustEmitter {
                 self.emit_dag_item(dag, &mut buf);
                 buf
             }
+            Item::Const(cd) => {
+                let mut buf = String::new();
+                self.emit_const_def(cd, &mut buf);
+                buf
+            }
         }
     }
 }

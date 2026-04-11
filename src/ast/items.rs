@@ -860,3 +860,26 @@ pub struct DagDef {
     pub edges: Vec<(String, String)>,
     pub span: Span,
 }
+
+// ── M157: ConstDef ────────────────────────────────────────────────────────────
+
+/// M157: Named constant as a first-class module-level item.
+///
+/// Syntax:
+/// ```loom
+/// const MaxRetries: Int = 3
+/// const Timeout: Float = 30.0
+/// const ServiceName: String = "api-gateway"
+/// ```
+///
+/// Emits `pub const UPPER_SNAKE: RustType = value;`
+/// with a `LOOM[const:item]` audit comment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstDef {
+    pub name: String,
+    /// Loom type annotation (e.g. `"Int"`, `"Float"`, `"String"`).
+    pub ty: String,
+    /// Raw value token as a string (e.g. `"3"`, `"30.0"`, `"\"api-gateway\""`).
+    pub value: String,
+    pub span: Span,
+}

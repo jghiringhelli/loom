@@ -421,6 +421,10 @@ pub enum Token {
     #[token("edges")]
     Edges,
 
+    // ── M157: const as first-class item ───────────────────────────────────────────
+    #[token("const")]
+    Const,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
