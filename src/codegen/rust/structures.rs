@@ -836,6 +836,30 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M169: Emit `{Name}Fallback<T>` struct + `get() -> T` static fallback.
+    pub(super) fn emit_fallback_item_def(&self, fd: &FallbackItemDef, out: &mut String) {
+        let name = &fd.name;
+        let value = &fd.value;
+        let value_display = if value.is_empty() { "default" } else { value.as_str() };
+        out.push_str(&format!(
+            "// LOOM[fallback:resilience]: {name} — M169 static fallback value\n\
+             // fallback value: \"{value_display}\"\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Fallback<T = String> {{\n\
+             \x20\x20\x20\x20pub value: T,\n\
+             }}\n\n\
+             impl {name}Fallback {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ value: \"{value}\".to_string() }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[fallback:get]: return the static fallback value\n\
+             \x20\x20\x20\x20pub fn get(&self) -> &String {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20&self.value\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

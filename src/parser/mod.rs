@@ -585,6 +585,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Bulkhead(self.parse_bulkhead_def()?));
             } else if self.at(&Token::TimeoutKw) {
                 items.push(Item::Timeout(self.parse_timeout_def()?));
+            } else if self.at(&Token::Fallback) && self.peek_next_as_ident().is_some() {
+                items.push(Item::FallbackItem(self.parse_fallback_item_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -798,6 +800,7 @@ impl<'src> Parser<'src> {
             Some(Token::CacheKw) => Ok(Item::Cache(self.parse_cache_def()?)),
             Some(Token::BulkheadKw) => Ok(Item::Bulkhead(self.parse_bulkhead_def()?)),
             Some(Token::TimeoutKw) => Ok(Item::Timeout(self.parse_timeout_def()?)),
+            Some(Token::Fallback) => Ok(Item::FallbackItem(self.parse_fallback_item_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1914,6 +1917,49 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(TimeoutDef { name, duration, unit, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M169: Parse `fallback Name [value: "literal"] end`
+    ///
+    /// Static fallback value with optional default. Uses existing Token::Fallback.
+    fn parse_fallback_item_def(&mut self) -> Result<FallbackItemDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Fallback)?;
+        let (name, _) = self.expect_ident()?;
+        let mut value = String::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "value" {
+                        match self.tokens.get(self.pos) {
+                            Some((Token::StrLit(s), _)) => {
+                                value = s.clone();
+                                self.advance();
+                            }
+                            Some((Token::IntLit(n), _)) => {
+                                value = n.to_string();
+                                self.advance();
+                            }
+                            _ => {
+                                if let Some(v) = self.token_as_ident() {
+                                    value = v;
+                                    self.advance();
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(FallbackItemDef { name, value, span: Span::merge(&start, &end_span) })
     }
 }
 

@@ -468,6 +468,11 @@ impl RustEmitter {
                 self.emit_timeout_def(td, &mut buf);
                 buf
             }
+            Item::FallbackItem(fd) => {
+                let mut buf = String::new();
+                self.emit_fallback_item_def(fd, &mut buf);
+                buf
+            }
         }
     }
 }

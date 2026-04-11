@@ -184,4 +184,6 @@ pub enum Item {
     Bulkhead(BulkheadDef),
     /// M168: Named timeout (deadline enforcement) — first-class module-level item.
     Timeout(TimeoutDef),
+    /// M169: Named fallback value — first-class module-level item.
+    FallbackItem(FallbackItemDef),
 }

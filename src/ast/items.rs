@@ -1176,3 +1176,15 @@ pub struct TimeoutDef {
     pub unit: String,
     pub span: Span,
 }
+
+// ── M169: fallback item (static/dynamic fallback value) ────────────────────────
+
+/// `fallback Name value: "literal" end`
+/// Generates a `{Name}Fallback<T>` struct with `get() -> T` method.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FallbackItemDef {
+    pub name: String,
+    /// Static fallback value as a string literal (default: "").
+    pub value: String,
+    pub span: Span,
+}
