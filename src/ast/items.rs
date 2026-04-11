@@ -1162,3 +1162,17 @@ pub struct BulkheadDef {
     pub queue_size: u64,
     pub span: Span,
 }
+
+// ── M168: timeout (deadline enforcement) ───────────────────────────────────────
+
+/// `timeout Name duration: N unit: ms|s|min end`
+/// Generates a `{Name}Timeout` struct with `execute<F,T>()` deadline wrapper.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimeoutDef {
+    pub name: String,
+    /// Deadline duration value (default: 30).
+    pub duration: u64,
+    /// Time unit: "ms", "s", or "min" (default: "s").
+    pub unit: String,
+    pub span: Span,
+}

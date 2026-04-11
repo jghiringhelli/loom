@@ -463,6 +463,11 @@ impl RustEmitter {
                 self.emit_bulkhead_def(bd, &mut buf);
                 buf
             }
+            Item::Timeout(td) => {
+                let mut buf = String::new();
+                self.emit_timeout_def(td, &mut buf);
+                buf
+            }
         }
     }
 }

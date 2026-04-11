@@ -182,4 +182,6 @@ pub enum Item {
     Cache(CacheDef),
     /// M167: Named bulkhead (concurrency isolation) — first-class module-level item.
     Bulkhead(BulkheadDef),
+    /// M168: Named timeout (deadline enforcement) — first-class module-level item.
+    Timeout(TimeoutDef),
 }

@@ -467,6 +467,10 @@ pub enum Token {
     #[token("bulkhead")]
     BulkheadKw,
 
+    // ── M168: timeout deadline enforcement as first-class item ───────────────────
+    #[token("timeout")]
+    TimeoutKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

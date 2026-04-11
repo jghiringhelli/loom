@@ -808,6 +808,34 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M168: Emit `{Name}Timeout` struct + `execute<F,T>()` deadline wrapper.
+    pub(super) fn emit_timeout_def(&self, td: &TimeoutDef, out: &mut String) {
+        let name = &td.name;
+        let duration = td.duration;
+        let unit = &td.unit;
+        out.push_str(&format!(
+            "// LOOM[timeout:resilience]: {name} — M168 deadline enforcement\n\
+             // deadline: {duration}{unit}\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Timeout {{\n\
+             \x20\x20\x20\x20pub duration: u64,\n\
+             \x20\x20\x20\x20pub unit: &'static str,\n\
+             }}\n\n\
+             impl {name}Timeout {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ duration: {duration}, unit: \"{unit}\" }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[timeout:execute]: run f() or return Err on deadline exceeded\n\
+             \x20\x20\x20\x20pub fn execute<F, T>(&self, f: F) -> Result<T, String>\n\
+             \x20\x20\x20\x20where\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20F: FnOnce() -> T,\n\
+             \x20\x20\x20\x20{{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement timeout execute\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
