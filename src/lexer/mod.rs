@@ -441,6 +441,12 @@ pub enum Token {
     #[token("event")]
     EventKw,
 
+    // ── M162: command/query (CQRS) as first-class items ──────────────────────────
+    #[token("command")]
+    CommandKw,
+    #[token("query")]
+    QueryKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

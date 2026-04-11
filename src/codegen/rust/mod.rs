@@ -428,6 +428,16 @@ impl RustEmitter {
                 self.emit_event_def(ed, &mut buf);
                 buf
             }
+            Item::Command(cd) => {
+                let mut buf = String::new();
+                self.emit_command_def(cd, &mut buf);
+                buf
+            }
+            Item::Query(qd) => {
+                let mut buf = String::new();
+                self.emit_query_def(qd, &mut buf);
+                buf
+            }
         }
     }
 }

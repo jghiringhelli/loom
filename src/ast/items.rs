@@ -997,3 +997,54 @@ pub struct EventDef {
     pub fields: Vec<(String, String)>,
     pub span: Span,
 }
+
+// ── M162: CommandDef / QueryDef ───────────────────────────────────────────────
+
+/// M162: Named CQRS command — first-class module-level item.
+///
+/// Commands represent intent to change state. They carry payload fields
+/// and produce a handler trait that returns `Result<(), String>`.
+///
+/// Syntax:
+/// ```loom
+/// command PlaceOrder
+///   order_id: Int
+///   amount: Float
+/// end
+/// ```
+///
+/// Emits:
+/// - `#[derive(Debug, Clone)]` struct `{Name}Command` with typed pub fields
+/// - `pub trait {Name}Handler { fn handle(&self, cmd: {Name}Command) -> Result<(), String>; }`
+/// - `LOOM[command:cqrs]` audit comment
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommandDef {
+    pub name: String,
+    /// Payload fields: (field_name, loom_type_name)
+    pub fields: Vec<(String, String)>,
+    pub span: Span,
+}
+
+/// M162: Named CQRS query — first-class module-level item.
+///
+/// Queries read state without side effects. They carry criteria fields
+/// and produce a generic handler trait parameterised over the return type.
+///
+/// Syntax:
+/// ```loom
+/// query GetOrder
+///   order_id: Int
+/// end
+/// ```
+///
+/// Emits:
+/// - `#[derive(Debug, Clone)]` struct `{Name}Query` with typed pub fields
+/// - `pub trait {Name}QueryHandler<R> { fn handle(&self, query: {Name}Query) -> R; }`
+/// - `LOOM[query:cqrs]` audit comment
+#[derive(Debug, Clone, PartialEq)]
+pub struct QueryDef {
+    pub name: String,
+    /// Criteria fields: (field_name, loom_type_name)
+    pub fields: Vec<(String, String)>,
+    pub span: Span,
+}

@@ -168,4 +168,8 @@ pub enum Item {
     Saga(SagaDef),
     /// M161: Named domain event — first-class module-level item.
     Event(EventDef),
+    /// M162: Named CQRS command — first-class module-level item.
+    Command(CommandDef),
+    /// M162: Named CQRS query — first-class module-level item.
+    Query(QueryDef),
 }

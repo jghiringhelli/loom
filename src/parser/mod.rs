@@ -339,6 +339,8 @@ impl<'src> Parser<'src> {
             Some((Token::SagaKw, _)) => Some("saga".to_string()),
             Some((Token::Compensate, _)) => Some("compensate".to_string()),
             Some((Token::EventKw, _)) => Some("event".to_string()),
+            Some((Token::CommandKw, _)) => Some("command".to_string()),
+            Some((Token::QueryKw, _)) => Some("query".to_string()),
             _ => None,
         }
     }
@@ -428,6 +430,8 @@ impl<'src> Parser<'src> {
             Some((Token::SagaKw, _)) => Some("saga".to_string()),
             Some((Token::Compensate, _)) => Some("compensate".to_string()),
             Some((Token::EventKw, _)) => Some("event".to_string()),
+            Some((Token::CommandKw, _)) => Some("command".to_string()),
+            Some((Token::QueryKw, _)) => Some("query".to_string()),
             _ => None,
         }
     }
@@ -551,6 +555,10 @@ impl<'src> Parser<'src> {
                 items.push(Item::Saga(self.parse_saga_def()?));
             } else if self.at(&Token::EventKw) {
                 items.push(Item::Event(self.parse_event_def()?));
+            } else if self.at(&Token::CommandKw) {
+                items.push(Item::Command(self.parse_command_def()?));
+            } else if self.at(&Token::QueryKw) {
+                items.push(Item::Query(self.parse_query_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -756,6 +764,8 @@ impl<'src> Parser<'src> {
             Some(Token::PipelineKw) => Ok(Item::Pipeline(self.parse_pipeline_def()?)),
             Some(Token::SagaKw) => Ok(Item::Saga(self.parse_saga_def()?)),
             Some(Token::EventKw) => Ok(Item::Event(self.parse_event_def()?)),
+            Some(Token::CommandKw) => Ok(Item::Command(self.parse_command_def()?)),
+            Some(Token::QueryKw) => Ok(Item::Query(self.parse_query_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1542,6 +1552,52 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(EventDef { name, fields, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `command Name field: Type ... end`.
+    pub(crate) fn parse_command_def(&mut self) -> Result<CommandDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::CommandKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut fields: Vec<(String, String)> = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(field_name) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance();
+                    self.advance();
+                    let (ty, _) = self.expect_ident()?;
+                    fields.push((field_name, ty));
+                    continue;
+                }
+            }
+            self.advance();
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(CommandDef { name, fields, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `query Name field: Type ... end`.
+    pub(crate) fn parse_query_def(&mut self) -> Result<QueryDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::QueryKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut fields: Vec<(String, String)> = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(field_name) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance();
+                    self.advance();
+                    let (ty, _) = self.expect_ident()?;
+                    fields.push((field_name, ty));
+                    continue;
+                }
+            }
+            self.advance();
+        }
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(QueryDef { name, fields, span: Span::merge(&start, &end_span) })
     }
 }
 

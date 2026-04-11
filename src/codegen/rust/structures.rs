@@ -597,6 +597,46 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M162: Emit `{Name}Command` struct + `{Name}Handler` trait (CQRS command side).
+    pub(super) fn emit_command_def(&self, cd: &CommandDef, out: &mut String) {
+        let name = &cd.name;
+        out.push_str(&format!(
+            "// LOOM[command:cqrs]: {name} — M162 CQRS command\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Command {{\n"
+        ));
+        for (field, ty) in &cd.fields {
+            let rust_ty = loom_type_to_rust(ty);
+            out.push_str(&format!("    pub {field}: {rust_ty},\n"));
+        }
+        out.push_str("}\n\n");
+        out.push_str(&format!(
+            "pub trait {name}Handler {{\n\
+             \x20\x20\x20\x20fn handle(&self, cmd: {name}Command) -> Result<(), String>;\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M162: Emit `{Name}Query` struct + `{Name}QueryHandler<R>` trait (CQRS query side).
+    pub(super) fn emit_query_def(&self, qd: &QueryDef, out: &mut String) {
+        let name = &qd.name;
+        out.push_str(&format!(
+            "// LOOM[query:cqrs]: {name} — M162 CQRS query\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Query {{\n"
+        ));
+        for (field, ty) in &qd.fields {
+            let rust_ty = loom_type_to_rust(ty);
+            out.push_str(&format!("    pub {field}: {rust_ty},\n"));
+        }
+        out.push_str("}\n\n");
+        out.push_str(&format!(
+            "pub trait {name}QueryHandler<R> {{\n\
+             \x20\x20\x20\x20fn handle(&self, query: {name}Query) -> R;\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
