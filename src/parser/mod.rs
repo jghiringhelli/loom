@@ -354,6 +354,9 @@ impl<'src> Parser<'src> {
             Some((Token::QueueKw, _)) => Some("queue".to_string()),
             Some((Token::LockKw, _)) => Some("lock".to_string()),
             Some((Token::ChannelKw, _)) => Some("channel".to_string()),
+            Some((Token::SemaphoreKw, _)) => Some("semaphore".to_string()),
+            Some((Token::Actor, _)) => Some("actor".to_string()),
+            Some((Token::BarrierKw, _)) => Some("barrier".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -459,6 +462,9 @@ impl<'src> Parser<'src> {
             Some((Token::QueueKw, _)) => Some("queue".to_string()),
             Some((Token::LockKw, _)) => Some("lock".to_string()),
             Some((Token::ChannelKw, _)) => Some("channel".to_string()),
+            Some((Token::SemaphoreKw, _)) => Some("semaphore".to_string()),
+            Some((Token::Actor, _)) => Some("actor".to_string()),
+            Some((Token::BarrierKw, _)) => Some("barrier".to_string()),
             Some((Token::Type, _)) => Some("type".to_string()),
             _ => None,
         }
@@ -613,6 +619,12 @@ impl<'src> Parser<'src> {
                 items.push(Item::Lock(self.parse_lock_def()?));
             } else if self.at(&Token::ChannelKw) {
                 items.push(Item::Channel(self.parse_channel_def()?));
+            } else if self.at(&Token::SemaphoreKw) {
+                items.push(Item::Semaphore(self.parse_semaphore_def()?));
+            } else if self.at(&Token::Actor) {
+                items.push(Item::Actor(self.parse_actor_def()?));
+            } else if self.at(&Token::BarrierKw) {
+                items.push(Item::Barrier(self.parse_barrier_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -833,6 +845,9 @@ impl<'src> Parser<'src> {
             Some(Token::QueueKw) => Ok(Item::Queue(self.parse_queue_def()?)),
             Some(Token::LockKw) => Ok(Item::Lock(self.parse_lock_def()?)),
             Some(Token::ChannelKw) => Ok(Item::Channel(self.parse_channel_def()?)),
+            Some(Token::SemaphoreKw) => Ok(Item::Semaphore(self.parse_semaphore_def()?)),
+            Some(Token::Actor) => Ok(Item::Actor(self.parse_actor_def()?)),
+            Some(Token::BarrierKw) => Ok(Item::Barrier(self.parse_barrier_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2184,6 +2199,93 @@ impl<'src> Parser<'src> {
         self.expect(Token::End)?;
         Ok(ChannelDef { name, element_type, capacity, span: Span::merge(&start, &end_span) })
     }
+
+    /// M176: Parse `semaphore Name [permits: N] end`
+    fn parse_semaphore_def(&mut self) -> Result<SemaphoreDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::SemaphoreKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut permits: u64 = 1;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "permits" {
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            permits = *n as u64;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(SemaphoreDef { name, permits, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M177: Parse `actor Name [type: M] end`
+    fn parse_actor_def(&mut self) -> Result<ActorDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::Actor)?;
+        let (name, _) = self.expect_ident()?;
+        let mut message_type = "String".to_string();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "type" {
+                        if let Some(t) = self.token_as_ident() {
+                            message_type = t;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(ActorDef { name, message_type, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M178: Parse `barrier Name [count: N] end`
+    fn parse_barrier_def(&mut self) -> Result<BarrierDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::BarrierKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut count: u64 = 2;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    if key == "count" {
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            count = *n as u64;
+                            self.advance();
+                        }
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(BarrierDef { name, count, span: Span::merge(&start, &end_span) })
+    }
 }
 
 // ── Unit tests ─────────────────────────────────────────────────────────────────
@@ -2321,6 +2423,9 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::QueueKw => Some("queue"),
         Token::LockKw => Some("lock"),
         Token::ChannelKw => Some("channel"),
+        Token::SemaphoreKw => Some("semaphore"),
+        Token::Actor => Some("actor"),
+        Token::BarrierKw => Some("barrier"),
         _ => None,
     }
 }

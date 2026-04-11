@@ -1267,3 +1267,42 @@ pub struct ChannelDef {
     pub capacity: u64,
     pub span: Span,
 }
+
+// ── M176: SemaphoreDef ────────────────────────────────────────────────────────
+
+/// `semaphore Name permits: N end`
+///
+/// First-class counting semaphore item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SemaphoreDef {
+    pub name: String,
+    /// Initial permit count (default: 1).
+    pub permits: u64,
+    pub span: Span,
+}
+
+// ── M177: ActorDef ────────────────────────────────────────────────────────────
+
+/// `actor Name type: M end`
+///
+/// First-class lightweight actor with mailbox item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActorDef {
+    pub name: String,
+    /// Message type (default: "String").
+    pub message_type: String,
+    pub span: Span,
+}
+
+// ── M178: BarrierDef ──────────────────────────────────────────────────────────
+
+/// `barrier Name count: N end`
+///
+/// First-class N-thread synchronization barrier item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BarrierDef {
+    pub name: String,
+    /// Number of threads to synchronize (default: 2).
+    pub count: u64,
+    pub span: Span,
+}

@@ -198,4 +198,10 @@ pub enum Item {
     Lock(LockDef),
     /// M175: Named typed MPSC channel — first-class module-level item.
     Channel(ChannelDef),
+    /// M176: Named counting semaphore — first-class module-level item.
+    Semaphore(SemaphoreDef),
+    /// M177: Named lightweight actor — first-class module-level item.
+    Actor(ActorDef),
+    /// M178: Named synchronization barrier — first-class module-level item.
+    Barrier(BarrierDef),
 }

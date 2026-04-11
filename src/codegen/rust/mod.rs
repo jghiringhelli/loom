@@ -503,6 +503,21 @@ impl RustEmitter {
                 self.emit_channel_def(cd, &mut buf);
                 buf
             }
+            Item::Semaphore(sd) => {
+                let mut buf = String::new();
+                self.emit_semaphore_def(sd, &mut buf);
+                buf
+            }
+            Item::Actor(ad) => {
+                let mut buf = String::new();
+                self.emit_actor_def(ad, &mut buf);
+                buf
+            }
+            Item::Barrier(bd) => {
+                let mut buf = String::new();
+                self.emit_barrier_def(bd, &mut buf);
+                buf
+            }
         }
     }
 }

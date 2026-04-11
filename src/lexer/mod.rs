@@ -495,6 +495,16 @@ pub enum Token {
     #[token("channel")]
     ChannelKw,
 
+    // ── M176: semaphore (counting semaphore) as first-class item ─────────────────
+    #[token("semaphore")]
+    SemaphoreKw,
+
+    // ── M177: actor (lightweight actor with mailbox) as first-class item ─────────
+    // NOTE: reuses Token::Actor (line ~341) — no new token needed
+    // ── M178: barrier (N-thread synchronization barrier) as first-class item ─────
+    #[token("barrier")]
+    BarrierKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

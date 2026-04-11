@@ -1057,6 +1057,106 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M176: Emit `{Name}Semaphore` — counting semaphore.
+    pub(super) fn emit_semaphore_def(&self, sd: &SemaphoreDef, out: &mut String) {
+        let name = &sd.name;
+        let permits = sd.permits;
+        out.push_str(&format!(
+            "// LOOM[semaphore:concurrency]: {name} — M176 counting semaphore (permits: {permits})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Semaphore {{\n\
+             \x20\x20\x20\x20count: std::sync::atomic::AtomicUsize,\n\
+             }}\n\n\
+             impl {name}Semaphore {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ count: std::sync::atomic::AtomicUsize::new({permits}) }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[semaphore:wait]: acquire a permit; returns false if none available\n\
+             \x20\x20\x20\x20pub fn wait(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let mut current = self.count.load(Ordering::Acquire);\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20loop {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20if current == 0 {{ return false; }}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20match self.count.compare_exchange_weak(current, current - 1, Ordering::AcqRel, Ordering::Acquire) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Ok(_) => return true,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Err(c) => current = c,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[semaphore:signal]: release a permit\n\
+             \x20\x20\x20\x20pub fn signal(&self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.count.fetch_add(1, Ordering::Release);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[semaphore:count]: current available permits\n\
+             \x20\x20\x20\x20pub fn count(&self) -> usize {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.count.load(Ordering::Relaxed)\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M177: Emit `{Name}Actor<M>` — lightweight actor with mailbox.
+    pub(super) fn emit_actor_def(&self, ad: &ActorDef, out: &mut String) {
+        let name = &ad.name;
+        let msg = &ad.message_type;
+        out.push_str(&format!(
+            "// LOOM[actor:concurrency]: {name} — M177 lightweight actor (message: {msg})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Actor<M = {msg}> {{\n\
+             \x20\x20\x20\x20mailbox: std::collections::VecDeque<M>,\n\
+             }}\n\n\
+             impl<M> {name}Actor<M> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ mailbox: std::collections::VecDeque::new() }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[actor:send]: enqueue a message into the mailbox\n\
+             \x20\x20\x20\x20pub fn send(&mut self, message: M) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.mailbox.push_back(message);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[actor:receive]: dequeue the next message\n\
+             \x20\x20\x20\x20pub fn receive(&mut self) -> Option<M> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.mailbox.pop_front()\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[actor:pending]: number of queued messages\n\
+             \x20\x20\x20\x20pub fn pending(&self) -> usize {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.mailbox.len()\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M178: Emit `{Name}Barrier` — N-thread synchronization barrier.
+    pub(super) fn emit_barrier_def(&self, bd: &BarrierDef, out: &mut String) {
+        let name = &bd.name;
+        let count = bd.count;
+        out.push_str(&format!(
+            "// LOOM[barrier:concurrency]: {name} — M178 synchronization barrier (count: {count})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Barrier {{\n\
+             \x20\x20\x20\x20pub count: usize,\n\
+             \x20\x20\x20\x20arrived: std::sync::atomic::AtomicUsize,\n\
+             }}\n\n\
+             impl {name}Barrier {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ count: {count}, arrived: std::sync::atomic::AtomicUsize::new(0) }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[barrier:wait]: signal arrival and wait until all count threads arrive\n\
+             \x20\x20\x20\x20pub fn wait(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20let prev = self.arrived.fetch_add(1, Ordering::AcqRel);\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20prev + 1 >= self.count\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[barrier:reset]: reset arrival counter\n\
+             \x20\x20\x20\x20pub fn reset(&self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20use std::sync::atomic::Ordering;\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.arrived.store(0, Ordering::Release);\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
