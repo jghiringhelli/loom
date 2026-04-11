@@ -453,6 +453,11 @@ impl RustEmitter {
                 self.emit_rate_limiter_def(rl, &mut buf);
                 buf
             }
+            Item::Cache(cd) => {
+                let mut buf = String::new();
+                self.emit_cache_def(cd, &mut buf);
+                buf
+            }
         }
     }
 }

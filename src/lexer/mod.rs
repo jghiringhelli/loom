@@ -459,6 +459,10 @@ pub enum Token {
     #[token("rate_limiter")]
     RateLimiterKw,
 
+    // ── M166: cache with TTL as first-class item ──────────────────────────────────
+    #[token("cache")]
+    CacheKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

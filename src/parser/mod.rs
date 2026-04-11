@@ -345,6 +345,7 @@ impl<'src> Parser<'src> {
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
             Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
+            Some((Token::CacheKw, _)) => Some("cache".to_string()),
             _ => None,
         }
     }
@@ -440,6 +441,7 @@ impl<'src> Parser<'src> {
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
             Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
+            Some((Token::CacheKw, _)) => Some("cache".to_string()),
             _ => None,
         }
     }
@@ -573,6 +575,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Retry(self.parse_retry_def()?));
             } else if self.at(&Token::RateLimiterKw) {
                 items.push(Item::RateLimiter(self.parse_rate_limiter_def()?));
+            } else if self.at(&Token::CacheKw) {
+                items.push(Item::Cache(self.parse_cache_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -783,6 +787,7 @@ impl<'src> Parser<'src> {
             Some(Token::CircuitBreakerKw) => Ok(Item::CircuitBreaker(self.parse_circuit_breaker_def()?)),
             Some(Token::RetryKw) => Ok(Item::Retry(self.parse_retry_def()?)),
             Some(Token::RateLimiterKw) => Ok(Item::RateLimiter(self.parse_rate_limiter_def()?)),
+            Some(Token::CacheKw) => Ok(Item::Cache(self.parse_cache_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1767,6 +1772,55 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(RateLimiterDef { name, requests, per, burst, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M166: Parse `cache Name [key: Type] [value: Type] [ttl: N] end`
+    ///
+    /// Generates a typed `{Name}Cache<K,V>` generic struct with get/set/evict methods.
+    /// All configuration keys are optional — defaults: key=String, value=String, ttl=300.
+    fn parse_cache_def(&mut self) -> Result<CacheDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::CacheKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut key_type = "String".to_string();
+        let mut value_type = "String".to_string();
+        let mut ttl: u64 = 300;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "key" => {
+                            if let Some(t) = self.token_as_ident() {
+                                key_type = t;
+                                self.advance();
+                            }
+                        }
+                        "value" => {
+                            if let Some(t) = self.token_as_ident() {
+                                value_type = t;
+                                self.advance();
+                            }
+                        }
+                        "ttl" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                ttl = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(CacheDef { name, key_type, value_type, ttl, span: Span::merge(&start, &end_span) })
     }
 }
 

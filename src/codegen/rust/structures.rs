@@ -739,6 +739,43 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M166: Emit `{Name}Cache<K,V>` generic struct + get/set/evict methods (TTL-aware cache).
+    pub(super) fn emit_cache_def(&self, cd: &CacheDef, out: &mut String) {
+        let name = &cd.name;
+        let key = &cd.key_type;
+        let val = &cd.value_type;
+        let ttl = cd.ttl;
+        out.push_str(&format!(
+            "// LOOM[cache:performance]: {name} — M166 typed cache with TTL={ttl}s\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Cache<K = {key}, V = {val}> {{\n\
+             \x20\x20\x20\x20pub ttl_secs: u64,\n\
+             \x20\x20\x20\x20_phantom: std::marker::PhantomData<(K, V)>,\n\
+             }}\n\n\
+             impl<K, V> {name}Cache<K, V>\n\
+             where\n\
+             \x20\x20\x20\x20K: std::hash::Hash + Eq + Clone,\n\
+             \x20\x20\x20\x20V: Clone,\n\
+             {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ ttl_secs: {ttl}, _phantom: std::marker::PhantomData }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[cache:get]: retrieve value by key (None if missing or expired)\n\
+             \x20\x20\x20\x20pub fn get(&self, _key: &K) -> Option<V> {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement cache get\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[cache:set]: insert a key-value pair, resetting TTL\n\
+             \x20\x20\x20\x20pub fn set(&mut self, _key: K, _value: V) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement cache set\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[cache:evict]: remove expired entries\n\
+             \x20\x20\x20\x20pub fn evict(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement cache evict\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -178,4 +178,6 @@ pub enum Item {
     Retry(RetryDef),
     /// M165: Named rate limiter (token bucket) — first-class module-level item.
     RateLimiter(RateLimiterDef),
+    /// M166: Named cache with TTL — first-class module-level item.
+    Cache(CacheDef),
 }

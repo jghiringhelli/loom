@@ -1132,3 +1132,19 @@ pub struct RateLimiterDef {
     pub burst: u64,
     pub span: Span,
 }
+
+// ── M166: cache (typed, TTL-aware) ─────────────────────────────────────────────
+
+/// `cache Name key: Type value: Type ttl: N end`
+/// Generates a typed `{Name}Cache<K,V>` generic struct with get/set/evict methods.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CacheDef {
+    pub name: String,
+    /// Key type (default: "String").
+    pub key_type: String,
+    /// Value type (default: "String").
+    pub value_type: String,
+    /// Time-to-live in seconds (default: 300).
+    pub ttl: u64,
+    pub span: Span,
+}
