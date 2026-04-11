@@ -174,4 +174,6 @@ pub enum Item {
     Query(QueryDef),
     /// M163: Named circuit breaker — first-class module-level resilience item.
     CircuitBreaker(CircuitBreakerDef),
+    /// M164: Named retry policy — first-class module-level resilience item.
+    Retry(RetryDef),
 }

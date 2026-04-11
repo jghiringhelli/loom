@@ -682,6 +682,36 @@ impl {N}TransitionMatrix {
         }
         out.push_str("}\n\n");
     }
+
+    /// M164: Emit `{Name}Policy` struct + `execute<F,T,E>()` (exponential backoff retry).
+    pub(super) fn emit_retry_def(&self, rd: &RetryDef, out: &mut String) {
+        let name = &rd.name;
+        let max_attempts = rd.max_attempts;
+        let base_delay = rd.base_delay;
+        let multiplier = rd.multiplier;
+        out.push_str(&format!(
+            "// LOOM[retry:resilience]: {name} — M164 exponential backoff (Tanenbaum 2007)\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Policy {{\n\
+             \x20\x20\x20\x20pub max_attempts: u32,\n\
+             \x20\x20\x20\x20pub base_delay_ms: u64,\n\
+             \x20\x20\x20\x20pub multiplier: u32,\n\
+             }}\n\n\
+             impl {name}Policy {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ max_attempts: {max_attempts}, base_delay_ms: {base_delay}, multiplier: {multiplier} }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[retry:execute]: wraps a fallible call with exponential backoff\n\
+             \x20\x20\x20\x20pub fn execute<F, T, E>(&self, f: F) -> Result<T, E>\n\
+             \x20\x20\x20\x20where\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20F: Fn() -> Result<T, E>,\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20E: std::fmt::Debug,\n\
+             \x20\x20\x20\x20{{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement retry with exponential backoff\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

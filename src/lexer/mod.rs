@@ -451,6 +451,10 @@ pub enum Token {
     #[token("circuit_breaker")]
     CircuitBreakerKw,
 
+    // ── M164: retry exponential backoff as first-class item ───────────────────────
+    #[token("retry")]
+    RetryKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

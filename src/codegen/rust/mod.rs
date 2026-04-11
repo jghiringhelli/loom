@@ -443,6 +443,11 @@ impl RustEmitter {
                 self.emit_circuit_breaker_def(cb, &mut buf);
                 buf
             }
+            Item::Retry(rd) => {
+                let mut buf = String::new();
+                self.emit_retry_def(rd, &mut buf);
+                buf
+            }
         }
     }
 }

@@ -1082,3 +1082,37 @@ pub struct CircuitBreakerDef {
     pub fallback: String,
     pub span: Span,
 }
+
+// ── M164: RetryDef ────────────────────────────────────────────────────────────
+
+/// M164: Named retry policy — first-class module-level resilience item.
+///
+/// Implements exponential backoff retry (Tanenbaum & Van Steen, "Distributed Systems").
+///
+/// Syntax:
+/// ```loom
+/// retry PaymentRetry
+///   max_attempts: 3
+///   base_delay: 100
+///   multiplier: 2
+///   on: NetworkError
+/// end
+/// ```
+///
+/// Emits:
+/// - `{Name}Policy` struct with `max_attempts`, `base_delay_ms`, `multiplier`
+/// - `impl {Name}Policy` with `new()` + `execute<F,T,E>()` stub
+/// - `LOOM[retry:resilience]` + M164 audit comment
+#[derive(Debug, Clone, PartialEq)]
+pub struct RetryDef {
+    pub name: String,
+    /// Maximum number of attempts (default: 3).
+    pub max_attempts: u32,
+    /// Base delay in milliseconds (default: 100).
+    pub base_delay: u64,
+    /// Backoff multiplier (default: 2).
+    pub multiplier: u32,
+    /// Error type to retry on (optional; empty = retry any error).
+    pub on_error: String,
+    pub span: Span,
+}

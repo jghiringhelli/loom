@@ -343,6 +343,7 @@ impl<'src> Parser<'src> {
             Some((Token::QueryKw, _)) => Some("query".to_string()),
             Some((Token::CircuitBreakerKw, _)) => Some("circuit_breaker".to_string()),
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
+            Some((Token::RetryKw, _)) => Some("retry".to_string()),
             _ => None,
         }
     }
@@ -436,6 +437,7 @@ impl<'src> Parser<'src> {
             Some((Token::QueryKw, _)) => Some("query".to_string()),
             Some((Token::CircuitBreakerKw, _)) => Some("circuit_breaker".to_string()),
             Some((Token::Threshold, _)) => Some("threshold".to_string()),
+            Some((Token::RetryKw, _)) => Some("retry".to_string()),
             _ => None,
         }
     }
@@ -565,6 +567,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Query(self.parse_query_def()?));
             } else if self.at(&Token::CircuitBreakerKw) {
                 items.push(Item::CircuitBreaker(self.parse_circuit_breaker_def()?));
+            } else if self.at(&Token::RetryKw) {
+                items.push(Item::Retry(self.parse_retry_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -773,6 +777,7 @@ impl<'src> Parser<'src> {
             Some(Token::CommandKw) => Ok(Item::Command(self.parse_command_def()?)),
             Some(Token::QueryKw) => Ok(Item::Query(self.parse_query_def()?)),
             Some(Token::CircuitBreakerKw) => Ok(Item::CircuitBreaker(self.parse_circuit_breaker_def()?)),
+            Some(Token::RetryKw) => Ok(Item::Retry(self.parse_retry_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1653,6 +1658,61 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(CircuitBreakerDef { name, threshold, timeout, fallback, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `retry Name max_attempts: N base_delay: N multiplier: N on: ErrorType end`.
+    ///
+    /// All keys optional — defaults: max_attempts=3, base_delay=100, multiplier=2, on="".
+    pub(crate) fn parse_retry_def(&mut self) -> Result<RetryDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::RetryKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut max_attempts: u32 = 3;
+        let mut base_delay: u64 = 100;
+        let mut multiplier: u32 = 2;
+        let mut on_error = String::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // key
+                    self.advance(); // colon
+                    match key.as_str() {
+                        "max_attempts" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                max_attempts = *n as u32;
+                                self.advance();
+                            }
+                        }
+                        "base_delay" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                base_delay = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "multiplier" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                multiplier = *n as u32;
+                                self.advance();
+                            }
+                        }
+                        "on" => {
+                            if let Some(val) = self.token_as_ident() {
+                                on_error = val;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(RetryDef { name, max_attempts, base_delay, multiplier, on_error, span: Span::merge(&start, &end_span) })
     }
 }
 
