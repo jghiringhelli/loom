@@ -111,6 +111,15 @@
 | M162: {Name}QueryHandler<R> generic trait  | Static   | rustc       | PROVED   | m162_command_query_test |
 | M163: circuit_breaker → state enum + struct| Static   | rustc       | PROVED   | m163_circuit_breaker_test|
 | M163: call<F,T>() + fallback fn emitted    | Static   | rustc       | PROVED   | m163_circuit_breaker_test|
+| M164: retry item → {Name}Policy struct     | Static   | rustc       | PROVED   | m164_retry_item_test    |
+| M164: execute<F,T,E>() + Fn/Debug bounds   | Static   | rustc       | PROVED   | m164_retry_item_test    |
+| M164: defaults (3/100/2) when keys omitted | Static   | rustc       | PROVED   | m164_retry_item_test    |
+| M165: rate_limiter → {Name}RateLimiter     | Static   | rustc       | PROVED   | m165_rate_limiter_test  |
+| M165: allow() token bucket method emitted  | Static   | rustc       | PROVED   | m165_rate_limiter_test  |
+| M165: defaults (100/60/0) when omitted     | Static   | rustc       | PROVED   | m165_rate_limiter_test  |
+| M166: cache item → {Name}Cache<K,V> struct | Static   | rustc       | PROVED   | m166_cache_item_test    |
+| M166: get()/set()/evict() methods emitted  | Static   | rustc       | PROVED   | m166_cache_item_test    |
+| M166: PhantomData + K/V bounds correct     | Static   | rustc       | PROVED   | m166_cache_item_test    |
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |
@@ -162,16 +171,16 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 75
-PROVED  (machine/type-system verified):  50  (67%)
-EMITTED (scaffold ready, tool separate):  19  (25%)
-DECLARED (annotation only, no scaffold):   2   (3%)
-PENDING (implementation required):         4   (5%)
+Total Loom claims tracked: 106
+PROVED  (machine/type-system verified):  81  (76%)
+EMITTED (scaffold ready, tool separate):  19  (18%)
+DECLARED (annotation only, no scaffold):   2   (2%)
+PENDING (implementation required):         4   (4%)
 
-Changes from M156:
-- M156: 2 new PROVED claims for dag item:
-  `dag Name nodes: [...] edges: [...] end` → {Name}Node enum + {Name}DagItem struct,
-  pre-initialized edges in new() + Kahn topological sort with cycle detection
+Changes from M163:
+- M164: 3 new PROVED claims for retry item (exponential backoff policy)
+- M165: 3 new PROVED claims for rate_limiter item (token bucket)
+- M166: 3 new PROVED claims for cache item (typed TTL-aware generic cache)
 
 Changes from M151-M155:
 - M153: 3 new PROVED claims for CRUD service layer + SQLite wiring:
