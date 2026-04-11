@@ -1379,8 +1379,9 @@ impl<'src> crate::parser::Parser<'src> {
         let mut steps: Vec<PathwayStep> = Vec::new();
         let mut compensate: Option<String> = None;
         while !self.at(&Token::End) && self.peek().is_some() {
-            // compensate: X
-            if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "compensate")
+            // compensate: X  (Token::Compensate since M160, also accept legacy Ident)
+            if (matches!(self.tokens.get(self.pos), Some((Token::Compensate, _)))
+                || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "compensate"))
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
                 self.advance(); // compensate

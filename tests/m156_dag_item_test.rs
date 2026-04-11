@@ -22,7 +22,7 @@ fn compile_check(src: &str) -> Result<String, Vec<loom::error::LoomError>> {
 #[test]
 fn m156_simple_dag_parses() {
     let src = r#"
-module pipeline
+module etl
 dag Pipeline
   nodes: [Ingest, Transform, Load]
   edges: [Ingest -> Transform, Transform -> Load]
@@ -38,7 +38,7 @@ end
 #[test]
 fn m156_node_enum_emitted() {
     let src = r#"
-module pipeline
+module etl
 dag Pipeline
   nodes: [Ingest, Transform, Validate, Load]
   edges: [Ingest -> Transform]
