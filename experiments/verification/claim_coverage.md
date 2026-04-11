@@ -85,6 +85,15 @@
 
 | Claim                                      | Tier     | Tool        | Status   | Experiment              |
 |--------------------------------------------|----------|-------------|----------|-------------------------|
+| M153: CRUD service layer per relational    | Static   | rustc       | PROVED   | m153_crud_service_test  |
+| M153: get() returns NotFound when absent   | Static   | rustc       | PROVED   | m153_crud_service_test  |
+| M153: SQLite adapter wired into store      | Static   | rustc       | PROVED   | m153_crud_service_test  |
+| M154: SnapshotBridge trait emitted         | Static   | rustc       | PROVED   | m154_event_snapshot_test|
+| M154: payload as soft keyword (field name) | Static   | rustc       | PROVED   | m154_event_snapshot_test|
+| M155: chain item → State enum + Matrix     | Static   | rustc       | PROVED   | m155_chain_item_test    |
+| M155: transitions pre-initialized in new() | Static   | rustc       | PROVED   | m155_chain_item_test    |
+| M156: dag item → Node enum + DagItem struct| Static   | rustc       | PROVED   | m156_dag_item_test      |
+| M156: edges pre-initialized + Kahn sort    | Static   | rustc       | PROVED   | m156_dag_item_test      |
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |
@@ -136,13 +145,30 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 66
-PROVED  (machine/type-system verified):  41  (62%)
-EMITTED (scaffold ready, tool separate):  19  (29%)
+Total Loom claims tracked: 75
+PROVED  (machine/type-system verified):  50  (67%)
+EMITTED (scaffold ready, tool separate):  19  (25%)
 DECLARED (annotation only, no scaffold):   2   (3%)
-PENDING (implementation required):         4   (6%)
+PENDING (implementation required):         4   (5%)
 
-Changes from v9:
+Changes from M156:
+- M156: 2 new PROVED claims for dag item:
+  `dag Name nodes: [...] edges: [...] end` → {Name}Node enum + {Name}DagItem struct,
+  pre-initialized edges in new() + Kahn topological sort with cycle detection
+
+Changes from M151-M155:
+- M153: 3 new PROVED claims for CRUD service layer + SQLite wiring:
+  `{T}Service` struct with create/get/list/update/delete/exists methods,
+  get() returns NotFound when entity absent,
+  SQLite adapter wired into codegen_relational_store() call chain
+- M154: 2 new PROVED claims for EventStore snapshot bridge + payload fix:
+  `{S}SnapshotBridge` trait with snapshot_to()/resume_from() methods,
+  `payload` soft-keyword fix — now valid as table field name
+- M155: 2 new PROVED claims for chain item:
+  `chain Name states: [...] transitions: ... end` → {Name}State enum + {Name}TransitionMatrix struct,
+  pre-initialized transitions in new() constructor from chain declaration
+
+Prior changes (M151-M152):
 - M151: 4 new PROVED claims for binary persistence:
   `#[derive(serde::Serialize, serde::Deserialize)]` on all store entity structs,
   `BinaryPersist` trait with `save_snapshot`/`load_snapshot` via bincode,

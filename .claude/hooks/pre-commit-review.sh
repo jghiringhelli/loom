@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 DIFF=$(git diff --cached)
 if [ -z "$DIFF" ]; then exit 0; fi
 echo "📝 Staged changes ready for review"

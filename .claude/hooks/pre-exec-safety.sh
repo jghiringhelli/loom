@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 DANGEROUS_PATTERNS=(
   "rm -rf /"
   "DROP DATABASE"

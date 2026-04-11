@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 if [ -z "$STAGED" ]; then exit 0; fi
 SRC_PATTERNS='^(src|lib|app|server|client|pkg|internal|cmd)/'

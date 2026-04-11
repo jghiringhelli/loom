@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 echo "🔨 Running build check..."
 if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "requirements.txt" ]; then
   STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')

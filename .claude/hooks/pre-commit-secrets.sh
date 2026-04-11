@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 PATTERNS=(
   'AKIA[0-9A-Z]{16}'
   'password\s*=\s*["\x27][^"\x27]+'

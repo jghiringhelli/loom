@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # commit-msg: enforce conventional commit format
 # ForgeCraft — generated hook
 

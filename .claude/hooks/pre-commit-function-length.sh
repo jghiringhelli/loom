@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 MAX_LENGTH={{max_function_length | default: 50}}
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 SOURCE_FILES=$(echo "$STAGED" | grep -E '\.(ts|tsx|js|jsx|rs)$' | grep -vE '(\.test\.|\.spec\.|__tests__|tests/|_test\.rs)')

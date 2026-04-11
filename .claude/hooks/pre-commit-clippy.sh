@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 if [ ! -f "Cargo.toml" ]; then
   exit 0
 fi
