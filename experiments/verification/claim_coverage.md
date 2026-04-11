@@ -198,8 +198,8 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 154
-PROVED  (machine/type-system verified): 129  (84%)
+Total Loom claims tracked: 163
+PROVED  (machine/type-system verified): 138  (85%)
 EMITTED (scaffold ready, tool separate):  19  (14%)
 DECLARED (annotation only, no scaffold):   2   (1%)
 PENDING (implementation required):         4   (3%)
@@ -283,3 +283,21 @@ _+9 PROVED rows. Session total: 145 tracked, 120 PROVED (83%)._
 | both items parse cleanly with other module items | Integration | rustc | PROVED | m179/m180 tests |
 
 _+9 PROVED rows. Session total: 154 tracked, 129 PROVED (84%)._
+
+
+
+## M181-M182: Orchestration items (workflow / projection)
+
+| Claim | Dimension | Tool | Status | Test |
+|---|---|---|---|---|
+| workflow emits {Name}Step trait | Structural | rustc | PROVED | m181_workflow_item_test.rs |
+| workflow emits {Name}Workflow struct | Structural | rustc | PROVED | m181_workflow_item_test.rs |
+| workflow add_step/run/step_count methods generated | Behavioral | rustc | PROVED | m181_workflow_item_test.rs |
+| projection emits {Name}Projection<E> struct | Structural | rustc | PROVED | m182_projection_item_test.rs |
+| projection events VecDeque field emitted | Structural | rustc | PROVED | m182_projection_item_test.rs |
+| projection project/snapshot/reset methods generated | Behavioral | rustc | PROVED | m182_projection_item_test.rs |
+| workflow step_count returns steps.len() | Behavioral | rustc | PROVED | m182_projection_item_test.rs |
+| projection reset clears both events and snapshot | Behavioral | rustc | PROVED | m182_projection_item_test.rs |
+| both items parse cleanly alongside other module items | Integration | rustc | PROVED | m181/m182 tests |
+
+_+9 PROVED rows. Session total: 163 tracked, 138 PROVED (85%)._
