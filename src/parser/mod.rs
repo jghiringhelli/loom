@@ -334,6 +334,8 @@ impl<'src> Parser<'src> {
             Some((Token::Nodes, _)) => Some("nodes".to_string()),
             Some((Token::Edges, _)) => Some("edges".to_string()),
             Some((Token::Const, _)) => Some("const".to_string()),
+            Some((Token::PipelineKw, _)) => Some("pipeline".to_string()),
+            Some((Token::Step, _)) => Some("step".to_string()),
             _ => None,
         }
     }
@@ -418,6 +420,8 @@ impl<'src> Parser<'src> {
             Some((Token::Nodes, _)) => Some("nodes".to_string()),
             Some((Token::Edges, _)) => Some("edges".to_string()),
             Some((Token::Const, _)) => Some("const".to_string()),
+            Some((Token::PipelineKw, _)) => Some("pipeline".to_string()),
+            Some((Token::Step, _)) => Some("step".to_string()),
             _ => None,
         }
     }
@@ -535,6 +539,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Dag(self.parse_dag_def()?));
             } else if self.at(&Token::Const) {
                 items.push(Item::Const(self.parse_const_def()?));
+            } else if self.at(&Token::PipelineKw) {
+                items.push(Item::Pipeline(self.parse_pipeline_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -737,6 +743,7 @@ impl<'src> Parser<'src> {
             Some(Token::ChainKw) => Ok(Item::Chain(self.parse_chain_def()?)),
             Some(Token::DagKw) => Ok(Item::Dag(self.parse_dag_def()?)),
             Some(Token::Const) => Ok(Item::Const(self.parse_const_def()?)),
+            Some(Token::PipelineKw) => Ok(Item::Pipeline(self.parse_pipeline_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1390,9 +1397,48 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         Ok(ConstDef { name, ty, value, span: Span::merge(&start, &end_span) })
     }
+
+    // ── M159: pipeline item ────────────────────────────────────────────────────
+
+    /// Parse a `pipeline Name step name :: In -> Out ... end` declaration.
+    ///
+    /// Each step is a named transformation with a `::` arrow type signature:
+    /// `step normalize :: String -> String`
+    ///
+    /// Produces a [`PipelineDef`] with ordered steps.
+    fn parse_pipeline_def(&mut self) -> Result<PipelineDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::PipelineKw)?;
+        let (name, _) = self.expect_ident()?;
+
+        let mut steps = Vec::new();
+        while !self.at(&Token::End) && self.peek().is_some() {
+            let step_start = self.current_span();
+            self.expect(Token::Step)?;
+            let (step_name, _) = self.expect_ident()?;
+            self.expect(Token::ColonColon)?;
+
+            // Parse `InputType -> OutputType`
+            let (input_ty, _) = self.expect_ident()?;
+            self.expect(Token::Arrow)?;
+            let (output_ty, _) = self.expect_ident()?;
+
+            let step_end = self.current_span();
+            steps.push(PipelineStep {
+                name: step_name,
+                input_ty,
+                output_ty,
+                span: Span::merge(&step_start, &step_end),
+            });
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(PipelineDef { name, steps, span: Span::merge(&start, &end_span) })
+    }
 }
 
-// ── Unit tests ────────────────────────────────────────────────────────────────
+// ── Unit tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

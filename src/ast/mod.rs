@@ -162,4 +162,6 @@ pub enum Item {
     Dag(DagDef),
     /// M157: Named constant — first-class module-level item.
     Const(ConstDef),
+    /// M159: Named sequential data-transformation pipeline — first-class module-level item.
+    Pipeline(PipelineDef),
 }

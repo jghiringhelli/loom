@@ -59,6 +59,17 @@ fn to_upper_snake(name: &str) -> String {
     out
 }
 
+/// Map a Loom scalar type name to its Rust equivalent (for pipeline step signatures).
+fn loom_type_to_rust(ty: &str) -> &str {
+    match ty {
+        "Int" | "Integer" | "Nat" | "Index" | "Count" => "i64",
+        "Float" | "Double" | "Real" => "f64",
+        "Bool" | "Boolean" => "bool",
+        "String" | "Str" | "Text" => "String",
+        _ => ty,
+    }
+}
+
 /// Map a Loom type + raw value pair to `(rust_type, rust_value)` strings.
 fn map_const_type_value<'a>(ty: &'a str, value: &'a str) -> (&'a str, std::borrow::Cow<'a, str>) {
     match ty {
@@ -416,6 +427,80 @@ impl {N}TransitionMatrix {
              pub const {rust_name}: {rust_type} = {rust_value};\n\n",
             name = cd.name,
         ));
+    }
+
+    /// M159: Emit a top-level `pipeline` item as a named processing chain.
+    ///
+    /// Each step emits a stub `fn` with a `todo!()` body and a `LOOM[pipeline:step]`
+    /// audit comment. The `process()` method chains all steps in declaration order.
+    ///
+    /// ```loom
+    /// pipeline DataCleaner
+    ///   step normalize :: String -> String
+    ///   step trim :: String -> String
+    ///   step validate :: String -> Bool
+    /// end
+    /// ```
+    ///
+    /// Emits:
+    /// ```rust
+    /// pub struct DataCleanerPipeline;
+    /// impl DataCleanerPipeline {
+    ///     pub fn normalize(&self, input: String) -> String { todo!() }
+    ///     pub fn trim(&self, input: String) -> String { todo!() }
+    ///     pub fn validate(&self, input: String) -> bool { todo!() }
+    ///     pub fn process(&self, input: String) -> bool { ... }
+    /// }
+    /// ```
+    pub(super) fn emit_pipeline_def(&self, pd: &PipelineDef, out: &mut String) {
+        let struct_name = format!("{}Pipeline", pd.name);
+
+        out.push_str(&format!(
+            "// LOOM[pipeline:item]: {name} — sequential transformation pipeline (M159)\n\
+             pub struct {struct_name};\n\n\
+             impl {struct_name} {{\n",
+            name = pd.name,
+        ));
+
+        for step in &pd.steps {
+            let rust_in = loom_type_to_rust(&step.input_ty);
+            let rust_out = loom_type_to_rust(&step.output_ty);
+            out.push_str(&format!(
+                "    // LOOM[pipeline:step]: {step_name} — {in_ty} → {out_ty}\n\
+                     pub fn {step_name}(&self, input: {rust_in}) -> {rust_out} {{\n\
+                 \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement {step_name}\")\n\
+                 \x20\x20\x20\x20}}\n",
+                step_name = step.name,
+                in_ty = step.input_ty,
+                out_ty = step.output_ty,
+            ));
+        }
+
+        // Emit chained `process()` — threads input through all steps in order.
+        if let Some(first) = pd.steps.first() {
+            let rust_in = loom_type_to_rust(&first.input_ty);
+            let final_step = pd.steps.last().unwrap();
+            let rust_out = loom_type_to_rust(&final_step.output_ty);
+
+            let chain = if pd.steps.len() == 1 {
+                format!("self.{}(input)", first.name)
+            } else {
+                let mut chain = format!("self.{}(input)", first.name);
+                for step in pd.steps.iter().skip(1) {
+                    chain = format!("self.{}({})", step.name, chain);
+                }
+                chain
+            };
+
+            out.push_str(&format!(
+                "\n    /// Run all pipeline steps in declaration order.\n\
+                 \x20\x20\x20\x20pub fn process(&self, input: {rust_in}) -> {rust_out} {{\n\
+                 \x20\x20\x20\x20\x20\x20\x20\x20{chain}\n\
+                 \x20\x20\x20\x20}}\n",
+            ));
+        }
+
+        out.push_str("}\n\n");
     }
 }
 

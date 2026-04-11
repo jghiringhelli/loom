@@ -413,6 +413,11 @@ impl RustEmitter {
                 self.emit_const_def(cd, &mut buf);
                 buf
             }
+            Item::Pipeline(pd) => {
+                let mut buf = String::new();
+                self.emit_pipeline_def(pd, &mut buf);
+                buf
+            }
         }
     }
 }

@@ -861,7 +861,42 @@ pub struct DagDef {
     pub span: Span,
 }
 
-// ── M157: ConstDef ────────────────────────────────────────────────────────────
+// ── M159: PipelineDef ──────────────────────────────────────────────────────────
+
+/// M159: Named sequential data-transformation pipeline as a first-class module item.
+///
+/// Syntax:
+/// ```loom
+/// pipeline DataCleaner
+///   step normalize :: String -> String
+///   step trim :: String -> String
+///   step validate :: String -> Bool
+/// end
+/// ```
+///
+/// Emits:
+/// - `{Name}Pipeline` struct (unit struct, zero-cost abstraction)
+/// - `impl {Name}Pipeline { pub fn process(&self, input: {InputType}) -> {OutputType} { ... } }`
+/// - One `pub fn {step_name}(&self, input: {In}) -> {Out}` per step (stub, `todo!()`)
+/// - `LOOM[pipeline:step]` audit comment on each step
+#[derive(Debug, Clone, PartialEq)]
+pub struct PipelineDef {
+    pub name: String,
+    /// Each step: (step_name, input_type, output_type)
+    pub steps: Vec<PipelineStep>,
+    pub span: Span,
+}
+
+/// A single named transformation step in a pipeline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PipelineStep {
+    pub name: String,
+    /// Loom type name for the input (e.g. `"String"`, `"Int"`)
+    pub input_ty: String,
+    /// Loom type name for the output (e.g. `"String"`, `"Bool"`)
+    pub output_ty: String,
+    pub span: Span,
+}
 
 /// M157: Named constant as a first-class module-level item.
 ///

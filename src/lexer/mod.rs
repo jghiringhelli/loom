@@ -425,6 +425,12 @@ pub enum Token {
     #[token("const")]
     Const,
 
+    // ── M159: pipeline as first-class item ───────────────────────────────────────
+    #[token("pipeline")]
+    PipelineKw,
+    #[token("step")]
+    Step,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
