@@ -129,6 +129,15 @@
 | M169: fallback → {Name}Fallback<T=String>  | Static   | rustc       | PROVED   | m169_fallback_item_test |
 | M169: get() returns &self.value            | Static   | rustc       | PROVED   | m169_fallback_item_test |
 | M169: reuses Token::Fallback (no new token)| Static   | rustc       | PROVED   | m169_fallback_item_test |
+| M170: observer → {Name}Observer<T> struct  | Static   | rustc       | PROVED   | m170_observer_item_test |
+| M170: subscribe/notify/get methods emitted | Static   | rustc       | PROVED   | m170_observer_item_test |
+| M170: Token::Type added to ident helpers   | Static   | rustc       | PROVED   | m170_observer_item_test |
+| M171: pool → {Name}Pool<T> struct          | Static   | rustc       | PROVED   | m171_pool_item_test     |
+| M171: acquire/release/available methods    | Static   | rustc       | PROVED   | m171_pool_item_test     |
+| M171: defaults (10/0) when omitted         | Static   | rustc       | PROVED   | m171_pool_item_test     |
+| M172: scheduler → {Name}Scheduler struct   | Static   | rustc       | PROVED   | m172_scheduler_item_test|
+| M172: run/stop/next_run methods emitted    | Static   | rustc       | PROVED   | m172_scheduler_item_test|
+| M172: cron expression stored correctly     | Static   | rustc       | PROVED   | m172_scheduler_item_test|
 | Markov chain: TransitionMatrix struct       | Static   | rustc       | PROVED   | structures codegen      |
 | Wiener process struct                       | Static   | rustc       | PROVED   | structures codegen      |
 | GBM (Geometric Brownian Motion) struct      | Static   | rustc       | PROVED   | structures codegen      |
@@ -180,17 +189,18 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 118
-PROVED  (machine/type-system verified):  93  (79%)
-EMITTED (scaffold ready, tool separate):  19  (16%)
+Total Loom claims tracked: 127
+PROVED  (machine/type-system verified): 102  (80%)
+EMITTED (scaffold ready, tool separate):  19  (15%)
 DECLARED (annotation only, no scaffold):   2   (2%)
 PENDING (implementation required):         4   (3%)
 
-Changes from M166:
-- M167: 3 new PROVED claims for bulkhead item (concurrency isolation)
-- M168: 3 new PROVED claims for timeout item (deadline enforcement)
-- M169: 3 new PROVED claims for fallback item (static value; reuses Token::Fallback)
-- Resilience quintet M164–M169 now complete
+Changes from M169 (M170–M172):
+- M170: 3 new PROVED claims for observer<T> item (subject/observer behavioral pattern)
+- M171: 3 new PROVED claims for pool<T> item (typed worker pool with acquire/release)
+- M172: 3 new PROVED claims for scheduler item (cron-style task scheduler)
+- keyword-as-ident fixes: Token::Type, new KW tokens added to token_as_ident/token_keyword_str
+- requires{} deps and fn-with deps now use expect_any_name() for keyword-named bindings
 
 Changes from M151-M155:
 - M153: 3 new PROVED claims for CRUD service layer + SQLite wiring:
