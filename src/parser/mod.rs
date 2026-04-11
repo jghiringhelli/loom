@@ -338,6 +338,7 @@ impl<'src> Parser<'src> {
             Some((Token::Step, _)) => Some("step".to_string()),
             Some((Token::SagaKw, _)) => Some("saga".to_string()),
             Some((Token::Compensate, _)) => Some("compensate".to_string()),
+            Some((Token::EventKw, _)) => Some("event".to_string()),
             _ => None,
         }
     }
@@ -426,6 +427,7 @@ impl<'src> Parser<'src> {
             Some((Token::Step, _)) => Some("step".to_string()),
             Some((Token::SagaKw, _)) => Some("saga".to_string()),
             Some((Token::Compensate, _)) => Some("compensate".to_string()),
+            Some((Token::EventKw, _)) => Some("event".to_string()),
             _ => None,
         }
     }
@@ -547,6 +549,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Pipeline(self.parse_pipeline_def()?));
             } else if self.at(&Token::SagaKw) {
                 items.push(Item::Saga(self.parse_saga_def()?));
+            } else if self.at(&Token::EventKw) {
+                items.push(Item::Event(self.parse_event_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -751,6 +755,7 @@ impl<'src> Parser<'src> {
             Some(Token::Const) => Ok(Item::Const(self.parse_const_def()?)),
             Some(Token::PipelineKw) => Ok(Item::Pipeline(self.parse_pipeline_def()?)),
             Some(Token::SagaKw) => Ok(Item::Saga(self.parse_saga_def()?)),
+            Some(Token::EventKw) => Ok(Item::Event(self.parse_event_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1508,6 +1513,35 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(SagaDef { name, steps, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `event Name field: Type ... end`.
+    ///
+    /// Each line inside the block is `field_name: TypeName`.
+    /// Unknown tokens are skipped to tolerate annotations or whitespace.
+    pub(crate) fn parse_event_def(&mut self) -> Result<EventDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::EventKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut fields: Vec<(String, String)> = Vec::new();
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // field_name: TypeName
+            if let Some(field_name) = self.token_as_ident() {
+                if matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+                    self.advance(); // field name
+                    self.advance(); // colon
+                    let (ty, _) = self.expect_ident()?;
+                    fields.push((field_name, ty));
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(EventDef { name, fields, span: Span::merge(&start, &end_span) })
     }
 }
 

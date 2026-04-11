@@ -574,10 +574,30 @@ impl {N}TransitionMatrix {
 
         out.push_str("}\n\n");
     }
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PROBABILITY DISTRIBUTIONS
+    /// M161: Emit `{Name}Event` struct + `{Name}EventHandler` trait.
+    ///
+    /// Domain events carry immutable typed payload. The handler trait decouples
+    /// the event from its consumers (Observer / EventBus pattern).
+    pub(super) fn emit_event_def(&self, ed: &EventDef, out: &mut String) {
+        let name = &ed.name;
+        out.push_str(&format!(
+            "// LOOM[event:domain]: {name} — M161 domain event\n\
+             #[derive(Debug, Clone, PartialEq)]\n\
+             pub struct {name}Event {{\n"
+        ));
+        for (field, ty) in &ed.fields {
+            let rust_ty = loom_type_to_rust(ty);
+            out.push_str(&format!("    pub {field}: {rust_ty},\n"));
+        }
+        out.push_str("}\n\n");
+        out.push_str(&format!(
+            "pub trait {name}EventHandler {{\n\
+             \x20\x20\x20\x20fn handle(&self, event: &{name}Event);\n\
+             }}\n\n"
+        ));
+    }
+}
 // ═══════════════════════════════════════════════════════════════════════════
 
 impl RustEmitter {

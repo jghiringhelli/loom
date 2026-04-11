@@ -437,6 +437,10 @@ pub enum Token {
     #[token("compensate")]
     Compensate,
 
+    // ── M161: event as first-class item ──────────────────────────────────────────
+    #[token("event")]
+    EventKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

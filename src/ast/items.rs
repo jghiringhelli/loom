@@ -969,3 +969,31 @@ pub struct ConstDef {
     pub value: String,
     pub span: Span,
 }
+
+// ── M161: EventDef ────────────────────────────────────────────────────────────
+
+/// M161: Named domain event — first-class module-level item.
+///
+/// A domain event captures something significant that happened in the system.
+/// Each event carries typed payload fields declared inline.
+///
+/// Syntax:
+/// ```loom
+/// event UserRegistered
+///   user_id: Int
+///   email: String
+///   at: String
+/// end
+/// ```
+///
+/// Emits:
+/// - `#[derive(Debug, Clone, PartialEq)]` struct `{Name}Event` with typed pub fields
+/// - `pub trait {Name}EventHandler { fn handle(&self, event: &{Name}Event); }`
+/// - `LOOM[event:domain]` audit comment
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventDef {
+    pub name: String,
+    /// Payload fields: (field_name, loom_type_name)
+    pub fields: Vec<(String, String)>,
+    pub span: Span,
+}

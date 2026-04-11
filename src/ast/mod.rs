@@ -166,4 +166,6 @@ pub enum Item {
     Pipeline(PipelineDef),
     /// M160: Distributed transaction saga — first-class module-level item.
     Saga(SagaDef),
+    /// M161: Named domain event — first-class module-level item.
+    Event(EventDef),
 }

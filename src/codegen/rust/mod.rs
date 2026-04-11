@@ -423,6 +423,11 @@ impl RustEmitter {
                 self.emit_saga_def(sd, &mut buf);
                 buf
             }
+            Item::Event(ed) => {
+                let mut buf = String::new();
+                self.emit_event_def(ed, &mut buf);
+                buf
+            }
         }
     }
 }
