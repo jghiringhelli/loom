@@ -528,6 +528,16 @@ impl RustEmitter {
                 self.emit_state_machine_def(sm, &mut buf);
                 buf
             }
+            Item::Workflow(wd) => {
+                let mut buf = String::new();
+                self.emit_workflow_def(wd, &mut buf);
+                buf
+            }
+            Item::Projection(pd) => {
+                let mut buf = String::new();
+                self.emit_projection_def(pd, &mut buf);
+                buf
+            }
         }
     }
 }

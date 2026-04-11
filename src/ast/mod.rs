@@ -208,4 +208,8 @@ pub enum Item {
     EventBus(EventBusDef),
     /// M180: Named finite state machine — first-class module-level item.
     StateMachine(StateMachineDef),
+    /// M181: Named sequential workflow orchestrator — first-class module-level item.
+    Workflow(WorkflowDef),
+    /// M182: Named read-model projection from events — first-class module-level item.
+    Projection(ProjectionDef),
 }

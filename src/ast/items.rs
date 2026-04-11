@@ -1332,3 +1332,27 @@ pub struct StateMachineDef {
     pub initial_state: String,
     pub span: Span,
 }
+
+// ── M181: WorkflowDef ─────────────────────────────────────────────────────────
+
+/// `workflow Name end`
+///
+/// First-class sequential step orchestrator item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkflowDef {
+    pub name: String,
+    pub span: Span,
+}
+
+// ── M182: ProjectionDef ───────────────────────────────────────────────────────
+
+/// `projection Name [element_type: E] end`
+///
+/// First-class read-model projector from events item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectionDef {
+    pub name: String,
+    /// Event type projected (default: "String").
+    pub element_type: String,
+    pub span: Span,
+}

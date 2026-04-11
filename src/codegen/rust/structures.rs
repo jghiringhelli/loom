@@ -1222,6 +1222,74 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M181: `workflow Name end`
+    /// Emits `{Name}Workflow` with Vec<Box<dyn Step>>, add_step/run/step_count.
+    pub(super) fn emit_workflow_def(&self, wd: &WorkflowDef, out: &mut String) {
+        let name = &wd.name;
+        out.push_str(&format!(
+            "// LOOM[workflow:orchestration]: {name} — M181 sequential step orchestrator\n\
+             pub trait {name}Step {{\n\
+             \x20\x20\x20\x20fn execute(&self);\n\
+             }}\n\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Workflow {{\n\
+             \x20\x20\x20\x20steps: std::vec::Vec<Box<dyn {name}Step>>,\n\
+             }}\n\n\
+             impl {name}Workflow {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ steps: std::vec::Vec::new() }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[workflow:add_step]: append a step to the workflow\n\
+             \x20\x20\x20\x20pub fn add_step(&mut self, step: Box<dyn {name}Step>) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.steps.push(step);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[workflow:run]: execute all steps in order\n\
+             \x20\x20\x20\x20pub fn run(&self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20for step in &self.steps {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20step.execute();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[workflow:step_count]: number of registered steps\n\
+             \x20\x20\x20\x20pub fn step_count(&self) -> usize {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.steps.len()\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+    /// M182: `projection Name [element_type: E] end`
+    /// Emits `{Name}Projection<E>` with project/snapshot/reset.
+    pub(super) fn emit_projection_def(&self, pd: &ProjectionDef, out: &mut String) {
+        let name = &pd.name;
+        let ty = &pd.element_type;
+        out.push_str(&format!(
+            "// LOOM[projection:cqrs]: {name} — M182 read-model projector (event: {ty})\n\
+             #[derive(Debug)]\n\
+             pub struct {name}Projection<E = {ty}> {{\n\
+             \x20\x20\x20\x20events: std::collections::VecDeque<E>,\n\
+             \x20\x20\x20\x20snapshot: std::vec::Vec<E>,\n\
+             }}\n\n\
+             impl<E: Clone + std::fmt::Debug> {name}Projection<E> {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ events: std::collections::VecDeque::new(), snapshot: std::vec::Vec::new() }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[projection:project]: record an event\n\
+             \x20\x20\x20\x20pub fn project(&mut self, event: E) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.events.push_back(event);\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[projection:snapshot]: freeze current events into snapshot\n\
+             \x20\x20\x20\x20pub fn snapshot(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.snapshot = self.events.iter().cloned().collect();\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[projection:reset]: clear all events and snapshot\n\
+             \x20\x20\x20\x20pub fn reset(&mut self) {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.events.clear();\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20self.snapshot.clear();\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

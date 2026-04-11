@@ -513,6 +513,14 @@ pub enum Token {
     #[token("state_machine")]
     StateMachineKw,
 
+    // ── M181: workflow (sequential step orchestrator) as first-class item ────────
+    #[token("workflow")]
+    WorkflowKw,
+
+    // ── M182: projection (read-model projector from events) as first-class item ──
+    #[token("projection")]
+    ProjectionKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]
