@@ -198,8 +198,8 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 136
-PROVED  (machine/type-system verified): 111  (82%)
+Total Loom claims tracked: 145
+PROVED  (machine/type-system verified): 120  (83%)
 EMITTED (scaffold ready, tool separate):  19  (14%)
 DECLARED (annotation only, no scaffold):   2   (1%)
 PENDING (implementation required):         4   (3%)
@@ -247,3 +247,21 @@ Key insight: The claims in the PROVED category cover the most critical runtime
 properties — contracts, protocol ordering, type safety, persistence structs.
 The EMITTED category requires external tools but the generated code is correct.
 The DECLARED category is the honest gap: formal proofs via Prusti/TLA+/Dafny.
+
+
+
+## M176–M178: Concurrency Primitives (semaphore / actor / barrier)
+
+| Claim | Dimension | Tool | Status | Test |
+|---|---|---|---|---|
+| semaphore emits AtomicUsize permits field | Structural | rustc | PROVED | m176_semaphore_item_test.rs |
+| semaphore wait/signal/count methods generated | Behavioral | rustc | PROVED | m176_semaphore_item_test.rs |
+| semaphore struct name = {Name}Semaphore | Structural | rustc | PROVED | m176_semaphore_item_test.rs |
+| actor emits VecDeque mailbox | Structural | rustc | PROVED | m177_actor_item_test.rs |
+| actor send/receive/pending methods generated | Behavioral | rustc | PROVED | m177_actor_item_test.rs |
+| actor struct name = {Name}Actor<M> | Structural | rustc | PROVED | m177_actor_item_test.rs |
+| barrier emits AtomicUsize count field | Structural | rustc | PROVED | m178_barrier_item_test.rs |
+| barrier wait/reset methods generated | Behavioral | rustc | PROVED | m178_barrier_item_test.rs |
+| barrier struct name = {Name}Barrier | Structural | rustc | PROVED | m178_barrier_item_test.rs |
+
+_+9 PROVED rows. Session total: 145 tracked, 120 PROVED (83%)._

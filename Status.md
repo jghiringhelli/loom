@@ -1,7 +1,7 @@
 # Status.md
 
 ## Last Updated: 2026-04-11
-## Branch: docs/lineage-collapsed-loop
+## Branch: main
 
 ## Completed (this session)
 - **M164–M169: resilience quintet** — retry, rate_limiter, cache, bulkhead, timeout, fallback
@@ -11,20 +11,21 @@
 - **M173: `queue` item** — `{Name}Queue<T>` + enqueue/dequeue/is_empty (commit `6be72eb`)
 - **M174: `lock` item** — `{Name}Lock` + AtomicBool acquire/release/is_locked
 - **M175: `channel` item** — `{Name}Channel<T>` + send/recv + PhantomData
-- **claim_coverage.md**: 136 total claims, 111 PROVED (82%)
+- **M176: `semaphore` item** — `{Name}Semaphore` + AtomicUsize + wait/signal/count (commit `0214a9e`)
+- **M177: `actor` item** — `{Name}Actor<M>` + VecDeque mailbox + send/receive/pending
+- **M178: `barrier` item** — `{Name}Barrier` + AtomicUsize + wait/reset
+- **claim_coverage.md**: 145 total claims, 120 PROVED (83%)
 - **Systemic keyword-as-ident fix**: requires{}, fn-with, separation/owns, all use expect_any_name()
 
 ## In Progress
 - None
 
 ## Next
-- **M176: `semaphore` item** — counting semaphore + wait/signal/count
-  - Codegen: `{Name}Semaphore` + AtomicUsize + `wait() -> bool` + `signal()` + `count()`
-- **M177: `actor` item** — lightweight actor with mailbox
-  - Codegen: `{Name}Actor<M>` + `send(M)` + `receive() -> Option<M>`
-- **M178: `barrier` item** — synchronization barrier for N threads
-  - Codegen: `{Name}Barrier` + `wait()` + `count` field
-- After M176–M178: publish v0.3.0 milestone notes, update CHANGELOG
+- **M179: `event_bus` item** — pub/sub event dispatcher
+  - Codegen: `{Name}EventBus<E>` + subscribe/publish/drain
+- **M180: `state_machine` item** — explicit FSM with typed states/transitions
+  - Codegen: `{Name}State` enum + `{Name}Machine` + transition/current methods
+- After M179–M180: publish v0.3.0 milestone notes, update CHANGELOG
 
 ## Decisions made (this session)
 - `expect_any_name()` must be used anywhere a user-facing name may shadow a keyword
