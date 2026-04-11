@@ -776,6 +776,38 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M167: Emit `{Name}Bulkhead` struct + `execute<F,T,E>()` (Nygard 2007 Release It!).
+    pub(super) fn emit_bulkhead_def(&self, bd: &BulkheadDef, out: &mut String) {
+        let name = &bd.name;
+        let max_concurrent = bd.max_concurrent;
+        let queue_size = bd.queue_size;
+        out.push_str(&format!(
+            "// LOOM[bulkhead:resilience]: {name} — M167 isolation (Nygard 2007 Release It!)\n\
+             // max_concurrent: {max_concurrent}, queue_size: {queue_size}\n\
+             #[derive(Debug, Clone)]\n\
+             pub struct {name}Bulkhead {{\n\
+             \x20\x20\x20\x20pub max_concurrent: u64,\n\
+             \x20\x20\x20\x20pub queue_size: u64,\n\
+             }}\n\n\
+             impl {name}Bulkhead {{\n\
+             \x20\x20\x20\x20pub fn new() -> Self {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20Self {{ max_concurrent: {max_concurrent}, queue_size: {queue_size} }}\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[bulkhead:execute]: run f() if a slot is available\n\
+             \x20\x20\x20\x20pub fn execute<F, T, E>(&self, f: F) -> Result<T, E>\n\
+             \x20\x20\x20\x20where\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20F: FnOnce() -> Result<T, E>,\n\
+             \x20\x20\x20\x20{{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement bulkhead execute\")\n\
+             \x20\x20\x20\x20}}\n\n\
+             \x20\x20\x20\x20// LOOM[bulkhead:available]: true if a concurrent slot is free\n\
+             \x20\x20\x20\x20pub fn available(&self) -> bool {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20todo!(\"implement bulkhead available\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

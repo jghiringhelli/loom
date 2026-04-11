@@ -458,6 +458,11 @@ impl RustEmitter {
                 self.emit_cache_def(cd, &mut buf);
                 buf
             }
+            Item::Bulkhead(bd) => {
+                let mut buf = String::new();
+                self.emit_bulkhead_def(bd, &mut buf);
+                buf
+            }
         }
     }
 }

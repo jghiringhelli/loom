@@ -180,4 +180,6 @@ pub enum Item {
     RateLimiter(RateLimiterDef),
     /// M166: Named cache with TTL — first-class module-level item.
     Cache(CacheDef),
+    /// M167: Named bulkhead (concurrency isolation) — first-class module-level item.
+    Bulkhead(BulkheadDef),
 }

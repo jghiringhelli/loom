@@ -346,6 +346,7 @@ impl<'src> Parser<'src> {
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
             Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
             Some((Token::CacheKw, _)) => Some("cache".to_string()),
+            Some((Token::BulkheadKw, _)) => Some("bulkhead".to_string()),
             _ => None,
         }
     }
@@ -442,6 +443,7 @@ impl<'src> Parser<'src> {
             Some((Token::RetryKw, _)) => Some("retry".to_string()),
             Some((Token::RateLimiterKw, _)) => Some("rate_limiter".to_string()),
             Some((Token::CacheKw, _)) => Some("cache".to_string()),
+            Some((Token::BulkheadKw, _)) => Some("bulkhead".to_string()),
             _ => None,
         }
     }
@@ -577,6 +579,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::RateLimiter(self.parse_rate_limiter_def()?));
             } else if self.at(&Token::CacheKw) {
                 items.push(Item::Cache(self.parse_cache_def()?));
+            } else if self.at(&Token::BulkheadKw) {
+                items.push(Item::Bulkhead(self.parse_bulkhead_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -788,6 +792,7 @@ impl<'src> Parser<'src> {
             Some(Token::RetryKw) => Ok(Item::Retry(self.parse_retry_def()?)),
             Some(Token::RateLimiterKw) => Ok(Item::RateLimiter(self.parse_rate_limiter_def()?)),
             Some(Token::CacheKw) => Ok(Item::Cache(self.parse_cache_def()?)),
+            Some(Token::BulkheadKw) => Ok(Item::Bulkhead(self.parse_bulkhead_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -1821,6 +1826,48 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(CacheDef { name, key_type, value_type, ttl, span: Span::merge(&start, &end_span) })
+    }
+
+    /// M167: Parse `bulkhead Name [max_concurrent: N] [queue_size: N] end`
+    ///
+    /// Implements bulkhead isolation pattern (Nygard 2007 "Release It!").
+    /// Defaults: max_concurrent=10, queue_size=0 (no queue).
+    fn parse_bulkhead_def(&mut self) -> Result<BulkheadDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::BulkheadKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut max_concurrent: u64 = 10;
+        let mut queue_size: u64 = 0;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "max_concurrent" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                max_concurrent = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        "queue_size" => {
+                            if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                                queue_size = *n as u64;
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(BulkheadDef { name, max_concurrent, queue_size, span: Span::merge(&start, &end_span) })
     }
 }
 

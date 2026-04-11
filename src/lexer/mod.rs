@@ -463,6 +463,10 @@ pub enum Token {
     #[token("cache")]
     CacheKw,
 
+    // ── M167: bulkhead concurrency isolation as first-class item ─────────────────
+    #[token("bulkhead")]
+    BulkheadKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

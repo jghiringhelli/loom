@@ -1148,3 +1148,17 @@ pub struct CacheDef {
     pub ttl: u64,
     pub span: Span,
 }
+
+// ── M167: bulkhead (concurrency isolation) ─────────────────────────────────────
+
+/// `bulkhead Name max_concurrent: N queue_size: N end`
+/// Generates a `{Name}Bulkhead` struct with `execute()` and capacity tracking.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulkheadDef {
+    pub name: String,
+    /// Maximum concurrent executions allowed (default: 10).
+    pub max_concurrent: u64,
+    /// Queue size for waiting requests (default: 0 = no queue).
+    pub queue_size: u64,
+    pub span: Span,
+}
