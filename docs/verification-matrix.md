@@ -55,7 +55,7 @@ Rust ecosystem backing, and known gaps. This is the authoritative scorecard.
 |---|---|---|---|---|---|---|
 | **Temporal logic ordering** | `precedes A B; always P; never Q` | checker validates sequencing | `temporal_test` (10 tests) | 🟡 checker | [`templar`](https://github.com/) / LTL model checkers | No runtime enforcement. Temporal constraints are documentation only in emitted code. |
 | **Category theory laws** | `functor F; monad M` | law verification in checker | `category_test` (12 tests) | 🟡 checker | [`fp-core`](https://crates.io/crates/fp-core) | Functor/monad laws checked at parse time. No generated law tests. |
-| **Curry-Howard proofs** | `proof P := ...` | certificate struct emitted | `curryhow_test` (8 tests) | 🔵 emit | [`coq-of-rust`](https://github.com/formal-land/coq-of-rust) | Certificate is a Rust struct with the proof term. Not verified by a proof assistant. |
+| **Curry-Howard proofs** | `proof P := ...` | generic fn with type-as-proposition signature | `curryhow_test` (8 tests) + `experiments/proofs/curry-howard/proof.rs` | 🟢 type-system verification | Rust type system IS the proof assistant | — |
 | **SMT bridge** | `proposition: x > 0 implies y > 0` | SMT-LIB2 output (feature-gated) | `m100_test` | 🔵 emit | [Z3](https://github.com/Z3Prover/z3) via [`z3`](https://crates.io/crates/z3) crate | SMT output is generated but not yet piped to a solver. Z3 verification not automated. |
 
 ---

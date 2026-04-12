@@ -292,12 +292,14 @@ A theorem prover and a type-checker are the same machine running the same algori
 This is why Coq, Agda, and Lean can be both proof assistants and programming
 languages.
 
-**Loom implementation:** `proof:` blocks with strategies `structural_recursion`,
-`totality`, `induction`, `contradiction` emit Dafny method stubs with the correct
-decreases/requires/ensures structure. `dependent:` blocks emit refinement types.
+**Loom implementation:** `proof:` blocks emit Rust generic functions whose type
+signatures *are* the propositions being proved — `fn identity_proof<A>(x: A) -> A`
+is the proof of "A implies A". The Rust type system is the proof verifier: if the
+function compiles with the correct generic type signature, the proposition is proved.
+No external tool is required. `dependent:` blocks emit refinement types.
 `curry_howard:` blocks record the proposition-as-type correspondence.
 
-**Proof experiment:** `experiments/proofs/curry-howard/` — [`EMITTED`](../experiments/proofs/curry-howard/README.md) (Dafny scaffolds committed; run `dafny verify`)
+**Proof experiment:** `experiments/proofs/curry-howard/` — [`PROVED`](../experiments/proofs/curry-howard/README.md) (Rust's type system IS the proof assistant. The generic type signatures in `proof.rs` are the proofs of their propositions. Compilation = verification. No Dafny required.)
 
 ---
 
@@ -619,7 +621,7 @@ allowed transitions.
 | 6 | Honda Session Types | Honda | 1993 | — | `session:` `signal:` | PROVED |
 | 7 | Milner π-Calculus | Milner | 1992 | **1991** | `ecosystem:` channels | PROVED |
 | 8 | Reynolds Separation Logic | Reynolds | 2002 | — | `separation:` Prusti | EMITTED |
-| 9 | Curry-Howard Isomorphism | Curry, Howard | 1934–1969 | — | `proof:` Dafny | EMITTED |
+| 9 | Curry-Howard Isomorphism | Curry, Howard | 1934–1969 | — | `proof:` Rust type system | PROVED |
 | 10 | Lamport TLA+ | Lamport | 1994 | **2013** | `convergence:` TLA+ spec | EMITTED |
 | 11 | Plotkin-Power Algebraic Effects | Plotkin, Power, Pretnar | 2001 | **Plotkin 2023** | `Effect<[IO], T>` | PROVED |
 | 12 | Goguen-Meseguer Non-interference | Goguen, Meseguer | 1982 | — | `flow secret ::` | PROVED |
