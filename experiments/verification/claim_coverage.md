@@ -43,7 +43,7 @@
 | Invariant string translated correctly         | Unit     | Rust tests | PROVED   | m_codegen tests         |
 | Edge cases: INT_MIN, -1, 0, 1, INT_MAX/2     | Runtime  | cargo test | PROVED   | v3_property_tests.loom  |
 | Proptest block emitted (--cfg loom_proptest) | Runtime  | proptest   | EMITTED  | v3_property_tests.loom  |
-| 1024 random samples per invariant            | Sampling | proptest   | PENDING  | RUSTFLAGS cfg needed    |
+| 1024 random samples per invariant            | Sampling | proptest   | PROVED   | proptest_demo (--features loom_proptest) |
 
 # ── V4: session: → typestate compile-time enforcement ─────────────────────────
 
