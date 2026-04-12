@@ -1,0 +1,156 @@
+-- BIOISO Domain App: Carbon Cycle / 2°C Tipping Point
+-- Problem: At current emission trajectories, when does Earth cross the 2°C tipping point?
+-- Question: What minimum annual emissions reduction (as % of current) avoids it?
+-- Answer sought: A number like "12% annual reduction from 2026 onward avoids 2°C by 2100"
+--
+-- Correctness properties demonstrated:
+--   convergence: telos tracks whether CO2 trajectory is converging or diverging from 450ppm
+--   canalization: system maintains carbon cycle despite perturbations (volcanoes, deforestation)
+--   temporal: lifecycle states track crisis progression (Stable -> Stressed -> Crisis)
+--   telos: declared goal is formally checked, not just documented
+
+module CarbonClimateBIOISO
+  domain: climate
+
+  -- Carbon cycle state: what's currently in the atmosphere
+  being AtmosphericCarbon
+    role: regulator
+    domain: climate
+    telos: "maintain CO2 below 450ppm — the IPCC 2°C threshold"
+    end
+
+    matter:
+      co2_ppm: Float<ppm>
+      global_temp_anomaly: Float<celsius>
+      years_elapsed: Int
+    end
+
+    relates_to:
+      regulates: [BiosphereCarbon, OceanCarbon, HumanEmissions]
+      monitors:  [TemperatureAnomaly, FeedbackAmplifier]
+    end
+
+    canalize:
+      toward: co2_stability
+      despite: [volcanic_forcing, deforestation_pulse, permafrost_thaw]
+      convergence_proof: lyapunov_carbon_budget
+    end
+
+    convergence:
+      target: co2_ppm < 450.0
+      metric: co2_ppm
+      direction: decreasing
+      alarm_if: not_converging_after 10 steps
+    end
+
+    regulate:
+      trigger: co2_ppm > 450.0
+      action: enter_crisis
+    end
+
+    regulate:
+      trigger: co2_ppm > 560.0
+      action: tipping_point_crossed
+    end
+
+    telomere: max_generations: 10000 end
+
+    epigenetic:
+      signal: temperature_anomaly
+      modifies: ocean_uptake_rate
+      reverts_when: temperature_anomaly < 1.5
+      duration: 30.years
+    end
+  end
+
+  being HumanEmissions
+    role: sensor
+    domain: climate
+    telos: "measure and reduce anthropogenic CO2 emissions"
+    end
+
+    matter:
+      annual_emissions_gtc: Float<gtco2_per_year>
+      reduction_rate: Float<percent_per_year>
+    end
+
+    telomere: max_generations: 75 end  -- policy horizon to 2100
+  end
+
+  being BiosphereCarbon
+    role: effector
+    domain: climate
+    telos: "sequester atmospheric CO2 through photosynthesis"
+    end
+
+    matter:
+      land_uptake_gtc: Float<gtco2_per_year>
+      forest_area_index: Float
+    end
+
+    telomere: max_generations: 10000 end
+  end
+
+  being OceanCarbon
+    role: effector
+    domain: climate
+    telos: "absorb atmospheric CO2 — slows but does not stop warming"
+    end
+
+    matter:
+      ocean_uptake_gtc: Float<gtco2_per_year>
+      acidification_index: Float
+    end
+
+    telomere: max_generations: 10000 end
+  end
+
+  being FeedbackAmplifier
+    role: integrator
+    domain: climate
+    telos: "compute net climate feedback — ice-albedo, water vapor, permafrost"
+    end
+
+    matter:
+      feedback_multiplier: Float
+    end
+
+    telomere: max_generations: 10000 end
+  end
+
+  lifecycle AtmosphericCarbon :: Stable -> Stressed -> Crisis -> Recovering
+    checkpoint: EnterStressed
+      requires: co2_above_380ppm
+      on_fail: increase_monitoring
+    end
+    checkpoint: EnterCrisis
+      requires: co2_above_450ppm
+      on_fail: activate_emergency_sequestration
+    end
+    checkpoint: TippingPoint
+      requires: co2_above_560ppm
+      on_fail: irreversible_warning
+    end
+    checkpoint: BeginRecovering
+      requires: emissions_reduction_active
+      on_fail: escalate_intervention
+    end
+  end
+
+  ecosystem ClimateSystem
+    beings: [AtmosphericCarbon, HumanEmissions, BiosphereCarbon, OceanCarbon, FeedbackAmplifier]
+    signal co2_flux :: Float<gtco2_per_year>
+      source: HumanEmissions
+      target: AtmosphericCarbon
+    end
+    signal sequestration_flux :: Float<gtco2_per_year>
+      source: BiosphereCarbon, OceanCarbon
+      target: AtmosphericCarbon
+    end
+    signal feedback_signal :: Float
+      source: FeedbackAmplifier
+      target: AtmosphericCarbon
+    end
+  end
+
+end
