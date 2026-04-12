@@ -27,11 +27,15 @@
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
 pub mod drift;
+pub mod mutation;
+pub mod polycephalum;
 pub mod signal;
 pub mod store;
 pub mod supervisor;
 
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
+pub use mutation::MutationProposal;
+pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
 pub use store::{EntityRecord, SignalStore, TelosBound};
 pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
@@ -57,6 +61,8 @@ pub struct Runtime {
     pub supervisor: EntitySupervisor,
     /// The telos drift engine — evaluates signals against declared bounds.
     pub drift_engine: DriftEngine,
+    /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
+    pub polycephalum: Polycephalum,
 }
 
 impl Runtime {
@@ -68,6 +74,7 @@ impl Runtime {
             store: SignalStore::new(db_path)?,
             supervisor: EntitySupervisor::new(),
             drift_engine: DriftEngine::new(),
+            polycephalum: Polycephalum::new(),
         })
     }
 
@@ -155,6 +162,19 @@ impl Runtime {
         target: Option<f64>,
     ) -> Result<(), rusqlite::Error> {
         self.store.set_telos_bounds(entity_id, metric, min, max, target)
+    }
+
+    /// Run Tier 1 (Polycephalum) against a drift event and return proposals.
+    ///
+    /// The optional `checkpoint_id` enables rollback proposals. Returns an empty
+    /// vec when no rule matches — caller should escalate to Tier 2.
+    pub fn propose_mutations(
+        &self,
+        event: &DriftEvent,
+        checkpoint_id: Option<i64>,
+    ) -> Vec<MutationProposal> {
+        let severity = self.drift_engine.severity(event.score);
+        self.polycephalum.evaluate(event, severity, checkpoint_id)
     }
 
     /// Number of currently Active entities.
