@@ -1508,7 +1508,7 @@ impl RustEmitter {
             DistributionFamily::Gaussian { mean, std_dev } => {
                 out.push_str(&format!(
                     "// LOOM[structure:Gaussian]: {fn_name} — Normal distribution (Gauss 1809)\n\
-                     // X ~ N(mu={mean}, sigma={std_dev}). Ecosystem: rand_distr::Normal\n\n"
+                     // X ~ N(mu={mean}, sigma={std_dev}). Ecosystem: rand_distr::Normal, statrs::distribution::Normal\n\n"
                 ));
                 out.push_str(&format!(
                     "#[derive(Debug, Clone)]\npub struct {n}GaussianSampler {{\n    pub mean: f64,\n    pub std_dev: f64,\n}}\n"
@@ -1519,7 +1519,14 @@ pub fn new() -> Self {{ Self {{ mean: {}, std_dev: {} }} }}\n    \
 /// Box-Muller transform. z1, z2 ~ U(0,1). Returns one N(0,1) sample.\n    \
 pub fn sample_box_muller(&self, z1: f64, z2: f64) -> f64 {{\n        \
 let n01 = (-2.0*z1.ln()).sqrt() * (2.0*std::f64::consts::PI*z2).cos();\n        \
-self.mean + self.std_dev * n01\n    }}\n}}\n\n",
+self.mean + self.std_dev * n01\n    }}\n    \
+/// statrs-backed sampler. Requires `loom_statrs` feature and `statrs = \"0.16\"` in dev-dependencies.\n    \
+#[cfg(feature = \"loom_statrs\")]\n    \
+pub fn sample_statrs<R: rand::Rng>(&self, rng: &mut R) -> f64 {{\n        \
+use statrs::distribution::{{Normal, ContinuousCDF}};\n        \
+use statrs::statistics::Distribution;\n        \
+Normal::new(self.mean, self.std_dev).expect(\"invalid Normal params\").sample(rng)\n    \
+}}\n}}\n\n",
                     ensure_float_lit(mean),
                     ensure_float_lit(std_dev)
                 ));
