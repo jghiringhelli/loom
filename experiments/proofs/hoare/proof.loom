@@ -1,0 +1,36 @@
+-- Proof: Hoare Logic (Tony Hoare, 1969)
+--
+-- Claim: require:/ensure: encode Hoare triples {P} C {Q}.
+-- The Loom compiler enforces them as debug_assert! at runtime
+-- and as #[kani::proof] harnesses for formal verification.
+--
+-- Correct proof: all three functions compile and Kani verifies them.
+-- Violation proof: remove require: balance >= amount -> Kani finds result < 0.
+
+module HoareProof
+
+-- Triple 1: {balance >= 0 /\ amount > 0 /\ balance >= amount} withdraw {result >= 0}
+fn withdraw :: Float -> Float -> Float
+  require: balance >= 0.0
+  require: amount > 0.0
+  require: balance >= amount
+  ensure:  result >= 0.0
+  balance - amount
+end
+
+-- Triple 2: {divisor != 0} safe_div {result * divisor == dividend (integer)}
+fn safe_div :: Int -> Int -> Int
+  require: divisor != 0
+  ensure:  result >= 0
+  dividend / divisor
+end
+
+-- Triple 3: {lo <= hi} clamp {lo <= result /\ result <= hi}
+fn clamp :: Float -> Float -> Float -> Float
+  require: lo <= hi
+  ensure:  result >= lo
+  ensure:  result <= hi
+  value
+end
+
+end

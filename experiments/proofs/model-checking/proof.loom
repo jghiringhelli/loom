@@ -1,0 +1,40 @@
+-- Proof: Model Checking (Clarke, Emerson & Sifakis, 1981)
+--
+-- Claim: Loom's Kani integration performs bounded model checking on
+--        all possible execution paths of a function, not just test cases.
+--        Kani explores ALL inputs within bounds and finds counterexamples.
+--
+-- Status: EMITTED — Loom emits #[kani::proof] harnesses; Kani verifies ALL paths.
+
+module ModelCheckingProof
+
+  -- A state machine with invariants: every state must be valid
+  fn process_state :: Int -> String
+    require: state >= 0
+    require: state <= 3
+    ensure:  result != ""
+    match state with
+      0 -> "Idle"
+      1 -> "Processing"
+      2 -> "Complete"
+      3 -> "Error"
+      _ -> "Invalid"    -- unreachable given require:
+    end
+  end
+
+  -- Counter with wraparound: Kani checks ALL values 0..255
+  fn safe_increment :: Int -> Int
+    require: counter >= 0
+    require: counter <= 255
+    ensure:  result >= 0
+    ensure:  result <= 255
+    if counter == 255 then 0 else counter + 1
+  end
+
+  -- Mutual exclusion: never both processes in critical section
+  fn check_mutex :: Bool -> Bool -> Bool
+    ensure: not (result and other_in_cs)
+    if other_in_cs then False else True
+  end
+
+end

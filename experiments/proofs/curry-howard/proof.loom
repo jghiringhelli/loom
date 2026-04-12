@@ -1,0 +1,42 @@
+-- Proof: Curry-Howard Isomorphism (Curry 1934, Howard 1969)
+--
+-- Claim: Loom's `proof:` block encodes propositions as types and proofs as programs.
+--        A Loom function with a `proof:` annotation emits a Dafny method where
+--        the method body IS the proof that the specification holds.
+--
+-- Status: EMITTED — Loom compiles to Dafny stub; Dafny verifies the proof.
+--
+-- The isomorphism:
+--   Proposition P        <->  Type T
+--   Proof of P           <->  Program of type T
+--   Implication P => Q   <->  Function type P -> Q
+--   Conjunction P /\ Q   <->  Product type (P, Q)
+--   Disjunction P \/ Q   <->  Sum type Either<P, Q>
+
+module CurryHowardProof
+
+  -- Proposition: A -> A (identity is the proof that A implies A)
+  proof identity_proof :: forall a. a -> a
+    proposition: "A implies A"
+    x
+  end
+
+  -- Proposition: (A /\ B) -> A (fst is the proof that conjunction implies left)
+  proof fst_proof :: (a, b) -> a
+    proposition: "A and B implies A"
+    fst pair
+  end
+
+  -- Proposition: A -> (A \/ B) (left is the proof of left injection)
+  proof left_proof :: a -> Either<a, b>
+    proposition: "A implies A or B"
+    Left a
+  end
+
+  -- Proposition: (A -> B) -> (B -> C) -> A -> C (composition = transitivity)
+  proof transitivity_proof :: (a -> b) -> (b -> c) -> a -> c
+    proposition: "If A implies B, and B implies C, then A implies C"
+    g (f a)
+  end
+
+end

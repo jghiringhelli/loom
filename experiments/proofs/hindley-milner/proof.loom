@@ -1,0 +1,55 @@
+-- Proof: Hindley-Milner Type Inference (Robin Milner & Luis Damas, 1978)
+--
+-- Claim: Loom infers types for every expression without explicit annotations.
+--        The compiler assigns the MOST GENERAL (principal) type.
+--        A type mismatch (e.g., Int where String expected) is a compile-time error.
+--
+-- This proves that the InferenceEngine correctly assigns types to:
+--   - Polymorphic identity function
+--   - List operations (map, fold)
+--   - Nested function application
+
+module HindleyMilnerProof
+
+  -- Polymorphic identity: inferred type is forall a. a -> a
+  fn identity :: a -> a
+    x
+  end
+
+  -- Compose: inferred type is (b -> c) -> (a -> b) -> a -> c
+  fn compose :: (b -> c) -> (a -> b) -> a -> c
+    f (g x)
+  end
+
+  -- Map over list: inferred type is (a -> b) -> [a] -> [b]
+  fn map_list :: (a -> b) -> [a] -> [b]
+    match xs with
+      []     -> []
+      h :: t -> (f h) :: (map_list f t)
+    end
+  end
+
+  -- Fold: inferred type is (b -> a -> b) -> b -> [a] -> b
+  fn fold_list :: (b -> a -> b) -> b -> [a] -> b
+    match xs with
+      []     -> acc
+      h :: t -> fold_list f (f acc h) t
+    end
+  end
+
+  -- Type inference in action: compiler infers Float for sum_list
+  fn sum_list :: [Float] -> Float
+    fold_list (+) 0.0 xs
+  end
+
+  -- Nested application: compiler infers [Int] -> [String]
+  fn int_to_string_list :: [Int] -> [String]
+    map_list Int.to_string xs
+  end
+
+end
+
+-- Violation (uncomment to see type inference error):
+-- fn bad_add :: Int -> String -> Int
+--   a + b  -- ERROR: cannot add Int and String (type mismatch inferred)
+-- end

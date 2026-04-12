@@ -1,0 +1,57 @@
+-- Proof: π-Calculus / Ecosystem Signals (Robin Milner, 1992)
+--
+-- Claim: Loom's `ecosystem:` and `signal:` blocks encode mobile channel communication
+--        where channels themselves can be passed as values (the core π-calculus insight).
+--        Signal routing is verified at compile time.
+
+module PiCalculusProof
+
+  -- π-calculus: channels are first-class values that can be communicated
+  ecosystem Climate
+    beings: [TemperatureSensor, CoolingActuator, ForecastModel]
+
+    -- Channel: sensor sends readings on this channel
+    signal temperature_channel :: Float
+      source: TemperatureSensor
+      target: CoolingActuator, ForecastModel
+    end
+
+    -- Mobile channel: the routing channel itself is communicated
+    signal control_channel :: SignalChannel<Float>
+      source: ForecastModel
+      target: CoolingActuator
+      description: "ForecastModel sends a NEW channel to CoolingActuator at runtime"
+    end
+  end
+
+  being TemperatureSensor @mortal @sandboxed
+    matter:
+      reading: Float
+    end
+    telos:
+      statement: "emit accurate temperature readings"
+    end
+    telomere: max_generations: 10000 end
+  end
+
+  being CoolingActuator @mortal @sandboxed
+    matter:
+      cooling_power: Float
+    end
+    telos:
+      statement: "adjust cooling in response to temperature signals"
+    end
+    telomere: max_generations: 10000 end
+  end
+
+  being ForecastModel @mortal @sandboxed
+    matter:
+      forecast_accuracy: Float
+    end
+    telos:
+      statement: "improve temperature forecast and route control signals"
+    end
+    telomere: max_generations: 5000 end
+  end
+
+end

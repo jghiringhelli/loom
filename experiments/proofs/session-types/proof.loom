@@ -1,0 +1,40 @@
+-- Proof: Session Types (Kohei Honda, 1993)
+--
+-- Claim: session: declarations emit a Rust typestate machine where
+--        calling communication steps out of order is a COMPILE-TIME TYPE ERROR.
+--        No runtime check. No panic. rustc rejects the wrong-order program.
+--
+-- Correct proof: compile and run -- works.
+-- Violation proof: swap send/recv order in proof.rs -- rustc rejects it.
+
+module SessionProof
+
+  -- Auth protocol: client sends credentials, receives token
+  session AuthProtocol
+    client:
+      send: String
+      recv: Int
+    end
+    server:
+      recv: String
+      send: Int
+    end
+    duality: client <-> server
+  end
+
+  -- Payment protocol: 3-step negotiation
+  session PaymentProtocol
+    payer:
+      send: Float   -- amount
+      recv: String  -- payment reference
+      send: Int     -- confirmation code
+    end
+    payee:
+      recv: Float
+      send: String
+      recv: Int
+    end
+    duality: payer <-> payee
+  end
+
+end

@@ -1,0 +1,63 @@
+-- Proof: Waddington Canalization (C.H. Waddington, 1942)
+--
+-- Claim: Loom's `canalize:` block constrains a BIOISO being to stay within
+--        a "developmental channel" — a range of acceptable states.
+--        Perturbations are absorbed; the trajectory converges back.
+--        A being without canalization can drift arbitrarily.
+
+module CanalizationProof
+
+being CanalizingSystem @mortal @sandboxed
+  describe: "A system that resists perturbations and converges to its developmental trajectory"
+
+  matter:
+    current_state: Float     -- 0.0 to 1.0: deviation from optimal
+    perturbation: Float      -- external disturbance magnitude
+    resilience: Float        -- canalization strength
+  end
+
+  telos:
+    statement: "maintain state within canalized channel despite perturbations"
+    bounded_by: channel_fitness
+    measured_by: "1.0 - abs(current_state - 0.5)"
+    thresholds:
+      convergence: 0.7
+      divergence: 0.2
+    end
+  end
+
+  -- Canalization: absorb perturbations, return to channel
+  canalize:
+    channel: 0.4 .. 0.6         -- the developmental channel
+    resilience: resilience
+    absorb_perturbations: true
+    converge_rate: 0.3          -- how fast state returns to channel after perturbation
+  end
+
+  -- Epigenetic response to large perturbations
+  epigenetic:
+    signal: perturbation
+    modifies: resilience
+    reverts_when: perturbation < 0.1
+  end
+
+  regulate:
+    trigger: current_state < 0.4 or current_state > 0.6
+    action: return_to_channel
+  end
+
+  telomere:
+    max_generations: 1000
+    senescence_trigger: resilience < 0.05
+  end
+
+end
+
+fn channel_fitness :: CanalizingSystem -> Float
+  require: sys.current_state >= 0.0
+  require: sys.current_state <= 1.0
+  ensure:  result >= 0.0
+  1.0 - Float.abs (sys.current_state - 0.5)
+end
+
+end

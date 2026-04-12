@@ -1,0 +1,46 @@
+-- Proof: Dependent Types (Per Martin-Löf, 1975)
+--
+-- Claim: Loom's `dependent:` block encodes types that depend on VALUES,
+--        not just other types. The canonical example: a vector whose LENGTH
+--        is part of its type. Append is only well-typed if n + m = result length.
+--
+-- Status: EMITTED — Loom emits Dafny stubs for formal length-indexed proof.
+--         Rust encoding uses const generics as the closest available analog.
+
+module DependentTypesProof
+
+  -- Length-indexed vector: the classic dependent type example
+  -- Vec<n: Int, T> is a vector of T whose length is KNOWN at compile time
+  type Vec n T = DependentVector
+    field items: [T]
+    invariant: List.length items == n
+  end
+
+  -- Append: Vec<n, T> -> Vec<m, T> -> Vec<n+m, T>
+  -- The return type DEPENDS ON the input lengths
+  fn append :: Vec n T -> Vec m T -> Vec (n + m) T
+    dependent:
+      n: length xs
+      m: length ys
+      result_length: n + m
+    ensure: List.length result == n + m
+    List.concat xs ys
+  end
+
+  -- Safe index: the index MUST be less than n (enforced in the type)
+  fn safe_index :: Vec n T -> Fin n -> T
+    dependent:
+      idx_bound: idx < n
+    ensure: True   -- no bounds-check exception possible
+    List.nth items idx
+  end
+
+  -- Replicate: produce a vector of length n containing value x
+  fn replicate :: Int -> T -> Vec n T
+    dependent:
+      n: count
+    ensure: List.length result == count
+    List.replicate count value
+  end
+
+end

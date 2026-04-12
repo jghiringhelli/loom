@@ -1,0 +1,35 @@
+-- Proof: TLA+ / Convergence (Leslie Lamport, 1994)
+--
+-- Claim: Loom's `convergence:` block emits a ConvergenceState enum that tracks
+--        whether a distributed system is making progress toward its goal.
+--        Divergence from the telos triggers a convergence alarm.
+--
+-- Status: EMITTED — Loom emits ConvergenceState; TLA+ spec for formal proof.
+
+module TLAConvergenceProof
+
+  -- A distributed counter that must converge to a target value
+  fn distributed_step :: Int -> Int -> Int
+    convergence:
+      target: target_value
+      metric: abs(current - target_value)
+      direction: decreasing
+      alarm_if: not_converging_after 100 steps
+    require: current >= 0
+    ensure:  abs(result - target_value) <= abs(current - target_value)
+    if current < target_value then current + 1
+    else if current > target_value then current - 1
+    else current
+  end
+
+  -- A consensus protocol: all nodes must agree on the same value
+  fn consensus_step :: [Int] -> Int
+    convergence:
+      invariant: "all values in window of epsilon"
+      epsilon: 1
+      alarm_if: diverging
+    let median = List.sort values |> List.nth (List.length values / 2)
+    median
+  end
+
+end

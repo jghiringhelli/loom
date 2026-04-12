@@ -1,0 +1,72 @@
+-- Proof: Hayflick Limit (Hayflick & Moorhead, 1961)
+--
+-- Claim: A BIOISO being with `telomere:` has a compiler-verified finite lifespan.
+--        A @mortal being without telomere: is a LoomError::MissingTelomere.
+--        A being that exceeds max_generations triggers senescence.
+--
+-- This implements the biological Hayflick limit (human cells divide ~50 times)
+-- as a formal Loom constraint.
+
+module HayflickProof
+
+being HayflickCell @mortal @sandboxed
+  describe: "Cell demonstrating the Hayflick limit: finite division capacity"
+
+  matter:
+    dna_damage: Float        -- accumulates each division
+    telomere_length: Float   -- shortens each division (1.0 = full, 0.0 = senescent)
+    metabolic_rate: Float    -- declines with age
+  end
+
+  telos:
+    statement: "replicate faithfully until telomere exhaustion, then senesce cleanly"
+    bounded_by: replication_fitness
+    measured_by: "telomere_length * 0.7 + (1.0 - dna_damage) * 0.3"
+    thresholds:
+      convergence: 0.6
+      divergence: 0.1
+    end
+  end
+
+  -- Hayflick limit: max 50 divisions (human somatic cells)
+  telomere:
+    max_generations: 50
+    senescence_trigger: telomere_length < 0.05
+  end
+
+  -- Repair: only available while telomeres are long enough
+  regulate:
+    trigger: dna_damage > 0.3 and telomere_length > 0.2
+    action: repair_dna
+  end
+
+  -- Each division shortens telomeres (no telomerase in somatic cells)
+  propagate:
+    condition: telomere_length > 0.1 and dna_damage < 0.8
+    inherits: [matter, telos]
+    mutates: dna_damage within 0.01
+    offspring_type: HayflickCell
+  end
+
+end
+
+fn replication_fitness :: HayflickCell -> Float
+  require: cell.telomere_length >= 0.0
+  require: cell.dna_damage >= 0.0
+  ensure:  result >= 0.0
+  cell.telomere_length * 0.7 + (1.0 - cell.dna_damage) * 0.3
+end
+
+end
+
+-- Violation (uncomment to see missing telomere error):
+-- being ImmortalCell @mortal @sandboxed
+--   -- @mortal requires telomere: block
+--   matter:
+--     x: Float
+--   end
+--   telos:
+--     statement: "live forever"
+--   end
+--   -- -> LoomError::MissingTelomere (@mortal without telomere:)
+-- end

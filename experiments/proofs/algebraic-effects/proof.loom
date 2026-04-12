@@ -1,0 +1,55 @@
+-- Proof: Algebraic Effects (Plotkin & Power, 2001)
+--
+-- Claim: Effect<[IO, DB], T> in Loom means a function carrying those effects
+--        CANNOT be called from a pure context without the compiler reporting
+--        an unchecked-effect error. Effects are tracked in the type, not inferred.
+--
+-- Correct proof: effectful fn called from effectful context -- compiles.
+-- Violation proof: effectful fn called from pure fn -- compile error.
+
+module AlgebraicEffectsProof
+
+  -- A pure computation: no effects declared, no side effects allowed
+  fn pure_add :: Int -> Int -> Int
+    a + b
+  end
+
+  -- An IO-effectful function: reads from external source
+  fn read_line :: String
+    effect: [IO]
+    perform IO.read_line
+  end
+
+  -- A DB-effectful function: queries a database
+  fn fetch_user :: Int -> String
+    effect: [DB]
+    perform DB.query "SELECT name FROM users WHERE id = ?"
+  end
+
+  -- A combined-effect function: both IO and DB
+  fn log_and_fetch :: Int -> String
+    effect: [IO, DB]
+    let name = fetch_user id
+    let _ = perform IO.write_line "Fetched user"
+    name
+  end
+
+  -- Handler: eliminates the IO effect
+  handler io_handler :: Effect<[IO], T> -> T
+    handles: [IO]
+    IO.read_line => "mocked_input"
+    IO.write_line msg => ()
+  end
+
+  -- Handler: eliminates the DB effect
+  handler db_handler :: Effect<[DB], T> -> T
+    handles: [DB]
+    DB.query _ => "Alice"
+  end
+
+end
+
+-- Violation (uncomment to see effect-tracking error):
+-- fn pure_calls_effectful :: Int -> String
+--   fetch_user 42   -- ERROR: unchecked effect DB in pure context
+-- end

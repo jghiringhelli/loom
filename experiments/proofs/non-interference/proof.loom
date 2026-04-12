@@ -1,0 +1,49 @@
+-- Proof: Non-interference / Information Flow (Goguen & Meseguer, 1982)
+--
+-- Claim: `flow secret ::` in Loom tracks data sensitivity at the type level.
+--        A secret value flowing into a public output is a COMPILE-TIME ERROR.
+--        No runtime check. The type system prevents the leak.
+--
+-- Correct proof: secret stays in secret context -- compiles.
+-- Violation proof: secret assigned to public output -- LoomError::InformationFlowViolation.
+
+module NonInterferenceProof
+
+  -- Sensitivity levels (lattice: public < secret < top_secret)
+  flow public  :: level 0
+  flow secret  :: level 1
+  flow top_secret :: level 2
+
+  -- A public computation: only uses public data
+  fn greet :: String -> String
+    flow: public
+    "Hello, " ++ name
+  end
+
+  -- A secret computation: uses sensitive salary data
+  fn compute_bonus :: Float -> Float
+    flow: secret
+    salary * 0.1
+  end
+
+  -- Declassify: explicit, audited downgrade (secret -> public)
+  fn redact_salary :: Float -> String
+    flow: secret -> public
+    declassify: "salary intentionally redacted for display"
+    "***REDACTED***"
+  end
+
+  -- Handler that accepts only public outputs
+  fn display :: String -> ()
+    flow: public
+    perform IO.write_line message
+  end
+
+end
+
+-- Violation (uncomment to see information flow error):
+-- fn leak_salary :: Float -> ()
+--   flow: public
+--   let bonus = compute_bonus salary  -- ERROR: secret value in public context
+--   display (Float.to_string bonus)   -- ERROR: InformationFlowViolation
+-- end

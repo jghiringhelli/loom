@@ -1,0 +1,56 @@
+-- Proof: Liskov Substitution Principle (Liskov & Wing, 1987)
+--
+-- Claim: `interface` + `implements` in Loom means every concrete type
+--        fully satisfies the interface contract. A missing method or
+--        a weakened precondition is a COMPILE-TIME ERROR.
+--
+-- Correct proof: both Square and Circle fully implement Shape -- compiles.
+-- Violation proof: remove `area` from Triangle -- LoomError::MissingInterfaceMethod.
+
+module LiskovProof
+
+  interface Shape
+    area   :: () -> Float
+    ensure: area.result >= 0.0
+
+    perimeter :: () -> Float
+    ensure: perimeter.result >= 0.0
+
+    describe :: () -> String
+  end
+
+  type Square implements Shape
+    side: Float
+    require: side > 0.0
+
+    area      :: () -> Float   = side * side
+    perimeter :: () -> Float   = 4.0 * side
+    describe  :: () -> String  = "Square with side " ++ Float.to_string side
+  end
+
+  type Circle implements Shape
+    radius: Float
+    require: radius > 0.0
+
+    area      :: () -> Float   = 3.14159 * radius * radius
+    perimeter :: () -> Float   = 2.0 * 3.14159 * radius
+    describe  :: () -> String  = "Circle with radius " ++ Float.to_string radius
+  end
+
+  -- Any function accepting Shape works with ALL Shape implementations.
+  -- This is the LSP guarantee: Square and Circle are fully interchangeable here.
+  fn total_area :: [Shape] -> Float
+    shapes
+      |> map (fn s -> s.area ())
+      |> fold 0.0 (+)
+  end
+
+end
+
+-- Violation (uncomment to see missing interface method error):
+-- type Triangle implements Shape
+--   base: Float
+--   height: Float
+--   area :: () -> Float = 0.5 * base * height
+--   -- perimeter and describe missing -> LoomError::MissingInterfaceMethod
+-- end

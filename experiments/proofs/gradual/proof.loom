@@ -1,0 +1,44 @@
+-- Proof: Gradual Typing (Siek & Taha, 2006)
+--
+-- Claim: Loom's `gradual:` block allows Dynamic types in specified regions.
+--        Outside gradual regions, all types are statically verified.
+--        A Dynamic value used as a concrete type generates a runtime cast check.
+--
+-- This proves the gradual guarantee: static types are never silently bypassed.
+
+module GradualProof
+
+  -- Fully static: all types checked at compile time
+  fn static_add :: Int -> Int -> Int
+    a + b
+  end
+
+  -- Gradual region: accepts Dynamic input, verifies before use
+  fn gradual_process :: Dynamic -> String
+    gradual:
+      accept: Dynamic
+      verify: is_string
+    perform IO.write_line "processing dynamic value"
+    Dynamic.to_string value
+  end
+
+  -- Mixed: static function calling into gradual region
+  fn pipeline :: Int -> String
+    let doubled = static_add x x
+    gradual_process (Dynamic.from_int doubled)
+  end
+
+  -- Type ascription: Dynamic value used as concrete type
+  fn checked_length :: Dynamic -> Int
+    gradual:
+      cast: String
+      on_failure: return 0
+    String.length (value as String)
+  end
+
+end
+
+-- Violation (uncomment to see gradual type error):
+-- fn bypass_types :: Dynamic -> Int
+--   value + 1  -- ERROR: cannot use Dynamic in arithmetic without cast
+-- end

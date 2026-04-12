@@ -1,0 +1,83 @@
+-- Proof: Autopoiesis (Maturana & Varela, 1972)
+--
+-- Claim: A BIOISO being with `autopoietic: true` must also have:
+--        - self-regulating loops (regulate:)
+--        - a boundary (matter: with a structural field)
+--        - self-production (propagate: or repair mechanism)
+--        Missing any of these = LoomError::AutopoiesisContractViolation.
+--
+-- This is the minimal Loom program satisfying the three Maturana-Varela conditions:
+-- 1. Self-boundary (lipid bilayer)
+-- 2. Self-production (synthesize own components)
+-- 3. Self-regulation (homeostatic loops)
+
+module AutopoiesisProof
+
+being MinimalCell @mortal @sandboxed
+  describe: "Simplest possible autopoietic being: self-bounded, self-produced, self-regulated"
+
+  -- Condition 1: bounded compartment (Maturana: membrane distinguishes self from environment)
+  matter:
+    membrane_integrity: Float   -- 0.0 = dissolved, 1.0 = intact
+    energy_reserve: Float       -- ATP equivalent
+  end
+
+  -- The telos: survive by maintaining boundary and energy
+  telos:
+    statement: "maintain boundary integrity and energy above survival threshold"
+    bounded_by: survival_score
+    measured_by: "membrane_integrity * 0.6 + energy_reserve * 0.4"
+    thresholds:
+      convergence: 0.7
+      divergence: 0.2
+    end
+  end
+
+  -- Condition 2: self-production (Varela: system produces its own components)
+  autopoietic: true
+
+  -- Condition 3: self-regulation (homeostasis loops)
+  regulate:
+    trigger: energy_reserve < 0.2
+    action: harvest_energy
+  end
+
+  regulate:
+    trigger: membrane_integrity < 0.4
+    action: repair_membrane
+  end
+
+  -- Telomere: finite lifespan (Hayflick complement)
+  telomere:
+    max_generations: 500
+    senescence_trigger: membrane_integrity < 0.05
+  end
+
+  -- Self-modification within bounds
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+end
+
+fn survival_score :: MinimalCell -> Float
+  require: cell.membrane_integrity >= 0.0
+  require: cell.energy_reserve >= 0.0
+  ensure:  result >= 0.0
+  ensure:  result <= 1.0
+  cell.membrane_integrity * 0.6 + cell.energy_reserve * 0.4
+end
+
+end
+
+-- Violation (uncomment to see autopoiesis contract error):
+-- being BrokenCell @mortal @sandboxed
+--   autopoietic: true   -- claims autopoiesis...
+--   matter:
+--     x: Float
+--   end
+--   -- ...but no regulate: loops and no telos
+--   -- -> LoomError::AutopoiesisContractViolation
+-- end
