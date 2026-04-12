@@ -20,16 +20,42 @@
   - sepsis/: SOFA Sepsis-3 extrapolation → 5/5 patients detected 1h before diagnosis
   - grid-stability/: battery dispatch → 4.7× frequency deviation improvement
   - soil-carbon/: RothC evolution → Cover-Maize-Maize-Maize-Maize +9.79 tC/ha
+- **BIOISO Runtime R1–R7 complete** — Loom is now an evolving system:
+  - R1 (388c555): Signal runtime — SQLite store, entity supervisor, codegen emitter
+  - R2 (0334222): Telos drift engine — normalised 0–1 score, severity levels, escalation
+  - R3 (39330eb): Polycephalum Tier 1 — deterministic rule engine, MutationProposal enum
+  - R4 (8bf06e2): Type-safe mutation gate — every proposal compiled through loom::compile()
+  - R5 (4cf236a): Ganglion Tier 2 — Ollama HTTP client, signal corpus, escalation counter
+  - R6 (b8af196): Mammal Brain Tier 3 — Claude API client, cost guard, full genome prompt
+  - R7 (0b97cd5): Orchestration loop + canary deploy + `loom runtime` CLI commands
+  - Total: 129 lib tests + 3 e2e integration tests, all passing
 
 ## In Progress
 - None
 
 ## Next
-1. **cargo publish warp-lang** — Cargo.toml has name=warp-lang but not yet published under that name
-2. **Add bioiso.loom to remaining 6 domain apps** (only climate has a .loom file so far)
-3. **LX-4 execution** — operator must run in a fresh LLM session (experiments/lx/LX-4-stateless-derivability/)
-4. **Disciplines / Entity emissions demo apps** — user mentioned these next (same pattern as domain apps)
+1. **Connect domain apps to runtime** — emit signals from the 7 BIOISO domain apps into
+   the runtime store; let the orchestrator observe them and propose mutations
+2. **cargo publish warp-lang** — Cargo.toml has name=warp-lang but not yet published under that name
+3. **Add bioiso.loom to remaining 6 domain apps** (only climate has a .loom file so far)
+4. **LX-4 execution** — operator must run in a fresh LLM session
 5. **V9 Dafny discharge** — EMITTED scaffolds; needs `dafny verify` run in CI
+
+## Architecture: BIOISO Runtime
+```
+Signal emission → Signal store → Telos drift engine
+                                       ↓
+                        Tier 1: Polycephalum (< 50ms, deterministic)
+                                       ↓ (on T1 miss × 3)
+                        Tier 2: Ganglion (Ollama local LLM)
+                                       ↓ (on T2 miss × 3)
+                        Tier 3: Mammal Brain (Claude API, cost-guarded)
+                                       ↓
+                        Type-safe gate (loom::compile())
+                                       ↓
+                        Canary deploy → monitor → promote/rollback
+```
+CLI: `loom runtime status|log|rollback`
 
 ## Decisions made (this session)
 - Language name stays "Loom" — embedded in academic papers, white paper, Onwards! submission
@@ -37,6 +63,9 @@
 - Proof experiments are the LANGUAGE property proofs; domain apps are the USE CASE proofs
 - Domain simulations use real physical models (IPCC, RothC, SIR, SOFA) for credibility
 - All domain simulation.rs files compile on stable Rust; no nightly features needed
+- BIOISO runtime lives in src/runtime/ as a new module (not codegen); 9 sub-modules
+- Three-tier synthesis: Polycephalum (local rules) → Ganglion (Ollama) → Mammal Brain (Claude)
+- Cost guard default: 10 Claude API calls/hour (env: BIOISO_MAX_TIER3_CALLS_PER_HOUR)
 
 ## Blockers / Dependencies
 - warp-lang publish: needs cargo publish run (token is set from crates_token.txt earlier)
