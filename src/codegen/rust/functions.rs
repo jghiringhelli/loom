@@ -567,12 +567,7 @@ impl RustEmitter {
         }
 
         if let Some(dg) = &fd.degenerate {
-            out.push_str("// degenerate:\n");
-            out.push_str(&format!("//   primary: {}\n", dg.primary));
-            out.push_str(&format!("//   fallback: {}\n", dg.fallback));
-            if let Some(ep) = &dg.equivalence_proof {
-                out.push_str(&format!("//   equivalence_proof: {}\n", ep));
-            }
+            self.emit_degenerate_fallback(&fd.name, dg, &mut out);
         }
 
         let mut params: Vec<String> = Vec::new();
