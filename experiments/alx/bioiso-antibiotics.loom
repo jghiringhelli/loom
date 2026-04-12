@@ -1,0 +1,96 @@
+module AntibioticResistance
+-- BIOISO Domain: Antibiotic Resistance - Evolutionary Arms Race
+-- Models antimicrobial stewardship as an evolving epigenetic being.
+-- Canalization: preserve antibiotic efficacy despite resistance selection pressure.
+-- Niche construction: usage patterns modify bacterial evolutionary landscape.
+
+being StewardshipController
+  describe: "Antimicrobial stewardship - resistance trajectory control and de-escalation"
+
+  telos: "maintain antibiotic susceptibility index above 0.75 for first-line agents"
+  end
+
+  regulate:
+    trigger: resistance_index > 0.4
+    action: restrict_broad_spectrum_prescribing
+  end
+
+  regulate:
+    trigger: susceptibility_index < 0.6
+    action: activate_combination_therapy_protocol
+  end
+
+  canalize:
+    toward: preserved_efficacy_equilibrium
+    despite: [horizontal_gene_transfer, selective_pressure, agricultural_usage, poor_compliance]
+    convergence_proof: prudent_use_convergence_model
+  end
+
+  criticality:
+    lower: 0.2
+    upper: 0.8
+    probe_fn: measure_resistance_tipping_proximity
+  end
+
+  epigenetic:
+    signal: novel_resistance_gene_detected
+    modifies: empirical_therapy_guidelines
+    reverts_when: resistance_prevalence < 0.05
+    duration: 2.years
+  end
+
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[susceptibility_index] non-decreasing under stewardship protocol"
+  end
+end
+
+lifecycle StewardshipController :: Alert -> Active -> Outbreak -> Containment -> Resolved
+  checkpoint: OutbreakDeclaration
+    requires: cluster_threshold_exceeded
+    on_fail: escalate_infection_control
+  end
+  checkpoint: ContainmentVerification
+    requires: transmission_chain_broken
+    on_fail: extend_isolation_period
+  end
+end
+
+niche_construction:
+  modifies: bacterial_selective_landscape
+  affects: [MicrobialDiversity, ResistanceGenePool, ClinicalOutcomes, BiofilmFormation]
+  probe_fn: measure_ecological_impact_of_usage
+end
+
+adopt: MicrobialSurveillance from EpidemiologyModule
+
+fn restrict_broad_spectrum_prescribing :: Unit -> Unit
+end
+
+fn activate_combination_therapy_protocol :: Unit -> Unit
+end
+
+fn cluster_threshold_exceeded :: Unit -> Bool
+  false
+end
+
+fn escalate_infection_control :: Unit -> Unit
+end
+
+fn transmission_chain_broken :: Unit -> Bool
+  false
+end
+
+fn extend_isolation_period :: Unit -> Unit
+end
+
+fn measure_resistance_tipping_proximity :: Unit -> Float
+  0.0
+end
+
+fn measure_ecological_impact_of_usage :: Unit -> Float
+  0.0
+end
+
+end

@@ -281,10 +281,10 @@ as specifications for stateless AI sessions.
 
 | Property | Formal criterion | Measured by | Implemented |
 |---|---|---|---|
-| Semantic density | density(loom) ≥ 3× TypeScript, ≥ 5× prose | LX-1 | ✅ (11 checkers, M1–M55) |
+| Semantic density | density(loom) ≥ 3× TypeScript, ≥ 5× prose | LX-1 | ✅ (11 checkers, M1–M77, codegen upgraded) |
 | Zero-ambiguity grammar | 0 ambiguous productions | LX-2 | ✅ (LL(2) parser) |
-| Drift resistance | ≤ 0.2 drift events/feature | LX-3 | Partial (needs M66/M67) |
-| Stateless derivability | ≥ 4/5 features compile clean from cold start | LX-4 | Testable now |
+| Drift resistance | ≤ 0.2 drift events/feature | LX-3 | ✅ (M66 aspect + M67 correctness_report complete) |
+| Stateless derivability | ≥ 4/5 features compile clean from cold start | LX-4 | Testable now — run LX-4 |
 
 ---
 
@@ -310,9 +310,9 @@ a hypothesis, not a result. The LX experiments make it a result.
 
 | Experiment | What it proves | Subject |
 |---|---|---|
-| **DX** (done) | GS methodology is transferable to new projects by a stateless AI reader | GS as a paradigm |
+| **DX** (complete) | GS methodology is transferable to new projects by a stateless AI reader | GS as a paradigm |
 | **LX-1 through LX-4** | Loom source code satisfies the four PLN properties | Loom as a language |
-| **ALX** (S_realized ≥ 0.90) | Loom can specify and certify itself | Loom operational closure |
+| **ALX** (S_realized = 44/45 = 0.9778) | Loom can specify and certify itself | Loom operational closure |
 
 These three experiments are independent and prove different things. DX results do
 not need to inform Loom design. LX results directly constrain the parser (LX-2),
