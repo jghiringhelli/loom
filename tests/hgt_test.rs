@@ -42,6 +42,7 @@ fn checker_rejects_empty_interface() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -75,6 +76,7 @@ fn checker_rejects_empty_from_module() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -108,6 +110,7 @@ fn checker_passes_valid_adopt() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

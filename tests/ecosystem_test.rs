@@ -52,6 +52,7 @@ fn ecosystem_without_signals_fails() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -102,6 +103,7 @@ fn ecosystem_signal_unknown_being_fails() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -230,6 +232,7 @@ fn rust_emit_ecosystem_has_module() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -280,6 +283,7 @@ fn rust_emit_ecosystem_has_signal_structs() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -343,6 +347,7 @@ fn rust_emit_ecosystem_has_coordinate_fn() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -393,6 +398,7 @@ fn typescript_emit_ecosystem_has_namespace() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -443,6 +449,7 @@ fn openapi_emit_ecosystem_has_x_ecosystems() {
     let module = loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

@@ -156,6 +156,26 @@ impl<'src> Parser<'src> {
         None
     }
 
+    /// Parse optional `domain: ident [ident ...]` — M185.
+    ///
+    /// Zero or more domain labels follow the colon, terminated by anything that
+    /// is not an identifier.  Example: `domain: climate energy epidemics`.
+    fn parse_domain(&mut self) -> Vec<String> {
+        if !matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "domain") {
+            return Vec::new();
+        }
+        if !matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _))) {
+            return Vec::new();
+        }
+        self.pos += 2; // consume `domain` `:`
+        let mut domains = Vec::new();
+        while let Some(label) = self.token_as_ident() {
+            domains.push(label);
+            self.advance();
+        }
+        domains
+    }
+
     /// Parse zero or more `@key("value")` annotations.
     ///
     /// Annotation keys may contain hyphens (e.g. `@encrypt-at-rest`, `@never-log`);
@@ -489,6 +509,7 @@ impl<'src> Parser<'src> {
 
         // Optional describe: and @annotations in the module header
         let describe = self.parse_describe();
+        let domains = self.parse_domain();
         let annotations = self.parse_annotations();
 
         // `import ModuleName` lines (zero or more, before the rest)
@@ -662,6 +683,7 @@ impl<'src> Parser<'src> {
         Ok(Module {
             name,
             describe,
+            domains,
             annotations,
             imports,
             spec,

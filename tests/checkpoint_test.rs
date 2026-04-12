@@ -49,6 +49,7 @@ fn checker_rejects_empty_requires() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -88,6 +89,7 @@ fn checker_rejects_empty_on_fail() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -127,6 +129,7 @@ fn checker_rejects_duplicate_checkpoint_names() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -183,6 +186,7 @@ fn checker_passes_valid_checkpoints() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

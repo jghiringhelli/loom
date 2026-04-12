@@ -9,6 +9,7 @@ fn make_module(being: BeingDef) -> loom::ast::Module {
     loom::ast::Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -68,6 +69,8 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     }

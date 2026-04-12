@@ -102,12 +102,15 @@ fn checker_rejects_empty_toward() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -167,12 +170,15 @@ fn checker_rejects_empty_despite() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

@@ -99,12 +99,15 @@ fn checker_rejects_inverted_bounds() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -173,12 +176,15 @@ fn checker_passes_valid_criticality() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

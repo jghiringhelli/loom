@@ -179,6 +179,8 @@ impl<'src> crate::parser::Parser<'src> {
         let mut cognitive_memory: Option<CognitiveMemoryBlock> = None;
         let mut signal_attention: Option<SignalAttentionBlock> = None;
         let mut propagate_block: Option<PropagateBlock> = None;
+        let mut role: Option<String> = None;
+        let mut relates_to: Vec<RelatesTo> = Vec::new();
 
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Matter) {
@@ -244,6 +246,36 @@ impl<'src> crate::parser::Parser<'src> {
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
                 propagate_block = Some(self.parse_being_propagate_section()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "role")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                // `role: sensor` — M186
+                self.pos += 2; // consume `role` `:`
+                if let Some(r) = self.token_as_ident() {
+                    role = Some(r);
+                    self.advance();
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "relates_to")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                // `relates_to: TargetName kind: mutualistic` — M187
+                let rel_span = self.current_span();
+                self.pos += 2; // consume `relates_to` `:`
+                if let Some(target) = self.token_as_ident() {
+                    self.advance();
+                    let mut kind = "mutualistic".to_string();
+                    // optional `kind: value`
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "kind")
+                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+                    {
+                        self.pos += 2;
+                        if let Some(k) = self.token_as_ident() {
+                            kind = k;
+                            self.advance();
+                        }
+                    }
+                    relates_to.push(RelatesTo { target, kind, span: rel_span });
+                }
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
                 self.advance();
@@ -281,6 +313,8 @@ impl<'src> crate::parser::Parser<'src> {
             boundary,
             cognitive_memory,
             signal_attention,
+            role,
+            relates_to,
             propagate_block,
             span: Span::merge(&start, &end_span),
         })

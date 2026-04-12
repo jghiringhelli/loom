@@ -159,12 +159,15 @@ impl RustEmitter {
         out
     }
 
-    /// Emit module-level `describe:` and `@annotation` doc comments.
+    /// Emit module-level `describe:`, `domain:`, and `@annotation` doc comments.
     fn emit_module_doc_comments(&self, module: &Module, out: &mut String) {
         if let Some(desc) = &module.describe {
             for line in desc.lines() {
                 out.push_str(&format!("/// {}\n", line));
             }
+        }
+        if !module.domains.is_empty() {
+            out.push_str(&format!("/// @domain: {}\n", module.domains.join(", ")));
         }
         for ann in &module.annotations {
             out.push_str(&format!("/// @{}: {}\n", ann.key, ann.value));
@@ -1222,6 +1225,7 @@ mod tests {
         let module = Module {
             name: "M".to_string(),
             describe: None,
+            domains: vec![],
             annotations: vec![],
             imports: vec![],
             spec: None,
@@ -1268,6 +1272,7 @@ mod tests {
         let module = Module {
             name: "M".to_string(),
             describe: None,
+            domains: vec![],
             annotations: vec![],
             imports: vec![],
             spec: None,
@@ -1312,6 +1317,7 @@ mod tests {
         let module = Module {
             name: "M".to_string(),
             describe: None,
+            domains: vec![],
             annotations: vec![],
             imports: vec![],
             spec: None,

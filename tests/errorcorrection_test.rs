@@ -63,6 +63,7 @@ fn checker_passes_valid_on_violation() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

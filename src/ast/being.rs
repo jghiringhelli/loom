@@ -260,6 +260,17 @@ pub struct PropagateBlock {
     pub span: Span,
 }
 
+/// M187: A declared structural relationship from this being to another — `relates_to: Name kind: K`.
+///
+/// Kinds mirror M72 symbiosis: mutualistic | commensal | parasitic.
+/// Emitted as a `// LOOM[relates_to:Name:kind]` doc comment alongside the being.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RelatesTo {
+    pub target: String,
+    pub kind: String,
+    pub span: Span,
+}
+
 /// A biological being — a self-maintaining, goal-directed entity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BeingDef {
@@ -308,6 +319,11 @@ pub struct BeingDef {
     pub cognitive_memory: Option<CognitiveMemoryBlock>,
     /// M115: Signal attention filter — prioritize/attenuate by telos relevance.
     pub signal_attention: Option<SignalAttentionBlock>,
+    /// M186: Role classification tag — M185 taxonomy. Values: sensor | effector | regulator |
+    /// integrator | memory | classifier.  Emitted as a `// LOOM[role:X]` comment.
+    pub role: Option<String>,
+    /// M187: Structural relationships to other beings — `relates_to: Name kind: mutualistic`.
+    pub relates_to: Vec<RelatesTo>,
     /// Biological propagation — offspring when telos score exceeds threshold.
     pub propagate_block: Option<PropagateBlock>,
     pub span: Span,

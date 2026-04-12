@@ -65,6 +65,7 @@ fn checker_rejects_invalid_kind() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -107,6 +108,7 @@ fn checker_rejects_empty_module_name() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

@@ -82,6 +82,8 @@ fn test_m101_missing_file_is_error() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
@@ -89,6 +91,7 @@ fn test_m101_missing_file_is_error() {
     let module = Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -160,6 +163,8 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         boundary: None,
         cognitive_memory: None,
         signal_attention: None,
+        role: None,
+        relates_to: vec![],
         propagate_block: None,
         span: Span::synthetic(),
     };
@@ -167,6 +172,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
     let module = Module {
         name: "Test".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -287,6 +293,7 @@ end
     let module_struct = Module {
         name: "Plain".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,

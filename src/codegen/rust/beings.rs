@@ -116,6 +116,14 @@ impl RustEmitter {
         if let Some(desc) = &being.describe {
             out.push_str(&format!("/// {}\n", desc));
         }
+        // M186: role annotation
+        if let Some(role) = &being.role {
+            out.push_str(&format!("// LOOM[role:{}]\n", role));
+        }
+        // M187: structural relationships
+        for rel in &being.relates_to {
+            out.push_str(&format!("// LOOM[relates_to:{}:{}]\n", rel.target, rel.kind));
+        }
         // LOOM[propagate]: emit propagation metadata
         if let Some(prop) = &being.propagate_block {
             out.push_str(&format!(

@@ -64,6 +64,9 @@ pub struct Module {
     pub name: String,
     /// Optional human-readable description (`describe: "..."`).
     pub describe: Option<String>,
+    /// Domain classification tags — M185. e.g. `domain: climate energy`.
+    /// Exported to ontology artifacts and emitted as doc comment.
+    pub domains: Vec<String>,
     /// Audit annotations (`@since`, `@decision`, `@deprecated`, `@author`).
     pub annotations: Vec<Annotation>,
     /// Compile-time module imports (`import ModuleName`).

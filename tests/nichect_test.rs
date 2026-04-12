@@ -52,6 +52,7 @@ fn checker_rejects_empty_modifies() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -86,6 +87,7 @@ fn checker_rejects_empty_affects() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
@@ -126,6 +128,7 @@ fn checker_passes_valid_niche_construction() {
     let module = Module {
         name: "M".to_string(),
         describe: None,
+        domains: vec![],
         annotations: vec![],
         imports: vec![],
         spec: None,
