@@ -1,0 +1,462 @@
+//! Ganglion — Tier 2 synthesis engine (R5).
+//!
+//! Named after a biological *ganglion*: a cluster of nerve cells that processes
+//! signals semi-autonomously between the peripheral and central nervous systems.
+//!
+//! When Tier 1 (Polycephalum) fails to converge after a configurable number of
+//! cycles, the Ganglion sends the signal corpus to a locally-running micro-LLM
+//! via the [Ollama](https://ollama.com) HTTP API and parses the proposed `.loom`
+//! mutations from the response.
+//!
+//! # Configuration
+//!
+//! | Field | Default | Description |
+//! |---|---|---|
+//! | `base_url` | `http://localhost:11434` | Ollama API base URL |
+//! | `model` | `"phi3"` | Model name to use |
+//! | `tier1_fail_threshold` | `3` | Consecutive Tier 1 zero-proposal cycles before escalation |
+//! | `timeout_secs` | `30` | HTTP request timeout |
+//!
+//! # No-network tests
+//!
+//! All tests in this module use a `MockOllamaClient` (injected via a trait) so
+//! that the Ganglion engine itself can be tested without a running Ollama instance.
+
+use crate::runtime::{
+    drift::DriftEvent,
+    mutation::MutationProposal,
+    signal::EntityId,
+    store::SignalStore,
+};
+
+// ── Ollama HTTP client ────────────────────────────────────────────────────────
+
+/// Response from the Ollama `/api/generate` endpoint.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct OllamaResponse {
+    /// The generated text.
+    pub response: String,
+    /// Whether the generation completed.
+    #[serde(default)]
+    pub done: bool,
+}
+
+/// Request body for the Ollama `/api/generate` endpoint.
+#[derive(Debug, Clone, serde::Serialize)]
+struct OllamaRequest<'a> {
+    model: &'a str,
+    prompt: &'a str,
+    stream: bool,
+}
+
+/// Trait allowing tests to inject a mock HTTP client.
+pub trait OllamaClient: Send + Sync {
+    /// Send a prompt to the model and return the raw response text.
+    fn generate(&self, model: &str, prompt: &str) -> Result<String, String>;
+
+    /// Check that the Ollama service is reachable.
+    fn health_check(&self) -> bool;
+}
+
+/// Real blocking HTTP client backed by `reqwest`.
+pub struct ReqwestOllamaClient {
+    base_url: String,
+    timeout_secs: u64,
+    client: reqwest::blocking::Client,
+}
+
+impl ReqwestOllamaClient {
+    /// Create a client targeting `base_url` (default: `http://localhost:11434`).
+    pub fn new(base_url: impl Into<String>, timeout_secs: u64) -> Self {
+        Self {
+            base_url: base_url.into(),
+            timeout_secs,
+            client: reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout_secs))
+                .build()
+                .expect("failed to build reqwest client"),
+        }
+    }
+}
+
+impl OllamaClient for ReqwestOllamaClient {
+    fn generate(&self, model: &str, prompt: &str) -> Result<String, String> {
+        let url = format!("{}/api/generate", self.base_url);
+        let body = OllamaRequest { model, prompt, stream: false };
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .map_err(|e| e.to_string())?;
+        let ollama_resp: OllamaResponse = resp.json().map_err(|e| e.to_string())?;
+        Ok(ollama_resp.response)
+    }
+
+    fn health_check(&self) -> bool {
+        let url = format!("{}/api/tags", self.base_url);
+        self.client.get(&url).send().map(|r| r.status().is_success()).unwrap_or(false)
+    }
+}
+
+// ── Signal corpus serializer ──────────────────────────────────────────────────
+
+/// Serialise the signal corpus (entity state + drift history + telos bounds)
+/// into a structured prompt block for the LLM.
+pub fn serialize_corpus(
+    entity_id: &str,
+    drift_event: &DriftEvent,
+    store: &SignalStore,
+    recent_n: usize,
+) -> String {
+    let signals = store
+        .signals_for_entity(entity_id, recent_n)
+        .unwrap_or_default();
+    let bounds = store
+        .telos_bounds_for_entity(entity_id)
+        .unwrap_or_default();
+
+    let mut corpus = String::new();
+    corpus.push_str(&format!("# Entity: {entity_id}\n"));
+    corpus.push_str(&format!(
+        "# Drift event: metric='{}' score={:.3} ts={}\n",
+        drift_event.triggering_metric, drift_event.score, drift_event.ts
+    ));
+
+    if !bounds.is_empty() {
+        corpus.push_str("# Telos bounds:\n");
+        for b in &bounds {
+            corpus.push_str(&format!(
+                "#   metric={} min={:?} max={:?} target={:?}\n",
+                b.metric, b.min, b.max, b.target
+            ));
+        }
+    }
+
+    if !signals.is_empty() {
+        corpus.push_str(&format!("# Last {} signals (newest first):\n", signals.len()));
+        for s in &signals {
+            corpus.push_str(&format!(
+                "#   {} = {} @ {}\n",
+                s.metric, s.value, s.timestamp
+            ));
+        }
+    }
+    corpus
+}
+
+// ── Prompt builder ────────────────────────────────────────────────────────────
+
+/// Build the full LLM prompt from the signal corpus.
+///
+/// The prompt instructs the model to respond with a JSON array of
+/// `MutationProposal` objects.
+pub fn build_prompt(entity_id: &EntityId, corpus: &str) -> String {
+    format!(
+        r#"{corpus}
+
+You are the Ganglion synthesis engine for entity '{entity_id}'.
+The entity's telos is drifting. Propose mutations to restore convergence.
+
+Respond with ONLY a JSON array of mutation proposals.  Each proposal must be
+one of these shapes:
+  {{"kind":"parameter_adjust","entity_id":"...","param":"...","delta":0.0,"reason":"..."}}
+  {{"kind":"entity_clone","source_id":"...","new_id":"...","reason":"..."}}
+  {{"kind":"entity_rollback","entity_id":"...","checkpoint_id":0,"reason":"..."}}
+  {{"kind":"entity_prune","entity_id":"...","reason":"..."}}
+  {{"kind":"structural_rewire","from_id":"...","to_id":"...","signal_name":"...","reason":"..."}}
+
+Return ONLY the JSON array.  No explanation. No markdown fences.
+"#,
+        corpus = corpus,
+        entity_id = entity_id
+    )
+}
+
+/// Parse a JSON array of `MutationProposal`s from LLM response text.
+///
+/// Extracts the first `[...]` block found in the text (tolerates surrounding prose).
+pub fn parse_proposals(text: &str) -> Vec<MutationProposal> {
+    let start = text.find('[');
+    let end = text.rfind(']');
+    match (start, end) {
+        (Some(s), Some(e)) if e >= s => {
+            let json_slice = &text[s..=e];
+            serde_json::from_str(json_slice).unwrap_or_default()
+        }
+        _ => vec![],
+    }
+}
+
+// ── Ganglion engine ───────────────────────────────────────────────────────────
+
+/// Configuration for the Ganglion engine.
+#[derive(Debug, Clone)]
+pub struct GanglionConfig {
+    /// Ollama API base URL.
+    pub base_url: String,
+    /// Model name.
+    pub model: String,
+    /// Number of consecutive Tier 1 zero-proposal cycles before Ganglion fires.
+    pub tier1_fail_threshold: usize,
+    /// HTTP timeout in seconds.
+    pub timeout_secs: u64,
+    /// Number of recent signals to include in the corpus.
+    pub corpus_lookback: usize,
+}
+
+impl Default for GanglionConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "http://localhost:11434".into(),
+            model: "phi3".into(),
+            tier1_fail_threshold: 3,
+            timeout_secs: 30,
+            corpus_lookback: 20,
+        }
+    }
+}
+
+/// Tier 2 synthesis engine.
+pub struct Ganglion {
+    /// Configuration.
+    pub config: GanglionConfig,
+    /// The Ollama client (real or mock).
+    client: Box<dyn OllamaClient>,
+    /// Consecutive Tier 1 failure counter per entity.
+    tier1_fail_counts: std::collections::HashMap<EntityId, usize>,
+}
+
+impl Ganglion {
+    /// Create a Ganglion with the real `reqwest`-backed client.
+    pub fn new(config: GanglionConfig) -> Self {
+        let client = Box::new(ReqwestOllamaClient::new(
+            config.base_url.clone(),
+            config.timeout_secs,
+        ));
+        Self {
+            config,
+            client,
+            tier1_fail_counts: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Create a Ganglion with a custom (mock) client.  Used in tests.
+    pub fn with_client(config: GanglionConfig, client: Box<dyn OllamaClient>) -> Self {
+        Self {
+            config,
+            client,
+            tier1_fail_counts: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Record that Tier 1 produced zero proposals for `entity_id`.
+    ///
+    /// Returns `true` when the fail count reaches `tier1_fail_threshold`,
+    /// indicating Ganglion should fire.
+    pub fn record_tier1_miss(&mut self, entity_id: &EntityId) -> bool {
+        let count = self.tier1_fail_counts.entry(entity_id.clone()).or_insert(0);
+        *count += 1;
+        *count >= self.config.tier1_fail_threshold
+    }
+
+    /// Reset the Tier 1 miss counter when Tier 1 succeeds.
+    pub fn reset_tier1_miss(&mut self, entity_id: &EntityId) {
+        self.tier1_fail_counts.remove(entity_id);
+    }
+
+    /// Current Tier 1 miss count for an entity.
+    pub fn tier1_miss_count(&self, entity_id: &EntityId) -> usize {
+        *self.tier1_fail_counts.get(entity_id).unwrap_or(&0)
+    }
+
+    /// Evaluate a drift event: build corpus, call Ollama, parse proposals.
+    ///
+    /// Returns an empty vec if the Ollama service is unreachable or returns
+    /// an unparseable response.
+    pub fn evaluate(
+        &self,
+        event: &DriftEvent,
+        store: &SignalStore,
+    ) -> Vec<MutationProposal> {
+        if !self.client.health_check() {
+            return vec![];
+        }
+
+        let corpus =
+            serialize_corpus(&event.entity_id, event, store, self.config.corpus_lookback);
+        let prompt = build_prompt(&event.entity_id, &corpus);
+
+        match self.client.generate(&self.config.model, &prompt) {
+            Ok(text) => parse_proposals(&text),
+            Err(_) => vec![],
+        }
+    }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::{drift::DriftEvent, store::SignalStore};
+
+    fn mem_store() -> SignalStore {
+        SignalStore::new(":memory:").unwrap()
+    }
+
+    fn make_event(entity_id: &str, metric: &str, score: f64) -> DriftEvent {
+        DriftEvent {
+            entity_id: entity_id.into(),
+            triggering_metric: metric.into(),
+            score,
+            ts: 1_000_000,
+        }
+    }
+
+    // ── Mock client ───────────────────────────────────────────────────────────
+
+    struct MockOllamaClient {
+        response: String,
+        healthy: bool,
+    }
+
+    impl OllamaClient for MockOllamaClient {
+        fn generate(&self, _model: &str, _prompt: &str) -> Result<String, String> {
+            if self.healthy {
+                Ok(self.response.clone())
+            } else {
+                Err("service unavailable".into())
+            }
+        }
+        fn health_check(&self) -> bool {
+            self.healthy
+        }
+    }
+
+    fn ganglion_with_response(response: &str) -> Ganglion {
+        Ganglion::with_client(
+            GanglionConfig::default(),
+            Box::new(MockOllamaClient {
+                response: response.into(),
+                healthy: true,
+            }),
+        )
+    }
+
+    fn ganglion_unreachable() -> Ganglion {
+        Ganglion::with_client(
+            GanglionConfig::default(),
+            Box::new(MockOllamaClient {
+                response: String::new(),
+                healthy: false,
+            }),
+        )
+    }
+
+    // ── parse_proposals ───────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_proposals_extracts_parameter_adjust_from_json_array() {
+        let text = r#"[{"kind":"parameter_adjust","entity_id":"climate","param":"albedo","delta":-0.02,"reason":"reduce drift"}]"#;
+        let proposals = parse_proposals(text);
+        assert_eq!(proposals.len(), 1);
+        assert!(matches!(proposals[0], MutationProposal::ParameterAdjust { .. }));
+    }
+
+    #[test]
+    fn parse_proposals_tolerates_surrounding_prose() {
+        let text =
+            "Sure, here are my proposals:\n[{\"kind\":\"entity_prune\",\"entity_id\":\"x\",\"reason\":\"gone\"}]\nDone.";
+        let proposals = parse_proposals(text);
+        assert_eq!(proposals.len(), 1);
+    }
+
+    #[test]
+    fn parse_proposals_returns_empty_on_invalid_json() {
+        let text = "I cannot propose anything specific.";
+        let proposals = parse_proposals(text);
+        assert!(proposals.is_empty());
+    }
+
+    // ── serialize_corpus ──────────────────────────────────────────────────────
+
+    #[test]
+    fn serialize_corpus_includes_entity_id_and_metric() {
+        let store = mem_store();
+        let event = make_event("climate_1", "temperature", 0.8);
+        let corpus = serialize_corpus("climate_1", &event, &store, 5);
+        assert!(corpus.contains("climate_1"));
+        assert!(corpus.contains("temperature"));
+        assert!(corpus.contains("0.800"));
+    }
+
+    #[test]
+    fn serialize_corpus_includes_bounds_when_set() {
+        let store = mem_store();
+        store.register_entity("e1", "E", "{}", 0).unwrap();
+        store.set_telos_bounds("e1", "temp", Some(0.0), Some(4.0), Some(2.0)).unwrap();
+        let event = make_event("e1", "temp", 0.9);
+        let corpus = serialize_corpus("e1", &event, &store, 5);
+        assert!(corpus.contains("temp"));
+        assert!(corpus.contains("Some(4.0)") || corpus.contains("4.0"));
+    }
+
+    // ── Ganglion::evaluate ────────────────────────────────────────────────────
+
+    #[test]
+    fn ganglion_returns_proposals_from_mock_client() {
+        let store = mem_store();
+        store.register_entity("climate", "ClimateModel", "{}", 0).unwrap();
+
+        let ganglion = ganglion_with_response(
+            r#"[{"kind":"parameter_adjust","entity_id":"climate","param":"albedo","delta":-0.01,"reason":"test"}]"#,
+        );
+        let event = make_event("climate", "temperature", 0.8);
+        let proposals = ganglion.evaluate(&event, &store);
+        assert_eq!(proposals.len(), 1);
+    }
+
+    #[test]
+    fn ganglion_returns_empty_when_unreachable() {
+        let store = mem_store();
+        let ganglion = ganglion_unreachable();
+        let event = make_event("climate", "temperature", 0.9);
+        let proposals = ganglion.evaluate(&event, &store);
+        assert!(proposals.is_empty());
+    }
+
+    // ── Escalation counter ────────────────────────────────────────────────────
+
+    #[test]
+    fn escalation_triggers_after_threshold_misses() {
+        let mut ganglion = ganglion_with_response("[]");
+        ganglion.config.tier1_fail_threshold = 3;
+        let id: EntityId = "e1".into();
+        assert!(!ganglion.record_tier1_miss(&id));
+        assert!(!ganglion.record_tier1_miss(&id));
+        let triggered = ganglion.record_tier1_miss(&id);
+        assert!(triggered, "should escalate at threshold 3");
+    }
+
+    #[test]
+    fn reset_clears_miss_counter() {
+        let mut ganglion = ganglion_with_response("[]");
+        let id: EntityId = "e2".into();
+        ganglion.record_tier1_miss(&id);
+        ganglion.record_tier1_miss(&id);
+        ganglion.reset_tier1_miss(&id);
+        assert_eq!(ganglion.tier1_miss_count(&id), 0);
+    }
+
+    // ── build_prompt ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn build_prompt_includes_entity_id_and_corpus() {
+        let corpus = "# Entity: planet_earth\n# Drift: temp=0.9";
+        let prompt = build_prompt(&"planet_earth".into(), corpus);
+        assert!(prompt.contains("planet_earth"));
+        assert!(prompt.contains("parameter_adjust"));
+        assert!(prompt.contains("JSON array"));
+    }
+}

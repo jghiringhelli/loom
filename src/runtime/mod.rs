@@ -27,6 +27,7 @@
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
 pub mod drift;
+pub mod ganglion;
 pub mod gate;
 pub mod mutation;
 pub mod polycephalum;
@@ -35,6 +36,7 @@ pub mod store;
 pub mod supervisor;
 
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
+pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
 pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
@@ -67,6 +69,8 @@ pub struct Runtime {
     pub polycephalum: Polycephalum,
     /// Type-safe mutation gate — validates proposals through the full compiler.
     pub gate: MutationGate,
+    /// Tier 2 Ganglion engine — local micro-LLM synthesis via Ollama.
+    pub ganglion: Ganglion,
 }
 
 impl Runtime {
@@ -80,6 +84,7 @@ impl Runtime {
             drift_engine: DriftEngine::new(),
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
+            ganglion: Ganglion::new(GanglionConfig::default()),
         })
     }
 
