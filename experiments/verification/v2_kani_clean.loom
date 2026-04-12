@@ -1,0 +1,14 @@
+-- V2 Kani Proof: minimal clean Loom with require:/ensure: contracts
+-- Tests that the emitter produces #[cfg(kani)] #[kani::proof] harnesses.
+
+module AddPositiveContracts
+
+fn add_positive :: Int -> Int -> Int
+  require: a > 0
+  require: b > 0
+  ensure:  result > a
+  ensure:  result > b
+  a + b
+end
+
+end
