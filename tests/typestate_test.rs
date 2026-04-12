@@ -127,8 +127,8 @@ end"#;
         "missing Closed struct in:\n{out}"
     );
     assert!(
-        out.contains("// Lifecycle states for Connection"),
-        "missing comment in:\n{out}"
+        out.contains("// LOOM[lifecycle:Connection]"),
+        "missing LOOM annotation in:\n{out}"
     );
 }
 

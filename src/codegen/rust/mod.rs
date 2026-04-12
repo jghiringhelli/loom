@@ -199,10 +199,7 @@ impl RustEmitter {
 
         for lc in &module.lifecycle_defs {
             body.push('\n');
-            body.push_str(&format!("// Lifecycle states for {}\n", lc.type_name));
-            for state in &lc.states {
-                body.push_str(&format!("pub struct {};\n", state));
-            }
+            body.push_str(&emit_lifecycle_def(lc));
         }
 
         for temporal in &module.temporal_defs {
@@ -1092,6 +1089,70 @@ fn pascal_case(s: &str) -> String {
             }
         })
         .collect()
+}
+
+/// Emit a lifecycle definition with gated state transitions (M69 checkpoints).
+///
+/// Generates:
+/// - `// LOOM[lifecycle:TypeName]` annotation
+/// - Zero-sized state marker structs
+/// - A `TypeNameState` enum for runtime state tracking
+/// - `impl TypeNameState` with `transition()` that enforces checkpoint guards
+fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
+    let name = &lc.type_name;
+    let mut src = format!("// LOOM[lifecycle:{}]: gated state machine\n", name);
+    for cp in &lc.checkpoints {
+        src.push_str(&format!(
+            "// LOOM[lifecycle:checkpoint:{}]: requires={}, on_fail={}\n",
+            cp.name, cp.requires, cp.on_fail
+        ));
+    }
+
+    // Zero-sized state marker structs (phantom-type pattern)
+    for state in &lc.states {
+        src.push_str(&format!("pub struct {};\n", state));
+    }
+
+    if lc.states.is_empty() {
+        return src;
+    }
+
+    // Runtime state enum
+    src.push_str(&format!("\n#[derive(Debug, Clone, PartialEq)]\npub enum {}State {{\n", name));
+    for state in &lc.states {
+        src.push_str(&format!("    {},\n", state));
+    }
+    src.push_str("}\n\n");
+
+    // impl with transition method enforcing checkpoints
+    src.push_str(&format!("impl {}State {{\n", name));
+    src.push_str("    /// Advance to the next state, returning Err if a checkpoint guard fails.\n");
+    src.push_str("    pub fn transition(&self) -> Result<Self, &'static str> {\n        match self {\n");
+    let n = lc.states.len();
+    for (i, state) in lc.states.iter().enumerate() {
+        if i + 1 < n {
+            let next = &lc.states[i + 1];
+            let guard = lc.checkpoints.iter().find(|cp| cp.name == *state);
+            if let Some(cp) = guard {
+                src.push_str(&format!(
+                    "            {}State::{} => Err(\"{}\"),\n",
+                    name, state, cp.on_fail
+                ));
+            } else {
+                src.push_str(&format!(
+                    "            {}State::{} => Ok({}State::{}),\n",
+                    name, state, name, next
+                ));
+            }
+        } else {
+            src.push_str(&format!(
+                "            {}State::{} => Err(\"already in terminal state\"),\n",
+                name, state
+            ));
+        }
+    }
+    src.push_str("        }\n    }\n}\n");
+    src
 }
 
 /// Emit a niche construction declaration as doc comments.
