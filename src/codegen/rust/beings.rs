@@ -457,11 +457,25 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
         }
         if let Some(crit) = &being.criticality {
             out.push_str(&format!(
-                "// criticality: lower: {}, upper: {}\n",
-                crit.lower, crit.upper
+                "// LOOM[criticality:{}]: tipping point bounds [lower={}, upper={}]\n",
+                being.name, crit.lower, crit.upper
             ));
             if let Some(p) = &crit.probe_fn {
-                out.push_str(&format!("//   probe_fn: {}\n", p));
+                out.push_str(&format!("// LOOM[criticality:probe]: {}\n", p));
+            }
+            out.push_str(&format!(
+                "pub const {}_CRITICALITY_LOWER: f64 = {};\n",
+                being.name.to_uppercase(), crit.lower
+            ));
+            out.push_str(&format!(
+                "pub const {}_CRITICALITY_UPPER: f64 = {};\n",
+                being.name.to_uppercase(), crit.upper
+            ));
+            if let Some(p) = &crit.probe_fn {
+                out.push_str(&format!(
+                    "pub fn {}_criticality_probe() -> f64 {{ {}() }}\n",
+                    being.name.to_lowercase(), p
+                ));
             }
         }
         if being.autopoietic {
