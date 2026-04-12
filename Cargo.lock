@@ -606,7 +606,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "loom-lang"
+name = "loom-language"
 version = "0.2.0"
 dependencies = [
  "clap",
