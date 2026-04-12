@@ -67,6 +67,12 @@ enum Commands {
         manifest: PathBuf,
     },
 
+    /// BIOISO runtime commands — run and monitor live evolving entities.
+    Runtime {
+        #[command(subcommand)]
+        subcommand: RuntimeCommands,
+    },
+
     /// Execute a Loom Protocol Notation (`.lp`) instruction file.
     ///
     /// LPN is a minimal AI-to-AI wire format for orchestrating the Loom
@@ -92,7 +98,44 @@ enum Commands {
     },
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
+// ── Runtime subcommands ────────────────────────────────────────────────────────
+
+/// Subcommands under `loom runtime`.
+#[derive(Subcommand)]
+enum RuntimeCommands {
+    /// Show the current status of all entities in a BIOISO store.
+    Status {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+    },
+
+    /// Show recent signals and drift events from a BIOISO store.
+    Log {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Number of recent signals to show per entity.
+        #[arg(long, default_value = "10")]
+        n: usize,
+    },
+
+    /// Roll back an entity to a saved checkpoint.
+    Rollback {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Entity ID to roll back.
+        entity: String,
+
+        /// Checkpoint ID to restore to.
+        checkpoint: i64,
+    },
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────────
 
 fn main() {
     let cli = Cli::parse();
@@ -227,6 +270,10 @@ fn main() {
             }
         }
 
+        Commands::Runtime { subcommand } => {
+            handle_runtime(subcommand);
+        }
+
         Commands::Lpn {
             input,
             base_dir,
@@ -307,6 +354,75 @@ fn main() {
             );
 
             if !parse_errs.is_empty() || exit_code != 0 {
+                process::exit(1);
+            }
+        }
+    }
+}
+
+// ── Runtime command handlers ──────────────────────────────────────────────────
+
+fn handle_runtime(subcommand: RuntimeCommands) {
+    match subcommand {
+        RuntimeCommands::Status { db } => {
+            let store = match loom::runtime::SignalStore::new(&db) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+            let entities = store.all_entities().unwrap_or_default();
+            if entities.is_empty() {
+                println!("no entities registered in `{db}`");
+                return;
+            }
+            println!("{:<20} {:<20} {:<12} {}", "ID", "NAME", "STATE", "BORN AT");
+            println!("{}", "-".repeat(64));
+            for e in &entities {
+                println!("{:<20} {:<20} {:<12} {}", e.id, e.name, e.state, e.born_at);
+            }
+        }
+
+        RuntimeCommands::Log { db, n } => {
+            let store = match loom::runtime::SignalStore::new(&db) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+            let entities = store.all_entities().unwrap_or_default();
+            for e in &entities {
+                println!("# {} ({})", e.id, e.name);
+                let sigs = store.signals_for_entity(&e.id, n).unwrap_or_default();
+                if sigs.is_empty() {
+                    println!("  (no signals)");
+                } else {
+                    for s in &sigs {
+                        println!("  {} = {} @ {}", s.metric, s.value, s.timestamp);
+                    }
+                }
+                if let Ok(Some(drift)) = store.latest_drift_score(&e.id) {
+                    println!("  drift score: {:.3}", drift);
+                }
+                println!();
+            }
+        }
+
+        RuntimeCommands::Rollback { db, entity, checkpoint } => {
+            let store = match loom::runtime::SignalStore::new(&db) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+            let deployer = loom::runtime::deploy::CanaryDeployer::new();
+            if deployer.rollback(&entity, checkpoint, &store) {
+                println!("rolled back `{entity}` to checkpoint {checkpoint}");
+            } else {
+                eprintln!("error: rollback failed for entity `{entity}`");
                 process::exit(1);
             }
         }

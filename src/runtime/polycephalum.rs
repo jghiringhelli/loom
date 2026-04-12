@@ -170,6 +170,11 @@ impl Polycephalum {
         }
     }
 
+    /// Create an engine pre-loaded with the given registry.
+    pub fn with_registry(registry: RuleRegistry) -> Self {
+        Self { registry, max_proposals: 3 }
+    }
+
     /// Evaluate a drift event and return ranked mutation proposals.
     ///
     /// Rules are evaluated in priority order.  At most `self.max_proposals` proposals

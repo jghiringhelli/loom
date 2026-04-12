@@ -27,16 +27,19 @@
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
 pub mod brain;
+pub mod deploy;
 pub mod drift;
 pub mod ganglion;
 pub mod gate;
 pub mod mutation;
+pub mod orchestrator;
 pub mod polycephalum;
 pub mod signal;
 pub mod store;
 pub mod supervisor;
 
 pub use brain::{CostGuard, MammalBrain};
+pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
