@@ -27,6 +27,7 @@
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
 pub mod drift;
+pub mod gate;
 pub mod mutation;
 pub mod polycephalum;
 pub mod signal;
@@ -34,6 +35,7 @@ pub mod store;
 pub mod supervisor;
 
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
+pub use gate::{GateResult, GateVerdict, MutationGate};
 pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
@@ -63,6 +65,8 @@ pub struct Runtime {
     pub drift_engine: DriftEngine,
     /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
     pub polycephalum: Polycephalum,
+    /// Type-safe mutation gate — validates proposals through the full compiler.
+    pub gate: MutationGate,
 }
 
 impl Runtime {
@@ -75,6 +79,7 @@ impl Runtime {
             supervisor: EntitySupervisor::new(),
             drift_engine: DriftEngine::new(),
             polycephalum: Polycephalum::new(),
+            gate: MutationGate::new(),
         })
     }
 
@@ -180,6 +185,13 @@ impl Runtime {
     /// Number of currently Active entities.
     pub fn active_count(&self) -> usize {
         self.supervisor.active_count()
+    }
+
+    /// Validate a proposal through the type-safe mutation gate and record the verdict.
+    ///
+    /// Returns the [`GateResult`] containing the verdict and the original proposal.
+    pub fn apply_proposal(&self, proposal: &MutationProposal) -> GateResult {
+        self.gate.evaluate(proposal, &self.store)
     }
 }
 
