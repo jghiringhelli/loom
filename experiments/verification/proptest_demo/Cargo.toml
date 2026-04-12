@@ -1,0 +1,10 @@
+[package]
+name = "loom_proptest_demo"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+loom_proptest = []
+
+[dev-dependencies]
+proptest = "1"

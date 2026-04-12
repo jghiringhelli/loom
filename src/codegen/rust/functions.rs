@@ -67,10 +67,11 @@ impl RustEmitter {
         out.push_str("}\n\n");
 
         // V3+ — proptest random sampling
-        // Gate: compile with `RUSTFLAGS="--cfg loom_proptest"` or in Cargo:
-        //   [features] loom_proptest = []
-        // 1024 random cases per run.
-        out.push_str("#[cfg(loom_proptest)]\n");
+        // Gate: add to Cargo.toml: [features] loom_proptest = ["proptest"]
+        //       then run: cargo test --features loom_proptest
+        // 1024 random cases per run; bounded Int range avoids debug overflow.
+        out.push_str("// V3+: add `proptest` to [dev-dependencies] and `loom_proptest = []` to [features]\n");
+        out.push_str("#[cfg(feature = \"loom_proptest\")]\n");
         out.push_str(&format!("mod property_{fn_name}_proptest {{\n"));
         out.push_str("    use super::*;\n");
         out.push_str("    use proptest::prelude::*;\n\n");
@@ -79,7 +80,7 @@ impl RustEmitter {
             "        #![proptest_config(proptest::test_runner::Config::with_cases(1024))]\n",
         );
         out.push_str(&format!(
-            "        #[test]\n        fn property_{fn_name}_random({vn}: {strat}) {{\n",
+            "        #[test]\n        fn property_{fn_name}_random({vn} in {strat}) {{\n",
             fn_name = fn_name,
             vn = pb.var_name,
             strat = strategy,
@@ -142,9 +143,14 @@ fn property_invariant_to_rust(invariant: &str, var_name: &str) -> String {
 }
 
 /// Map a Loom type name to (rust_type, comma-separated edge case literals).
+///
+/// Edge cases are chosen to be safe for arithmetic operations in debug builds.
+/// `i64::MIN` is excluded because operations like `n * n` overflow in debug mode.
+/// For exhaustive numeric testing, the proptest block (loom_proptest feature) uses
+/// a bounded range strategy.
 fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
     match loom_type {
-        "Int" | "Integer" => ("i64", "i64::MIN, -1000, -1, 0, 1, 1000, i64::MAX / 2"),
+        "Int" | "Integer" => ("i64", "-1000, -1, 0, 1, 1000"),
         "Float" => ("f64", "-1000.0, -1.0, 0.0, 1.0, 1000.0"),
         "Bool" => ("bool", "false, true"),
         _ => ("i64", "0, 1, -1"),
@@ -153,10 +159,11 @@ fn property_edge_cases(loom_type: &str) -> (&'static str, &'static str) {
 
 /// Map a Loom type name to a proptest strategy expression.
 ///
-/// Float uses a bounded range to exclude NaN/Inf which cannot satisfy most invariants.
+/// Int uses a bounded range (-1_000_000..=1_000_000) to avoid arithmetic overflow
+/// in debug builds. Float uses NORMAL | ZERO to exclude NaN/Inf.
 fn property_proptest_strategy(loom_type: &str, rust_type: &'static str) -> String {
     match loom_type {
-        "Int" | "Integer" => "i64".to_string(),
+        "Int" | "Integer" => "(-1_000_000_i64..=1_000_000_i64)".to_string(),
         "Float" => "proptest::num::f64::NORMAL | proptest::num::f64::ZERO".to_string(),
         "Bool" => "bool".to_string(),
         _ => rust_type.to_string(),

@@ -51,6 +51,126 @@ jobs:
           path: test-output.txt
           retention-days: 7
 
+  # ── Kani formal proof harnesses ──────────────────────────────────────────────
+  kani:
+    name: Kani CBMC proofs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-kani-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-kani-
+
+      - name: Install Kani verifier
+        run: cargo install --locked kani-verifier
+
+      - name: Build Loom CLI
+        run: cargo build --bin loom --release
+
+      - name: Compile v2_kani_clean.loom → Rust
+        run: ./target/release/loom compile experiments/verification/v2_kani_clean.loom
+
+      - name: Create standalone Kani crate
+        run: |
+          mkdir -p /tmp/kani_verify/src
+          cp experiments/verification/v2_kani_clean.rs /tmp/kani_verify/src/lib.rs
+          cat > /tmp/kani_verify/Cargo.toml << 'EOF'
+          [package]
+          name = "kani_verify"
+          version = "0.1.0"
+          edition = "2021"
+          EOF
+
+      - name: Run cargo kani (formal proof)
+        working-directory: /tmp/kani_verify
+        run: |
+          cargo kani 2>&1 | tee kani-output.txt
+          echo "### Kani proof results" >> $GITHUB_STEP_SUMMARY
+          grep -E "VERIFICATION|FAILED|PASS" kani-output.txt >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Upload Kani output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kani-output
+          path: /tmp/kani_verify/kani-output.txt
+          retention-days: 7
+
+  # ── LX-4 Stateless Derivability dry runs ─────────────────────────────────────
+  lx4-derivability:
+    name: LX-4 Stateless Derivability
+    runs-on: ubuntu-latest
+    # Only run when ANTHROPIC_API_KEY secret is present (i.e. in main repo, not forks)
+    if: ${{ github.event_name == 'push' && vars.RUN_LX4 == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Loom CLI
+        run: cargo build --bin loom --release
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install anthropic SDK
+        run: pip install anthropic
+
+      - name: Run LX-4 cold-start trials
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LOOM_BIN: ./target/release/loom
+        run: python experiments/lx/LX-4-stateless-derivability/run_trials.py
+
+      - name: Upload LX-4 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lx4-evidence
+          path: experiments/lx/LX-4-stateless-derivability/evidence/
+          retention-days: 30
+
+  # ── Compile all BIOISO programs ───────────────────────────────────────────────
+  compile-experiments:
+    name: Compile BIOISO programs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Loom CLI
+        run: cargo build --bin loom --release
+
+      - name: Compile all BIOISO programs
+        run: |
+          PASS=0; FAIL=0
+          for f in experiments/alx/bioiso-*.loom; do
+            if ./target/release/loom compile "$f" 2>&1; then
+              echo "✅ $f"
+              PASS=$((PASS+1))
+            else
+              echo "❌ $f"
+              FAIL=$((FAIL+1))
+            fi
+          done
+          echo "### BIOISO compile: $PASS pass, $FAIL fail" >> $GITHUB_STEP_SUMMARY
+          [ $FAIL -eq 0 ]
+
   # ── Website build ─────────────────────────────────────────────────────────────
   website:
     name: Website build
@@ -72,4 +192,5 @@ jobs:
       - name: Build Astro site
         working-directory: website
         run: npm run build
+
 

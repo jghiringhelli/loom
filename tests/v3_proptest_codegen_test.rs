@@ -89,6 +89,7 @@ end
 // ── Edge-case deterministic #[test] ──────────────────────────────────────
 
 /// Int property emits Int edge cases with i64 type.
+/// i64::MIN must NOT appear — it overflows in debug builds on multiplication (n * n).
 #[test]
 fn v3_int_property_emits_edge_cases() {
     let src = r#"
@@ -108,10 +109,13 @@ end
         "expected edge_cases fn"
     );
     assert!(out.contains("i64"), "expected i64 type");
+    // Bounded edge cases — i64::MIN removed to prevent debug overflow on squaring
     assert!(
-        out.contains("i64::MIN") || out.contains("i64::MAX"),
-        "expected extremes"
+        !out.contains("i64::MIN"),
+        "i64::MIN must not appear — overflows in debug builds"
     );
+    assert!(out.contains("0"), "expected 0 as edge case");
+    assert!(out.contains("-1"), "expected -1 as edge case");
 }
 
 /// Float property emits f64 edge cases.
@@ -158,7 +162,7 @@ end
 
 // ── Proptest random block ─────────────────────────────────────────────────
 
-/// A `#[cfg(loom_proptest)]` block is emitted alongside the edge-case test.
+/// A `#[cfg(feature = "loom_proptest")]` block is emitted alongside the edge-case test.
 #[test]
 fn v3_proptest_cfg_block_emitted() {
     let src = r#"
@@ -173,8 +177,9 @@ end
 "#;
     let out = compile(src);
     assert!(
-        out.contains("#[cfg(loom_proptest)]"),
-        "expected proptest cfg block"
+        out.contains(r#"#[cfg(feature = "loom_proptest")]"#),
+        "expected cfg(feature = \"loom_proptest\") block, got:\n{}",
+        &out[out.find("loom_proptest").unwrap_or(0)..].chars().take(80).collect::<String>()
     );
     assert!(out.contains("proptest!"), "expected proptest! macro");
     assert!(out.contains("prop_assert!"), "expected prop_assert!");

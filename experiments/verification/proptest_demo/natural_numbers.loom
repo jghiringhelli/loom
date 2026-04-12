@@ -1,0 +1,19 @@
+-- V3 Property Test Experiment: real proptest generation
+-- forall n: Int; invariant: n * n >= 0  (edge cases run always)
+-- forall x: Float; invariant: x + 0.0 = x  (additive identity)
+
+module NaturalNumbers
+
+property non_negative_square:
+  forall n: Int
+  invariant: n * n >= 0
+  samples: 1024
+end
+
+property additive_identity:
+  forall n: Int
+  invariant: n + 0 = n
+  samples: 1024
+end
+
+end
