@@ -107,6 +107,10 @@ Rust ecosystem backing, and known gaps. This is the authoritative scorecard.
 | **Migration safety** | `migration: ...` | `m106_test` | 🔵 emit | No dry-run migration test |
 | **Dead code detection** | `minimal: on` | `m107_test` | 🟡 checker | Checker fires; no Rust `#[warn(dead_code)]` enforcement in emitted code |
 | **Scenario / BDD** | `scenario:` blocks | `m105_test` | 🔵 emit | Scenarios emit comments; no `#[test]` test generation from them |
+| **Taxonomy: domain/role/relates_to** | `domain:`, `role:`, `relates_to:` on beings | `m186_test`, `m187_test` | 🟡 checker | Static annotation + OWL export; no runtime enforcement |
+| **Micro-LLM classifiers** | `classifier Name ... retrain_trigger:` | `m185_test`, `m188_test`, `m189_test` | 🟡 checker | Trigger syntax validated; actual model invocation not emitted |
+| **Telos/classifier consistency** | `regulate: trigger: classifier:` requires `telos: measured_by:` | `m191_telos_classifier_checker_test` | 🟡 checker | M191 rule enforced at compile time |
+| **BIOISO programs (5)** | Full BIOISO w/ taxonomy vocabulary | `experiments/bioiso/*.loom` | 🟡 compile | All 5 programs compile; runtime execution deferred to V4 |
 
 ---
 

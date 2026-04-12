@@ -7,6 +7,12 @@
 --
 -- When you declare a being with propagate: and telos: + an ecosystem
 -- with coevolution: true, Darwinian selection is structurally emergent.
+--
+-- Taxonomy (M185-M188, M192):
+--   FastFragile role: producer   — opportunistic, fast-living phenotype
+--   SlowRobust  role: regulator  — homeostatic, slow-living phenotype
+--   relates_to: competitive (both occupy same niche)
+--   domain: evolutionary_biology
 
 module NaturalSelection
 
@@ -15,7 +21,121 @@ module NaturalSelection
 being FastFragile
   describe: "High ATP synthesis rate, low membrane stability — fast-living phenotype"
 
+  role: producer
+
+  relates_to: SlowRobust kind: commensal
+
   matter:
+    atp_synthesis_rate: Float
+    membrane_stability: Float
+    replication_fidelity: Float
+  end
+
+  telos:
+    statement: "maximize replication rate at cost of longevity"
+    bounded_by: fast_fitness
+    thresholds:
+      convergence: 0.7
+      divergence: 0.3
+    end
+  end
+
+  -- Darwin condition 3: fitness determines propagation eligibility
+  propagate:
+    condition: fast_fitness > 0.6 and membrane_stability > 0.3
+    inherits: [matter, telos]
+    mutates: atp_synthesis_rate within heritable_variation
+    offspring_type: FastFragile
+  end
+
+  telomere:
+    max_generations: 50
+    senescence_trigger: membrane_stability < 0.15
+  end
+
+end
+
+-- ── Variant B: Slow but robust ──────────────────────────────────────────────
+
+being SlowRobust
+  describe: "Low ATP synthesis rate, high membrane stability — long-living phenotype"
+
+  role: regulator
+
+  relates_to: FastFragile kind: commensal
+
+  matter:
+    atp_synthesis_rate: Float
+    membrane_stability: Float
+    replication_fidelity: Float
+  end
+
+  telos:
+    statement: "maximize longevity at cost of replication speed"
+    bounded_by: robust_fitness
+    thresholds:
+      convergence: 0.7
+      divergence: 0.3
+    end
+  end
+
+  propagate:
+    condition: robust_fitness > 0.65 and atp_synthesis_rate > 0.2
+    inherits: [matter, telos]
+    mutates: membrane_stability within heritable_variation
+    offspring_type: SlowRobust
+  end
+
+  telomere:
+    max_generations: 200
+    senescence_trigger: atp_synthesis_rate < 0.05
+  end
+
+end
+
+-- ── The ecosystem where selection occurs ────────────────────────────────────
+
+ecosystem SelectionPressure
+  describe: "Environment where FastFragile and SlowRobust compete for ATP resources"
+
+  members: [FastFragile, SlowRobust]
+
+  -- Darwin condition 1: variation is present (different matter fields above)
+  -- Darwin condition 2: heredity is declared (propagate: inherits)
+  -- Darwin condition 3: differential fitness emerges from resource scarcity
+  telos: "maximize ecosystem-level stability under ATP resource constraint"
+
+  coevolution: true
+
+  collective_telos_metric: "weighted_mean_survival_time"
+
+  tipping_points:
+    competitive_exclusion:
+      condition: population_ratio < 0.05
+      on_crossing: one_phenotype_dominates
+    ecosystem_collapse:
+      condition: total_atp < 0.1
+      on_crossing: all_beings_senescence
+  end
+
+end
+
+-- ── Fitness functions ────────────────────────────────────────────────────────
+
+fn fast_fitness :: FastFragile -> Float
+  require: being.atp_synthesis_rate >= 0.0
+  ensure: result >= 0.0
+  being.atp_synthesis_rate * 0.7 + being.replication_fidelity * 0.3
+end
+
+fn robust_fitness :: SlowRobust -> Float
+  require: being.membrane_stability >= 0.0
+  ensure: result >= 0.0
+  being.membrane_stability * 0.6 + being.replication_fidelity * 0.4
+end
+
+end
+
     atp_synthesis_rate: Float
     membrane_stability: Float
     replication_fidelity: Float

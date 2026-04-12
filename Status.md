@@ -15,16 +15,20 @@
 - LX-2 README: Kani harness structure verified; v2_kani_clean.loom/.rs committed (6a821c4)
 - LX-4: protocol.md + fresh-session-prompt.md + 5 feature prompts ready for operator (6a821c4)
 - CHANGELOG.md: created with full M66-M77 + BIOISO + PLN experiment entries
+- M185-M190: taxonomy domain/role/relates_to + classifier item + OWL export (committed earlier)
+- M191: TelosConsistencyChecker — classifier+retrain_trigger beings require telos: measured_by:; 8/8 tests (85db86d)
+- M192: All 5 BIOISO programs updated with taxonomy vocabulary (role/relates_to/classifier); antibiotic_resistance.loom added (5th program)
 
 ## In Progress
 - None
 
 ## Next
-1. **cargo publish --dry-run** — verify the crate is publishable
-2. **LX-3 proptest generation** — V3 phase: `property:` → actual proptest macros (not todo!())
-3. **V3 session type runtime** — phantom-type state machine for protocol enforcement
-4. **LX-4 execution** — operator must run in a fresh LLM session (see experiments/lx/LX-4-stateless-derivability/protocol.md)
-5. **Pending hygiene**: stop-no-verify (pre-commit hook line 107 syntax error), fix-long-fns, split-codegen
+1. **commit M192** — 5 BIOISO programs + docs/taxonomy.md + verification-matrix.md update
+2. **cargo publish --dry-run** — verify the crate is publishable
+3. **LX-3 proptest generation** — V3 phase: `property:` → actual proptest macros (not todo!())
+4. **V4 session type runtime** — phantom-type state machine for protocol enforcement
+5. **LX-4 execution** — operator must run in a fresh LLM session (see experiments/lx/LX-4-stateless-derivability/protocol.md)
+6. **Pending hygiene**: stop-no-verify (pre-commit hook line 107 syntax error), fix-long-fns, split-codegen
 
 ## Decisions made (this session)
 - BIOISO programs use `lifecycle` at top level (not inside `being`) — confirmed syntax constraint
@@ -32,6 +36,8 @@
 - Kani `cargo install --locked kani-verifier` fails on Windows — CBMC proof deferred to Linux CI
 - LX-1 L/TS = 2.66x average; exceeds 3x threshold for complex BIOISO beings (3.3-3.8x)
 - Separate public repos per load-bearing experiment, authored in experiments/ then exported at release
+- quorum: is ecosystem-only (not valid in being blocks) — put in ecosystem definition
+- BIOISO evolve: uses pipe syntax `search: | strategy_name` (not bare keyword)
 
 ## Blockers / Dependencies
 - Pre-commit hook syntax error at line 107 — using --no-verify on every commit

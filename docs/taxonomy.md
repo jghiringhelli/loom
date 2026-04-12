@@ -206,8 +206,8 @@ These features are proposed as the next milestone cluster (M185–M192):
 | M188 | `classifier` item type | Static | ✅ Done |
 | M189 | `trigger: classifier:` in regulate blocks | Static | ✅ Done |
 | M190 | Ontology export — `.owl.json` | Codegen | ✅ Done |
-| M191 | TelosConsistencyChecker for classifier retrain_strategy | Checker | ⬜ Planned |
-| M192 | 5 BIOISO programs updated with roles/domains/classifiers | Runtime | ⬜ Planned |
+| M191 | TelosConsistencyChecker for classifier retrain_strategy | Checker | ✅ Done |
+| M192 | 5 BIOISO programs updated with roles/domains/classifiers | Runtime | ✅ Done |
 
 ---
 

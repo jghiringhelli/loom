@@ -1,0 +1,233 @@
+-- AntibioticResistance: epigenetic adaptation and horizontal gene transfer
+-- as an evolving arms-race between bacteria and antibiotics.
+--
+-- This program models one of the defining global health BIOISO challenges:
+-- bacteria evolving resistance faster than humans develop new antibiotics.
+--
+-- Biological mechanisms modeled:
+--   1. Efflux pumps: active transport expels antibiotics before they act
+--   2. Enzymatic inactivation: beta-lactamase degrades penicillin-class drugs
+--   3. Target modification: mutations prevent antibiotic binding
+--   4. Horizontal Gene Transfer (HGT): resistance genes spread between strains
+--   5. Quorum sensing: collective decision to sporulate under antibiotic pressure
+--
+-- The telos of a resistant strain is to persist despite antibiotic challenge.
+-- The telos of a susceptible strain is the same — but it fails.
+-- The BIOISO insight: resistance is a convergence/divergence signal, not a binary.
+--
+-- Taxonomy (M185-M188, M192):
+--   ResistantStrain role: regulator — actively counters environmental threat
+--   SusceptibleStrain role: producer — baseline phenotype under selection
+--   domain: antimicrobial_resistance
+--   classifier: ResistanceClassifier — classifies resistance level from gene expression
+--   relates_to: SusceptibleStrain kind: parasitic (resistant outcompetes susceptible)
+
+module AntibioticResistance
+
+-- ── Resistance-level classifier ──────────────────────────────────────────────
+
+classifier ResistanceClassifier
+  model: mlp
+  retrain_trigger: "mic_prediction_error > 0.15 over 300 samples"
+end
+
+-- ── The resistant strain ──────────────────────────────────────────────────────
+
+being ResistantStrain @mortal @sandboxed
+  describe: "Bacterial strain with acquired resistance mechanisms —
+             efflux pumps, beta-lactamase, target mutations"
+
+  role: regulator
+
+  relates_to: SusceptibleStrain kind: parasitic
+
+  matter:
+    efflux_pump_expression: Float   -- 0.0 = silent, 1.0 = maximal
+    betalactamase_activity: Float   -- enzymatic degradation rate
+    target_mutation_score: Float    -- binding-site modification level
+    antibiotic_concentration: Float -- current environmental pressure
+    fitness_cost: Float             -- metabolic cost of resistance
+  end
+
+  -- Survival under antibiotic pressure: convergence = MIC exceeded
+  telos:
+    statement: "persist under antibiotic challenge while minimizing fitness cost"
+    measured_by: "survival_rate * (1.0 - fitness_cost)"
+    thresholds:
+      convergence: 0.70
+      divergence: 0.30
+    end
+  end
+
+  autopoietic: true
+
+  -- Evolve: select resistance mechanisms with lowest fitness cost
+  evolve:
+    toward: telos
+    search: | gradient_descent
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  -- Efflux regulation: upregulate pumps under antibiotic pressure
+  regulate:
+    trigger: antibiotic_concentration > 0.3
+    action: upregulate_efflux_pumps
+  end
+
+  -- Beta-lactamase: produce enzyme when antibiotic detected
+  regulate:
+    trigger: antibiotic_concentration > 0.2
+    action: produce_betalactamase
+  end
+
+  -- Classifier-driven resistance strategy selection (M191-safe: telos has metric)
+  regulate: resistance_strategy
+    target: 1.0
+    bounds: 0.0 .. 1.0
+    trigger: classifier: ResistanceClassifier
+    action: select_optimal_resistance_mechanism
+  end
+
+  -- Epigenetic: stress-induced mutation rate increase (SOS response)
+  epigenetic:
+    signal: antibiotic_stress
+    modifies: mutation_rate_multiplier
+    reverts_when: antibiotic_concentration < 0.1
+  end
+
+  -- HGT: transfer resistance plasmid to neighboring susceptible cells
+  propagate:
+    condition: fitness_cost < 0.4 and betalactamase_activity > 0.6
+    inherits: [matter, telos, epigenetic_memory]
+    mutates: target_mutation_score within spontaneous_mutation_bounds
+    offspring_type: ResistantStrain
+  end
+
+  telomere:
+    max_generations: 10000
+    senescence_trigger: fitness_cost > 0.9
+  end
+
+end
+
+-- ── The susceptible strain ────────────────────────────────────────────────────
+
+being SusceptibleStrain @mortal @sandboxed
+  describe: "Wildtype bacterial strain — no resistance mechanisms, full antibiotic susceptibility"
+
+  role: producer
+
+  relates_to: ResistantStrain kind: commensal
+
+  matter:
+    antibiotic_concentration: Float
+    growth_rate: Float
+    membrane_integrity: Float
+  end
+
+  telos:
+    statement: "grow and replicate in low-antibiotic environments"
+    measured_by: "growth_rate * membrane_integrity"
+    thresholds:
+      convergence: 0.65
+      divergence: 0.20
+    end
+  end
+
+  autopoietic: true
+
+  -- SOS response drives adaptive evolution under antibiotic stress
+  evolve:
+    toward: telos
+    search: | derivative_free
+    constraint: "E[distance_to_telos] decreasing"
+  end
+
+  -- Die when antibiotic concentration exceeds MIC
+  regulate:
+    trigger: antibiotic_concentration > 0.5
+    action: initiate_death_program
+  end
+
+  -- Attempt de-novo resistance via mutation
+  regulate:
+    trigger: antibiotic_concentration > 0.2
+    action: activate_sos_response
+  end
+
+  propagate:
+    condition: growth_rate > 0.7 and antibiotic_concentration < 0.1
+    inherits: [matter, telos]
+    mutates: growth_rate within spontaneous_mutation_bounds
+    offspring_type: SusceptibleStrain
+  end
+
+  telomere:
+    max_generations: 500
+    senescence_trigger: membrane_integrity < 0.1
+  end
+
+end
+
+-- ── Ecosystem: the selection pressure environment ─────────────────────────────
+
+ecosystem ClinicalEnvironment
+  describe: "Hospital environment cycling antibiotic concentrations — selection pressure
+             drives resistance evolution; quorum sensing enables collective response"
+
+  members: [ResistantStrain, SusceptibleStrain]
+
+  telos: "model emergence of resistance under clinical antibiotic cycling protocols"
+
+  coevolution: true
+
+  collective_telos_metric: "resistant_fraction_over_time"
+
+  quorum:
+    threshold: 0.75
+    action: trigger_sporulation
+    signal: resistance_signal
+  end
+
+  tipping_points:
+    resistance_fixation:
+      condition: resistant_fraction > 0.95
+      on_crossing: susceptible_extinction
+    treatment_failure:
+      condition: mean_mic > clinical_threshold
+      on_crossing: treatment_ineffective
+  end
+
+end
+
+-- ── Functions ────────────────────────────────────────────────────────────────
+
+fn upregulate_efflux_pumps :: ResistantStrain -> ResistantStrain
+  require: strain.antibiotic_concentration > 0.3
+  ensure: result.efflux_pump_expression >= strain.efflux_pump_expression
+  strain
+end
+
+fn produce_betalactamase :: ResistantStrain -> ResistantStrain
+  require: strain.antibiotic_concentration > 0.2
+  ensure: result.betalactamase_activity >= strain.betalactamase_activity
+  strain
+end
+
+fn select_optimal_resistance_mechanism :: ResistantStrain -> ResistantStrain
+  require: strain.fitness_cost >= 0.0
+  ensure: result.fitness_cost <= strain.fitness_cost
+  strain
+end
+
+fn initiate_death_program :: SusceptibleStrain -> SusceptibleStrain
+  require: strain.antibiotic_concentration > 0.5
+  strain
+end
+
+fn activate_sos_response :: SusceptibleStrain -> SusceptibleStrain
+  require: strain.antibiotic_concentration > 0.2
+  strain
+end
+
+end

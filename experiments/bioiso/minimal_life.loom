@@ -5,14 +5,28 @@
 -- 3. Barbieri (2007): code biology — contains a SEMANTIC code (matter→function).
 --
 -- This is the simplest Loom program that satisfies all three simultaneously.
+--
+-- Taxonomy (M185-M188, M192):
+--   role: producer  — ProtoCell is a primary producer (builds its own order)
+--   domain: synthetic_biology
+--   classifier: EntropyClassifier — decides if entropy gradient requires response
 
 module MinimalLife
+
+-- ── Entropy-state classifier ───────────────────────────────────────────────
+
+classifier EntropyClassifier
+  model: mlp
+  retrain_trigger: "classification_accuracy < 0.85 over 500 samples"
+end
 
 -- ── The being ───────────────────────────────────────────────────────────────
 
 being ProtoCell @mortal @sandboxed
   describe: "A protocell that maintains its own boundary, converts energy,
              and carries a hereditary code — satisfying three definitions of life"
+
+  role: producer
 
   -- Schrödinger: bounded compartment that concentrates free energy (negentropy)
   matter:
@@ -51,6 +65,14 @@ being ProtoCell @mortal @sandboxed
   regulate:
     trigger: lipid_bilayer < 0.5
     action: repair_membrane
+  end
+
+  -- Entropy-triggered regulation via classifier
+  regulate: entropy_response
+    target: 0.0
+    bounds: 0.0 .. 1.0
+    trigger: classifier: EntropyClassifier
+    action: resist_entropy
   end
 
   -- 1. Schrödinger: epigenetic response to entropy gradient
