@@ -46,11 +46,34 @@ pub use error::LoomError;
 /// Returns `Ok(rust_source)` on success.  On failure, returns all accumulated
 /// [`LoomError`]s so the caller can display the complete diagnostic list.
 pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+
+    for stage in build_checker_pipeline() {
+        stage.run(&module)?;
+    }
+
+    let smt_errors: Vec<LoomError> = run_smt_verification(&module);
+    if !smt_errors.is_empty() {
+        return Err(smt_errors);
+    }
+
+    Ok(codegen::RustEmitter::new().emit(&module))
+}
+
+/// Construct the ordered checker pipeline for the Rust compilation path.
+///
+/// Each [`CheckerStage`] wraps one checker with its suppression policy.
+/// Ordering matters: type inference runs before type checking, which runs
+/// before exhaustiveness, which runs before effect checking, etc.
+fn build_checker_pipeline() -> Vec<checker::CheckerStage> {
     use checker::{
         AlgebraicChecker, AspectChecker, BoundaryChecker, CanalizationChecker, CategoryChecker,
         CheckerStage, CheckpointChecker, CognitiveMemoryChecker, CriticalityChecker,
-        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker, EntityChecker,
-        EffectHandlerChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
+        CurryHowardChecker, DegeneracyChecker, DependentChecker, EffectChecker,
+        EffectHandlerChecker, EntityChecker, ErrorCorrectionChecker, EvolutionVectorChecker,
         ExhaustivenessChecker, GradualChecker, HgtChecker, InferenceEngine, JournalChecker,
         ManifestChecker, MessagingChecker, MigrationChecker, MinimalChecker,
         NicheConstructionChecker, PathwayChecker, PrivacyChecker, ProbabilisticChecker,
@@ -61,23 +84,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         TeleosCheckerAdapter, TemporalChecker, TensorChecker, TypeChecker, TypestateChecker,
         UmweltChecker, UnitsChecker, UseCaseChecker,
     };
-
-    // ── Stage 1: lex ──────────────────────────────────────────────────────
-    let tokens = lexer::Lexer::tokenize(source)?;
-
-    // ── Stage 2: parse ────────────────────────────────────────────────────
-    let module = parser::Parser::new(&tokens)
-        .parse_module()
-        .map_err(|e| vec![e])?;
-
-    // ── Stages 3–9aa: declarative checker pipeline ────────────────────────
-    //
-    // Each `CheckerStage` wraps a checker + a list of diagnostic prefixes to
-    // suppress (empty = hard errors only). The stage returns `Err` if any
-    // non-suppressed error exists after running the checker.
-    //
-    // Ordering matches the original pipeline; new checkers append at the end.
-    let pipeline: &[CheckerStage] = &[
+    vec![
         // Core type system
         CheckerStage::hard(InferenceEngine::new()),
         CheckerStage::hard(AspectChecker::new()),
@@ -132,7 +139,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::warn_only(PropertyChecker::new()),
         CheckerStage::warn_only(ProvenanceChecker::new()),
         CheckerStage::warn_only(BoundaryChecker::new()),
-        // Evolution / memory (M111-M116) — evolution is warn-only
+        // Evolution / memory (M111-M116)
         CheckerStage::suppressing(EvolutionVectorChecker::new(), &["[warn]", ""]),
         CheckerStage::warn_only(CognitiveMemoryChecker::new()),
         // M115: Signal attention filter validation
@@ -141,15 +148,14 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
         CheckerStage::warn_only(MessagingChecker::new()),
         // M118: Entity annotation coherence
         CheckerStage::hard(EntityChecker::new()),
-    ];
+    ]
+}
 
-    for stage in pipeline {
-        stage.run(&module)?;
-    }
-
-    // ── SMT contract verification bridge (M100) ───────────────────────────
-    // Kept inline: result type is `Vec<SmtVerification>`, not `Vec<LoomError>`.
-    let smt_errors: Vec<LoomError> = checker::SmtBridgeChecker::check(&module.items)
+/// Run the SMT contract verification bridge and collect any counterexample errors.
+///
+/// Returns counterexample [`LoomError`]s only — `Skipped` and `Valid` results are silent.
+fn run_smt_verification(module: &ast::Module) -> Vec<LoomError> {
+    checker::SmtBridgeChecker::check(&module.items)
         .into_iter()
         .filter_map(|v| match &v.status {
             ast::SmtStatus::Counterexample(msg) => Some(LoomError::parse(
@@ -161,13 +167,7 @@ pub fn compile(source: &str) -> Result<String, Vec<LoomError>> {
             )),
             _ => None,
         })
-        .collect();
-    if !smt_errors.is_empty() {
-        return Err(smt_errors);
-    }
-
-    // ── Code generation ───────────────────────────────────────────────────
-    Ok(codegen::RustEmitter::new().emit(&module))
+        .collect()
 }
 
 // ── TypeScript pipeline entry point ──────────────────────────────────────────
