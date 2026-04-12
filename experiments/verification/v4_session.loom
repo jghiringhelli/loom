@@ -1,41 +1,41 @@
-# V4 Verification Claim: session: declarations enforce protocol order at compile time
-#
-# Claim: A Loom `session:` declaration emits a typestate state machine where
-#        calling communication steps in the WRONG ORDER is a COMPILE-TIME TYPE ERROR.
-#        No runtime check. No panic. The type system catches the violation.
-#
-# Community precedent:
-#   - Honda (1993) session types: formally proven protocol safety via types
-#   - Gay & Hole (2005) subtyping for session types
-#   - Strom & Yemini (1986) typestate: type changes as state progresses
-#   - Rust crates: ferrite-session (Tsai 2021), sesh, session-types
-#
-# Loom V4 approach: emit one Rust type per protocol step.
-#   XyzRoleStep0, XyzRoleStep1, ..., XyzRoleDone
-#   Each transition method CONSUMES the current state (self by value) and returns
-#   the next state. Rust's affine type system prevents double-use of a moved value.
-#   Wrong order → wrong type → compile error. Zero runtime cost.
-#
-# Compile-time enforcement proof:
-#   If you have `let ch: AuthProtocolClientChannel<AuthProtocolClientStep0>`
-#   and you call `ch.send(creds)` → you get `AuthProtocolClientChannel<AuthProtocolClientStep1>`
-#   Then calling `ch.send(...)` AGAIN fails: `ch` was moved (the original Step0 is gone).
-#   And calling `.recv()` on the Step0 state fails: no `recv` impl for Step0.
-#   This is the Honda guarantee, enforced by Rust's borrow checker.
-#
-# Result: STRUCTURALLY VERIFIED
-#   - Emitted state structs are distinct Rust types (compiler distinguishes them)
-#   - Transition methods consume `self` (compiler enforces single use via Move semantics)
-#   - Wrong ordering in emitted code IS a type error (proved by attempting it)
-#
-# To verify manually:
-#   1. Compile this with loom
-#   2. Try to call steps out of order in the emitted Rust
-#   3. `cargo build` will reject it with a type error like:
-#      "expected AuthProtocolClientChannel<AuthProtocolClientStep1>
-#       found AuthProtocolClientChannel<AuthProtocolClientStep0>"
+-- V4 Verification Claim: session: declarations enforce protocol order at compile time
+--
+-- Claim: A Loom `session:` declaration emits a typestate state machine where
+--        calling communication steps in the WRONG ORDER is a COMPILE-TIME TYPE ERROR.
+--        No runtime check. No panic. The type system catches the violation.
+--
+-- Community precedent:
+--   - Honda (1993) session types: formally proven protocol safety via types
+--   - Gay & Hole (2005) subtyping for session types
+--   - Strom & Yemini (1986) typestate: type changes as state progresses
+--   - Rust crates: ferrite-session (Tsai 2021), sesh, session-types
+--
+-- Loom V4 approach: emit one Rust type per protocol step.
+--   XyzRoleStep0, XyzRoleStep1, ..., XyzRoleDone
+--   Each transition method CONSUMES the current state (self by value) and returns
+--   the next state. Rust's affine type system prevents double-use of a moved value.
+--   Wrong order -> wrong type -> compile error. Zero runtime cost.
+--
+-- Compile-time enforcement proof:
+--   If you have `let ch: AuthProtocolClientChannel<AuthProtocolClientStep0>`
+--   and you call `ch.send(creds)` -> you get `AuthProtocolClientChannel<AuthProtocolClientStep1>`
+--   Then calling `ch.send(...)` AGAIN fails: `ch` was moved (the original Step0 is gone).
+--   And calling `.recv()` on the Step0 state fails: no `recv` impl for Step0.
+--   This is the Honda guarantee, enforced by Rust's borrow checker.
+--
+-- Result: STRUCTURALLY VERIFIED
+--   - Emitted state structs are distinct Rust types (compiler distinguishes them)
+--   - Transition methods consume `self` (compiler enforces single use via Move semantics)
+--   - Wrong ordering in emitted code IS a type error (proved by attempting it)
+--
+-- To verify manually:
+--   1. Compile this with loom
+--   2. Try to call steps out of order in the emitted Rust
+--   3. `cargo build` will reject it with a type error like:
+--      "expected AuthProtocolClientChannel<AuthProtocolClientStep1>
+--       found AuthProtocolClientChannel<AuthProtocolClientStep0>"
 
-# ── Claim 1: Auth protocol — client sends credentials, receives token ─────────
+-- ── Claim 1: Auth protocol -- client sends credentials, receives token ─────────
 
 module AuthModule
 
@@ -53,44 +53,44 @@ module AuthModule
 
 end
 
-# Expected emitted typestate (for client role):
-#
-#   pub struct AuthProtocolClientStep0;
-#   pub struct AuthProtocolClientStep1;
-#   pub struct AuthProtocolClientDone;
-#
-#   pub struct AuthProtocolClientChannel<State> {
-#       _state: std::marker::PhantomData<State>,
-#   }
-#
-#   impl AuthProtocolClientChannel<AuthProtocolClientStep0> {
-#       pub fn new() -> Self { Self { _state: std::marker::PhantomData } }
-#   }
-#
-#   impl AuthProtocolClientChannel<AuthProtocolClientStep0> {
-#       /// Step 0 (Client): send String. Consuming — wrong order is a type error.
-#       pub fn send(self, _msg: String) -> AuthProtocolClientChannel<AuthProtocolClientStep1> {
-#           AuthProtocolClientChannel { _state: std::marker::PhantomData }
-#       }
-#   }
-#
-#   impl AuthProtocolClientChannel<AuthProtocolClientStep1> {
-#       /// Step 1 (Client): recv i64. Consuming — wrong order is a type error.
-#       pub fn recv(self) -> (AuthProtocolClientChannel<AuthProtocolClientDone>, i64) {
-#           todo!("implement: message transport for AuthProtocol Client step 1")
-#       }
-#   }
-#
-# USAGE PATTERN (correct order — compiles):
-#   let ch = AuthProtocolClientChannel::new();   // Ch<Step0>
-#   let ch = ch.send("user:pass".to_string());   // Ch<Step1>
-#   let (ch, token) = ch.recv();                 // Ch<Done>
-#
-# WRONG ORDER (type error — does not compile):
-#   let ch = AuthProtocolClientChannel::new();
-#   let (ch, token) = ch.recv();   // ERROR: no method `recv` on Ch<Step0>
+-- Expected emitted typestate (for client role):
+--
+--   pub struct AuthProtocolClientStep0;
+--   pub struct AuthProtocolClientStep1;
+--   pub struct AuthProtocolClientDone;
+--
+--   pub struct AuthProtocolClientChannel<State> {
+--       _state: std::marker::PhantomData<State>,
+--   }
+--
+--   impl AuthProtocolClientChannel<AuthProtocolClientStep0> {
+--       pub fn new() -> Self { Self { _state: std::marker::PhantomData } }
+--   }
+--
+--   impl AuthProtocolClientChannel<AuthProtocolClientStep0> {
+--       /// Step 0 (Client): send String. Consuming -- wrong order is a type error.
+--       pub fn send(self, _msg: String) -> AuthProtocolClientChannel<AuthProtocolClientStep1> {
+--           AuthProtocolClientChannel { _state: std::marker::PhantomData }
+--       }
+--   }
+--
+--   impl AuthProtocolClientChannel<AuthProtocolClientStep1> {
+--       /// Step 1 (Client): recv i64. Consuming -- wrong order is a type error.
+--       pub fn recv(self) -> (AuthProtocolClientChannel<AuthProtocolClientDone>, i64) {
+--           todo!("implement: message transport for AuthProtocol Client step 1")
+--       }
+--   }
+--
+-- USAGE PATTERN (correct order -- compiles):
+--   let ch = AuthProtocolClientChannel::new();   // Ch<Step0>
+--   let ch = ch.send("user:pass".to_string());   // Ch<Step1>
+--   let (ch, token) = ch.recv();                 // Ch<Done>
+--
+-- WRONG ORDER (type error -- does not compile):
+--   let ch = AuthProtocolClientChannel::new();
+--   let (ch, token) = ch.recv();   // ERROR: no method `recv` on Ch<Step0>
 
-# ── Claim 2: Order protocol — 4-step negotiation ──────────────────────────────
+-- ── Claim 2: Order protocol -- 4-step negotiation ──────────────────────────────
 
 module OrderModule
 
@@ -112,14 +112,14 @@ module OrderModule
 
 end
 
-# This proves duality at the session level:
-# buyer.send → seller.recv (step 0)
-# seller.send → buyer.recv (step 1)
-# buyer.send → seller.recv (step 2)
-# seller.send → buyer.recv (step 3)
-# Every buyer send is matched by a seller recv. Proven by the dual structure.
+-- This proves duality at the session level:
+-- buyer.send -> seller.recv (step 0)
+-- seller.send -> buyer.recv (step 1)
+-- buyer.send -> seller.recv (step 2)
+-- seller.send -> buyer.recv (step 3)
+-- Every buyer send is matched by a seller recv. Proven by the dual structure.
 
-# ── Claim 3: Echo protocol — symmetric send/recv ──────────────────────────────
+-- ── Claim 3: Echo protocol -- symmetric send/recv ──────────────────────────────
 
 module EchoModule
 

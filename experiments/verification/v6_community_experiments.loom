@@ -24,13 +24,13 @@ module ContractExperiment
   fn add_positives :: Int -> Int -> Int
     require: a > 0 and b > 0
     ensure: result > 0
-    body: a + b
+    a + b
   end
 
   fn bounded_divide :: Float -> Float -> Float
     require: divisor != 0.0
     ensure: result > -1000000.0 and result < 1000000.0
-    body: dividend / divisor
+    dividend / divisor
   end
 end
 
@@ -119,13 +119,13 @@ module SeparationExperiment
   fn write_disjoint :: Int -> Int -> Int @separate(a, b)
     require: a > 0
     ensure: result > 0
-    body: a + b
+    a + b
   end
 
   fn swap_distinct :: Int -> Int -> Int @separate(x, y)
     require: x != y
     ensure: result > 0
-    body: x + y
+    x + y
   end
 end
 
@@ -140,12 +140,12 @@ end
 module RefinementExperiment
   fn positive_only :: Int -> Int
     refine: n is { v: Int | v > 0 }
-    body: n * 2
+    n * 2
   end
 
   fn bounded_score :: Float -> Float
     refine: score is { v: Float | v >= 0.0 and v <= 1.0 }
-    body: score
+    score
   end
 end
 
@@ -185,15 +185,15 @@ end
 
 module TelosExperiment
   fn gradient_step :: Float -> Float
-    telos: converge_when loss < 0.001
+    eventually: loss < 0.001
     ensure: result > 0.0
-    body: todo
+    0.0
   end
 
   fn market_balance :: Float -> Float
-    telos: converge_when price_gap < 0.01
+    eventually: price_gap < 0.01
     require: supply > 0.0
-    body: todo
+    0.0
   end
 end
 
@@ -210,7 +210,7 @@ module TemporalExperiment
     always: result > 0
     eventually: result > 1000
     require: n > 0
-    body: n + 1
+    n + 1
   end
 end
 
