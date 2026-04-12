@@ -1,6 +1,6 @@
 //! Being and ecosystem emitters — `being:` / `ecosystem:` blocks → Rust structs + impl.
 
-use super::{to_snake_case, RustEmitter};
+use super::{pascal_case, to_snake_case, RustEmitter};
 use crate::ast::*;
 
 impl RustEmitter {
@@ -438,13 +438,32 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
         out.push_str("}\n");
 
         if let Some(can) = &being.canalization {
-            out.push_str(&format!("// canalize: toward: {}\n", can.toward));
+            let name = pascal_case(&being.name);
+            let toward = &can.toward;
+            out.push_str(&format!(
+                "// LOOM[canalize:{name}]: Waddington (1942) — developmental channel toward {toward}\n"
+            ));
+            out.push_str(&format!(
+                "pub struct {name}Canalization;\nimpl {name}Canalization {{\n    pub const TOWARD: &'static str = \"{toward}\";\n"
+            ));
             if !can.despite.is_empty() {
-                out.push_str(&format!("//   despite: [{}]\n", can.despite.join(", ")));
+                let despite_list: String = can
+                    .despite
+                    .iter()
+                    .map(|d| format!("\"{}\"", d))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push_str(&format!(
+                    "    pub const DESPITE: &'static [&'static str] = &[{despite_list}];\n"
+                ));
+                out.push_str(
+                    "    pub fn is_canalized(perturbation: &str) -> bool {\n        Self::DESPITE.contains(&perturbation)\n    }\n",
+                );
             }
             if let Some(cp) = &can.convergence_proof {
-                out.push_str(&format!("//   convergence_proof: {}\n", cp));
+                out.push_str(&format!("    // convergence_proof: {cp}\n"));
             }
+            out.push_str("}\n");
         }
         if let Some(sen) = &being.senescence {
             out.push_str(&format!(

@@ -327,10 +327,14 @@ impl RustEmitter {
             Item::SymbioticImport { module, kind, .. } => {
                 format!("// symbiotic: kind: {}, module: {}\n", kind, module)
             }
-            Item::Adopt(decl) => format!(
-                "// adopt: {} from {}\n// LOOM[adopt:M75]: implement {} for this module via trait bounds\n",
-                decl.interface, decl.from_module, decl.interface
-            ),
+            Item::Adopt(decl) => {
+                let trait_name = &decl.interface;
+                let from_mod = &decl.from_module;
+                let adopter = format!("{}Adopter", trait_name);
+                format!(
+                    "// LOOM[hgt:{trait_name}]: lateral interface acquisition from {from_mod} (Syvanen 1985)\npub use {from_mod}::{trait_name};\n/// Marker type implementing the horizontally adopted [`{trait_name}`] interface.\npub struct {adopter};\nimpl {trait_name} for {adopter} {{\n    // Implement adopted interface from {from_mod} here\n}}\n"
+                )
+            }
             Item::NicheConstruction(nc) => emit_niche_construction(nc),
             Item::Sense(sd) => emit_sense(sd),
             Item::Store(sd) => self.codegen_store(sd),
@@ -1079,7 +1083,7 @@ fn emit_pathway(pw: &PathwayDef) -> String {
 }
 
 /// Convert snake_case or lowercase string to PascalCase.
-fn pascal_case(s: &str) -> String {
+pub(super) fn pascal_case(s: &str) -> String {
     s.split('_')
         .map(|part| {
             let mut chars = part.chars();
@@ -1157,13 +1161,31 @@ fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
 
 /// Emit a niche construction declaration as doc comments.
 fn emit_niche_construction(nc: &NicheConstructionDef) -> String {
-    let mut src = format!("// niche_construction: modifies: {}\n", nc.modifies);
+    let modifies = &nc.modifies;
+    let name = pascal_case(modifies);
+    let mut src = format!(
+        "// LOOM[niche_construction:{modifies}]: Odling-Smee (1988) second inheritance system\npub struct {name}NicheConstruction;\nimpl {name}NicheConstruction {{\n    pub const MODIFIES: &'static str = \"{modifies}\";\n"
+    );
     if !nc.affects.is_empty() {
-        src.push_str(&format!("//   affects: [{}]\n", nc.affects.join(", ")));
+        let affects_list: String = nc
+            .affects
+            .iter()
+            .map(|a| format!("\"{}\"", a))
+            .collect::<Vec<_>>()
+            .join(", ");
+        src.push_str(&format!(
+            "    pub const AFFECTS: &'static [&'static str] = &[{affects_list}];\n"
+        ));
     }
-    if let Some(p) = &nc.probe_fn {
-        src.push_str(&format!("//   probe_fn: {}\n", p));
+    src.push_str(&format!(
+        "    pub fn apply_niche_pressure(env: &mut str) {{\n        // modifies {modifies} selection pressures\n        unimplemented!(\"apply niche pressure to {modifies}\")\n    }}\n"
+    ));
+    if let Some(probe) = &nc.probe_fn {
+        src.push_str(&format!(
+            "    pub fn {probe}() -> f64 {{\n        // measure niche construction effect on {modifies}\n        0.0\n    }}\n"
+        ));
     }
+    src.push_str("}\n");
     src
 }
 
