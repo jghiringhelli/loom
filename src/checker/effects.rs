@@ -30,125 +30,135 @@ impl EffectChecker {
 
     /// Check `module` and return `Ok(())` or `Err(errors)`.
     pub fn check(&self, module: &Module) -> Result<(), Vec<LoomError>> {
-        // Map fn_name → declared effect set (empty = pure).
-        let declared: HashMap<String, HashSet<String>> = module
-            .items
-            .iter()
-            .filter_map(|item| {
-                if let Item::Fn(fd) = item {
-                    let effects = extract_declared_effects(&fd.type_sig.return_type);
-                    Some((fd.name.clone(), effects))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // Map fn_name → max consequence tier.
-        let tiers: HashMap<String, ConsequenceTier> = module
-            .items
-            .iter()
-            .filter_map(|item| {
-                if let Item::Fn(fd) = item {
-                    let tier = effective_tier(fd);
-                    Some((fd.name.clone(), tier))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
+        let declared = collect_declared_effects(module);
+        let tiers = collect_consequence_tiers(module);
         let mut errors = Vec::new();
 
         for item in &module.items {
             if let Item::Fn(fd) = item {
-                let fn_declared = declared.get(&fd.name).cloned().unwrap_or_default();
-
-                let fn_tier = tiers.get(&fd.name).unwrap_or(&ConsequenceTier::Pure);
-                let is_annotated_pure = fd.annotations.iter().any(|a| a.key == "pure");
-
-                // Collect all identifiers called in the body.
-                let mut called_fns: HashSet<String> = HashSet::new();
-                for expr in &fd.body {
-                    collect_calls(expr, &mut called_fns);
-                }
-                for contract in fd.requires.iter().chain(fd.ensures.iter()) {
-                    collect_calls(&contract.expr, &mut called_fns);
-                }
-
-                // Compute transitive effects from callees.
-                let mut transitive_effects: HashSet<String> = HashSet::new();
-                for callee in &called_fns {
-                    if let Some(callee_effects) = declared.get(callee) {
-                        transitive_effects.extend(callee_effects.iter().cloned());
-                    }
-                }
-
-                // @pure annotation: function must not call any effectful function.
-                if is_annotated_pure && !transitive_effects.is_empty() {
-                    errors.push(LoomError::effect(
-                        format!(
-                            "@pure function `{}` calls effectful function(s); \
-                             transitive effects: {:?}",
-                            fd.name,
-                            transitive_effects.iter().cloned().collect::<Vec<_>>()
-                        ),
-                        fd.span.clone(),
-                    ));
-                }
-
-                // Pure function (no Effect<> wrapper) calling an effectful function is an error.
-                if fn_declared.is_empty() && !is_annotated_pure && !transitive_effects.is_empty() {
-                    errors.push(LoomError::effect(
-                        format!(
-                            "pure function `{}` calls effectful function(s); \
-                             transitive effects: {:?}",
-                            fd.name,
-                            transitive_effects.iter().cloned().collect::<Vec<_>>()
-                        ),
-                        fd.span.clone(),
-                    ));
-                }
-
-                // Declared effects must cover transitive effects.
-                for eff in &transitive_effects {
-                    if !fn_declared.contains(eff) && !is_annotated_pure {
-                        errors.push(LoomError::effect(
-                            format!(
-                                "function `{}` uses effect `{}` but does not declare it",
-                                fd.name, eff
-                            ),
-                            fd.span.clone(),
-                        ));
-                    }
-                }
-
-                // Consequence tier enforcement: callee tier must not exceed caller tier.
-                for callee in &called_fns {
-                    if let Some(callee_tier) = tiers.get(callee) {
-                        if tier_severity(callee_tier) > tier_severity(fn_tier) {
-                            errors.push(LoomError::effect(
-                                format!(
-                                    "function `{}` (tier={}) calls `{}` (tier={}) which has a more severe consequence tier",
-                                    fd.name,
-                                    tier_name(fn_tier),
-                                    callee,
-                                    tier_name(callee_tier),
-                                ),
-                                fd.span.clone(),
-                            ));
-                        }
-                    }
-                }
+                check_fn_effects(fd, &declared, &tiers, &mut errors);
             }
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    }
+}
+
+/// Build a map of `fn_name → declared effect set` (empty = pure).
+fn collect_declared_effects(module: &Module) -> HashMap<String, HashSet<String>> {
+    module
+        .items
+        .iter()
+        .filter_map(|item| {
+            if let Item::Fn(fd) = item {
+                let effects = extract_declared_effects(&fd.type_sig.return_type);
+                Some((fd.name.clone(), effects))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Build a map of `fn_name → max consequence tier`.
+fn collect_consequence_tiers(module: &Module) -> HashMap<String, ConsequenceTier> {
+    module
+        .items
+        .iter()
+        .filter_map(|item| {
+            if let Item::Fn(fd) = item {
+                Some((fd.name.clone(), effective_tier(fd)))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Check one function's effect declarations against its transitive call graph.
+fn check_fn_effects(
+    fd: &FnDef,
+    declared: &HashMap<String, HashSet<String>>,
+    tiers: &HashMap<String, ConsequenceTier>,
+    errors: &mut Vec<LoomError>,
+) {
+    let fn_declared = declared.get(&fd.name).cloned().unwrap_or_default();
+    let fn_tier = tiers.get(&fd.name).unwrap_or(&ConsequenceTier::Pure);
+    let is_pure = fd.annotations.iter().any(|a| a.key == "pure");
+
+    let called_fns = collect_called_fns(fd);
+    let transitive_effects = transitive_effects_of(&called_fns, declared);
+
+    if is_pure && !transitive_effects.is_empty() {
+        errors.push(LoomError::effect(
+            format!(
+                "@pure function `{}` calls effectful function(s); transitive effects: {:?}",
+                fd.name,
+                transitive_effects.iter().cloned().collect::<Vec<_>>()
+            ),
+            fd.span.clone(),
+        ));
+    }
+
+    if fn_declared.is_empty() && !is_pure && !transitive_effects.is_empty() {
+        errors.push(LoomError::effect(
+            format!(
+                "pure function `{}` calls effectful function(s); transitive effects: {:?}",
+                fd.name,
+                transitive_effects.iter().cloned().collect::<Vec<_>>()
+            ),
+            fd.span.clone(),
+        ));
+    }
+
+    for eff in &transitive_effects {
+        if !fn_declared.contains(eff) && !is_pure {
+            errors.push(LoomError::effect(
+                format!("function `{}` uses effect `{}` but does not declare it", fd.name, eff),
+                fd.span.clone(),
+            ));
         }
     }
+
+    for callee in &called_fns {
+        if let Some(callee_tier) = tiers.get(callee) {
+            if tier_severity(callee_tier) > tier_severity(fn_tier) {
+                errors.push(LoomError::effect(
+                    format!(
+                        "function `{}` (tier={}) calls `{}` (tier={}) which has a more severe consequence tier",
+                        fd.name, tier_name(fn_tier), callee, tier_name(callee_tier),
+                    ),
+                    fd.span.clone(),
+                ));
+            }
+        }
+    }
+}
+
+/// Collect all function identifiers called in `fd`'s body and contracts.
+fn collect_called_fns(fd: &FnDef) -> HashSet<String> {
+    let mut called = HashSet::new();
+    for expr in &fd.body {
+        collect_calls(expr, &mut called);
+    }
+    for contract in fd.requires.iter().chain(fd.ensures.iter()) {
+        collect_calls(&contract.expr, &mut called);
+    }
+    called
+}
+
+/// Compute the union of effects declared by every callee in `called_fns`.
+fn transitive_effects_of(
+    called_fns: &HashSet<String>,
+    declared: &HashMap<String, HashSet<String>>,
+) -> HashSet<String> {
+    let mut effects = HashSet::new();
+    for callee in called_fns {
+        if let Some(callee_effects) = declared.get(callee) {
+            effects.extend(callee_effects.iter().cloned());
+        }
+    }
+    effects
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
