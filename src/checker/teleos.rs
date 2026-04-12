@@ -1,4 +1,4 @@
-//! Teleological checker — validates `being:` blocks.
+﻿//! Teleological checker — validates `being:` blocks.
 //!
 //! Rules:
 //! - Every `being` must declare a `telos:` (final cause).
@@ -7,16 +7,26 @@
 //! - Every `evolve` block must have at least one `search:` case.
 //! - Every `evolve` constraint must assert convergence.
 //! - `gradient_descent` and `derivative_free` are mutually exclusive without `when` conditions.
+//! - **M191**: A being with classifier-triggered regulate blocks must declare `telos: metric:`
+//!   when the classifier has a `retrain_trigger`. Classifier retraining without a measurable
+//!   telos metric cannot be proven to converge.
 
 use crate::ast::Span;
-use crate::ast::{BeingDef, EcosystemDef, EvolveBlock, Module, SearchStrategy, TelosDef};
+use crate::ast::{BeingDef, ClassifierDef, EcosystemDef, EvolveBlock, Item, Module, SearchStrategy, TelosDef};
 use crate::error::LoomError;
 
 /// Run all teleological checks on a module.
 pub fn check(module: &Module) -> Result<(), Vec<LoomError>> {
     let mut errors = Vec::new();
+    // Build classifier map for M191 look-up
+    let classifiers: Vec<&ClassifierDef> = module
+        .items
+        .iter()
+        .filter_map(|item| if let Item::Classifier(c) = item { Some(c) } else { None })
+        .collect();
     for being in &module.being_defs {
         check_being(being, &mut errors);
+        check_classifier_telos_consistency(being, &classifiers, &mut errors);
     }
     check_ecosystems(module, &mut errors);
     if errors.is_empty() {
@@ -514,6 +524,58 @@ fn check_ecosystem(
                 ),
                 quorum.span.clone(),
             )),
+        }
+    }
+}
+
+
+// M191: TelosConsistencyChecker for classifier retrain_strategy
+/// Verify that any being using a classifier-triggered regulate block with a
+/// `retrain_trigger` declares a measurable `telos: metric:`.
+///
+/// Classifier retraining can change the being's behavior. Without a measurable
+/// telos metric, there is no proof that repeated retraining converges rather
+/// than oscillates. This check enforces the convergence precondition.
+fn check_classifier_telos_consistency(
+    being: &BeingDef,
+    classifiers: &[&ClassifierDef],
+    errors: &mut Vec<LoomError>,
+) {
+    for reg in &being.regulate_blocks {
+        let trigger = match &reg.trigger {
+            Some(t) => t,
+            None => continue,
+        };
+        // Pattern: "classifier:Name"
+        let classifier_name = match trigger.strip_prefix("classifier:") {
+            Some(name) => name,
+            None => continue,
+        };
+        // Find the referenced classifier
+        let classifier = match classifiers.iter().find(|c| c.name == classifier_name) {
+            Some(c) => c,
+            None => continue, // undefined classifier -- caught elsewhere
+        };
+        // Only required if the classifier has a retrain_trigger
+        if classifier.retrain_trigger.is_none() {
+            continue;
+        }
+        // The being must have a telos with metric defined
+        let telos_has_metric = being
+            .telos
+            .as_ref()
+            .map(|t| t.metric.is_some())
+            .unwrap_or(false);
+        if !telos_has_metric {
+            errors.push(LoomError::type_err(
+                format!(
+                    "being '{}': regulate block triggered by classifier '{}' which has a \
+                     retrain_trigger -- telos: must declare metric: so convergence can be \
+                     verified (M191)",
+                    being.name, classifier_name
+                ),
+                reg.span.clone(),
+            ));
         }
     }
 }
