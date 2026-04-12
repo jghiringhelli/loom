@@ -65,3 +65,40 @@ mod tests {
         assert_eq!(a, 1);
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Curry-Howard: identity_proof IS the proof of A→A
+        /// Property: identity preserves value for all inputs (the proof is total)
+        #[test]
+        fn identity_proof_is_total(x in any::<i64>()) {
+            prop_assert_eq!(identity_proof(x), x,
+                "Curry-Howard: identity function as proof of A→A must be total");
+        }
+
+        #[test]
+        fn fst_proof_is_total(a in any::<i64>(), b in any::<i64>()) {
+            prop_assert_eq!(fst_proof((a, b)), a,
+                "Curry-Howard: fst as proof of (A,B)→A must be total");
+        }
+
+        #[test]
+        fn swap_proof_is_involutive(a in any::<i64>(), b in any::<i64>()) {
+            let (b2, a2) = swap_proof((a, b));
+            prop_assert_eq!((a2, b2), (a, b),
+                "Curry-Howard: swap proof of commutativity must be involutive");
+        }
+
+        #[test]
+        fn transitivity_proof_chains_correctly(x in 0i64..i64::MAX / 4) {
+            let add_one = |n: i64| n.saturating_add(1);
+            let double = |n: i64| n.saturating_mul(2);
+            let result = transitivity_proof(add_one, double, x);
+            prop_assert_eq!(result, x.saturating_add(1).saturating_mul(2));
+        }
+    }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "loom-proofs"
+version = "0.1.0"
+edition = "2021"
+description = "Formal theory proofs for Loom's 11 PROVED properties"
+
+[lib]
+name = "loom_proofs"
+path = "src/lib.rs"
+
+[dev-dependencies]
+proptest = "1"

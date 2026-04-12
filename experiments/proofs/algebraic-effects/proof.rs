@@ -97,3 +97,42 @@ mod tests {
     //     // is a LoomError::UncheckedEffect at compile time.
     // }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn pure_add_is_commutative(
+            a in i64::MIN / 2..i64::MAX / 2,
+            b in i64::MIN / 2..i64::MAX / 2,
+        ) {
+            prop_assert_eq!(pure_add(a, b), pure_add(b, a));
+        }
+
+        #[test]
+        fn pure_add_is_associative(
+            a in i64::MIN / 3..i64::MAX / 3,
+            b in i64::MIN / 3..i64::MAX / 3,
+            c in i64::MIN / 3..i64::MAX / 3,
+        ) {
+            prop_assert_eq!(pure_add(pure_add(a, b), c), pure_add(a, pure_add(b, c)));
+        }
+
+        #[test]
+        fn run_io_handler_extracts_value(n in any::<i64>()) {
+            let effect: Effect<IO, i64> = Effect::new(n);
+            let result = run_io(effect);
+            prop_assert_eq!(result, n);
+        }
+
+        #[test]
+        fn run_db_handler_extracts_value(n in any::<i64>()) {
+            let effect: Effect<DB, i64> = Effect::new(n);
+            let result = run_db(effect);
+            prop_assert_eq!(result, n);
+        }
+    }
+}

@@ -121,7 +121,7 @@ Ranked by: (impact × verifiability gap).
 | Priority | Gap | Fix | Ecosystem |
 |---|---|---|---|
 | P0 | Store codegen (V5) | Emit real Rust structs with derives + store-specific impls | sqlx, sled, petgraph, lru |
-| P0 | proptest integration (V3+) | Emit `proptest!` macros not just edge-case loops | proptest crate |
+| P0 | proptest integration (V3+) | ✅ `experiments/proofs/` crate: 11 proof modules, proptest! tests for all PROVED properties | proptest crate |
 | P1 | Contract release-mode (V1+) | Emit `assert!` as an option for production contracts | contracts crate |
 | P1 | Kani symbolic verification (V2) | Pipe contracts to Kani as verification harnesses | kani |
 | P1 | Audit trail in emitted code (V7) | Inline `// LOOM:` comments explaining each decision | — |

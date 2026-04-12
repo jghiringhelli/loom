@@ -85,3 +85,34 @@ mod tests {
     //     display(bonus); // ERROR: expected Public, found Secret
     // }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn public_greeting_never_leaks_to_different_type(name in "[a-zA-Z]{1,50}") {
+            let input = Sensitive::<Public, _>::new(name.clone());
+            let result = greet(input);
+            prop_assert!(result.value.contains(&name));
+        }
+
+        #[test]
+        fn redacted_salary_never_reveals_value(salary in 0.0f64..1_000_000.0f64) {
+            let secret = Sensitive::<Secret, _>::new(salary);
+            let public_result = redact_salary(secret);
+            prop_assert!(!public_result.value.contains(&salary.to_string()),
+                "declassified salary must be redacted, never reveal the actual value");
+        }
+
+        #[test]
+        fn compute_bonus_preserves_secret_label(salary in 0.0f64..1_000_000.0f64) {
+            let secret = Sensitive::<Secret, _>::new(salary);
+            let bonus = compute_bonus(secret);
+            let expected = salary * 0.1;
+            prop_assert!((bonus.value - expected).abs() < 1e-6);
+        }
+    }
+}

@@ -66,3 +66,29 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn wp_absolute_value_always_nonnegative(x in i64::MIN / 2..i64::MAX / 2) {
+            let result = absolute_value(x);
+            prop_assert!(result >= 0);
+        }
+
+        #[test]
+        fn wp_increment_satisfies_postcondition(x in 5i64..i64::MAX / 2) {
+            let result = increment_past_five(x);
+            prop_assert!(result > 5);
+        }
+
+        #[test]
+        fn wp_double_increment_satisfies_postcondition(x in 5i64..i64::MAX / 4) {
+            let result = double_increment(x);
+            prop_assert!(result > 10);
+        }
+    }
+}

@@ -87,3 +87,36 @@ mod tests {
         let _v: Vec<i64> = identity(vec![1, 2, 3]);
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn identity_preserves_value(x in any::<i64>()) {
+            prop_assert_eq!(identity(x), x);
+        }
+
+        #[test]
+        fn compose_preserves_semantics(x in any::<i64>()) {
+            let add_one = |n: i64| n.saturating_add(1);
+            let double = |n: i64| n.saturating_mul(2);
+            let result = compose(double, add_one, x);
+            prop_assert_eq!(result, x.saturating_add(1).saturating_mul(2));
+        }
+
+        #[test]
+        fn sum_list_equals_manual_sum(
+            xs in proptest::collection::vec(
+                any::<f64>().prop_filter("finite", |f| f.is_finite()),
+                0..100
+            )
+        ) {
+            let manual: f64 = xs.iter().sum();
+            let result = sum_list(xs);
+            prop_assert!((result - manual).abs() < 1e-6);
+        }
+    }
+}

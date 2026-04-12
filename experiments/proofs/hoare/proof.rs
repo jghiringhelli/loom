@@ -70,3 +70,43 @@ mod proofs {
         kani::assert(result <= hi, "Hoare triple: clamp upper bound");
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn hoare_withdraw_precondition_guarantees_postcondition(
+            balance in 0.0f64..1_000_000.0f64,
+            fraction in 0.0f64..1.0f64,
+        ) {
+            let amount = balance * fraction;
+            if amount > 0.0 {
+                let result = withdraw(balance, amount);
+                prop_assert!(result >= 0.0, "Hoare triple: withdraw postcondition");
+            }
+        }
+
+        #[test]
+        fn hoare_clamp_always_within_bounds(
+            value in f64::MIN / 2.0..f64::MAX / 2.0,
+            lo in -10_000.0f64..0.0f64,
+            hi in 0.0f64..10_000.0f64,
+        ) {
+            let result = clamp(value, lo, hi);
+            prop_assert!(result >= lo);
+            prop_assert!(result <= hi);
+        }
+
+        #[test]
+        fn hoare_safe_div_postcondition_holds(
+            dividend in 0i64..i64::MAX,
+            divisor in 1i64..i64::MAX,
+        ) {
+            let result = safe_div(dividend, divisor);
+            prop_assert!(result >= 0, "Hoare triple: safe_div postcondition");
+        }
+    }
+}

@@ -106,3 +106,33 @@ mod tests {
         assert!(as_int.is_none(), "gradual: wrong type must fail explicitly, not silently");
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn static_add_is_commutative(
+            a in i64::MIN / 2..i64::MAX / 2,
+            b in i64::MIN / 2..i64::MAX / 2,
+        ) {
+            prop_assert_eq!(static_add(a, b), static_add(b, a));
+        }
+
+        #[test]
+        fn checked_length_never_panics_for_any_dynamic_value(n in any::<i64>()) {
+            let dynamic = Dynamic::from_int(n);
+            let result = checked_length(dynamic);
+            prop_assert_eq!(result, 0, "non-string Dynamic must return 0 length");
+        }
+
+        #[test]
+        fn pipeline_produces_double_as_string(x in 0i64..i64::MAX / 2) {
+            let result = pipeline(x);
+            let expected = (x * 2).to_string();
+            prop_assert_eq!(result, expected);
+        }
+    }
+}

@@ -112,3 +112,40 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn square_area_postcondition_holds(side in 0.001f64..10_000.0f64) {
+            let s = Square::new(side);
+            let area = s.area();
+            prop_assert!(area >= 0.0, "LSP: area postcondition must hold for all sides");
+            prop_assert!((area - side * side).abs() < 1e-6);
+        }
+
+        #[test]
+        fn circle_area_postcondition_holds(radius in 0.001f64..10_000.0f64) {
+            let c = Circle::new(radius);
+            let area = c.area();
+            prop_assert!(area >= 0.0);
+            prop_assert!((area - std::f64::consts::PI * radius * radius).abs() < 1e-4);
+        }
+
+        #[test]
+        fn lsp_total_area_equals_sum_of_parts(
+            side in 0.001f64..100.0f64,
+            radius in 0.001f64..100.0f64,
+        ) {
+            let sq = Square::new(side);
+            let ci = Circle::new(radius);
+            let total = total_area(&[&sq as &dyn Shape, &ci as &dyn Shape]);
+            let expected = sq.area() + ci.area();
+            prop_assert!((total - expected).abs() < 1e-6,
+                "LSP: total_area must equal sum of parts for any valid shapes");
+        }
+    }
+}

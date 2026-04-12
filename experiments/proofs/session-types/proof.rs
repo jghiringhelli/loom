@@ -95,3 +95,35 @@ mod tests {
     //     let _ch = ch.send("second".to_string()); // ERROR: ch moved, Step1 has no `send`
     // }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Session types: any valid credential string works in the auth protocol
+        #[test]
+        fn auth_protocol_valid_sequence_always_succeeds(
+            credential in "[a-zA-Z0-9:_@.]{1,100}"
+        ) {
+            let ch = AuthProtocolClientChannel::new();
+            let ch = ch.send(credential);
+            let (_ch, token) = ch.recv();
+            prop_assert_eq!(token, 42, "auth protocol must return valid token");
+        }
+
+        /// Payment protocol: any positive amount completes the sequence
+        #[test]
+        fn payment_protocol_valid_sequence_always_succeeds(
+            amount in 0.01f64..1_000_000.0f64,
+            confirmation_code in any::<i64>(),
+        ) {
+            let ch = PaymentChannel::new();
+            let ch = ch.send_amount(amount);
+            let (ch, reference) = ch.recv_reference();
+            let _ch = ch.send_confirmation(confirmation_code);
+            prop_assert!(!reference.is_empty(), "payment protocol must produce reference");
+        }
+    }
+}

@@ -108,3 +108,28 @@ mod tests {
         assert!(result.is_err(), "temporal: Delivered requires prior Shipped state");
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Property: any order that completes the full sequence reaches Delivered
+        #[test]
+        fn temporal_valid_full_sequence_always_reaches_delivered(id in 0u64..u64::MAX) {
+            let mut order = Order::new(id);
+            prop_assert!(order.confirm_payment().is_ok());
+            prop_assert!(order.ship().is_ok());
+            prop_assert!(order.deliver().is_ok());
+            prop_assert_eq!(order.state, OrderState::Delivered);
+        }
+
+        /// Property: ship always fails from Pending (no payment)
+        #[test]
+        fn temporal_ship_always_fails_from_pending(id in 0u64..u64::MAX) {
+            let mut o = Order::new(id);
+            prop_assert!(o.ship().is_err());
+        }
+    }
+}

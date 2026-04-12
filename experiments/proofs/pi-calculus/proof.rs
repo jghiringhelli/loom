@@ -83,3 +83,33 @@ mod tests {
         // Channel mobility: the routing graph changed at runtime, but the types are still safe
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn actuator_increases_cooling_when_hot(
+            power in 0.0f64..0.9f64,
+            temp in 25.1f64..100.0f64,
+        ) {
+            let mut actuator = CoolingActuator { cooling_power: power };
+            actuator.receive(temp);
+            prop_assert!(actuator.cooling_power > power || actuator.cooling_power == 1.0,
+                "hot signal must increase or cap cooling power");
+        }
+
+        #[test]
+        fn actuator_cooling_always_in_bounds(
+            power in 0.0f64..1.0f64,
+            temp in -100.0f64..100.0f64,
+        ) {
+            let mut actuator = CoolingActuator { cooling_power: power };
+            actuator.receive(temp);
+            prop_assert!(actuator.cooling_power >= 0.0);
+            prop_assert!(actuator.cooling_power <= 1.0);
+        }
+    }
+}
