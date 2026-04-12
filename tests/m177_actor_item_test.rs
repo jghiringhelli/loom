@@ -15,21 +15,33 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_actor_generates_struct() {
     let out = ok("module M\n  actor MyActor\n  end\nend\n");
-    assert!(out.contains("struct MyActorActor"), "expected MyActorActor struct, got:\n{}", out);
+    assert!(
+        out.contains("struct MyActorActor"),
+        "expected MyActorActor struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — struct is generic over message type or uses VecDeque
 #[test]
 fn t2_actor_is_generic() {
     let out = ok("module M\n  actor Worker\n  end\nend\n");
-    assert!(out.contains("<M>") || out.contains("VecDeque"), "expected generic or VecDeque, got:\n{}", out);
+    assert!(
+        out.contains("<M>") || out.contains("VecDeque"),
+        "expected generic or VecDeque, got:\n{}",
+        out
+    );
 }
 
 // T3 — mailbox/VecDeque field emitted
 #[test]
 fn t3_actor_has_mailbox() {
     let out = ok("module M\n  actor Processor\n  end\nend\n");
-    assert!(out.contains("VecDeque") || out.contains("mailbox"), "expected mailbox, got:\n{}", out);
+    assert!(
+        out.contains("VecDeque") || out.contains("mailbox"),
+        "expected mailbox, got:\n{}",
+        out
+    );
 }
 
 // T4 — send method emitted
@@ -43,14 +55,22 @@ fn t4_actor_has_send_method() {
 #[test]
 fn t5_actor_has_receive_method() {
     let out = ok("module M\n  actor Handler\n  end\nend\n");
-    assert!(out.contains("fn receive"), "expected fn receive, got:\n{}", out);
+    assert!(
+        out.contains("fn receive"),
+        "expected fn receive, got:\n{}",
+        out
+    );
 }
 
 // T6 — pending method emitted
 #[test]
 fn t6_actor_has_pending_method() {
     let out = ok("module M\n  actor Queue\n  end\nend\n");
-    assert!(out.contains("fn pending"), "expected fn pending, got:\n{}", out);
+    assert!(
+        out.contains("fn pending"),
+        "expected fn pending, got:\n{}",
+        out
+    );
 }
 
 // T7 — name correctly embedded in struct name
@@ -99,8 +119,16 @@ fn t10_actor_receive_returns_option() {
 fn t11_actor_with_other_items() {
     let src = "module M\n  actor Worker\n  end\n  entity Job\n    id: Int\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("WorkerActor"), "expected WorkerActor, got:\n{}", out);
-    assert!(out.contains("struct Job") || out.contains("type Job"), "expected Job type, got:\n{}", out);
+    assert!(
+        out.contains("WorkerActor"),
+        "expected WorkerActor, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("struct Job") || out.contains("type Job"),
+        "expected Job type, got:\n{}",
+        out
+    );
 }
 
 // T12 — missing end is a parse error

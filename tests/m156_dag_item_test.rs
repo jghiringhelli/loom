@@ -30,7 +30,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("PipelineDagItem"), "expected PipelineDagItem in output\n{out}");
+    assert!(
+        out.contains("PipelineDagItem"),
+        "expected PipelineDagItem in output\n{out}"
+    );
 }
 
 // ─── M156.2: Node enum emitted with correct variants ──────────────────────────
@@ -46,9 +49,15 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub enum PipelineNode"), "missing PipelineNode enum\n{out}");
+    assert!(
+        out.contains("pub enum PipelineNode"),
+        "missing PipelineNode enum\n{out}"
+    );
     assert!(out.contains("Ingest,"), "missing Ingest variant\n{out}");
-    assert!(out.contains("Transform,"), "missing Transform variant\n{out}");
+    assert!(
+        out.contains("Transform,"),
+        "missing Transform variant\n{out}"
+    );
     assert!(out.contains("Validate,"), "missing Validate variant\n{out}");
     assert!(out.contains("Load,"), "missing Load variant\n{out}");
 }
@@ -66,7 +75,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct WorkflowDagItem"), "missing struct\n{out}");
+    assert!(
+        out.contains("pub struct WorkflowDagItem"),
+        "missing struct\n{out}"
+    );
 }
 
 // ─── M156.4: new() constructor emitted ───────────────────────────────────────
@@ -82,7 +94,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn new()"), "missing new() constructor\n{out}");
+    assert!(
+        out.contains("pub fn new()"),
+        "missing new() constructor\n{out}"
+    );
 }
 
 // ─── M156.5: edges pre-initialized in new() ──────────────────────────────────
@@ -121,7 +136,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn add_typed_edge("), "missing add_typed_edge()\n{out}");
+    assert!(
+        out.contains("pub fn add_typed_edge("),
+        "missing add_typed_edge()\n{out}"
+    );
 }
 
 // ─── M156.7: topological_sort() method emitted ───────────────────────────────
@@ -137,8 +155,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn topological_sort("), "missing topological_sort()\n{out}");
-    assert!(out.contains("Kahn"), "missing Kahn reference in comment\n{out}");
+    assert!(
+        out.contains("pub fn topological_sort("),
+        "missing topological_sort()\n{out}"
+    );
+    assert!(
+        out.contains("Kahn"),
+        "missing Kahn reference in comment\n{out}"
+    );
 }
 
 // ─── M156.8: successors() method emitted ─────────────────────────────────────
@@ -154,7 +178,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn successors("), "missing successors()\n{out}");
+    assert!(
+        out.contains("pub fn successors("),
+        "missing successors()\n{out}"
+    );
 }
 
 // ─── M156.9: LOOM audit comment and M156 reference ───────────────────────────
@@ -170,7 +197,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[dag:item]"), "missing LOOM audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[dag:item]"),
+        "missing LOOM audit comment\n{out}"
+    );
     assert!(out.contains("M156"), "missing M156 reference\n{out}");
 }
 
@@ -191,10 +221,22 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub enum PipelineNode"), "missing PipelineNode\n{out}");
-    assert!(out.contains("pub enum WorkflowNode"), "missing WorkflowNode\n{out}");
-    assert!(out.contains("pub struct PipelineDagItem"), "missing PipelineDagItem\n{out}");
-    assert!(out.contains("pub struct WorkflowDagItem"), "missing WorkflowDagItem\n{out}");
+    assert!(
+        out.contains("pub enum PipelineNode"),
+        "missing PipelineNode\n{out}"
+    );
+    assert!(
+        out.contains("pub enum WorkflowNode"),
+        "missing WorkflowNode\n{out}"
+    );
+    assert!(
+        out.contains("pub struct PipelineDagItem"),
+        "missing PipelineDagItem\n{out}"
+    );
+    assert!(
+        out.contains("pub struct WorkflowDagItem"),
+        "missing WorkflowDagItem\n{out}"
+    );
 }
 
 // ─── M156.11: dag without edges parses (edges optional) ──────────────────────
@@ -209,7 +251,11 @@ end
 end
 "#;
     let result = compile_check(src);
-    assert!(result.is_ok(), "dag without edges should compile: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "dag without edges should compile: {:?}",
+        result
+    );
 }
 
 // ─── M156.12: dag without nodes or edges parses (both optional) ──────────────

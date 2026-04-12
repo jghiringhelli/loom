@@ -1402,4 +1402,3 @@ pub struct ClassifierDef {
     pub retrain_trigger: Option<String>,
     pub span: Span,
 }
-

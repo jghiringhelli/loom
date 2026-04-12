@@ -33,7 +33,10 @@ end
 "#;
     // compile succeeds and emits a TransitionMatrix — proof the chain was parsed
     let out = compile(src);
-    assert!(out.contains("WeatherTransitionMatrix"), "expected WeatherTransitionMatrix in output\n{out}");
+    assert!(
+        out.contains("WeatherTransitionMatrix"),
+        "expected WeatherTransitionMatrix in output\n{out}"
+    );
 }
 
 // ─── M155.2: State enum emitted with correct variants ─────────────────────────
@@ -53,7 +56,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub enum WeatherState"), "missing WeatherState enum\n{out}");
+    assert!(
+        out.contains("pub enum WeatherState"),
+        "missing WeatherState enum\n{out}"
+    );
     assert!(out.contains("Sunny,"), "missing Sunny variant\n{out}");
     assert!(out.contains("Rainy,"), "missing Rainy variant\n{out}");
     assert!(out.contains("Cloudy,"), "missing Cloudy variant\n{out}");
@@ -75,7 +81,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct TrafficTransitionMatrix"), "missing struct\n{out}");
+    assert!(
+        out.contains("pub struct TrafficTransitionMatrix"),
+        "missing struct\n{out}"
+    );
 }
 
 // ─── M155.4: new() constructor emitted ───────────────────────────────────────
@@ -94,7 +103,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn new()"), "missing new() constructor\n{out}");
+    assert!(
+        out.contains("pub fn new()"),
+        "missing new() constructor\n{out}"
+    );
 }
 
 // ─── M155.5: transitions pre-initialized in new() ────────────────────────────
@@ -139,7 +151,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn validate"), "missing validate() method\n{out}");
+    assert!(
+        out.contains("pub fn validate"),
+        "missing validate() method\n{out}"
+    );
 }
 
 // ─── M155.7: next_states() method emitted ────────────────────────────────────
@@ -158,7 +173,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn next_states"), "missing next_states() method\n{out}");
+    assert!(
+        out.contains("pub fn next_states"),
+        "missing next_states() method\n{out}"
+    );
 }
 
 // ─── M155.8: LOOM audit comment present ──────────────────────────────────────
@@ -177,7 +195,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[chain:Markov]"), "missing LOOM audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[chain:Markov]"),
+        "missing LOOM audit comment\n{out}"
+    );
     assert!(out.contains("M155"), "missing M155 reference\n{out}");
 }
 
@@ -202,10 +223,22 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub enum WeatherState"), "missing WeatherState\n{out}");
-    assert!(out.contains("pub enum TrafficState"), "missing TrafficState\n{out}");
-    assert!(out.contains("pub struct WeatherTransitionMatrix"), "missing WeatherTransitionMatrix\n{out}");
-    assert!(out.contains("pub struct TrafficTransitionMatrix"), "missing TrafficTransitionMatrix\n{out}");
+    assert!(
+        out.contains("pub enum WeatherState"),
+        "missing WeatherState\n{out}"
+    );
+    assert!(
+        out.contains("pub enum TrafficState"),
+        "missing TrafficState\n{out}"
+    );
+    assert!(
+        out.contains("pub struct WeatherTransitionMatrix"),
+        "missing WeatherTransitionMatrix\n{out}"
+    );
+    assert!(
+        out.contains("pub struct TrafficTransitionMatrix"),
+        "missing TrafficTransitionMatrix\n{out}"
+    );
 }
 
 // ─── M155.10: chain with no transitions section parses (transitions optional) ──
@@ -220,7 +253,11 @@ end
 end
 "#;
     let result = compile_check(src);
-    assert!(result.is_ok(), "chain without transitions should compile: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "chain without transitions should compile: {:?}",
+        result
+    );
 }
 
 // ─── M155.11: set() method emitted ───────────────────────────────────────────

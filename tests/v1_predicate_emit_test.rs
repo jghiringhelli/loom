@@ -17,13 +17,9 @@ fn emit(src: &str) -> String {
 
 #[test]
 fn require_and_becomes_double_ampersand() {
-    let code = emit(
-        "module M\nfn f :: Int -> Bool\n  require: x > 0 and x < 100\n  todo\nend\nend",
-    );
-    assert!(
-        code.contains("&&"),
-        "expected && in output, got:\n{code}"
-    );
+    let code =
+        emit("module M\nfn f :: Int -> Bool\n  require: x > 0 and x < 100\n  todo\nend\nend");
+    assert!(code.contains("&&"), "expected && in output, got:\n{code}");
     assert!(
         !code.contains(" and "),
         "Loom `and` must not appear in generated Rust:\n{code}"
@@ -32,55 +28,46 @@ fn require_and_becomes_double_ampersand() {
 
 #[test]
 fn require_or_becomes_double_pipe() {
-    let code = emit(
-        "module M\nfn f :: Int -> Bool\n  require: x < 0 or x > 100\n  todo\nend\nend",
-    );
+    let code = emit("module M\nfn f :: Int -> Bool\n  require: x < 0 or x > 100\n  todo\nend\nend");
     assert!(code.contains("||"), "expected || in output:\n{code}");
     assert!(!code.contains(" or "), "Loom `or` must not appear:\n{code}");
 }
 
 #[test]
 fn require_not_becomes_bang() {
-    let code = emit(
-        "module M\nfn f :: Bool -> Bool\n  require: not flag\n  todo\nend\nend",
-    );
+    let code = emit("module M\nfn f :: Bool -> Bool\n  require: not flag\n  todo\nend\nend");
     assert!(code.contains('!'), "expected ! in output:\n{code}");
-    assert!(!code.contains("not flag"), "Loom `not` must not appear:\n{code}");
+    assert!(
+        !code.contains("not flag"),
+        "Loom `not` must not appear:\n{code}"
+    );
 }
 
 #[test]
 fn require_eq_becomes_double_eq() {
-    let code = emit(
-        "module M\nfn f :: Int -> Bool\n  require: x = 0\n  todo\nend\nend",
-    );
-    assert!(
-        code.contains("=="),
-        "expected == in output:\n{code}"
-    );
+    let code = emit("module M\nfn f :: Int -> Bool\n  require: x = 0\n  todo\nend\nend");
+    assert!(code.contains("=="), "expected == in output:\n{code}");
 }
 
 #[test]
 fn require_leq_preserved() {
-    let code = emit(
-        "module M\nfn f :: Int -> Bool\n  require: x <= 100\n  todo\nend\nend",
-    );
+    let code = emit("module M\nfn f :: Int -> Bool\n  require: x <= 100\n  todo\nend\nend");
     assert!(code.contains("<="), "expected <= preserved:\n{code}");
 }
 
 #[test]
 fn require_geq_preserved() {
-    let code = emit(
-        "module M\nfn f :: Float -> Bool\n  require: x >= 0.0\n  todo\nend\nend",
-    );
+    let code = emit("module M\nfn f :: Float -> Bool\n  require: x >= 0.0\n  todo\nend\nend");
     assert!(code.contains(">="), "expected >= preserved:\n{code}");
 }
 
 #[test]
 fn require_simple_gt_unchanged() {
-    let code = emit(
-        "module M\nfn f :: Int -> Int\n  require: n > 0\n  todo\nend\nend",
+    let code = emit("module M\nfn f :: Int -> Int\n  require: n > 0\n  todo\nend\nend");
+    assert!(
+        code.contains("debug_assert!"),
+        "expected debug_assert!:\n{code}"
     );
-    assert!(code.contains("debug_assert!"), "expected debug_assert!:\n{code}");
     assert!(code.contains("n > 0"), "expected n > 0 in output:\n{code}");
 }
 
@@ -96,7 +83,10 @@ fn ensure_and_translated_in_stub() {
         !code.contains(" and "),
         "Loom `and` must not appear in ensure comment:\n{code}"
     );
-    assert!(code.contains("&&") || code.contains("ensure"), "expected translated ensure:\n{code}");
+    assert!(
+        code.contains("&&") || code.contains("ensure"),
+        "expected translated ensure:\n{code}"
+    );
 }
 
 #[test]
@@ -133,8 +123,14 @@ fn v1_gate_generated_rust_has_no_loom_operators() {
     ];
     for prog in &programs {
         let code = emit(prog);
-        assert!(!code.contains(" and "), "Loom `and` in output for:\n{prog}\n---\n{code}");
-        assert!(!code.contains(" or "), "Loom `or` in output for:\n{prog}\n---\n{code}");
+        assert!(
+            !code.contains(" and "),
+            "Loom `and` in output for:\n{prog}\n---\n{code}"
+        );
+        assert!(
+            !code.contains(" or "),
+            "Loom `or` in output for:\n{prog}\n---\n{code}"
+        );
         // Note: `not ` may legitimately not appear since it's translated to `!`
     }
 }

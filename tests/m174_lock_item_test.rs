@@ -13,7 +13,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("DbLockLock"), "expected DbLockLock struct, got:\n{}", out);
+    assert!(
+        out.contains("DbLockLock"),
+        "expected DbLockLock struct, got:\n{}",
+        out
+    );
 }
 
 // ── M174.2: acquire method emitted ───────────────────────────────────────────
@@ -25,7 +29,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn acquire"), "expected acquire method, got:\n{}", out);
+    assert!(
+        out.contains("fn acquire"),
+        "expected acquire method, got:\n{}",
+        out
+    );
 }
 
 // ── M174.3: release method emitted ───────────────────────────────────────────
@@ -37,7 +45,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn release"), "expected release method, got:\n{}", out);
+    assert!(
+        out.contains("fn release"),
+        "expected release method, got:\n{}",
+        out
+    );
 }
 
 // ── M174.4: is_locked method emitted ─────────────────────────────────────────
@@ -49,7 +61,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn is_locked"), "expected is_locked method, got:\n{}", out);
+    assert!(
+        out.contains("fn is_locked"),
+        "expected is_locked method, got:\n{}",
+        out
+    );
 }
 
 // ── M174.5: AtomicBool backing field ─────────────────────────────────────────
@@ -61,7 +77,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("AtomicBool"), "expected AtomicBool field, got:\n{}", out);
+    assert!(
+        out.contains("AtomicBool"),
+        "expected AtomicBool field, got:\n{}",
+        out
+    );
 }
 
 // ── M174.6: acquire returns bool ─────────────────────────────────────────────
@@ -73,7 +93,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("-> bool"), "expected bool return type, got:\n{}", out);
+    assert!(
+        out.contains("-> bool"),
+        "expected bool return type, got:\n{}",
+        out
+    );
 }
 
 // ── M174.7: compare_exchange for acquire ─────────────────────────────────────
@@ -85,7 +109,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("compare_exchange"), "expected compare_exchange, got:\n{}", out);
+    assert!(
+        out.contains("compare_exchange"),
+        "expected compare_exchange, got:\n{}",
+        out
+    );
 }
 
 // ── M174.8: LOOM annotation comment ──────────────────────────────────────────
@@ -113,7 +141,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn new()"), "expected new() constructor, got:\n{}", out);
+    assert!(
+        out.contains("fn new()"),
+        "expected new() constructor, got:\n{}",
+        out
+    );
 }
 
 // ── M174.10: Ordering imports in methods ─────────────────────────────────────
@@ -125,7 +157,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("Ordering"), "expected Ordering import, got:\n{}", out);
+    assert!(
+        out.contains("Ordering"),
+        "expected Ordering import, got:\n{}",
+        out
+    );
 }
 
 // ── M174.11: multiple locks ───────────────────────────────────────────────────
@@ -139,8 +175,16 @@ module M
   end
 end
 "#);
-    assert!(out.contains("ReadLockLock"), "expected ReadLockLock, got:\n{}", out);
-    assert!(out.contains("WriteLockLock"), "expected WriteLockLock, got:\n{}", out);
+    assert!(
+        out.contains("ReadLockLock"),
+        "expected ReadLockLock, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("WriteLockLock"),
+        "expected WriteLockLock, got:\n{}",
+        out
+    );
 }
 
 // ── M174.12: lock alongside queue ────────────────────────────────────────────
@@ -154,6 +198,14 @@ module SafeQueue
   end
 end
 "#);
-    assert!(out.contains("ItemsQueue"), "expected ItemsQueue, got:\n{}", out);
-    assert!(out.contains("GuardLock"), "expected GuardLock, got:\n{}", out);
+    assert!(
+        out.contains("ItemsQueue"),
+        "expected ItemsQueue, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("GuardLock"),
+        "expected GuardLock, got:\n{}",
+        out
+    );
 }

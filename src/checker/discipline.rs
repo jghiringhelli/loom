@@ -40,7 +40,13 @@ impl DisciplineChecker {
         let disciplines: Vec<_> = module
             .items
             .iter()
-            .filter_map(|i| if let Item::Discipline(d) = i { Some(d) } else { None })
+            .filter_map(|i| {
+                if let Item::Discipline(d) = i {
+                    Some(d)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         self.check_duplicates(&disciplines, &mut errors);
@@ -94,7 +100,11 @@ impl DisciplineChecker {
         }
         let max = dd.params.iter().find_map(|(k, v)| {
             if k == "max_attempts" {
-                if let DisciplineParam::Number(n) = v { Some(*n) } else { None }
+                if let DisciplineParam::Number(n) = v {
+                    Some(*n)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -133,8 +143,7 @@ impl DisciplineChecker {
             return;
         }
         let has_events = dd.params.iter().any(|(k, v)| {
-            k == "events"
-                && matches!(v, DisciplineParam::List(items) if !items.is_empty())
+            k == "events" && matches!(v, DisciplineParam::List(items) if !items.is_empty())
         });
         if !has_events {
             errors.push(LoomError::type_err(
@@ -151,17 +160,12 @@ impl DisciplineChecker {
 
     // ── Rule 5: DI container should bind at least one port ───────────────────
 
-    fn check_di_completeness(
-        &self,
-        dd: &crate::ast::DisciplineDecl,
-        errors: &mut Vec<LoomError>,
-    ) {
+    fn check_di_completeness(&self, dd: &crate::ast::DisciplineDecl, errors: &mut Vec<LoomError>) {
         if !matches!(dd.kind, DisciplineKind::DependencyInjection) {
             return;
         }
         let has_binds = dd.params.iter().any(|(k, v)| {
-            k == "binds"
-                && matches!(v, DisciplineParam::List(items) if !items.is_empty())
+            k == "binds" && matches!(v, DisciplineParam::List(items) if !items.is_empty())
         });
         if !has_binds {
             errors.push(LoomError::type_err(
@@ -187,8 +191,7 @@ impl DisciplineChecker {
             return;
         }
         let has_steps = dd.params.iter().any(|(k, v)| {
-            k == "steps"
-                && matches!(v, DisciplineParam::List(items) if !items.is_empty())
+            k == "steps" && matches!(v, DisciplineParam::List(items) if !items.is_empty())
         });
         if !has_steps {
             errors.push(LoomError::type_err(

@@ -3,9 +3,9 @@
 //! Classifier sits between pure regex (cheap but limited) and a full LLM
 //! (expensive). BIOISO beings can retrain it on demand via M189 regulate triggers.
 
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
 
 fn parse(src: &str) -> loom::ast::Module {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -28,7 +28,11 @@ end
 end"#;
     let module = parse(src);
     let item = module.items.iter().find_map(|i| {
-        if let loom::ast::Item::Classifier(c) = i { Some(c) } else { None }
+        if let loom::ast::Item::Classifier(c) = i {
+            Some(c)
+        } else {
+            None
+        }
     });
     assert!(item.is_some(), "expected Item::Classifier in parsed module");
     let c = item.unwrap();
@@ -47,9 +51,17 @@ classifier ToxicityGate
 end
 end"#;
     let module = parse(src);
-    let c = module.items.iter().find_map(|i| {
-        if let loom::ast::Item::Classifier(c) = i { Some(c) } else { None }
-    }).unwrap();
+    let c = module
+        .items
+        .iter()
+        .find_map(|i| {
+            if let loom::ast::Item::Classifier(c) = i {
+                Some(c)
+            } else {
+                None
+            }
+        })
+        .unwrap();
     assert_eq!(c.name, "ToxicityGate");
     assert_eq!(c.model, "bert-tiny");
 }
@@ -65,9 +77,17 @@ classifier AnomalyDetector
 end
 end"#;
     let module = parse(src);
-    let c = module.items.iter().find_map(|i| {
-        if let loom::ast::Item::Classifier(c) = i { Some(c) } else { None }
-    }).unwrap();
+    let c = module
+        .items
+        .iter()
+        .find_map(|i| {
+            if let loom::ast::Item::Classifier(c) = i {
+                Some(c)
+            } else {
+                None
+            }
+        })
+        .unwrap();
     assert_eq!(c.model, "mlp");
     assert_eq!(
         c.retrain_trigger.as_deref(),
@@ -79,11 +99,13 @@ end"#;
 
 #[test]
 fn classifier_codegen_emits_loom_marker() {
-    let out = emit(r#"module Test
+    let out = emit(
+        r#"module Test
 classifier SignalRouter
   model: regex
 end
-end"#);
+end"#,
+    );
     assert!(
         out.contains("// LOOM[classifier:SignalRouter:regex]"),
         "expected LOOM marker, got:\n{out}"
@@ -94,13 +116,21 @@ end"#);
 
 #[test]
 fn classifier_codegen_emits_trait_and_struct() {
-    let out = emit(r#"module Test
+    let out = emit(
+        r#"module Test
 classifier ToxicityGate
   model: bert-tiny
 end
-end"#);
-    assert!(out.contains("pub trait ToxicityGateClassify"), "expected trait: {out}");
-    assert!(out.contains("pub struct ToxicityGateClassifier"), "expected struct: {out}");
+end"#,
+    );
+    assert!(
+        out.contains("pub trait ToxicityGateClassify"),
+        "expected trait: {out}"
+    );
+    assert!(
+        out.contains("pub struct ToxicityGateClassifier"),
+        "expected struct: {out}"
+    );
     assert!(out.contains("fn predict"), "expected predict method: {out}");
 }
 
@@ -108,12 +138,14 @@ end"#);
 
 #[test]
 fn classifier_codegen_emits_retrain_trigger() {
-    let out = emit(r#"module Test
+    let out = emit(
+        r#"module Test
 classifier AnomalyDetector
   model: tfidf
   retrain_trigger: "accuracy < 0.85 over 1000 samples"
 end
-end"#);
+end"#,
+    );
     assert!(
         out.contains("// retrain_trigger: accuracy < 0.85 over 1000 samples"),
         "expected retrain comment: {out}"
@@ -133,9 +165,17 @@ classifier GateB
 end
 end"#;
     let module = parse(src);
-    let classifiers: Vec<_> = module.items.iter().filter_map(|i| {
-        if let loom::ast::Item::Classifier(c) = i { Some(c) } else { None }
-    }).collect();
+    let classifiers: Vec<_> = module
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let loom::ast::Item::Classifier(c) = i {
+                Some(c)
+            } else {
+                None
+            }
+        })
+        .collect();
     assert_eq!(classifiers.len(), 2, "expected 2 classifiers");
     assert_eq!(classifiers[0].name, "GateA");
     assert_eq!(classifiers[1].name, "GateB");
@@ -145,11 +185,16 @@ end"#;
 
 #[test]
 fn classifier_name_pascal_cased_in_emit() {
-    let out = emit(r#"module Test
+    let out = emit(
+        r#"module Test
 classifier climate_risk
   model: regex
 end
-end"#);
+end"#,
+    );
     // Pascal-cased: ClimateRisk
-    assert!(out.contains("ClimateRisk"), "expected PascalCase name: {out}");
+    assert!(
+        out.contains("ClimateRisk"),
+        "expected PascalCase name: {out}"
+    );
 }

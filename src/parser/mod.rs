@@ -869,7 +869,9 @@ impl<'src> Parser<'src> {
             }
             Some(Token::TelosFunction) => Ok(Item::TelosFunction(self.parse_telos_function_def()?)),
             Some(Token::Entity) => Ok(Item::Entity(self.parse_entity_def()?)),
-            Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(self.parse_intent_coordinator_def()?)),
+            Some(Token::IntentCoordinator) => Ok(Item::IntentCoordinator(
+                self.parse_intent_coordinator_def()?,
+            )),
             Some(Token::Discipline) => Ok(Item::Discipline(self.parse_discipline_decl()?)),
             Some(Token::ChainKw) => Ok(Item::Chain(self.parse_chain_def()?)),
             Some(Token::DagKw) => Ok(Item::Dag(self.parse_dag_def()?)),
@@ -879,7 +881,9 @@ impl<'src> Parser<'src> {
             Some(Token::EventKw) => Ok(Item::Event(self.parse_event_def()?)),
             Some(Token::CommandKw) => Ok(Item::Command(self.parse_command_def()?)),
             Some(Token::QueryKw) => Ok(Item::Query(self.parse_query_def()?)),
-            Some(Token::CircuitBreakerKw) => Ok(Item::CircuitBreaker(self.parse_circuit_breaker_def()?)),
+            Some(Token::CircuitBreakerKw) => {
+                Ok(Item::CircuitBreaker(self.parse_circuit_breaker_def()?))
+            }
             Some(Token::RetryKw) => Ok(Item::Retry(self.parse_retry_def()?)),
             Some(Token::RateLimiterKw) => Ok(Item::RateLimiter(self.parse_rate_limiter_def()?)),
             Some(Token::CacheKw) => Ok(Item::Cache(self.parse_cache_def()?)),
@@ -984,7 +988,9 @@ impl<'src> Parser<'src> {
                         "stream" => Some(MessagingPattern::Stream),
                         _ => None, // unknown pattern names are ignored rather than defaulted
                     };
-                    if parsed.is_some() { pattern = parsed; }
+                    if parsed.is_some() {
+                        pattern = parsed;
+                    }
                     self.pos += 1;
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _))) {
@@ -994,7 +1000,10 @@ impl<'src> Parser<'src> {
                 while !self.at(&Token::End) && self.peek().is_some() {
                     let at_field = matches!(self.tokens.get(self.pos),
                         Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
-                        || matches!(self.tokens.get(self.pos), Some((Token::Guarantees, _) | (Token::TimeoutKw, _)));
+                        || matches!(
+                            self.tokens.get(self.pos),
+                            Some((Token::Guarantees, _) | (Token::TimeoutKw, _))
+                        );
                     if at_field {
                         break;
                     }
@@ -1031,7 +1040,9 @@ impl<'src> Parser<'src> {
         })
     }
 
-    pub(in crate::parser) fn parse_telos_function_def(&mut self) -> Result<TelosFunctionDef, LoomError> {
+    pub(in crate::parser) fn parse_telos_function_def(
+        &mut self,
+    ) -> Result<TelosFunctionDef, LoomError> {
         let start = self.current_span();
         self.expect(Token::TelosFunction)?;
         let (name, _) = self.expect_ident()?;
@@ -1046,7 +1057,9 @@ impl<'src> Parser<'src> {
                 match k.as_str() {
                     "statement" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                             statement = Some(s.clone());
                             self.pos += 1;
@@ -1054,12 +1067,19 @@ impl<'src> Parser<'src> {
                     }
                     "bounded_by" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
-                        if let Some(n) = self.token_as_ident() { self.advance(); bounded_by = Some(n); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
+                        if let Some(n) = self.token_as_ident() {
+                            self.advance();
+                            bounded_by = Some(n);
+                        }
                     }
                     "measured_by" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                             measured_by = Some(s.clone());
                             self.pos += 1;
@@ -1070,20 +1090,32 @@ impl<'src> Parser<'src> {
                     }
                     "guides" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if self.at(&Token::LBracket) {
                             self.advance();
                             while !self.at(&Token::RBracket) && self.peek().is_some() {
-                                if let Some(n) = self.token_as_ident() { self.advance(); guides.push(n); }
-                                else { self.advance(); }
-                                if self.at(&Token::Comma) { self.advance(); }
+                                if let Some(n) = self.token_as_ident() {
+                                    self.advance();
+                                    guides.push(n);
+                                } else {
+                                    self.advance();
+                                }
+                                if self.at(&Token::Comma) {
+                                    self.advance();
+                                }
                             }
-                            if self.at(&Token::RBracket) { self.advance(); }
+                            if self.at(&Token::RBracket) {
+                                self.advance();
+                            }
                         }
                     }
                     "thresholds" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         let mut convergence = 0.8_f64;
                         let mut divergence = 0.2_f64;
                         let mut warning = None;
@@ -1092,50 +1124,87 @@ impl<'src> Parser<'src> {
                             match self.tokens.get(self.pos) {
                                 Some((Token::Convergence, _)) => {
                                     self.advance();
-                                    if self.at(&Token::Colon) { self.advance(); }
-                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
-                                        convergence = *f; self.pos += 1;
+                                    if self.at(&Token::Colon) {
+                                        self.advance();
+                                    }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos)
+                                    {
+                                        convergence = *f;
+                                        self.pos += 1;
                                     }
                                 }
                                 Some((Token::Divergence, _)) => {
                                     self.advance();
-                                    if self.at(&Token::Colon) { self.advance(); }
-                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
-                                        divergence = *f; self.pos += 1;
+                                    if self.at(&Token::Colon) {
+                                        self.advance();
+                                    }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos)
+                                    {
+                                        divergence = *f;
+                                        self.pos += 1;
                                     }
                                 }
                                 Some((Token::Ident(k), _)) if k == "warning" => {
                                     self.advance();
-                                    if self.at(&Token::Colon) { self.advance(); }
-                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
-                                        warning = Some(*f); self.pos += 1;
+                                    if self.at(&Token::Colon) {
+                                        self.advance();
+                                    }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos)
+                                    {
+                                        warning = Some(*f);
+                                        self.pos += 1;
                                     }
                                 }
                                 Some((Token::Propagation, _)) => {
                                     self.advance();
-                                    if self.at(&Token::Colon) { self.advance(); }
-                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
-                                        propagation = Some(*f); self.pos += 1;
+                                    if self.at(&Token::Colon) {
+                                        self.advance();
+                                    }
+                                    if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos)
+                                    {
+                                        propagation = Some(*f);
+                                        self.pos += 1;
                                     }
                                 }
                                 Some((Token::End, _)) => break,
                                 Some((Token::Ident(_), _)) => break,
-                                _ => { self.advance(); }
+                                _ => {
+                                    self.advance();
+                                }
                             }
                         }
-                        thresholds = Some(TelosThresholds { convergence, divergence, warning, propagation });
+                        thresholds = Some(TelosThresholds {
+                            convergence,
+                            divergence,
+                            warning,
+                            propagation,
+                        });
                         // Consume the optional `end` that closes an explicit `thresholds:` sub-block.
-                        if self.at(&Token::End) { self.advance(); }
+                        if self.at(&Token::End) {
+                            self.advance();
+                        }
                     }
-                    _ => { self.advance(); }
+                    _ => {
+                        self.advance();
+                    }
                 }
             } else {
                 self.advance();
             }
         }
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); }
-        Ok(TelosFunctionDef { name, statement, bounded_by, measured_by, thresholds, guides, span: Span::merge(&start, &end_span) })
+        if self.at(&Token::End) {
+            self.advance();
+        }
+        Ok(TelosFunctionDef {
+            name,
+            statement,
+            bounded_by,
+            measured_by,
+            thresholds,
+            guides,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     pub(in crate::parser) fn parse_entity_def(&mut self) -> Result<EntityDef, LoomError> {
@@ -1147,16 +1216,24 @@ impl<'src> Parser<'src> {
         let mut edge_type = None;
         if self.at(&Token::Lt) {
             self.advance();
-            if let Some(n) = self.token_as_ident() { self.advance(); node_type = Some(n); }
+            if let Some(n) = self.token_as_ident() {
+                self.advance();
+                node_type = Some(n);
+            }
             if self.at(&Token::Comma) {
                 self.advance();
-                if let Some(e) = self.token_as_ident() { self.advance(); edge_type = Some(e); }
+                if let Some(e) = self.token_as_ident() {
+                    self.advance();
+                    edge_type = Some(e);
+                }
             }
             // Skip any additional type params
             while !self.at(&Token::Gt) && self.peek().is_some() {
                 self.advance();
             }
-            if self.at(&Token::Gt) { self.advance(); }
+            if self.at(&Token::Gt) {
+                self.advance();
+            }
         }
         let describe = self.parse_describe();
         // Parse @annotations — collect as string names
@@ -1172,8 +1249,13 @@ impl<'src> Parser<'src> {
                     let k = k.clone();
                     if k == "alias_of" {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
-                        if let Some(n) = self.token_as_ident() { self.advance(); alias_of = Some(n); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
+                        if let Some(n) = self.token_as_ident() {
+                            self.advance();
+                            alias_of = Some(n);
+                        }
                     } else {
                         self.advance();
                     }
@@ -1181,13 +1263,25 @@ impl<'src> Parser<'src> {
                     self.advance();
                 }
             }
-            if self.at(&Token::End) { self.advance(); }
+            if self.at(&Token::End) {
+                self.advance();
+            }
         }
         let end_span = self.current_span();
-        Ok(EntityDef { name, node_type, edge_type, annotations, describe, alias_of, span: Span::merge(&start, &end_span) })
+        Ok(EntityDef {
+            name,
+            node_type,
+            edge_type,
+            annotations,
+            describe,
+            alias_of,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
-    pub(in crate::parser) fn parse_intent_coordinator_def(&mut self) -> Result<IntentCoordinatorDef, LoomError> {
+    pub(in crate::parser) fn parse_intent_coordinator_def(
+        &mut self,
+    ) -> Result<IntentCoordinatorDef, LoomError> {
         let start = self.current_span();
         self.expect(Token::IntentCoordinator)?;
         let (name, _) = self.expect_ident()?;
@@ -1203,7 +1297,9 @@ impl<'src> Parser<'src> {
                 match k.as_str() {
                     "telomere" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::FloatLit(n), _)) = self.tokens.get(self.pos) {
                             telomere_days = Some(*n as u64);
                             self.pos += 1;
@@ -1212,14 +1308,20 @@ impl<'src> Parser<'src> {
                             self.pos += 1;
                         }
                         // consume dot + optional unit (days/months)
-                        if self.at(&Token::Dot) { self.advance(); }
+                        if self.at(&Token::Dot) {
+                            self.advance();
+                        }
                         if let Some((Token::Ident(unit), _)) = self.tokens.get(self.pos) {
-                            if unit == "days" || unit == "months" { self.pos += 1; }
+                            if unit == "days" || unit == "months" {
+                                self.pos += 1;
+                            }
                         }
                     }
                     "governance" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::Ident(g), _)) = self.tokens.get(self.pos) {
                             governance_class = match g.as_str() {
                                 "automatic" => GovernanceClass::Automatic,
@@ -1233,22 +1335,35 @@ impl<'src> Parser<'src> {
                     }
                     "signals" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if self.at(&Token::LBracket) {
                             self.advance();
                             while !self.at(&Token::RBracket) && self.peek().is_some() {
                                 if let Some(n) = self.token_as_ident() {
                                     self.advance();
-                                    signals.push(IntentSignalSource { name: n, trust_level: None });
-                                } else { self.advance(); }
-                                if self.at(&Token::Comma) { self.advance(); }
+                                    signals.push(IntentSignalSource {
+                                        name: n,
+                                        trust_level: None,
+                                    });
+                                } else {
+                                    self.advance();
+                                }
+                                if self.at(&Token::Comma) {
+                                    self.advance();
+                                }
                             }
-                            if self.at(&Token::RBracket) { self.advance(); }
+                            if self.at(&Token::RBracket) {
+                                self.advance();
+                            }
                         }
                     }
                     "rollback_on" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                             rollback_on = Some(s.clone());
                             self.pos += 1;
@@ -1256,7 +1371,9 @@ impl<'src> Parser<'src> {
                     }
                     "min_confidence" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
                             min_confidence = Some(*f);
                             self.pos += 1;
@@ -1264,21 +1381,36 @@ impl<'src> Parser<'src> {
                     }
                     "audit_path" => {
                         self.advance();
-                        if self.at(&Token::Colon) { self.advance(); }
+                        if self.at(&Token::Colon) {
+                            self.advance();
+                        }
                         if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                             audit_path = Some(s.clone());
                             self.pos += 1;
                         }
                     }
-                    _ => { self.advance(); }
+                    _ => {
+                        self.advance();
+                    }
                 }
             } else {
                 self.advance();
             }
         }
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); }
-        Ok(IntentCoordinatorDef { name, telomere_days, governance_class, signals, rollback_on, min_confidence, audit_path, span: Span::merge(&start, &end_span) })
+        if self.at(&Token::End) {
+            self.advance();
+        }
+        Ok(IntentCoordinatorDef {
+            name,
+            telomere_days,
+            governance_class,
+            signals,
+            rollback_on,
+            min_confidence,
+            audit_path,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M141–M145: Parse a `discipline Kind for Target [params...] end` declaration.
@@ -1301,25 +1433,31 @@ impl<'src> Parser<'src> {
         let kind = match kind_str.to_lowercase().as_str() {
             "cqrs" => DisciplineKind::Cqrs,
             "eventsourcing" | "event_sourcing" => DisciplineKind::EventSourcing,
-            "dependencyinjection" | "dependency_injection" | "di" => DisciplineKind::DependencyInjection,
+            "dependencyinjection" | "dependency_injection" | "di" => {
+                DisciplineKind::DependencyInjection
+            }
             "circuitbreaker" | "circuit_breaker" => DisciplineKind::CircuitBreaker,
             "saga" => DisciplineKind::Saga,
             "unitofwork" | "unit_of_work" => DisciplineKind::UnitOfWork,
-            other => return Err(LoomError::parse(
-                format!(
-                    "unknown discipline kind '{}' — expected one of: CQRS, EventSourcing, \
+            other => {
+                return Err(LoomError::parse(
+                    format!(
+                        "unknown discipline kind '{}' — expected one of: CQRS, EventSourcing, \
                      DependencyInjection, CircuitBreaker, Saga, UnitOfWork",
-                    other
-                ),
-                start,
-            )),
+                        other
+                    ),
+                    start,
+                ))
+            }
         };
 
         // `for` keyword — accepts both Token::For and a "for" ident
         if self.at(&Token::For) {
             self.advance();
         } else if let Some(k) = self.token_as_ident() {
-            if k == "for" { self.advance(); }
+            if k == "for" {
+                self.advance();
+            }
         }
 
         // Target name
@@ -1330,7 +1468,9 @@ impl<'src> Parser<'src> {
         while !self.at(&Token::End) && self.peek().is_some() {
             if let Some(key) = self.token_as_ident() {
                 self.advance();
-                if self.at(&Token::Colon) { self.advance(); }
+                if self.at(&Token::Colon) {
+                    self.advance();
+                }
 
                 // List param: `key: [A, B, C]`
                 if self.at(&Token::LBracket) {
@@ -1343,9 +1483,13 @@ impl<'src> Parser<'src> {
                         } else {
                             self.advance();
                         }
-                        if self.at(&Token::Comma) { self.advance(); }
+                        if self.at(&Token::Comma) {
+                            self.advance();
+                        }
                     }
-                    if self.at(&Token::RBracket) { self.advance(); }
+                    if self.at(&Token::RBracket) {
+                        self.advance();
+                    }
                     params.push((key, DisciplineParam::List(items)));
                 }
                 // Numeric param: `key: 42`
@@ -1370,8 +1514,15 @@ impl<'src> Parser<'src> {
         }
 
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); }
-        Ok(DisciplineDecl { kind, target, params, span: Span::merge(&start, &end_span) })
+        if self.at(&Token::End) {
+            self.advance();
+        }
+        Ok(DisciplineDecl {
+            kind,
+            target,
+            params,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `chain Name ... end` — M155 Markov chain item.
@@ -1404,7 +1555,9 @@ impl<'src> Parser<'src> {
                 } else {
                     break;
                 }
-                if self.at(&Token::Comma) { self.advance(); }
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
             }
             self.expect(Token::RBracket)?;
         }
@@ -1412,35 +1565,60 @@ impl<'src> Parser<'src> {
         // Parse optional `transitions: ... end`
         if self.at(&Token::Transitions) {
             self.advance(); // consume `transitions`
-            if self.at(&Token::Colon) { self.advance(); }
+            if self.at(&Token::Colon) {
+                self.advance();
+            }
             // Parse `FromState -> ToState: 0.3` lines until `end`
             while !self.at(&Token::End) && self.peek().is_some() {
                 let from = match self.token_as_ident() {
-                    Some(s) => { self.advance(); s }
+                    Some(s) => {
+                        self.advance();
+                        s
+                    }
                     None => break,
                 };
                 self.expect(Token::Arrow)?;
                 let to = match self.token_as_ident() {
-                    Some(s) => { self.advance(); s }
+                    Some(s) => {
+                        self.advance();
+                        s
+                    }
                     None => break,
                 };
                 self.expect(Token::Colon)?;
                 let prob = self.parse_float_literal().unwrap_or(0.0);
                 transitions.push((from, to, prob));
             }
-            if self.at(&Token::End) { self.advance(); } // consume inner `end`
+            if self.at(&Token::End) {
+                self.advance();
+            } // consume inner `end`
         }
 
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); } // consume outer `end`
-        Ok(ChainDef { name, states, transitions, span: Span::merge(&start, &end_span) })
+        if self.at(&Token::End) {
+            self.advance();
+        } // consume outer `end`
+        Ok(ChainDef {
+            name,
+            states,
+            transitions,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse a floating-point literal at the current position.
     fn parse_float_literal(&mut self) -> Option<f64> {
         match self.tokens.get(self.pos) {
-            Some((Token::FloatLit(f), _)) => { let v = *f; self.pos += 1; Some(v) }
-            Some((Token::IntLit(i), _)) => { let v = *i as f64; self.pos += 1; Some(v) }
+            Some((Token::FloatLit(f), _)) => {
+                let v = *f;
+                self.pos += 1;
+                Some(v)
+            }
+            Some((Token::IntLit(i), _)) => {
+                let v = *i as f64;
+                self.pos += 1;
+                Some(v)
+            }
             _ => None,
         }
     }
@@ -1463,7 +1641,10 @@ impl<'src> Parser<'src> {
         let start = self.current_span();
         self.expect(Token::DagKw)?;
         let name = match self.token_as_ident() {
-            Some(n) => { self.advance(); n }
+            Some(n) => {
+                self.advance();
+                n
+            }
             None => return Err(LoomError::parse("expected dag name", self.current_span())),
         };
 
@@ -1473,14 +1654,18 @@ impl<'src> Parser<'src> {
         // Parse optional `nodes: [A, B, C]`
         if self.at_keyword("nodes") {
             self.advance();
-            if self.at(&Token::Colon) { self.advance(); }
+            if self.at(&Token::Colon) {
+                self.advance();
+            }
             self.expect(Token::LBracket)?;
             while !self.at(&Token::RBracket) && self.peek().is_some() {
                 if let Some(n) = self.token_as_ident() {
                     self.advance();
                     nodes.push(n);
                 }
-                if self.at(&Token::Comma) { self.advance(); }
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
             }
             self.expect(Token::RBracket)?;
         }
@@ -1488,27 +1673,44 @@ impl<'src> Parser<'src> {
         // Parse optional `edges: [A -> B, B -> C]`
         if self.at_keyword("edges") {
             self.advance();
-            if self.at(&Token::Colon) { self.advance(); }
+            if self.at(&Token::Colon) {
+                self.advance();
+            }
             self.expect(Token::LBracket)?;
             while !self.at(&Token::RBracket) && self.peek().is_some() {
                 let from = match self.token_as_ident() {
-                    Some(s) => { self.advance(); s }
+                    Some(s) => {
+                        self.advance();
+                        s
+                    }
                     None => break,
                 };
                 self.expect(Token::Arrow)?;
                 let to = match self.token_as_ident() {
-                    Some(s) => { self.advance(); s }
+                    Some(s) => {
+                        self.advance();
+                        s
+                    }
                     None => break,
                 };
                 edges.push((from, to));
-                if self.at(&Token::Comma) { self.advance(); }
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
             }
             self.expect(Token::RBracket)?;
         }
 
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); }
-        Ok(DagDef { name, nodes, edges, span: Span::merge(&start, &end_span) })
+        if self.at(&Token::End) {
+            self.advance();
+        }
+        Ok(DagDef {
+            name,
+            nodes,
+            edges,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `const Name: Type = value` — M157 constant item.
@@ -1519,16 +1721,32 @@ impl<'src> Parser<'src> {
         let start = self.current_span();
         self.expect(Token::Const)?;
         let name = match self.token_as_ident() {
-            Some(n) => { self.advance(); n }
-            None => return Err(LoomError::parse("expected constant name", self.current_span())),
+            Some(n) => {
+                self.advance();
+                n
+            }
+            None => {
+                return Err(LoomError::parse(
+                    "expected constant name",
+                    self.current_span(),
+                ))
+            }
         };
 
         // Optional `:`
         let ty = if self.at(&Token::Colon) {
             self.advance();
             match self.token_as_ident() {
-                Some(t) => { self.advance(); t }
-                None => return Err(LoomError::parse("expected type after ':'", self.current_span())),
+                Some(t) => {
+                    self.advance();
+                    t
+                }
+                None => {
+                    return Err(LoomError::parse(
+                        "expected type after ':'",
+                        self.current_span(),
+                    ))
+                }
             }
         } else {
             String::new()
@@ -1538,23 +1756,50 @@ impl<'src> Parser<'src> {
 
         // Collect the value: int, float, bool, or string literal
         let value = match self.tokens.get(self.pos) {
-            Some((Token::IntLit(n), _)) => { let v = n.to_string(); self.advance(); v }
-            Some((Token::FloatLit(f), _)) => { let v = f.to_string(); self.advance(); v }
-            Some((Token::BoolLit(b), _)) => { let v = b.to_string(); self.advance(); v }
-            Some((Token::StrLit(s), _)) => { let v = format!("\"{}\"", s.clone()); self.advance(); v }
+            Some((Token::IntLit(n), _)) => {
+                let v = n.to_string();
+                self.advance();
+                v
+            }
+            Some((Token::FloatLit(f), _)) => {
+                let v = f.to_string();
+                self.advance();
+                v
+            }
+            Some((Token::BoolLit(b), _)) => {
+                let v = b.to_string();
+                self.advance();
+                v
+            }
+            Some((Token::StrLit(s), _)) => {
+                let v = format!("\"{}\"", s.clone());
+                self.advance();
+                v
+            }
             _ => {
                 // Fallback: collect until newline or End token
                 match self.token_as_ident() {
-                    Some(s) => { self.advance(); s }
-                    None => return Err(LoomError::parse(
-                        "expected literal value for const", self.current_span(),
-                    )),
+                    Some(s) => {
+                        self.advance();
+                        s
+                    }
+                    None => {
+                        return Err(LoomError::parse(
+                            "expected literal value for const",
+                            self.current_span(),
+                        ))
+                    }
                 }
             }
         };
 
         let end_span = self.current_span();
-        Ok(ConstDef { name, ty, value, span: Span::merge(&start, &end_span) })
+        Ok(ConstDef {
+            name,
+            ty,
+            value,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     // ── M159: pipeline item ────────────────────────────────────────────────────
@@ -1593,7 +1838,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(PipelineDef { name, steps, span: Span::merge(&start, &end_span) })
+        Ok(PipelineDef {
+            name,
+            steps,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     // ── M160: saga item ───────────────────────────────────────────────────────
@@ -1659,7 +1908,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(SagaDef { name, steps, span: Span::merge(&start, &end_span) })
+        Ok(SagaDef {
+            name,
+            steps,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `event Name field: Type ... end`.
@@ -1688,7 +1941,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(EventDef { name, fields, span: Span::merge(&start, &end_span) })
+        Ok(EventDef {
+            name,
+            fields,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `command Name field: Type ... end`.
@@ -1711,7 +1968,11 @@ impl<'src> Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(CommandDef { name, fields, span: Span::merge(&start, &end_span) })
+        Ok(CommandDef {
+            name,
+            fields,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `query Name field: Type ... end`.
@@ -1734,7 +1995,11 @@ impl<'src> Parser<'src> {
         }
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(QueryDef { name, fields, span: Span::merge(&start, &end_span) })
+        Ok(QueryDef {
+            name,
+            fields,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `circuit_breaker Name threshold: N timeout: N fallback: name end`.
@@ -1782,7 +2047,13 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(CircuitBreakerDef { name, threshold, timeout, fallback, span: Span::merge(&start, &end_span) })
+        Ok(CircuitBreakerDef {
+            name,
+            threshold,
+            timeout,
+            fallback,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `retry Name max_attempts: N base_delay: N multiplier: N on: ErrorType end`.
@@ -1837,7 +2108,14 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(RetryDef { name, max_attempts, base_delay, multiplier, on_error, span: Span::merge(&start, &end_span) })
+        Ok(RetryDef {
+            name,
+            max_attempts,
+            base_delay,
+            multiplier,
+            on_error,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M165: Parse `rate_limiter Name [requests: N] [per: N] [burst: N] end`
@@ -1886,7 +2164,13 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(RateLimiterDef { name, requests, per, burst, span: Span::merge(&start, &end_span) })
+        Ok(RateLimiterDef {
+            name,
+            requests,
+            per,
+            burst,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M166: Parse `cache Name [key: Type] [value: Type] [ttl: N] end`
@@ -1935,7 +2219,13 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(CacheDef { name, key_type, value_type, ttl, span: Span::merge(&start, &end_span) })
+        Ok(CacheDef {
+            name,
+            key_type,
+            value_type,
+            ttl,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M167: Parse `bulkhead Name [max_concurrent: N] [queue_size: N] end`
@@ -1977,7 +2267,12 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(BulkheadDef { name, max_concurrent, queue_size, span: Span::merge(&start, &end_span) })
+        Ok(BulkheadDef {
+            name,
+            max_concurrent,
+            queue_size,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M168: Parse `timeout Name [duration: N] [unit: ms|s|min] end`
@@ -2018,7 +2313,12 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(TimeoutDef { name, duration, unit, span: Span::merge(&start, &end_span) })
+        Ok(TimeoutDef {
+            name,
+            duration,
+            unit,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M169: Parse `fallback Name [value: "literal"] end`
@@ -2061,7 +2361,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(FallbackItemDef { name, value, span: Span::merge(&start, &end_span) })
+        Ok(FallbackItemDef {
+            name,
+            value,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M170: Parse `observer Name [type: T] end`
@@ -2090,7 +2394,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(ObserverDef { name, observed_type, span: Span::merge(&start, &end_span) })
+        Ok(ObserverDef {
+            name,
+            observed_type,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M171: Parse `pool Name [size: N] end`
@@ -2119,7 +2427,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(PoolDef { name, size, span: Span::merge(&start, &end_span) })
+        Ok(PoolDef {
+            name,
+            size,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M172: Parse `scheduler Name [interval: N] [unit: ms|s|min] end`
@@ -2158,7 +2470,12 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(SchedulerDef { name, interval, unit, span: Span::merge(&start, &end_span) })
+        Ok(SchedulerDef {
+            name,
+            interval,
+            unit,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M173: Parse `queue Name [capacity: N] [kind: fifo|lifo] end`
@@ -2197,7 +2514,12 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(QueueDef { name, capacity, kind, span: Span::merge(&start, &end_span) })
+        Ok(QueueDef {
+            name,
+            capacity,
+            kind,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M174: Parse `lock Name end`
@@ -2212,7 +2534,10 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(LockDef { name, span: Span::merge(&start, &end_span) })
+        Ok(LockDef {
+            name,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M175: Parse `channel Name [type: T] [capacity: N] end`
@@ -2251,7 +2576,12 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(ChannelDef { name, element_type, capacity, span: Span::merge(&start, &end_span) })
+        Ok(ChannelDef {
+            name,
+            element_type,
+            capacity,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M176: Parse `semaphore Name [permits: N] end`
@@ -2280,7 +2610,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(SemaphoreDef { name, permits, span: Span::merge(&start, &end_span) })
+        Ok(SemaphoreDef {
+            name,
+            permits,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M177: Parse `actor Name [type: M] end`
@@ -2309,7 +2643,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(ActorDef { name, message_type, span: Span::merge(&start, &end_span) })
+        Ok(ActorDef {
+            name,
+            message_type,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M178: Parse `barrier Name [count: N] end`
@@ -2338,7 +2676,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(BarrierDef { name, count, span: Span::merge(&start, &end_span) })
+        Ok(BarrierDef {
+            name,
+            count,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M179: Parse `event_bus Name [element_type: T] end`
@@ -2367,7 +2709,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(EventBusDef { name, element_type, span: Span::merge(&start, &end_span) })
+        Ok(EventBusDef {
+            name,
+            element_type,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M180: Parse `state_machine Name [initial: S] end`
@@ -2396,7 +2742,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(StateMachineDef { name, initial_state, span: Span::merge(&start, &end_span) })
+        Ok(StateMachineDef {
+            name,
+            initial_state,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M181: Parse `workflow Name end`
@@ -2412,7 +2762,10 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(WorkflowDef { name, span: Span::merge(&start, &end_span) })
+        Ok(WorkflowDef {
+            name,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M182: Parse `projection Name [element_type: E] end`
@@ -2441,7 +2794,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(ProjectionDef { name, element_type, span: Span::merge(&start, &end_span) })
+        Ok(ProjectionDef {
+            name,
+            element_type,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M183: Parse `resource Name end`
@@ -2456,7 +2813,10 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(ResourceDef { name, span: Span::merge(&start, &end_span) })
+        Ok(ResourceDef {
+            name,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// M184: Parse `lease Name [ttl: N] end`
@@ -2485,7 +2845,11 @@ impl<'src> Parser<'src> {
 
         let end_span = self.current_span();
         self.expect(Token::End)?;
-        Ok(LeaseDef { name, ttl, span: Span::merge(&start, &end_span) })
+        Ok(LeaseDef {
+            name,
+            ttl,
+            span: Span::merge(&start, &end_span),
+        })
     }
 
     /// Parse `classifier Name model: <ident> [retrain_trigger: "..."] end`.
@@ -2517,10 +2881,7 @@ impl<'src> Parser<'src> {
                             if let Some(first) = self.token_as_ident() {
                                 let mut model_name = first;
                                 self.advance();
-                                while matches!(
-                                    self.tokens.get(self.pos),
-                                    Some((Token::Minus, _))
-                                ) {
+                                while matches!(self.tokens.get(self.pos), Some((Token::Minus, _))) {
                                     self.advance(); // skip `-`
                                     if let Some(part) = self.token_as_ident() {
                                         model_name.push('-');

@@ -293,7 +293,10 @@ end
     );
     // Trait should only appear once
     let count = out.matches("pub trait BinaryPersist").count();
-    assert_eq!(count, 1, "BinaryPersist trait should be emitted exactly once, got {count}");
+    assert_eq!(
+        count, 1,
+        "BinaryPersist trait should be emitted exactly once, got {count}"
+    );
 }
 
 // ── Dep hint ──────────────────────────────────────────────────────────────────

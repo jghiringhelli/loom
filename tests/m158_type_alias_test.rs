@@ -143,7 +143,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("pub type Port"), "missing alias\n{out}");
-    assert!(out.contains("pub const DEFAULT_PORT"), "missing const\n{out}");
+    assert!(
+        out.contains("pub const DEFAULT_PORT"),
+        "missing const\n{out}"
+    );
 }
 
 // ─── M158.9: parse error on missing `=` ──────────────────────────────────────
@@ -156,5 +159,8 @@ type UserId Int
 end
 "#;
     let result = compile_check(src);
-    assert!(result.is_err(), "expected parse error for missing = in alias");
+    assert!(
+        result.is_err(),
+        "expected parse error for missing = in alias"
+    );
 }

@@ -81,7 +81,10 @@ impl LpnParser {
             match Self::try_parse_line(line) {
                 Ok(Some(instr)) => ok.push(instr),
                 Ok(None) => {}
-                Err(e) => errs.push(LpnError::Parse { line: i + 1, message: e.to_string() }),
+                Err(e) => errs.push(LpnError::Parse {
+                    line: i + 1,
+                    message: e.to_string(),
+                }),
             }
         }
         (ok, errs)
@@ -113,7 +116,10 @@ fn parse_instruction(line: &str, _line_no: usize) -> Result<LpnInstruction, LpnE
             // Tier 3: any UPPER_CASE name followed by key=value params is a
             // named experiment.  A bare unknown opcode with no `=` in the rest
             // is an error (e.g. "FOOBAR something").
-            if other.chars().next().map_or(false, |c| c.is_ascii_uppercase())
+            if other
+                .chars()
+                .next()
+                .map_or(false, |c| c.is_ascii_uppercase())
                 && rest.contains('=')
             {
                 Ok(parse_experiment(other, rest))
@@ -160,12 +166,19 @@ fn parse_emit(rest: &str) -> Result<LpnInstruction, LpnError> {
     if module.is_empty() {
         return Err(err("EMIT requires a module name"));
     }
-    let from = if parts.get(2).map_or(false, |t| t.eq_ignore_ascii_case("FROM")) {
+    let from = if parts
+        .get(2)
+        .map_or(false, |t| t.eq_ignore_ascii_case("FROM"))
+    {
         parts.get(3).map(|s| s.to_string())
     } else {
         None
     };
-    Ok(LpnInstruction::Emit { target, module, from })
+    Ok(LpnInstruction::Emit {
+        target,
+        module,
+        from,
+    })
 }
 
 fn parse_check(rest: &str) -> Result<LpnInstruction, LpnError> {
@@ -193,7 +206,11 @@ fn parse_test(rest: &str) -> Result<LpnInstruction, LpnError> {
             (n.trim().to_owned(), args)
         })
         .ok_or_else(|| err("TEST requires `name (args) -> expected`"))?;
-    Ok(LpnInstruction::Test { name, args, expected })
+    Ok(LpnInstruction::Test {
+        name,
+        args,
+        expected,
+    })
 }
 
 fn parse_verify(rest: &str) -> Result<LpnInstruction, LpnError> {
@@ -255,7 +272,12 @@ fn parse_impl(rest: &str) -> Result<LpnInstruction, LpnError> {
         .map(|w| parse_verify_steps(w[1]))
         .unwrap_or_default();
 
-    Ok(LpnInstruction::Impl { target, milestones, emit, verify })
+    Ok(LpnInstruction::Impl {
+        target,
+        milestones,
+        emit,
+        verify,
+    })
 }
 
 fn parse_refactor(rest: &str) -> Result<LpnInstruction, LpnError> {
@@ -293,7 +315,10 @@ fn parse_experiment(name: &str, rest: &str) -> LpnInstruction {
         .split_whitespace()
         .filter_map(|kv| parse_kv(kv).map(|(k, v)| (k.to_owned(), v.to_owned())))
         .collect();
-    LpnInstruction::Experiment { name: name.to_owned(), params }
+    LpnInstruction::Experiment {
+        name: name.to_owned(),
+        params,
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -305,7 +330,10 @@ fn parse_kv(s: &str) -> Option<(&str, &str)> {
 }
 
 fn err(msg: impl Into<String>) -> LpnError {
-    LpnError::Parse { line: 0, message: msg.into() }
+    LpnError::Parse {
+        line: 0,
+        message: msg.into(),
+    }
 }
 
 // Bring CheckKind into scope for parse_check

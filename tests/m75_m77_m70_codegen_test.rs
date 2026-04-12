@@ -61,7 +61,8 @@ fn adopt_emits_impl_block() {
 
 #[test]
 fn adopt_multiple_interfaces_both_emitted() {
-    let out = ok("module M\nadopt: Swimmable from FishModule\nadopt: Runnable from MammalModule\nend\n");
+    let out =
+        ok("module M\nadopt: Swimmable from FishModule\nadopt: Runnable from MammalModule\nend\n");
     assert!(out.contains("LOOM[hgt:Swimmable]"), "output:\n{}", out);
     assert!(out.contains("LOOM[hgt:Runnable]"), "output:\n{}", out);
     assert!(out.contains("SwimmableAdopter"), "output:\n{}", out);
@@ -97,17 +98,17 @@ fn niche_emits_struct() {
 #[test]
 fn niche_emits_modifies_const() {
     let out = ok(niche_src());
-    assert!(out.contains("MODIFIES"), "expected MODIFIES const:\n{}", out);
+    assert!(
+        out.contains("MODIFIES"),
+        "expected MODIFIES const:\n{}",
+        out
+    );
 }
 
 #[test]
 fn niche_emits_affects_const() {
     let out = ok(niche_src());
-    assert!(
-        out.contains("AFFECTS"),
-        "expected AFFECTS const:\n{}",
-        out
-    );
+    assert!(out.contains("AFFECTS"), "expected AFFECTS const:\n{}", out);
     assert!(out.contains("WormPopulation"), "output:\n{}", out);
     assert!(out.contains("PlantGrowth"), "output:\n{}", out);
 }
@@ -139,7 +140,11 @@ fn niche_without_affects_still_emits_struct() {
     let out = ok(
         "module M\nniche_construction:\n  modifies: atmosphere\n  affects: [Carbon]\nend\nend\n",
     );
-    assert!(out.contains("AtmosphereNicheConstruction"), "output:\n{}", out);
+    assert!(
+        out.contains("AtmosphereNicheConstruction"),
+        "output:\n{}",
+        out
+    );
 }
 
 // ── M70: canalize ─────────────────────────────────────────────────────────────
@@ -171,11 +176,7 @@ fn canalize_emits_struct() {
 #[test]
 fn canalize_emits_toward_const() {
     let out = ok(canalize_src());
-    assert!(
-        out.contains("TOWARD"),
-        "expected TOWARD const:\n{}",
-        out
-    );
+    assert!(out.contains("TOWARD"), "expected TOWARD const:\n{}", out);
     assert!(out.contains("adult_form"), "output:\n{}", out);
 }
 

@@ -13,7 +13,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("EventsChannel"), "expected EventsChannel struct, got:\n{}", out);
+    assert!(
+        out.contains("EventsChannel"),
+        "expected EventsChannel struct, got:\n{}",
+        out
+    );
 }
 
 // ── M175.2: generic type parameter ───────────────────────────────────────────
@@ -25,7 +29,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("MessagesChannel<T>"), "expected generic param, got:\n{}", out);
+    assert!(
+        out.contains("MessagesChannel<T>"),
+        "expected generic param, got:\n{}",
+        out
+    );
 }
 
 // ── M175.3: default type String ──────────────────────────────────────────────
@@ -65,7 +73,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn send"), "expected send method, got:\n{}", out);
+    assert!(
+        out.contains("fn send"),
+        "expected send method, got:\n{}",
+        out
+    );
 }
 
 // ── M175.6: recv method emitted ───────────────────────────────────────────────
@@ -77,7 +89,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn recv"), "expected recv method, got:\n{}", out);
+    assert!(
+        out.contains("fn recv"),
+        "expected recv method, got:\n{}",
+        out
+    );
 }
 
 // ── M175.7: send returns Result ───────────────────────────────────────────────
@@ -89,7 +105,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("Result<(), String>"), "expected Result return, got:\n{}", out);
+    assert!(
+        out.contains("Result<(), String>"),
+        "expected Result return, got:\n{}",
+        out
+    );
 }
 
 // ── M175.8: recv returns Option ───────────────────────────────────────────────
@@ -101,7 +121,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("Option<T>"), "expected Option<T> return, got:\n{}", out);
+    assert!(
+        out.contains("Option<T>"),
+        "expected Option<T> return, got:\n{}",
+        out
+    );
 }
 
 // ── M175.9: capacity field emitted ────────────────────────────────────────────
@@ -113,7 +137,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("capacity: 64"), "expected capacity=64, got:\n{}", out);
+    assert!(
+        out.contains("capacity: 64"),
+        "expected capacity=64, got:\n{}",
+        out
+    );
 }
 
 // ── M175.10: LOOM annotation comment ─────────────────────────────────────────
@@ -141,7 +169,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("PhantomData"), "expected PhantomData field, got:\n{}", out);
+    assert!(
+        out.contains("PhantomData"),
+        "expected PhantomData field, got:\n{}",
+        out
+    );
 }
 
 // ── M175.12: channel alongside lock and queue ─────────────────────────────────
@@ -157,7 +189,19 @@ module Actor
   end
 end
 "#);
-    assert!(out.contains("InboxQueue"), "expected InboxQueue, got:\n{}", out);
-    assert!(out.contains("StateLock"), "expected StateLock, got:\n{}", out);
-    assert!(out.contains("OutputChannel"), "expected OutputChannel, got:\n{}", out);
+    assert!(
+        out.contains("InboxQueue"),
+        "expected InboxQueue, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("StateLock"),
+        "expected StateLock, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("OutputChannel"),
+        "expected OutputChannel, got:\n{}",
+        out
+    );
 }

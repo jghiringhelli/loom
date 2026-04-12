@@ -15,14 +15,22 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_semaphore_generates_struct() {
     let out = ok("module M\n  semaphore MySem\n  end\nend\n");
-    assert!(out.contains("struct MySemSemaphore"), "expected MySemSemaphore struct, got:\n{}", out);
+    assert!(
+        out.contains("struct MySemSemaphore"),
+        "expected MySemSemaphore struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — struct contains AtomicUsize for permit counting
 #[test]
 fn t2_semaphore_has_atomic_usize() {
     let out = ok("module M\n  semaphore Counter\n  end\nend\n");
-    assert!(out.contains("AtomicUsize"), "expected AtomicUsize, got:\n{}", out);
+    assert!(
+        out.contains("AtomicUsize"),
+        "expected AtomicUsize, got:\n{}",
+        out
+    );
 }
 
 // T3 — wait method emitted
@@ -36,7 +44,11 @@ fn t3_semaphore_has_wait_method() {
 #[test]
 fn t4_semaphore_has_signal_method() {
     let out = ok("module M\n  semaphore Gate\n  end\nend\n");
-    assert!(out.contains("fn signal"), "expected fn signal, got:\n{}", out);
+    assert!(
+        out.contains("fn signal"),
+        "expected fn signal, got:\n{}",
+        out
+    );
 }
 
 // T5 — count method emitted
@@ -50,7 +62,11 @@ fn t5_semaphore_has_count_method() {
 #[test]
 fn t6_semaphore_has_permits_field() {
     let out = ok("module M\n  semaphore Resource\n  end\nend\n");
-    assert!(out.contains("permits"), "expected permits field, got:\n{}", out);
+    assert!(
+        out.contains("permits"),
+        "expected permits field, got:\n{}",
+        out
+    );
 }
 
 // T7 — name is correctly embedded in struct name
@@ -79,8 +95,16 @@ fn t8_semaphore_loom_annotation() {
 #[test]
 fn t9_multiple_semaphores() {
     let out = ok("module M\n  semaphore A\n  end\n  semaphore B\n  end\nend\n");
-    assert!(out.contains("ASemaphore"), "expected ASemaphore, got:\n{}", out);
-    assert!(out.contains("BSemaphore"), "expected BSemaphore, got:\n{}", out);
+    assert!(
+        out.contains("ASemaphore"),
+        "expected ASemaphore, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("BSemaphore"),
+        "expected BSemaphore, got:\n{}",
+        out
+    );
 }
 
 // T10 — wait uses compare_exchange or similar atomic operation
@@ -99,8 +123,16 @@ fn t10_semaphore_wait_uses_atomic_op() {
 fn t11_semaphore_with_other_items() {
     let src = "module M\n  semaphore Conn\n  end\n  entity User\n    id: Int\n    name: String\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("ConnSemaphore"), "expected ConnSemaphore, got:\n{}", out);
-    assert!(out.contains("struct User") || out.contains("type User"), "expected User type, got:\n{}", out);
+    assert!(
+        out.contains("ConnSemaphore"),
+        "expected ConnSemaphore, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("struct User") || out.contains("type User"),
+        "expected User type, got:\n{}",
+        out
+    );
 }
 
 // T12 — missing end produces parse error

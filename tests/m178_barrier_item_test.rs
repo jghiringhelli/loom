@@ -15,14 +15,22 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_barrier_generates_struct() {
     let out = ok("module M\n  barrier MyBarrier\n  end\nend\n");
-    assert!(out.contains("struct MyBarrierBarrier"), "expected MyBarrierBarrier struct, got:\n{}", out);
+    assert!(
+        out.contains("struct MyBarrierBarrier"),
+        "expected MyBarrierBarrier struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — struct contains AtomicUsize for count tracking
 #[test]
 fn t2_barrier_has_atomic_usize() {
     let out = ok("module M\n  barrier Phase\n  end\nend\n");
-    assert!(out.contains("AtomicUsize"), "expected AtomicUsize, got:\n{}", out);
+    assert!(
+        out.contains("AtomicUsize"),
+        "expected AtomicUsize, got:\n{}",
+        out
+    );
 }
 
 // T3 — wait method emitted
@@ -92,8 +100,16 @@ fn t9_barrier_wait_uses_atomic_op() {
 fn t10_barrier_with_other_items() {
     let src = "module M\n  barrier WorkPhase\n  end\n  entity Task\n    id: Int\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("WorkPhaseBarrier"), "expected WorkPhaseBarrier, got:\n{}", out);
-    assert!(out.contains("struct Task") || out.contains("type Task"), "expected Task type, got:\n{}", out);
+    assert!(
+        out.contains("WorkPhaseBarrier"),
+        "expected WorkPhaseBarrier, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("struct Task") || out.contains("type Task"),
+        "expected Task type, got:\n{}",
+        out
+    );
 }
 
 // T11 — reset stores zero back into AtomicUsize

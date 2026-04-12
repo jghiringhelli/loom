@@ -15,14 +15,22 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_workflow_generates_struct() {
     let out = ok("module M\n  workflow MyFlow\n  end\nend\n");
-    assert!(out.contains("struct MyFlowWorkflow"), "expected MyFlowWorkflow struct, got:\n{}", out);
+    assert!(
+        out.contains("struct MyFlowWorkflow"),
+        "expected MyFlowWorkflow struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — a Step trait is generated
 #[test]
 fn t2_workflow_generates_step_trait() {
     let out = ok("module M\n  workflow Order\n  end\nend\n");
-    assert!(out.contains("trait") && out.contains("Step"), "expected Step trait, got:\n{}", out);
+    assert!(
+        out.contains("trait") && out.contains("Step"),
+        "expected Step trait, got:\n{}",
+        out
+    );
 }
 
 // T3 — steps field (Vec of Box<dyn Step>) emitted
@@ -36,7 +44,11 @@ fn t3_workflow_has_steps_field() {
 #[test]
 fn t4_workflow_has_add_step() {
     let out = ok("module M\n  workflow Build\n  end\nend\n");
-    assert!(out.contains("fn add_step"), "expected fn add_step, got:\n{}", out);
+    assert!(
+        out.contains("fn add_step"),
+        "expected fn add_step, got:\n{}",
+        out
+    );
 }
 
 // T5 — run method emitted
@@ -50,15 +62,27 @@ fn t5_workflow_has_run() {
 #[test]
 fn t6_workflow_has_step_count() {
     let out = ok("module M\n  workflow Process\n  end\nend\n");
-    assert!(out.contains("fn step_count"), "expected fn step_count, got:\n{}", out);
+    assert!(
+        out.contains("fn step_count"),
+        "expected fn step_count, got:\n{}",
+        out
+    );
 }
 
 // T7 — name correctly embedded in struct and trait name
 #[test]
 fn t7_workflow_name_embedded() {
     let out = ok("module M\n  workflow Checkout\n  end\nend\n");
-    assert!(out.contains("CheckoutWorkflow"), "expected CheckoutWorkflow, got:\n{}", out);
-    assert!(out.contains("CheckoutStep"), "expected CheckoutStep, got:\n{}", out);
+    assert!(
+        out.contains("CheckoutWorkflow"),
+        "expected CheckoutWorkflow, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("CheckoutStep"),
+        "expected CheckoutStep, got:\n{}",
+        out
+    );
 }
 
 // T8 — LOOM annotation present
@@ -76,15 +100,27 @@ fn t8_workflow_loom_annotation() {
 #[test]
 fn t9_multiple_workflows() {
     let out = ok("module M\n  workflow A\n  end\n  workflow B\n  end\nend\n");
-    assert!(out.contains("AWorkflow"), "expected AWorkflow, got:\n{}", out);
-    assert!(out.contains("BWorkflow"), "expected BWorkflow, got:\n{}", out);
+    assert!(
+        out.contains("AWorkflow"),
+        "expected AWorkflow, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("BWorkflow"),
+        "expected BWorkflow, got:\n{}",
+        out
+    );
 }
 
 // T10 — run iterates over steps with execute
 #[test]
 fn t10_workflow_run_calls_execute() {
     let out = ok("module M\n  workflow Task\n  end\nend\n");
-    assert!(out.contains("execute"), "expected execute in run body, got:\n{}", out);
+    assert!(
+        out.contains("execute"),
+        "expected execute in run body, got:\n{}",
+        out
+    );
 }
 
 // T11 — workflow alongside other items
@@ -92,8 +128,16 @@ fn t10_workflow_run_calls_execute() {
 fn t11_workflow_with_other_items() {
     let src = "module M\n  workflow Import\n  end\n  entity Record\n    id: Int\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("ImportWorkflow"), "expected ImportWorkflow, got:\n{}", out);
-    assert!(out.contains("Record"), "expected Record type, got:\n{}", out);
+    assert!(
+        out.contains("ImportWorkflow"),
+        "expected ImportWorkflow, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("Record"),
+        "expected Record type, got:\n{}",
+        out
+    );
 }
 
 // T12 — missing end is a parse error

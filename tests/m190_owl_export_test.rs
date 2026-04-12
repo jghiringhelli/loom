@@ -29,11 +29,13 @@ fn owl_minimal_module_emits_ontology_node() {
     let out = owl(src);
     assert!(
         out.contains("\"@type\": \"owl:Ontology\""),
-        "must emit ontology node; got:\n{}", out
+        "must emit ontology node; got:\n{}",
+        out
     );
     assert!(
         out.contains("BioSys"),
-        "module name must appear in output; got:\n{}", out
+        "module name must appear in output; got:\n{}",
+        out
     );
 }
 
@@ -45,11 +47,13 @@ fn owl_module_domain_emitted_as_array() {
     let out = owl(src);
     assert!(
         out.contains("\"loom:domains\""),
-        "must emit loom:domains field; got:\n{}", out
+        "must emit loom:domains field; got:\n{}",
+        out
     );
     assert!(
         out.contains("\"climate\"") && out.contains("\"energy\""),
-        "both domain tags must appear; got:\n{}", out
+        "both domain tags must appear; got:\n{}",
+        out
     );
 }
 
@@ -68,11 +72,13 @@ end"#;
     let out = owl(src);
     assert!(
         out.contains("\"@type\": \"owl:Class\""),
-        "being must emit owl:Class; got:\n{}", out
+        "being must emit owl:Class; got:\n{}",
+        out
     );
     assert!(
         out.contains("Cell"),
-        "class IRI must contain being name; got:\n{}", out
+        "class IRI must contain being name; got:\n{}",
+        out
     );
 }
 
@@ -91,7 +97,8 @@ end"#;
     let out = owl(src);
     assert!(
         out.contains("\"rdfs:comment\": \"transmit electrical signals\""),
-        "telos must appear as rdfs:comment; got:\n{}", out
+        "telos must appear as rdfs:comment; got:\n{}",
+        out
     );
 }
 
@@ -111,7 +118,8 @@ end"#;
     let out = owl(src);
     assert!(
         out.contains("\"loom:role\": \"sensor\""),
-        "role must emit loom:role annotation; got:\n{}", out
+        "role must emit loom:role annotation; got:\n{}",
+        out
     );
 }
 
@@ -137,15 +145,18 @@ end"#;
     let out = owl(src);
     assert!(
         out.contains("\"@type\": \"owl:ObjectProperty\""),
-        "relates_to must emit owl:ObjectProperty; got:\n{}", out
+        "relates_to must emit owl:ObjectProperty; got:\n{}",
+        out
     );
     assert!(
         out.contains("Predator") && out.contains("Prey"),
-        "domain and range IRIs must reference both beings; got:\n{}", out
+        "domain and range IRIs must reference both beings; got:\n{}",
+        out
     );
     assert!(
         out.contains("\"loom:kind\": \"parasitic\""),
-        "relationship kind must be annotated; got:\n{}", out
+        "relationship kind must be annotated; got:\n{}",
+        out
     );
 }
 
@@ -171,11 +182,13 @@ end"#;
     let out = owl(src);
     assert!(
         out.contains("\"rdfs:domain\""),
-        "object property must have rdfs:domain; got:\n{}", out
+        "object property must have rdfs:domain; got:\n{}",
+        out
     );
     assert!(
         out.contains("\"rdfs:range\""),
-        "object property must have rdfs:range; got:\n{}", out
+        "object property must have rdfs:range; got:\n{}",
+        out
     );
 }
 
@@ -205,7 +218,11 @@ end
 end"#;
     let out = owl(src);
     let class_count = out.matches("\"@type\": \"owl:Class\"").count();
-    assert_eq!(class_count, 3, "three beings must produce three owl:Class nodes; got:\n{}", out);
+    assert_eq!(
+        class_count, 3,
+        "three beings must produce three owl:Class nodes; got:\n{}",
+        out
+    );
 }
 
 // ── 9. JSON structure is valid (basic shape checks) ──────────────────────────
@@ -214,8 +231,16 @@ end"#;
 fn owl_output_has_context_and_graph() {
     let src = "module Test\nend";
     let out = owl(src);
-    assert!(out.contains("\"@context\""), "must have @context; got:\n{}", out);
-    assert!(out.contains("\"@graph\""), "must have @graph; got:\n{}", out);
+    assert!(
+        out.contains("\"@context\""),
+        "must have @context; got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("\"@graph\""),
+        "must have @graph; got:\n{}",
+        out
+    );
     // Balanced braces (crude but fast sanity check)
     let open = out.chars().filter(|&c| c == '{').count();
     let close = out.chars().filter(|&c| c == '}').count();
@@ -230,6 +255,7 @@ fn owl_base_iri_contains_module_name() {
     let out = owl(src);
     assert!(
         out.contains("https://loom.lang/ClimateModel"),
-        "base IRI must contain module name; got:\n{}", out
+        "base IRI must contain module name; got:\n{}",
+        out
     );
 }

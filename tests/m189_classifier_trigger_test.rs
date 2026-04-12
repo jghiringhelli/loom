@@ -5,9 +5,9 @@
 //! codegen must emit `// LOOM[trigger:classifier:Name]` rather than a raw
 //! token-debug string.
 
+use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
 use loom::parser::Parser;
-use loom::codegen::rust::RustEmitter;
 
 fn parse(src: &str) -> loom::ast::Module {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -109,7 +109,8 @@ end"#;
     let trig = reg.trigger.as_deref().unwrap_or("");
     assert!(
         !trig.starts_with("classifier:"),
-        "non-classifier trigger must not be normalised to classifier convention; got {:?}", trig
+        "non-classifier trigger must not be normalised to classifier convention; got {:?}",
+        trig
     );
 }
 
@@ -130,7 +131,8 @@ end"#;
     let reg = being.regulate_blocks.first().expect("no regulate block");
     assert!(
         reg.trigger.is_none(),
-        "no trigger field → trigger must be None; got {:?}", reg.trigger
+        "no trigger field → trigger must be None; got {:?}",
+        reg.trigger
     );
 }
 
@@ -152,7 +154,8 @@ end"#;
     let out = emit(src);
     assert!(
         out.contains("// LOOM[trigger:classifier:AnomalyDetector]"),
-        "codegen must emit LOOM trigger annotation; got:\n{}", out
+        "codegen must emit LOOM trigger annotation; got:\n{}",
+        out
     );
 }
 
@@ -172,7 +175,8 @@ end"#;
     let out = emit(src);
     assert!(
         !out.contains("ClassifierKw"),
-        "ClassifierKw token debug repr must not appear in output; got:\n{}", out
+        "ClassifierKw token debug repr must not appear in output; got:\n{}",
+        out
     );
 }
 
@@ -192,7 +196,7 @@ end"#;
     let out = emit(src);
     assert!(
         out.contains("// trigger:"),
-        "non-classifier trigger must emit plain '// trigger:' comment; got:\n{}", out
+        "non-classifier trigger must emit plain '// trigger:' comment; got:\n{}",
+        out
     );
 }
-

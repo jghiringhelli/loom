@@ -62,7 +62,10 @@ impl OwlEmitter {
         let domains_comment = if module.domains.is_empty() {
             String::new()
         } else {
-            format!("  \"loom:domains\": {},\n", json_string_array(&module.domains))
+            format!(
+                "  \"loom:domains\": {},\n",
+                json_string_array(&module.domains)
+            )
         };
 
         format!(
@@ -103,7 +106,12 @@ impl OwlEmitter {
         let telos_comment = being
             .telos
             .as_ref()
-            .map(|t| format!(",\n      \"rdfs:comment\": \"{}\"", json_escape(&t.description)))
+            .map(|t| {
+                format!(
+                    ",\n      \"rdfs:comment\": \"{}\"",
+                    json_escape(&t.description)
+                )
+            })
             .unwrap_or_default();
         let role_annotation = being
             .role
@@ -132,10 +140,7 @@ impl OwlEmitter {
         base_iri: &str,
     ) -> String {
         // Property IRI convention: {base}{Source}_{kind}_{Target}
-        let prop_iri = format!(
-            "{}{}_{}_{}",
-            base_iri, source_name, rel.kind, rel.target
-        );
+        let prop_iri = format!("{}{}_{}_{}", base_iri, source_name, rel.kind, rel.target);
         let domain_iri = format!("{}{}", base_iri, source_name);
         let range_iri = format!("{}{}", base_iri, rel.target);
         format!(
@@ -165,6 +170,9 @@ fn json_escape(s: &str) -> String {
 
 /// Format a `Vec<String>` as a JSON array of strings.
 fn json_string_array(items: &[String]) -> String {
-    let quoted: Vec<String> = items.iter().map(|s| format!("\"{}\"", json_escape(s))).collect();
+    let quoted: Vec<String> = items
+        .iter()
+        .map(|s| format!("\"{}\"", json_escape(s)))
+        .collect();
     format!("[{}]", quoted.join(", "))
 }

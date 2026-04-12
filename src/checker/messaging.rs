@@ -57,11 +57,7 @@ impl MessagingChecker {
 
     // ── Name ──────────────────────────────────────────────────────────────────
 
-    fn check_name(
-        &self,
-        mp: &crate::ast::MessagingPrimitiveDef,
-        errors: &mut Vec<LoomError>,
-    ) {
+    fn check_name(&self, mp: &crate::ast::MessagingPrimitiveDef, errors: &mut Vec<LoomError>) {
         if mp.name.trim().is_empty() {
             errors.push(LoomError::type_err(
                 "messaging_primitive has empty name",
@@ -149,9 +145,7 @@ impl MessagingChecker {
         // Streams use at-least-once + idempotent consumer (deduplication at the sink).
         // Transactional exactly-once on a continuous stream requires 2PC across all
         // partition replicas — possible but never the default stream contract.
-        if matches!(&mp.pattern, Some(MessagingPattern::Stream))
-            && has_guarantee("exactly-once")
-        {
+        if matches!(&mp.pattern, Some(MessagingPattern::Stream)) && has_guarantee("exactly-once") {
             errors.push(LoomError::type_err(
                 format!(
                     "messaging_primitive '{}': 'stream' pattern with 'exactly-once' is \
@@ -165,9 +159,7 @@ impl MessagingChecker {
         }
 
         // M140: RequestResponse without timeout: mandatory is a latency risk.
-        if matches!(&mp.pattern, Some(MessagingPattern::RequestResponse))
-            && !mp.timeout_mandatory
-        {
+        if matches!(&mp.pattern, Some(MessagingPattern::RequestResponse)) && !mp.timeout_mandatory {
             errors.push(LoomError::type_err(
                 format!(
                     "messaging_primitive '{}': 'request_response' pattern should declare \

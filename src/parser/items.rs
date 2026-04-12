@@ -1100,7 +1100,8 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "collective_telos_metric")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                     collective_telos_metric = Some(s.clone());
                     self.pos += 1;
@@ -1111,7 +1112,8 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "coevolution")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 if let Some((Token::BoolLit(b), _)) = self.tokens.get(self.pos) {
                     coevolution = *b;
                     self.pos += 1;
@@ -1122,14 +1124,19 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "coupling")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 let mut parts = Vec::new();
                 while !self.at(&Token::End) && self.peek().is_some() {
-                    let stop = self.at(&Token::Members) || self.at(&Token::Telos) || self.at(&Token::Signal)
+                    let stop = self.at(&Token::Members)
+                        || self.at(&Token::Telos)
+                        || self.at(&Token::Signal)
                         || self.at(&Token::Quorum)
                         || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                             if matches!(n.as_str(), "coevolution" | "collective_telos_metric" | "tipping_points" | "coupling"));
-                    if stop { break; }
+                    if stop {
+                        break;
+                    }
                     if let Some((tok, _)) = self.tokens.get(self.pos) {
                         parts.push(super::token_to_source(tok));
                         self.pos += 1;
@@ -1139,7 +1146,8 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "tipping_points")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                self.advance(); self.advance();
+                self.advance();
+                self.advance();
                 while !self.at(&Token::End) && self.peek().is_some() {
                     // Each tipping point: name: ...
                     if matches!(self.tokens.get(self.pos), Some((Token::Ident(_), _)))
@@ -1151,19 +1159,26 @@ impl<'src> crate::parser::Parser<'src> {
                         let mut tp_condition = String::new();
                         let mut tp_on_crossing = String::new();
                         while !self.at(&Token::End) && self.peek().is_some() {
-                            let stop = self.at(&Token::Members) || self.at(&Token::Telos) || self.at(&Token::Quorum)
+                            let stop = self.at(&Token::Members)
+                                || self.at(&Token::Telos)
+                                || self.at(&Token::Quorum)
                                 || matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                     if matches!(n.as_str(), "tipping_points" | "coevolution" | "coupling" | "collective_telos_metric"));
-                            if stop { break; }
+                            if stop {
+                                break;
+                            }
                             if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "condition")
                                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
                             {
-                                self.advance(); self.advance();
+                                self.advance();
+                                self.advance();
                                 let mut parts = Vec::new();
                                 while !self.at(&Token::End) && self.peek().is_some() {
                                     let s2 = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                         if matches!(n.as_str(), "on_crossing" | "condition"));
-                                    if s2 { break; }
+                                    if s2 {
+                                        break;
+                                    }
                                     if let Some((tok, _)) = self.tokens.get(self.pos) {
                                         parts.push(super::token_to_source(tok));
                                         self.pos += 1;
@@ -1173,16 +1188,25 @@ impl<'src> crate::parser::Parser<'src> {
                             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "on_crossing")
                                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
                             {
-                                self.advance(); self.advance();
+                                self.advance();
+                                self.advance();
                                 let mut parts = Vec::new();
                                 while !self.at(&Token::End) && self.peek().is_some() {
                                     let s2 = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                         if matches!(n.as_str(), "condition" | "on_crossing"));
-                                    if s2 { break; }
+                                    if s2 {
+                                        break;
+                                    }
                                     // Also break if next tipping point starts
-                                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(_), _)))
-                                        && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
-                                    { break; }
+                                    if matches!(
+                                        self.tokens.get(self.pos),
+                                        Some((Token::Ident(_), _))
+                                    ) && matches!(
+                                        self.tokens.get(self.pos + 1),
+                                        Some((Token::Colon, _))
+                                    ) {
+                                        break;
+                                    }
                                     if let Some((tok, _)) = self.tokens.get(self.pos) {
                                         parts.push(super::token_to_source(tok));
                                         self.pos += 1;

@@ -15,35 +15,55 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_projection_generates_struct() {
     let out = ok("module M\n  projection OrderView\n  end\nend\n");
-    assert!(out.contains("struct OrderViewProjection"), "expected OrderViewProjection struct, got:\n{}", out);
+    assert!(
+        out.contains("struct OrderViewProjection"),
+        "expected OrderViewProjection struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — struct is generic over event type
 #[test]
 fn t2_projection_is_generic() {
     let out = ok("module M\n  projection ReadModel\n  end\nend\n");
-    assert!(out.contains("<E") || out.contains("Projection<"), "expected generic param, got:\n{}", out);
+    assert!(
+        out.contains("<E") || out.contains("Projection<"),
+        "expected generic param, got:\n{}",
+        out
+    );
 }
 
 // T3 — events field emitted
 #[test]
 fn t3_projection_has_events_field() {
     let out = ok("module M\n  projection UserView\n  end\nend\n");
-    assert!(out.contains("events"), "expected events field, got:\n{}", out);
+    assert!(
+        out.contains("events"),
+        "expected events field, got:\n{}",
+        out
+    );
 }
 
 // T4 — project method emitted
 #[test]
 fn t4_projection_has_project_method() {
     let out = ok("module M\n  projection Orders\n  end\nend\n");
-    assert!(out.contains("fn project"), "expected fn project, got:\n{}", out);
+    assert!(
+        out.contains("fn project"),
+        "expected fn project, got:\n{}",
+        out
+    );
 }
 
 // T5 — snapshot method emitted
 #[test]
 fn t5_projection_has_snapshot_method() {
     let out = ok("module M\n  projection Orders\n  end\nend\n");
-    assert!(out.contains("fn snapshot"), "expected fn snapshot, got:\n{}", out);
+    assert!(
+        out.contains("fn snapshot"),
+        "expected fn snapshot, got:\n{}",
+        out
+    );
 }
 
 // T6 — reset method emitted
@@ -79,8 +99,16 @@ fn t8_projection_loom_annotation() {
 #[test]
 fn t9_multiple_projections() {
     let out = ok("module M\n  projection A\n  end\n  projection B\n  end\nend\n");
-    assert!(out.contains("AProjection"), "expected AProjection, got:\n{}", out);
-    assert!(out.contains("BProjection"), "expected BProjection, got:\n{}", out);
+    assert!(
+        out.contains("AProjection"),
+        "expected AProjection, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("BProjection"),
+        "expected BProjection, got:\n{}",
+        out
+    );
 }
 
 // T10 — snapshot field and VecDeque used
@@ -99,8 +127,16 @@ fn t10_projection_uses_vecdecque_and_vec() {
 fn t11_projection_with_other_items() {
     let src = "module M\n  projection Inbox\n  end\n  entity Message\n    id: Int\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("InboxProjection"), "expected InboxProjection, got:\n{}", out);
-    assert!(out.contains("Message"), "expected Message type, got:\n{}", out);
+    assert!(
+        out.contains("InboxProjection"),
+        "expected InboxProjection, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("Message"),
+        "expected Message type, got:\n{}",
+        out
+    );
 }
 
 // T12 — missing end is a parse error

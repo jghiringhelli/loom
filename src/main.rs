@@ -187,7 +187,8 @@ fn main() {
             }
         }
 
-        Commands::Build { manifest } => {            let toml_src = match std::fs::read_to_string(&manifest) {
+        Commands::Build { manifest } => {
+            let toml_src = match std::fs::read_to_string(&manifest) {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("error: could not read `{}`: {}", manifest.display(), e);
@@ -226,7 +227,11 @@ fn main() {
             }
         }
 
-        Commands::Lpn { input, base_dir, format } => {
+        Commands::Lpn {
+            input,
+            base_dir,
+            format,
+        } => {
             let source = match std::fs::read_to_string(&input) {
                 Ok(s) => s,
                 Err(e) => {
@@ -236,11 +241,13 @@ fn main() {
             };
 
             let base = base_dir.unwrap_or_else(|| {
-                input.parent().unwrap_or_else(|| std::path::Path::new(".")).to_path_buf()
+                input
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf()
             });
 
-            let (instrs, parse_errs) =
-                loom::lpn::LpnParser::parse_str_lenient(&source);
+            let (instrs, parse_errs) = loom::lpn::LpnParser::parse_str_lenient(&source);
 
             for e in &parse_errs {
                 eprintln!("lpn: {e}");
@@ -254,8 +261,10 @@ fn main() {
                 match &r.status {
                     loom::lpn::LpnStatus::Ok => {
                         if format == "json" {
-                            println!(r#"{{"status":"ok","instruction":{:?},"ms":{}}}"#,
-                                r.instruction, r.duration_ms);
+                            println!(
+                                r#"{{"status":"ok","instruction":{:?},"ms":{}}}"#,
+                                r.instruction, r.duration_ms
+                            );
                         } else {
                             println!("  ✅ {} ({}ms)", r.instruction, r.duration_ms);
                         }
@@ -263,8 +272,10 @@ fn main() {
                     loom::lpn::LpnStatus::Err(msg) => {
                         exit_code = 1;
                         if format == "json" {
-                            println!(r#"{{"status":"err","instruction":{:?},"error":{:?}}}"#,
-                                r.instruction, msg);
+                            println!(
+                                r#"{{"status":"err","instruction":{:?},"error":{:?}}}"#,
+                                r.instruction, msg
+                            );
                         } else {
                             eprintln!("  ❌ {}\n     {}", r.instruction, msg);
                         }
@@ -277,11 +288,23 @@ fn main() {
                 }
             }
 
-            let ok = results.iter().filter(|r| r.status == loom::lpn::LpnStatus::Ok).count();
-            let err = results.iter().filter(|r| matches!(r.status, loom::lpn::LpnStatus::Err(_))).count();
-            println!("\nlpn: {} ok, {} failed, {} skipped",
-                ok, err,
-                results.iter().filter(|r| matches!(r.status, loom::lpn::LpnStatus::Skipped(_))).count());
+            let ok = results
+                .iter()
+                .filter(|r| r.status == loom::lpn::LpnStatus::Ok)
+                .count();
+            let err = results
+                .iter()
+                .filter(|r| matches!(r.status, loom::lpn::LpnStatus::Err(_)))
+                .count();
+            println!(
+                "\nlpn: {} ok, {} failed, {} skipped",
+                ok,
+                err,
+                results
+                    .iter()
+                    .filter(|r| matches!(r.status, loom::lpn::LpnStatus::Skipped(_)))
+                    .count()
+            );
 
             if !parse_errs.is_empty() || exit_code != 0 {
                 process::exit(1);

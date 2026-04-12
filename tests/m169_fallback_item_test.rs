@@ -24,7 +24,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("DefaultMessageFallback"), "expected DefaultMessageFallback\n{out}");
+    assert!(
+        out.contains("DefaultMessageFallback"),
+        "expected DefaultMessageFallback\n{out}"
+    );
 }
 
 // ─── M169.2: struct value field emitted ───────────────────────────────────────
@@ -87,7 +90,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn get(&self) -> &String"), "missing get() method\n{out}");
+    assert!(
+        out.contains("pub fn get(&self) -> &String"),
+        "missing get() method\n{out}"
+    );
 }
 
 // ─── M169.6: get() returns &self.value ────────────────────────────────────────
@@ -102,7 +108,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("&self.value"), "get() must return &self.value\n{out}");
+    assert!(
+        out.contains("&self.value"),
+        "get() must return &self.value\n{out}"
+    );
 }
 
 // ─── M169.7: audit comment emitted ────────────────────────────────────────────
@@ -117,7 +126,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[fallback:resilience]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[fallback:resilience]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M169"), "missing M169 reference\n{out}");
 }
 
@@ -133,7 +145,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M169.9: new() function emitted ───────────────────────────────────────────
@@ -148,7 +163,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn new() -> Self"), "missing new() fn\n{out}");
+    assert!(
+        out.contains("pub fn new() -> Self"),
+        "missing new() fn\n{out}"
+    );
 }
 
 // ─── M169.10: multiple fallbacks in one module ────────────────────────────────
@@ -166,8 +184,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ErrorMessageFallback"), "missing ErrorMessage\n{out}");
-    assert!(out.contains("EmptyResponseFallback"), "missing EmptyResponse\n{out}");
+    assert!(
+        out.contains("ErrorMessageFallback"),
+        "missing ErrorMessage\n{out}"
+    );
+    assert!(
+        out.contains("EmptyResponseFallback"),
+        "missing EmptyResponse\n{out}"
+    );
 }
 
 // ─── M169.11: mixed with timeout and bulkhead ─────────────────────────────────
@@ -190,8 +214,14 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("ApiTimeoutTimeout"), "missing timeout\n{out}");
-    assert!(out.contains("ApiBulkheadBulkhead"), "missing bulkhead\n{out}");
-    assert!(out.contains("ApiDefaultFallback"), "missing fallback\n{out}");
+    assert!(
+        out.contains("ApiBulkheadBulkhead"),
+        "missing bulkhead\n{out}"
+    );
+    assert!(
+        out.contains("ApiDefaultFallback"),
+        "missing fallback\n{out}"
+    );
 }
 
 // ─── M169.12: generic default type annotation ─────────────────────────────────

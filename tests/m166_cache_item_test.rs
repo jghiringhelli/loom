@@ -25,7 +25,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("SessionCacheCache"), "expected SessionCacheCache\n{out}");
+    assert!(
+        out.contains("SessionCacheCache"),
+        "expected SessionCacheCache\n{out}"
+    );
 }
 
 // ─── M166.2: struct has ttl_secs field ────────────────────────────────────────
@@ -42,7 +45,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub ttl_secs: u64"), "missing ttl_secs field\n{out}");
+    assert!(
+        out.contains("pub ttl_secs: u64"),
+        "missing ttl_secs field\n{out}"
+    );
 }
 
 // ─── M166.3: new() uses configured ttl ────────────────────────────────────────
@@ -73,7 +79,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ttl_secs: 300"), "default ttl should be 300\n{out}");
+    assert!(
+        out.contains("ttl_secs: 300"),
+        "default ttl should be 300\n{out}"
+    );
 }
 
 // ─── M166.5: get() method emitted ─────────────────────────────────────────────
@@ -88,7 +97,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn get(&self, _key: &K) -> Option<V>"), "missing get()\n{out}");
+    assert!(
+        out.contains("pub fn get(&self, _key: &K) -> Option<V>"),
+        "missing get()\n{out}"
+    );
 }
 
 // ─── M166.6: set() method emitted ─────────────────────────────────────────────
@@ -103,7 +115,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn set(&mut self, _key: K, _value: V)"), "missing set()\n{out}");
+    assert!(
+        out.contains("pub fn set(&mut self, _key: K, _value: V)"),
+        "missing set()\n{out}"
+    );
 }
 
 // ─── M166.7: evict() method emitted ───────────────────────────────────────────
@@ -118,7 +133,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn evict(&mut self)"), "missing evict()\n{out}");
+    assert!(
+        out.contains("pub fn evict(&mut self)"),
+        "missing evict()\n{out}"
+    );
 }
 
 // ─── M166.8: audit comment emitted ────────────────────────────────────────────
@@ -132,7 +150,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[cache:performance]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[cache:performance]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M166"), "missing M166 reference\n{out}");
 }
 
@@ -148,7 +169,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M166.10: multiple caches in one module ───────────────────────────────────
@@ -167,7 +191,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("UserCacheCache"), "missing UserCache\n{out}");
-    assert!(out.contains("ProductCacheCache"), "missing ProductCache\n{out}");
+    assert!(
+        out.contains("ProductCacheCache"),
+        "missing ProductCache\n{out}"
+    );
 }
 
 // ─── M166.11: mixed with rate_limiter ─────────────────────────────────────────
@@ -187,7 +214,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("SessionCacheCache"), "missing cache\n{out}");
-    assert!(out.contains("ApiLimiterRateLimiter"), "missing rate limiter\n{out}");
+    assert!(
+        out.contains("ApiLimiterRateLimiter"),
+        "missing rate limiter\n{out}"
+    );
 }
 
 // ─── M166.12: generic struct with PhantomData ─────────────────────────────────

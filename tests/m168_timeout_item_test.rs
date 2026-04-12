@@ -24,7 +24,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("RequestTimeoutTimeout"), "expected RequestTimeoutTimeout\n{out}");
+    assert!(
+        out.contains("RequestTimeoutTimeout"),
+        "expected RequestTimeoutTimeout\n{out}"
+    );
 }
 
 // ─── M168.2: struct fields emitted ────────────────────────────────────────────
@@ -40,8 +43,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub duration: u64"), "missing duration field\n{out}");
-    assert!(out.contains("pub unit: &'static str"), "missing unit field\n{out}");
+    assert!(
+        out.contains("pub duration: u64"),
+        "missing duration field\n{out}"
+    );
+    assert!(
+        out.contains("pub unit: &'static str"),
+        "missing unit field\n{out}"
+    );
 }
 
 // ─── M168.3: new() uses configured values ─────────────────────────────────────
@@ -72,8 +81,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("duration: 30"), "default duration should be 30\n{out}");
-    assert!(out.contains("unit: \"s\""), "default unit should be s\n{out}");
+    assert!(
+        out.contains("duration: 30"),
+        "default duration should be 30\n{out}"
+    );
+    assert!(
+        out.contains("unit: \"s\""),
+        "default unit should be s\n{out}"
+    );
 }
 
 // ─── M168.5: execute<F,T>() method emitted ────────────────────────────────────
@@ -106,7 +121,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("F: FnOnce() -> T"), "missing FnOnce bound\n{out}");
+    assert!(
+        out.contains("F: FnOnce() -> T"),
+        "missing FnOnce bound\n{out}"
+    );
 }
 
 // ─── M168.7: millisecond unit parses ──────────────────────────────────────────
@@ -137,7 +155,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[timeout:resilience]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[timeout:resilience]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M168"), "missing M168 reference\n{out}");
 }
 
@@ -153,7 +174,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M168.10: multiple timeouts in one module ─────────────────────────────────
@@ -173,8 +197,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("FastTimeoutTimeout"), "missing FastTimeout\n{out}");
-    assert!(out.contains("SlowTimeoutTimeout"), "missing SlowTimeout\n{out}");
+    assert!(
+        out.contains("FastTimeoutTimeout"),
+        "missing FastTimeout\n{out}"
+    );
+    assert!(
+        out.contains("SlowTimeoutTimeout"),
+        "missing SlowTimeout\n{out}"
+    );
 }
 
 // ─── M168.11: mixed with bulkhead and retry ───────────────────────────────────
@@ -198,7 +228,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("DbTimeoutTimeout"), "missing timeout\n{out}");
-    assert!(out.contains("DbBulkheadBulkhead"), "missing bulkhead\n{out}");
+    assert!(
+        out.contains("DbBulkheadBulkhead"),
+        "missing bulkhead\n{out}"
+    );
     assert!(out.contains("DbRetryPolicy"), "missing retry\n{out}");
 }
 

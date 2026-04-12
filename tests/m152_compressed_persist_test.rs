@@ -202,8 +202,14 @@ end
     // Both traits emitted exactly once each
     let binary_count = out.matches("pub trait BinaryPersist").count();
     let compressed_count = out.matches("pub trait CompressedBinaryPersist").count();
-    assert_eq!(binary_count, 1, "BinaryPersist trait should appear exactly once");
-    assert_eq!(compressed_count, 1, "CompressedBinaryPersist should appear exactly once");
+    assert_eq!(
+        binary_count, 1,
+        "BinaryPersist trait should appear exactly once"
+    );
+    assert_eq!(
+        compressed_count, 1,
+        "CompressedBinaryPersist should appear exactly once"
+    );
 }
 
 #[test]

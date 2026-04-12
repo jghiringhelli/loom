@@ -66,8 +66,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub failure_threshold: u32"), "missing failure_threshold\n{out}");
-    assert!(out.contains("pub timeout_secs: u64"), "missing timeout_secs\n{out}");
+    assert!(
+        out.contains("pub failure_threshold: u32"),
+        "missing failure_threshold\n{out}"
+    );
+    assert!(
+        out.contains("pub timeout_secs: u64"),
+        "missing timeout_secs\n{out}"
+    );
     assert!(
         out.contains("pub state: PaymentGatewayCircuitState"),
         "missing state field\n{out}"
@@ -87,7 +93,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("failure_threshold: 3"), "threshold not 3\n{out}");
+    assert!(
+        out.contains("failure_threshold: 3"),
+        "threshold not 3\n{out}"
+    );
     assert!(out.contains("timeout_secs: 60"), "timeout not 60\n{out}");
 }
 
@@ -182,8 +191,14 @@ end
 "#;
     let out = compile(src);
     // Default threshold = 5, default timeout = 30
-    assert!(out.contains("failure_threshold: 5"), "default threshold should be 5\n{out}");
-    assert!(out.contains("timeout_secs: 30"), "default timeout should be 30\n{out}");
+    assert!(
+        out.contains("failure_threshold: 5"),
+        "default threshold should be 5\n{out}"
+    );
+    assert!(
+        out.contains("timeout_secs: 30"),
+        "default timeout should be 30\n{out}"
+    );
 }
 
 // ─── M163.10: multiple circuit breakers in one module ─────────────────────────
@@ -203,8 +218,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("PaymentServiceCircuitBreaker"), "missing PaymentService\n{out}");
-    assert!(out.contains("EmailServiceCircuitBreaker"), "missing EmailService\n{out}");
+    assert!(
+        out.contains("PaymentServiceCircuitBreaker"),
+        "missing PaymentService\n{out}"
+    );
+    assert!(
+        out.contains("EmailServiceCircuitBreaker"),
+        "missing EmailService\n{out}"
+    );
 }
 
 // ─── M163.11: circuit_breaker mixed with command ──────────────────────────────
@@ -224,7 +245,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("PlaceOrderCommand"), "missing command\n{out}");
-    assert!(out.contains("PaymentGatewayCircuitBreaker"), "missing circuit breaker\n{out}");
+    assert!(
+        out.contains("PaymentGatewayCircuitBreaker"),
+        "missing circuit breaker\n{out}"
+    );
 }
 
 // ─── M163.12: struct has #[derive(Debug, Clone)] ──────────────────────────────
@@ -241,7 +265,10 @@ end
 "#;
     let out = compile(src);
     // The struct must derive Debug + Clone (state enum gets PartialEq too)
-    assert!(out.contains("#[derive(Debug, Clone)]"), "struct missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "struct missing derive\n{out}"
+    );
     assert!(
         out.contains("#[derive(Debug, Clone, PartialEq)]"),
         "state enum missing derive\n{out}"

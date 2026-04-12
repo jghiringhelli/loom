@@ -122,7 +122,10 @@ impl RustEmitter {
         }
         // M187: structural relationships
         for rel in &being.relates_to {
-            out.push_str(&format!("// LOOM[relates_to:{}:{}]\n", rel.target, rel.kind));
+            out.push_str(&format!(
+                "// LOOM[relates_to:{}:{}]\n",
+                rel.target, rel.kind
+            ));
         }
         // LOOM[propagate]: emit propagation metadata
         if let Some(prop) = &being.propagate_block {
@@ -130,7 +133,11 @@ impl RustEmitter {
                 "// LOOM[propagate]: condition={}, inherits=[{}], mutates=[{}]\n",
                 prop.condition,
                 prop.inherits.join(", "),
-                prop.mutates.iter().map(|(f, c)| format!("{} {}", f, c)).collect::<Vec<_>>().join("; ")
+                prop.mutates
+                    .iter()
+                    .map(|(f, c)| format!("{} {}", f, c))
+                    .collect::<Vec<_>>()
+                    .join("; ")
             ));
             if let Some(ot) = &prop.offspring_type {
                 out.push_str(&format!("// LOOM[propagate]: offspring_type={}\n", ot));
@@ -503,16 +510,19 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
             }
             out.push_str(&format!(
                 "pub const {}_CRITICALITY_LOWER: f64 = {};\n",
-                being.name.to_uppercase(), crit.lower
+                being.name.to_uppercase(),
+                crit.lower
             ));
             out.push_str(&format!(
                 "pub const {}_CRITICALITY_UPPER: f64 = {};\n",
-                being.name.to_uppercase(), crit.upper
+                being.name.to_uppercase(),
+                crit.upper
             ));
             if let Some(p) = &crit.probe_fn {
                 out.push_str(&format!(
                     "pub fn {}_criticality_probe() -> f64 {{ {}() }}\n",
-                    being.name.to_lowercase(), p
+                    being.name.to_lowercase(),
+                    p
                 ));
             }
         }

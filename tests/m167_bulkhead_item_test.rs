@@ -24,7 +24,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("DatabaseBulkheadBulkhead"), "expected DatabaseBulkheadBulkhead\n{out}");
+    assert!(
+        out.contains("DatabaseBulkheadBulkhead"),
+        "expected DatabaseBulkheadBulkhead\n{out}"
+    );
 }
 
 // ─── M167.2: struct fields emitted ────────────────────────────────────────────
@@ -40,8 +43,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub max_concurrent: u64"), "missing max_concurrent\n{out}");
-    assert!(out.contains("pub queue_size: u64"), "missing queue_size\n{out}");
+    assert!(
+        out.contains("pub max_concurrent: u64"),
+        "missing max_concurrent\n{out}"
+    );
+    assert!(
+        out.contains("pub queue_size: u64"),
+        "missing queue_size\n{out}"
+    );
 }
 
 // ─── M167.3: new() uses configured values ─────────────────────────────────────
@@ -57,7 +66,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("max_concurrent: 15"), "max_concurrent not 15\n{out}");
+    assert!(
+        out.contains("max_concurrent: 15"),
+        "max_concurrent not 15\n{out}"
+    );
     assert!(out.contains("queue_size: 30"), "queue_size not 30\n{out}");
 }
 
@@ -72,8 +84,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("max_concurrent: 10"), "default max_concurrent should be 10\n{out}");
-    assert!(out.contains("queue_size: 0"), "default queue_size should be 0\n{out}");
+    assert!(
+        out.contains("max_concurrent: 10"),
+        "default max_concurrent should be 10\n{out}"
+    );
+    assert!(
+        out.contains("queue_size: 0"),
+        "default queue_size should be 0\n{out}"
+    );
 }
 
 // ─── M167.5: execute<F,T,E>() method emitted ──────────────────────────────────
@@ -106,7 +124,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("F: FnOnce() -> Result<T, E>"), "missing FnOnce bound\n{out}");
+    assert!(
+        out.contains("F: FnOnce() -> Result<T, E>"),
+        "missing FnOnce bound\n{out}"
+    );
 }
 
 // ─── M167.7: available() method emitted ───────────────────────────────────────
@@ -121,7 +142,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn available(&self) -> bool"), "missing available() method\n{out}");
+    assert!(
+        out.contains("pub fn available(&self) -> bool"),
+        "missing available() method\n{out}"
+    );
 }
 
 // ─── M167.8: audit comment emitted ────────────────────────────────────────────
@@ -135,7 +159,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[bulkhead:resilience]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[bulkhead:resilience]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M167"), "missing M167 reference\n{out}");
     assert!(out.contains("Nygard"), "missing Nygard attribution\n{out}");
 }
@@ -152,7 +179,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M167.10: multiple bulkheads in one module ────────────────────────────────
@@ -171,8 +201,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("DatabaseBulkheadBulkhead"), "missing DatabaseBulkhead\n{out}");
-    assert!(out.contains("HttpBulkheadBulkhead"), "missing HttpBulkhead\n{out}");
+    assert!(
+        out.contains("DatabaseBulkheadBulkhead"),
+        "missing DatabaseBulkhead\n{out}"
+    );
+    assert!(
+        out.contains("HttpBulkheadBulkhead"),
+        "missing HttpBulkhead\n{out}"
+    );
 }
 
 // ─── M167.11: mixed with circuit_breaker and retry ────────────────────────────
@@ -195,8 +231,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ServiceBulkheadBulkhead"), "missing bulkhead\n{out}");
-    assert!(out.contains("ExternalApiCircuitBreaker"), "missing circuit breaker\n{out}");
+    assert!(
+        out.contains("ServiceBulkheadBulkhead"),
+        "missing bulkhead\n{out}"
+    );
+    assert!(
+        out.contains("ExternalApiCircuitBreaker"),
+        "missing circuit breaker\n{out}"
+    );
     assert!(out.contains("NetworkRetryPolicy"), "missing retry\n{out}");
 }
 

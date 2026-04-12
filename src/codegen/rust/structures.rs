@@ -544,10 +544,7 @@ impl {N}TransitionMatrix {
             let last = sd.steps.last().unwrap();
             let rust_out = loom_type_to_rust(&last.output_ty);
 
-            let mut body_lines = vec![format!(
-                "        let step0 = self.{}(input)?;",
-                first.name
-            )];
+            let mut body_lines = vec![format!("        let step0 = self.{}(input)?;", first.name)];
             for (i, step) in sd.steps.iter().enumerate().skip(1) {
                 body_lines.push(format!(
                     "        let step{i} = self.{}(step{})?;",
@@ -841,7 +838,11 @@ impl {N}TransitionMatrix {
     pub(super) fn emit_fallback_item_def(&self, fd: &FallbackItemDef, out: &mut String) {
         let name = &fd.name;
         let value = &fd.value;
-        let value_display = if value.is_empty() { "default" } else { value.as_str() };
+        let value_display = if value.is_empty() {
+            "default"
+        } else {
+            value.as_str()
+        };
         out.push_str(&format!(
             "// LOOM[fallback:resilience]: {name} — M169 static fallback value\n\
              // fallback value: \"{value_display}\"\n\
@@ -1366,9 +1367,7 @@ impl {N}TransitionMatrix {
     pub(super) fn emit_classifier_def(&self, cd: &ClassifierDef, out: &mut String) {
         let n = to_pascal_case(&cd.name);
         let model = &cd.model;
-        out.push_str(&format!(
-            "// LOOM[classifier:{n}:{model}]\n"
-        ));
+        out.push_str(&format!("// LOOM[classifier:{n}:{model}]\n"));
         if let Some(trigger) = &cd.retrain_trigger {
             out.push_str(&format!("// retrain_trigger: {trigger}\n"));
         }
@@ -1387,19 +1386,21 @@ impl {N}TransitionMatrix {
         ));
     }
 
-
     /// The pointcut is emitted as a LOOM comment describing the match condition.
     /// `before`/`after`/`after_throwing` each generate a method body calling the named function.
     pub(super) fn emit_aspect_def(&self, ad: &AspectDef, out: &mut String) {
         let n = to_pascal_case(&ad.name);
         let order = ad.order.unwrap_or(1);
-        let pointcut_str = ad.pointcut
+        let pointcut_str = ad
+            .pointcut
             .as_ref()
             .map(|p| format!("{:?}", p))
             .unwrap_or_else(|| "unspecified".to_string());
 
         let before_method = if !ad.before.is_empty() {
-            let calls: String = ad.before.iter()
+            let calls: String = ad
+                .before
+                .iter()
                 .map(|f| format!("        {f}();\n"))
                 .collect();
             format!(
@@ -1414,7 +1415,9 @@ impl {N}TransitionMatrix {
         };
 
         let after_method = if !ad.after.is_empty() {
-            let calls: String = ad.after.iter()
+            let calls: String = ad
+                .after
+                .iter()
                 .map(|f| format!("        {f}();\n"))
                 .collect();
             format!(
@@ -1429,7 +1432,9 @@ impl {N}TransitionMatrix {
         };
 
         let throwing_method = if !ad.after_throwing.is_empty() {
-            let calls: String = ad.after_throwing.iter()
+            let calls: String = ad
+                .after_throwing
+                .iter()
                 .map(|f| format!("        {f}();\n"))
                 .collect();
             format!(

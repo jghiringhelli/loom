@@ -25,7 +25,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("PaymentRetryPolicy"), "expected PaymentRetryPolicy\n{out}");
+    assert!(
+        out.contains("PaymentRetryPolicy"),
+        "expected PaymentRetryPolicy\n{out}"
+    );
 }
 
 // ─── M164.2: struct fields emitted ────────────────────────────────────────────
@@ -42,9 +45,18 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub max_attempts: u32"), "missing max_attempts\n{out}");
-    assert!(out.contains("pub base_delay_ms: u64"), "missing base_delay_ms\n{out}");
-    assert!(out.contains("pub multiplier: u32"), "missing multiplier\n{out}");
+    assert!(
+        out.contains("pub max_attempts: u32"),
+        "missing max_attempts\n{out}"
+    );
+    assert!(
+        out.contains("pub base_delay_ms: u64"),
+        "missing base_delay_ms\n{out}"
+    );
+    assert!(
+        out.contains("pub multiplier: u32"),
+        "missing multiplier\n{out}"
+    );
 }
 
 // ─── M164.3: new() uses configured values ─────────────────────────────────────
@@ -62,7 +74,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("max_attempts: 4"), "max_attempts not 4\n{out}");
-    assert!(out.contains("base_delay_ms: 500"), "base_delay not 500\n{out}");
+    assert!(
+        out.contains("base_delay_ms: 500"),
+        "base_delay not 500\n{out}"
+    );
     assert!(out.contains("multiplier: 2"), "multiplier not 2\n{out}");
 }
 
@@ -77,9 +92,18 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("max_attempts: 3"), "default max_attempts should be 3\n{out}");
-    assert!(out.contains("base_delay_ms: 100"), "default base_delay should be 100\n{out}");
-    assert!(out.contains("multiplier: 2"), "default multiplier should be 2\n{out}");
+    assert!(
+        out.contains("max_attempts: 3"),
+        "default max_attempts should be 3\n{out}"
+    );
+    assert!(
+        out.contains("base_delay_ms: 100"),
+        "default base_delay should be 100\n{out}"
+    );
+    assert!(
+        out.contains("multiplier: 2"),
+        "default multiplier should be 2\n{out}"
+    );
 }
 
 // ─── M164.5: execute<F,T,E>() method emitted ──────────────────────────────────
@@ -114,8 +138,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("F: Fn() -> Result<T, E>"), "missing Fn bound\n{out}");
-    assert!(out.contains("E: std::fmt::Debug"), "missing Debug bound\n{out}");
+    assert!(
+        out.contains("F: Fn() -> Result<T, E>"),
+        "missing Fn bound\n{out}"
+    );
+    assert!(
+        out.contains("E: std::fmt::Debug"),
+        "missing Debug bound\n{out}"
+    );
 }
 
 // ─── M164.7: audit comment emitted ────────────────────────────────────────────
@@ -129,7 +159,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[retry:resilience]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[retry:resilience]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M164"), "missing M164 reference\n{out}");
 }
 
@@ -146,7 +179,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M164.9: on: error type parses ────────────────────────────────────────────
@@ -184,7 +220,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("DatabaseRetryPolicy"), "missing DatabaseRetry\n{out}");
+    assert!(
+        out.contains("DatabaseRetryPolicy"),
+        "missing DatabaseRetry\n{out}"
+    );
     assert!(out.contains("HttpRetryPolicy"), "missing HttpRetry\n{out}");
 }
 
@@ -206,7 +245,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("DatabaseRetryPolicy"), "missing retry\n{out}");
-    assert!(out.contains("ExternalApiCircuitBreaker"), "missing circuit breaker\n{out}");
+    assert!(
+        out.contains("ExternalApiCircuitBreaker"),
+        "missing circuit breaker\n{out}"
+    );
 }
 
 // ─── M164.12: execute contains todo!() stub ───────────────────────────────────

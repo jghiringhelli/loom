@@ -49,7 +49,9 @@ end"#;
         "expected at least one M191 error in: {:?}",
         errs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
     );
-    let has_classifier = errs.iter().any(|e| e.to_string().contains("AnomalyDetector"));
+    let has_classifier = errs
+        .iter()
+        .any(|e| e.to_string().contains("AnomalyDetector"));
     assert!(
         has_classifier,
         "error must name the classifier; errors: {:?}",
@@ -87,7 +89,8 @@ end"#;
     let errs = result.unwrap_err();
     assert!(
         errs.iter().any(|e| e.to_string().contains("M191")),
-        "M191 second test: {:?}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+        "M191 second test: {:?}",
+        errs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
     );
 }
 
@@ -120,7 +123,8 @@ end"#;
     let result = teleos::check(&module);
     assert!(
         result.is_ok(),
-        "expected no M191 error when telos has metric; got: {:?}", result.err()
+        "expected no M191 error when telos has metric; got: {:?}",
+        result.err()
     );
 }
 
@@ -150,7 +154,10 @@ end"#;
     // No M191 error because classifier has no retrain_trigger.
     // If there's an error it must not be M191.
     if let Err(errs) = &result {
-        let m191_errs: Vec<_> = errs.iter().filter(|e| e.to_string().contains("M191")).collect();
+        let m191_errs: Vec<_> = errs
+            .iter()
+            .filter(|e| e.to_string().contains("M191"))
+            .collect();
         assert!(
             m191_errs.is_empty(),
             "no retrain_trigger means no convergence risk — M191 must not fire; got: {:?}",
@@ -179,7 +186,10 @@ end"#;
     let module = parse(src);
     let result = teleos::check(&module);
     if let Err(errs) = &result {
-        let m191_errs: Vec<_> = errs.iter().filter(|e| e.to_string().contains("M191")).collect();
+        let m191_errs: Vec<_> = errs
+            .iter()
+            .filter(|e| e.to_string().contains("M191"))
+            .collect();
         assert!(
             m191_errs.is_empty(),
             "non-classifier trigger must not trigger M191; got: {:?}",
@@ -225,7 +235,8 @@ end"#;
     let errs = result.unwrap_err();
     assert!(
         errs.iter().any(|e| e.to_string().contains("M191")),
-        "expected M191; got: {:?}", errs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+        "expected M191; got: {:?}",
+        errs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
     );
     assert!(
         errs.iter().any(|e| e.to_string().contains("DriftDetector")),
@@ -266,7 +277,8 @@ end"#;
     let result = teleos::check(&module);
     assert!(
         result.is_ok(),
-        "M191 must not fire when telos has metric; got: {:?}", result.err()
+        "M191 must not fire when telos has metric; got: {:?}",
+        result.err()
     );
 }
 
@@ -291,7 +303,10 @@ end"#;
     let result = teleos::check(&module);
     // M191 skips unknown classifiers; they are the reference checker's domain
     if let Err(errs) = &result {
-        let m191_errs: Vec<_> = errs.iter().filter(|e| e.to_string().contains("M191")).collect();
+        let m191_errs: Vec<_> = errs
+            .iter()
+            .filter(|e| e.to_string().contains("M191"))
+            .collect();
         assert!(
             m191_errs.is_empty(),
             "undefined classifier should not trigger M191; got: {:?}",

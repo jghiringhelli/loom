@@ -81,8 +81,14 @@ module EnergyGrid
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("@domain: energy, materials"), "expected domains");
-    assert!(out.contains("Models an energy grid node"), "expected describe");
+    assert!(
+        out.contains("@domain: energy, materials"),
+        "expected domains"
+    );
+    assert!(
+        out.contains("Models an energy grid node"),
+        "expected describe"
+    );
 }
 
 /// `domain:` labels become part of the module doc, before @annotations.

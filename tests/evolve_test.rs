@@ -301,4 +301,3 @@ fn typescript_emit_evolve_dispatcher_has_loop() {
         "expected 'while (distance' in:\n{out}"
     );
 }
-

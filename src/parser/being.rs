@@ -274,7 +274,11 @@ impl<'src> crate::parser::Parser<'src> {
                             self.advance();
                         }
                     }
-                    relates_to.push(RelatesTo { target, kind, span: rel_span });
+                    relates_to.push(RelatesTo {
+                        target,
+                        kind,
+                        span: rel_span,
+                    });
                 }
             } else {
                 // Unknown token in being body — skip to avoid infinite loop.
@@ -553,7 +557,9 @@ impl<'src> crate::parser::Parser<'src> {
                     propagation,
                 });
                 // Consume the optional `end` that closes an explicit `thresholds:` sub-block.
-                if self.at(&Token::End) { self.advance(); }
+                if self.at(&Token::End) {
+                    self.advance();
+                }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Guides, _))) {
                 self.advance();
                 self.expect(Token::Colon)?;
@@ -622,7 +628,10 @@ impl<'src> crate::parser::Parser<'src> {
                             }
                         }
                         // Skip any remaining tokens until action/end
-                        while !self.at(&Token::End) && !self.at(&Token::Action) && self.peek().is_some() {
+                        while !self.at(&Token::End)
+                            && !self.at(&Token::Action)
+                            && self.peek().is_some()
+                        {
                             self.advance();
                         }
                     } else {
@@ -833,13 +842,17 @@ impl<'src> crate::parser::Parser<'src> {
             {
                 self.advance(); // consume "duration"
                 self.advance(); // consume ":"
-                // Collect tokens for the duration value (e.g. "18.months" = FloatLit(18.0) Dot Ident("months"))
+                                // Collect tokens for the duration value (e.g. "18.months" = FloatLit(18.0) Dot Ident("months"))
                 let mut parts = Vec::new();
                 while !self.at(&Token::End) && self.peek().is_some() {
-                    if self.at(&Token::Signal) || self.at(&Token::Modifies) || self.at(&Token::RevertsWhen) {
+                    if self.at(&Token::Signal)
+                        || self.at(&Token::Modifies)
+                        || self.at(&Token::RevertsWhen)
+                    {
                         break;
                     }
-                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "duration") {
+                    if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "duration")
+                    {
                         break;
                     }
                     if let Some((tok, _)) = self.tokens.get(self.pos) {
@@ -2294,9 +2307,13 @@ impl<'src> crate::parser::Parser<'src> {
                         } else {
                             self.advance();
                         }
-                        if self.at(&Token::Comma) { self.advance(); }
+                        if self.at(&Token::Comma) {
+                            self.advance();
+                        }
                     }
-                    if self.at(&Token::RBracket) { self.advance(); }
+                    if self.at(&Token::RBracket) {
+                        self.advance();
+                    }
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Attenuate, _))) {
                 self.advance();
@@ -2313,9 +2330,13 @@ impl<'src> crate::parser::Parser<'src> {
                         } else {
                             self.advance();
                         }
-                        if self.at(&Token::Comma) { self.advance(); }
+                        if self.at(&Token::Comma) {
+                            self.advance();
+                        }
                     }
-                    if self.at(&Token::RBracket) { self.advance(); }
+                    if self.at(&Token::RBracket) {
+                        self.advance();
+                    }
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "telos_relevance")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
@@ -2364,8 +2385,12 @@ impl<'src> crate::parser::Parser<'src> {
 
         while !self.at(&Token::End) && self.peek().is_some() {
             // Stop at known being-level keywords
-            if self.at(&Token::Telos) || self.at(&Token::Matter) || self.at(&Token::Regulate)
-                || self.at(&Token::Evolve) || self.at(&Token::Telomere) || self.at(&Token::Being)
+            if self.at(&Token::Telos)
+                || self.at(&Token::Matter)
+                || self.at(&Token::Regulate)
+                || self.at(&Token::Evolve)
+                || self.at(&Token::Telomere)
+                || self.at(&Token::Being)
             {
                 break;
             }
@@ -2379,7 +2404,9 @@ impl<'src> crate::parser::Parser<'src> {
                         while !self.at(&Token::End) && self.peek().is_some() {
                             let stop = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                 if matches!(n.as_str(), "inherits" | "mutates" | "offspring_type" | "offspring" | "condition"));
-                            if stop { break; }
+                            if stop {
+                                break;
+                            }
                             if let Some((tok, _)) = self.tokens.get(self.pos) {
                                 parts.push(super::token_to_source(tok));
                                 self.pos += 1;
@@ -2399,9 +2426,13 @@ impl<'src> crate::parser::Parser<'src> {
                                 } else {
                                     self.advance();
                                 }
-                                if self.at(&Token::Comma) { self.advance(); }
+                                if self.at(&Token::Comma) {
+                                    self.advance();
+                                }
                             }
-                            if self.at(&Token::RBracket) { self.advance(); }
+                            if self.at(&Token::RBracket) {
+                                self.advance();
+                            }
                         }
                     }
                     "mutates" => {
@@ -2413,7 +2444,9 @@ impl<'src> crate::parser::Parser<'src> {
                             while !self.at(&Token::End) && self.peek().is_some() {
                                 let stop = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _))
                                     if matches!(n.as_str(), "inherits" | "mutates" | "offspring_type" | "offspring" | "condition"));
-                                if stop { break; }
+                                if stop {
+                                    break;
+                                }
                                 if let Some((tok, _)) = self.tokens.get(self.pos) {
                                     parts.push(super::token_to_source(tok));
                                     self.pos += 1;
@@ -2430,14 +2463,18 @@ impl<'src> crate::parser::Parser<'src> {
                             self.pos += 1;
                         }
                     }
-                    _ => { self.advance(); }
+                    _ => {
+                        self.advance();
+                    }
                 }
             } else {
                 self.advance();
             }
         }
         let end_span = self.current_span();
-        if self.at(&Token::End) { self.advance(); }
+        if self.at(&Token::End) {
+            self.advance();
+        }
         Ok(PropagateBlock {
             condition,
             inherits,

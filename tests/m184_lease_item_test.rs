@@ -23,8 +23,10 @@ fn parses_lease_with_ttl() {
 #[test]
 fn rejects_lease_without_name() {
     let e = err("module M\n  lease\n  end\nend\n");
-    assert!(e.contains("expected") || e.contains("identifier") || e.contains("Unexpected"),
-        "unexpected error: {e}");
+    assert!(
+        e.contains("expected") || e.contains("identifier") || e.contains("Unexpected"),
+        "unexpected error: {e}"
+    );
 }
 
 // ── Codegen — struct ─────────────────────────────────────────────────────────
@@ -50,13 +52,19 @@ fn emits_acquired_at_field() {
 #[test]
 fn default_ttl_is_60() {
     let out = ok("module M\n  lease Session\n  end\nend\n");
-    assert!(out.contains("ttl_secs: 60"), "missing default ttl 60: {out}");
+    assert!(
+        out.contains("ttl_secs: 60"),
+        "missing default ttl 60: {out}"
+    );
 }
 
 #[test]
 fn custom_ttl_respected() {
     let out = ok("module M\n  lease Session\n    ttl: 300\n  end\nend\n");
-    assert!(out.contains("ttl_secs: 300"), "missing custom ttl 300: {out}");
+    assert!(
+        out.contains("ttl_secs: 300"),
+        "missing custom ttl 300: {out}"
+    );
 }
 
 // ── Codegen — methods ─────────────────────────────────────────────────────────
@@ -90,7 +98,10 @@ fn emits_is_valid_method() {
 #[test]
 fn emits_loom_annotation() {
     let out = ok("module M\n  lease MyLease\n  end\nend\n");
-    assert!(out.contains("LOOM[lease:"), "missing LOOM annotation: {out}");
+    assert!(
+        out.contains("LOOM[lease:"),
+        "missing LOOM annotation: {out}"
+    );
 }
 
 // ── Multiple items ────────────────────────────────────────────────────────────

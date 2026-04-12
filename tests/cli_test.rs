@@ -220,10 +220,7 @@ fn compile_typescript_target_writes_ts_file() {
     );
     assert!(tmp.exists(), "typescript output file not created");
     let content = fs::read_to_string(&tmp).unwrap();
-    assert!(
-        !content.is_empty(),
-        "typescript output should not be empty"
-    );
+    assert!(!content.is_empty(), "typescript output should not be empty");
     let _ = fs::remove_file(&tmp);
 }
 
@@ -239,11 +236,7 @@ fn compile_typescript_alias_ts_works() {
         "--output",
         tmp.to_str().unwrap(),
     ]);
-    assert!(
-        out.status.success(),
-        "ts alias failed: {}",
-        stderr(&out)
-    );
+    assert!(out.status.success(), "ts alias failed: {}", stderr(&out));
     let _ = fs::remove_file(&tmp);
 }
 
@@ -451,11 +444,7 @@ fn compile_simulation_alias_sim_works() {
         "--output",
         tmp.to_str().unwrap(),
     ]);
-    assert!(
-        out.status.success(),
-        "sim alias failed: {}",
-        stderr(&out)
-    );
+    assert!(out.status.success(), "sim alias failed: {}", stderr(&out));
     let _ = fs::remove_file(&tmp);
 }
 

@@ -11,12 +11,10 @@ fn ok(src: &str) -> String {
 
 #[test]
 fn correctness_report_minimal_parses() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("correctness_report"), "output:\n{}", out);
 }
 
@@ -24,30 +22,30 @@ fn correctness_report_minimal_parses() {
 
 #[test]
 fn correctness_report_proved_section_parses() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - separation_safety: separation_checker_verified\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("separation_safety"), "output:\n{}", out);
-    assert!(out.contains("separation_checker_verified"), "output:\n{}", out);
+    assert!(
+        out.contains("separation_checker_verified"),
+        "output:\n{}",
+        out
+    );
 }
 
 // ─── Parse: unverified section ───────────────────────────────────────────────
 
 #[test]
 fn correctness_report_unverified_section_parses() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            unverified:\n\
              - canalization_convergence: requires_smt_feature\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("canalization_convergence"), "output:\n{}", out);
     assert!(out.contains("requires_smt_feature"), "output:\n{}", out);
 }
@@ -56,8 +54,7 @@ fn correctness_report_unverified_section_parses() {
 
 #[test]
 fn correctness_report_both_sections_parse() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - membrane_integrity: separation_logic_proved\n\
@@ -65,8 +62,7 @@ fn correctness_report_both_sections_parse() {
            unverified:\n\
              - degeneracy_equivalence: requires_smt_feature\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("membrane_integrity"), "output:\n{}", out);
     assert!(out.contains("homeostasis"), "output:\n{}", out);
     assert!(out.contains("degeneracy_equivalence"), "output:\n{}", out);
@@ -76,8 +72,7 @@ fn correctness_report_both_sections_parse() {
 
 #[test]
 fn correctness_report_multiple_proved_entries() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - operational_closure: autopoietic_checker_verified\n\
@@ -85,8 +80,7 @@ fn correctness_report_multiple_proved_entries() {
              - homeostasis: refinement_bounds_verified\n\
              - epigenetic_stability: aspect_composition_proved\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("operational_closure"), "output:\n{}", out);
     assert!(out.contains("epigenetic_stability"), "output:\n{}", out);
 }
@@ -95,14 +89,12 @@ fn correctness_report_multiple_proved_entries() {
 
 #[test]
 fn correctness_report_emits_loom_annotation() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - type_safety: type_checker_verified\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(
         out.contains("LOOM[correctness_report]"),
         "expected LOOM annotation, output:\n{}",
@@ -114,44 +106,46 @@ fn correctness_report_emits_loom_annotation() {
 
 #[test]
 fn correctness_report_emits_proved_comment() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - type_safety: type_checker\n\
          end\n\
-         end\n",
+         end\n");
+    assert!(
+        out.contains("proved:"),
+        "expected proved:, output:\n{}",
+        out
     );
-    assert!(out.contains("proved:"), "expected proved:, output:\n{}", out);
 }
 
 // ─── Emitter: unverified comment ─────────────────────────────────────────────
 
 #[test]
 fn correctness_report_emits_unverified_comment() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            unverified:\n\
              - canalization: requires_smt\n\
          end\n\
-         end\n",
+         end\n");
+    assert!(
+        out.contains("unverified:"),
+        "expected unverified:, output:\n{}",
+        out
     );
-    assert!(out.contains("unverified:"), "expected unverified:, output:\n{}", out);
 }
 
 // ─── Emitter: const is generated ─────────────────────────────────────────────
 
 #[test]
 fn correctness_report_emits_const() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          correctness_report:\n\
            proved:\n\
              - type_safety: type_checker_verified\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(
         out.contains("CORRECTNESS_REPORT"),
         "expected const, output:\n{}",
@@ -163,16 +157,14 @@ fn correctness_report_emits_const() {
 
 #[test]
 fn correctness_report_coexists_with_fn() {
-    let out = ok(
-        "module M\n\
+    let out = ok("module M\n\
          fn add :: Int -> Int -> Int\n\
          end\n\
          correctness_report:\n\
            proved:\n\
              - type_safety: type_checker_verified\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("add"), "output:\n{}", out);
     assert!(out.contains("CORRECTNESS_REPORT"), "output:\n{}", out);
 }
@@ -181,8 +173,7 @@ fn correctness_report_coexists_with_fn() {
 
 #[test]
 fn correctness_report_full_bioiso_style() {
-    let out = ok(
-        "module Cell\n\
+    let out = ok("module Cell\n\
          correctness_report:\n\
            proved:\n\
              - operational_closure: autopoietic_checker_verified\n\
@@ -195,8 +186,7 @@ fn correctness_report_full_bioiso_style() {
              - canalization_convergence: requires_smt_feature\n\
              - degeneracy_equivalence: requires_smt_feature\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("operational_closure"), "output:\n{}", out);
     assert!(out.contains("canalization_convergence"), "output:\n{}", out);
     assert!(out.contains("CORRECTNESS_REPORT"), "output:\n{}", out);
@@ -206,8 +196,7 @@ fn correctness_report_full_bioiso_style() {
 
 #[test]
 fn aspect_and_correctness_report_coexist() {
-    let out = ok(
-        "module Secure\n\
+    let out = ok("module Secure\n\
          fn verify_token :: Unit\n\
          end\n\
          aspect SecurityAspect\n\
@@ -218,8 +207,11 @@ fn aspect_and_correctness_report_coexist() {
            proved:\n\
              - security_advice_precedes_exec: aspect_order_verified\n\
          end\n\
-         end\n",
-    );
+         end\n");
     assert!(out.contains("SecurityAspect"), "output:\n{}", out);
-    assert!(out.contains("security_advice_precedes_exec"), "output:\n{}", out);
+    assert!(
+        out.contains("security_advice_precedes_exec"),
+        "output:\n{}",
+        out
+    );
 }

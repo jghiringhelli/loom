@@ -25,8 +25,8 @@ mod exprs;
 mod functions;
 mod stores;
 mod structures;
-pub(crate) mod template;
 mod telos;
+pub(crate) mod template;
 mod types;
 
 // ── M151: BinaryPersist trait ─────────────────────────────────────────────────
@@ -335,7 +335,9 @@ impl RustEmitter {
         match item {
             Item::Type(td) => self.emit_type_def(td),
             Item::Enum(ed) => self.emit_enum_def(ed),
-            Item::Fn(fd) => self.emit_fn_def_with_context(fd, &module.name, module.requires.is_some()),
+            Item::Fn(fd) => {
+                self.emit_fn_def_with_context(fd, &module.name, module.requires.is_some())
+            }
             Item::RefinedType(rt) => self.emit_refined_type(rt),
             Item::Proposition(prop) => self.emit_proposition(prop),
             Item::Functor(f) => self.emit_functor(f),
@@ -375,7 +377,9 @@ impl RustEmitter {
             Item::Property(pb) => self.emit_property_test(pb),
             Item::BoundaryBlock(bb) => format!(
                 "// boundary: exports=[{}] private=[{}] sealed=[{}]\n",
-                bb.exports.join(", "), bb.private.join(", "), bb.sealed.join(", ")
+                bb.exports.join(", "),
+                bb.private.join(", "),
+                bb.sealed.join(", ")
             ),
             Item::TelosFunction(tf) => telos::emit_telos_function(tf),
             Item::Entity(ed) => emit_entity(ed),
@@ -680,20 +684,31 @@ fn emit_saga_with_steps(target: &str, steps: &[String], out: &mut String) {
 
 /// Extract a `List` param by key name; returns empty vec if absent.
 fn list_param(params: &[(String, DisciplineParam)], key: &str) -> Vec<String> {
-    params.iter().find_map(|(k, v)| {
-        if k == key {
-            if let DisciplineParam::List(items) = v { Some(items.clone()) } else { None }
-        } else {
-            None
-        }
-    }).unwrap_or_default()
+    params
+        .iter()
+        .find_map(|(k, v)| {
+            if k == key {
+                if let DisciplineParam::List(items) = v {
+                    Some(items.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default()
 }
 
 /// Extract a `Number` param by key name; returns `None` if absent.
 fn num_param(params: &[(String, DisciplineParam)], key: &str) -> Option<i64> {
     params.iter().find_map(|(k, v)| {
         if k == key {
-            if let DisciplineParam::Number(n) = v { Some(*n) } else { None }
+            if let DisciplineParam::Number(n) = v {
+                Some(*n)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -762,7 +777,12 @@ fn emit_entity(ed: &crate::ast::EntityDef) -> String {
     let has = |s: &str| ann.iter().any(|a| a == s);
 
     // Choose petgraph backing type
-    let rust_type = if has("directed") || has("acyclic") || has("hierarchical") || has("causal") || has("temporal") {
+    let rust_type = if has("directed")
+        || has("acyclic")
+        || has("hierarchical")
+        || has("causal")
+        || has("temporal")
+    {
         format!("petgraph::graph::DiGraph<{}, {}>", node, edge)
     } else if has("undirected") || has("semantic") {
         format!("petgraph::graph::UnGraph<{}, {}>", node, edge)
@@ -799,31 +819,31 @@ fn emit_entity(ed: &crate::ast::EntityDef) -> String {
     if has("stochastic") {
         buf.push_str(
             "// LOOM[stochastic]: edge weights must be probabilities in [0.0, 1.0];\n\
-             //   per-node outgoing weights must sum to 1.0 (row-stochastic).\n"
+             //   per-node outgoing weights must sum to 1.0 (row-stochastic).\n",
         );
     }
     if has("learnable") {
         buf.push_str(
             "// LOOM[learnable]: implement a weight-update method (e.g. gradient descent);\n\
-             //   edge weights are free parameters optimised during training.\n"
+             //   edge weights are free parameters optimised during training.\n",
         );
     }
     if has("telos_guided") {
         buf.push_str(
             "// LOOM[telos_guided]: edge activation is modulated by a telos score;\n\
-             //   high-telos paths are reinforced, low-telos paths are pruned over time.\n"
+             //   high-telos paths are reinforced, low-telos paths are pruned over time.\n",
         );
     }
     if has("causal") {
         buf.push_str(
             "// LOOM[causal]: supports Pearl do-calculus — \
-             use petgraph topological_sort for causal ordering.\n"
+             use petgraph topological_sort for causal ordering.\n",
         );
     }
     if has("temporal") {
         buf.push_str(
             "// LOOM[temporal]: edges encode temporal precedence; \
-             topological order yields event sequence.\n"
+             topological order yields event sequence.\n",
         );
     }
 
@@ -844,8 +864,6 @@ fn emit_entity(ed: &crate::ast::EntityDef) -> String {
 
     buf
 }
-
-
 
 /// V7: Emit a dynamic audit header that honestly records what the module declares
 /// and what verification tier backs each claim.
@@ -1052,7 +1070,10 @@ fn emit_correctness_report(report: &CorrectnessReport) -> String {
 /// - An `impl Name` with `execute()` advancing the step and `compensate()` for rollback
 fn emit_pathway(pw: &PathwayDef) -> String {
     let name = &pw.name;
-    let mut src = format!("// LOOM[pathway:{}]: typed sequential transformation\n", name);
+    let mut src = format!(
+        "// LOOM[pathway:{}]: typed sequential transformation\n",
+        name
+    );
     for step in &pw.steps {
         src.push_str(&format!(
             "// LOOM[pathway:step]: {} -[{}]-> {}\n",
@@ -1064,7 +1085,10 @@ fn emit_pathway(pw: &PathwayDef) -> String {
     }
 
     // Step enum
-    src.push_str(&format!("#[derive(Debug, Clone, PartialEq)]\npub enum {}Step {{\n", name));
+    src.push_str(&format!(
+        "#[derive(Debug, Clone, PartialEq)]\npub enum {}Step {{\n",
+        name
+    ));
     for step in &pw.steps {
         let variant = pascal_case(&step.from);
         src.push_str(&format!("    {},\n", variant));
@@ -1085,20 +1109,31 @@ fn emit_pathway(pw: &PathwayDef) -> String {
     src.push_str(&format!(
         "    pub fn new() -> Self {{ Self {{ step: {}Step::{} }} }}\n",
         name,
-        if pw.steps.is_empty() { "Done".to_string() } else { pascal_case(&pw.steps[0].from) }
+        if pw.steps.is_empty() {
+            "Done".to_string()
+        } else {
+            pascal_case(&pw.steps[0].from)
+        }
     ));
     src.push_str("    /// Advance to the next step, returning the via label.\n");
-    src.push_str("    pub fn execute(&mut self) -> Option<&'static str> {\n        match self.step {\n");
+    src.push_str(
+        "    pub fn execute(&mut self) -> Option<&'static str> {\n        match self.step {\n",
+    );
     for step in &pw.steps {
         src.push_str(&format!(
             "            {}Step::{} => {{ self.step = {}Step::{}; Some(\"{}\") }}\n",
-            name, pascal_case(&step.from), name, pascal_case(&step.to), step.via
+            name,
+            pascal_case(&step.from),
+            name,
+            pascal_case(&step.to),
+            step.via
         ));
     }
     if let Some(last) = pw.steps.last() {
         src.push_str(&format!(
             "            {}Step::{} => None,\n",
-            name, pascal_case(&last.to)
+            name,
+            pascal_case(&last.to)
         ));
     }
     src.push_str("        }\n    }\n");
@@ -1152,7 +1187,10 @@ fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
     }
 
     // Runtime state enum
-    src.push_str(&format!("\n#[derive(Debug, Clone, PartialEq)]\npub enum {}State {{\n", name));
+    src.push_str(&format!(
+        "\n#[derive(Debug, Clone, PartialEq)]\npub enum {}State {{\n",
+        name
+    ));
     for state in &lc.states {
         src.push_str(&format!("    {},\n", state));
     }
@@ -1161,7 +1199,9 @@ fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
     // impl with transition method enforcing checkpoints
     src.push_str(&format!("impl {}State {{\n", name));
     src.push_str("    /// Advance to the next state, returning Err if a checkpoint guard fails.\n");
-    src.push_str("    pub fn transition(&self) -> Result<Self, &'static str> {\n        match self {\n");
+    src.push_str(
+        "    pub fn transition(&self) -> Result<Self, &'static str> {\n        match self {\n",
+    );
     let n = lc.states.len();
     for (i, state) in lc.states.iter().enumerate() {
         if i + 1 < n {

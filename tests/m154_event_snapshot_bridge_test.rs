@@ -199,13 +199,28 @@ end
 "#,
     );
     // EventStore trait
-    assert!(out.contains("JournalEventStore"), "expected JournalEventStore\n{out}");
+    assert!(
+        out.contains("JournalEventStore"),
+        "expected JournalEventStore\n{out}"
+    );
     // Aggregate trait
-    assert!(out.contains("JournalAggregate"), "expected JournalAggregate\n{out}");
+    assert!(
+        out.contains("JournalAggregate"),
+        "expected JournalAggregate\n{out}"
+    );
     // Snapshot bridge (M154)
-    assert!(out.contains("JournalSnapshotBridge"), "expected JournalSnapshotBridge\n{out}");
+    assert!(
+        out.contains("JournalSnapshotBridge"),
+        "expected JournalSnapshotBridge\n{out}"
+    );
     // Binary persistence (M151)
-    assert!(out.contains("BinaryPersist"), "expected BinaryPersist\n{out}");
+    assert!(
+        out.contains("BinaryPersist"),
+        "expected BinaryPersist\n{out}"
+    );
     // Compressed persistence (M152)
-    assert!(out.contains("CompressedBinaryPersist"), "expected CompressedBinaryPersist\n{out}");
+    assert!(
+        out.contains("CompressedBinaryPersist"),
+        "expected CompressedBinaryPersist\n{out}"
+    );
 }

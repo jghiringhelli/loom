@@ -7,8 +7,8 @@
 //!
 //! Test naming convention: <rule_or_kind>_<scenario>
 
-use loom::ast::{DisciplineDecl, DisciplineKind, DisciplineParam, Item, Module};
 use loom::ast::Span;
+use loom::ast::{DisciplineDecl, DisciplineKind, DisciplineParam, Item, Module};
 use loom::checker::{DisciplineChecker, LoomChecker};
 use loom::codegen::rust::RustEmitter;
 use loom::lexer::Lexer;
@@ -39,12 +39,24 @@ fn make_module_with_disciplines(dds: Vec<DisciplineDecl>) -> Module {
     m
 }
 
-fn disc(kind: DisciplineKind, target: &str, params: Vec<(String, DisciplineParam)>) -> DisciplineDecl {
-    DisciplineDecl { kind, target: target.to_string(), params, span: Span::synthetic() }
+fn disc(
+    kind: DisciplineKind,
+    target: &str,
+    params: Vec<(String, DisciplineParam)>,
+) -> DisciplineDecl {
+    DisciplineDecl {
+        kind,
+        target: target.to_string(),
+        params,
+        span: Span::synthetic(),
+    }
 }
 
 fn list_param(key: &str, items: &[&str]) -> (String, DisciplineParam) {
-    (key.to_string(), DisciplineParam::List(items.iter().map(|s| s.to_string()).collect()))
+    (
+        key.to_string(),
+        DisciplineParam::List(items.iter().map(|s| s.to_string()).collect()),
+    )
 }
 
 fn num_param(key: &str, n: i64) -> (String, DisciplineParam) {
@@ -64,7 +76,10 @@ fn check(m: &Module) -> Vec<String> {
 #[test]
 fn parse_discipline_cqrs_minimal() {
     let m = parse_module("module Orders\n  discipline CQRS for OrderStore end\nend");
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::Cqrs));
     assert_eq!(dd.target, "OrderStore");
 }
@@ -73,7 +88,10 @@ fn parse_discipline_cqrs_minimal() {
 fn parse_discipline_event_sourcing_with_events() {
     let src = "module Orders\n  discipline EventSourcing for OrderStore\n    events: [OrderCreated, OrderShipped]\n  end\nend";
     let m = parse_module(src);
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::EventSourcing));
     assert!(dd.params.iter().any(|(k, _)| k == "events"));
 }
@@ -82,7 +100,10 @@ fn parse_discipline_event_sourcing_with_events() {
 fn parse_discipline_circuit_breaker_with_params() {
     let src = "module Payments\n  discipline CircuitBreaker for PaymentService\n    max_attempts: 3\n  end\nend";
     let m = parse_module(src);
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::CircuitBreaker));
     assert!(dd.params.iter().any(|(k, _)| k == "max_attempts"));
 }
@@ -91,7 +112,10 @@ fn parse_discipline_circuit_breaker_with_params() {
 fn parse_discipline_saga_with_steps() {
     let src = "module Checkout\n  discipline Saga for CheckoutSaga\n    steps: [ReserveInventory, ChargePayment]\n  end\nend";
     let m = parse_module(src);
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::Saga));
     assert!(dd.params.iter().any(|(k, _)| k == "steps"));
 }
@@ -100,14 +124,20 @@ fn parse_discipline_saga_with_steps() {
 fn parse_discipline_di_with_binds() {
     let src = "module App\n  discipline DependencyInjection for AppContainer\n    binds: [IUserRepo, IEmailSender]\n  end\nend";
     let m = parse_module(src);
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::DependencyInjection));
 }
 
 #[test]
 fn parse_discipline_unit_of_work() {
     let m = parse_module("module Billing\n  discipline UnitOfWork for BillingContext end\nend");
-    let dd = match &m.items[0] { Item::Discipline(d) => d, _ => panic!("expected discipline") };
+    let dd = match &m.items[0] {
+        Item::Discipline(d) => d,
+        _ => panic!("expected discipline"),
+    };
     assert!(matches!(dd.kind, DisciplineKind::UnitOfWork));
 }
 
@@ -117,24 +147,35 @@ fn parse_discipline_unit_of_work() {
 fn codegen_discipline_cqrs_emits_command_query() {
     let m = make_module_with_discipline(disc(DisciplineKind::Cqrs, "OrderStore", vec![]));
     let code = RustEmitter::new().emit(&m);
-    assert!(code.contains("Command") || code.contains("command"), "no Command in CQRS output:\n{code}");
-    assert!(code.contains("Query") || code.contains("query"), "no Query in CQRS output:\n{code}");
+    assert!(
+        code.contains("Command") || code.contains("command"),
+        "no Command in CQRS output:\n{code}"
+    );
+    assert!(
+        code.contains("Query") || code.contains("query"),
+        "no Query in CQRS output:\n{code}"
+    );
 }
 
 #[test]
 fn codegen_discipline_event_sourcing_emits_event() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::EventSourcing, "OrderStore",
+        DisciplineKind::EventSourcing,
+        "OrderStore",
         vec![list_param("events", &["OrderCreated", "OrderShipped"])],
     ));
     let code = RustEmitter::new().emit(&m);
-    assert!(code.contains("Event") || code.contains("event"), "no event type emitted:\n{code}");
+    assert!(
+        code.contains("Event") || code.contains("event"),
+        "no event type emitted:\n{code}"
+    );
 }
 
 #[test]
 fn codegen_discipline_circuit_breaker_emits_state() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::CircuitBreaker, "PaymentService",
+        DisciplineKind::CircuitBreaker,
+        "PaymentService",
         vec![num_param("max_attempts", 3)],
     ));
     let code = RustEmitter::new().emit(&m);
@@ -147,7 +188,8 @@ fn codegen_discipline_circuit_breaker_emits_state() {
 #[test]
 fn codegen_discipline_saga_emits_step() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::Saga, "CheckoutSaga",
+        DisciplineKind::Saga,
+        "CheckoutSaga",
         vec![list_param("steps", &["ReserveInventory", "ChargePayment"])],
     ));
     let code = RustEmitter::new().emit(&m);
@@ -160,7 +202,8 @@ fn codegen_discipline_saga_emits_step() {
 #[test]
 fn codegen_discipline_di_emits_container() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::DependencyInjection, "AppContainer",
+        DisciplineKind::DependencyInjection,
+        "AppContainer",
         vec![list_param("binds", &["IUserRepo", "IEmailSender"])],
     ));
     let code = RustEmitter::new().emit(&m);
@@ -199,8 +242,14 @@ fn checker_different_targets_no_duplicate_error() {
         disc(DisciplineKind::Cqrs, "OrderStore", vec![]),
         disc(DisciplineKind::Cqrs, "UserStore", vec![]),
     ]);
-    let dup: Vec<_> = check(&m).into_iter().filter(|e| e.contains("more than once")).collect();
-    assert!(dup.is_empty(), "different targets should not trigger duplicate: {dup:?}");
+    let dup: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("more than once"))
+        .collect();
+    assert!(
+        dup.is_empty(),
+        "different targets should not trigger duplicate: {dup:?}"
+    );
 }
 
 // ── checker: CircuitBreaker bounds ────────────────────────────────────────────
@@ -208,7 +257,9 @@ fn checker_different_targets_no_duplicate_error() {
 #[test]
 fn checker_circuit_breaker_zero_attempts_fails() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::CircuitBreaker, "S", vec![num_param("max_attempts", 0)],
+        DisciplineKind::CircuitBreaker,
+        "S",
+        vec![num_param("max_attempts", 0)],
     ));
     let errors = check(&m);
     assert!(!errors.is_empty(), "max_attempts 0 should fail");
@@ -217,7 +268,9 @@ fn checker_circuit_breaker_zero_attempts_fails() {
 #[test]
 fn checker_circuit_breaker_high_attempts_warns() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::CircuitBreaker, "S", vec![num_param("max_attempts", 999)],
+        DisciplineKind::CircuitBreaker,
+        "S",
+        vec![num_param("max_attempts", 999)],
     ));
     let errors = check(&m);
     assert!(!errors.is_empty(), "max_attempts 999 should warn");
@@ -227,9 +280,14 @@ fn checker_circuit_breaker_high_attempts_warns() {
 #[test]
 fn checker_circuit_breaker_valid_passes() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::CircuitBreaker, "S", vec![num_param("max_attempts", 3)],
+        DisciplineKind::CircuitBreaker,
+        "S",
+        vec![num_param("max_attempts", 3)],
     ));
-    let cb: Vec<_> = check(&m).into_iter().filter(|e| e.contains("max_attempts")).collect();
+    let cb: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("max_attempts"))
+        .collect();
     assert!(cb.is_empty(), "valid circuit breaker should pass: {cb:?}");
 }
 
@@ -241,28 +299,47 @@ fn checker_event_sourcing_no_events_warns() {
         disc(DisciplineKind::Cqrs, "OrderStore", vec![]),
         disc(DisciplineKind::EventSourcing, "OrderStore", vec![]),
     ]);
-    let es: Vec<_> = check(&m).into_iter().filter(|e| e.contains("events")).collect();
-    assert!(!es.is_empty(), "event sourcing without events list should warn");
+    let es: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("events"))
+        .collect();
+    assert!(
+        !es.is_empty(),
+        "event sourcing without events list should warn"
+    );
 }
 
 #[test]
 fn checker_event_sourcing_with_events_no_event_warn() {
     let m = make_module_with_disciplines(vec![
         disc(DisciplineKind::Cqrs, "OrderStore", vec![]),
-        disc(DisciplineKind::EventSourcing, "OrderStore",
-            vec![list_param("events", &["OrderCreated"])]),
+        disc(
+            DisciplineKind::EventSourcing,
+            "OrderStore",
+            vec![list_param("events", &["OrderCreated"])],
+        ),
     ]);
-    let no_ev: Vec<_> = check(&m).into_iter().filter(|e| e.contains("no 'events:'")).collect();
-    assert!(no_ev.is_empty(), "event sourcing with events should not warn: {no_ev:?}");
+    let no_ev: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("no 'events:'"))
+        .collect();
+    assert!(
+        no_ev.is_empty(),
+        "event sourcing with events should not warn: {no_ev:?}"
+    );
 }
 
 #[test]
 fn checker_event_sourcing_without_cqrs_warns() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::EventSourcing, "OrderStore",
+        DisciplineKind::EventSourcing,
+        "OrderStore",
         vec![list_param("events", &["OrderCreated"])],
     ));
-    let cqrs: Vec<_> = check(&m).into_iter().filter(|e| e.contains("CQRS")).collect();
+    let cqrs: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("CQRS"))
+        .collect();
     assert!(!cqrs.is_empty(), "event sourcing without CQRS should warn");
 }
 
@@ -270,30 +347,53 @@ fn checker_event_sourcing_without_cqrs_warns() {
 fn checker_event_sourcing_with_cqrs_no_cqrs_warn() {
     let m = make_module_with_disciplines(vec![
         disc(DisciplineKind::Cqrs, "OrderStore", vec![]),
-        disc(DisciplineKind::EventSourcing, "OrderStore",
-            vec![list_param("events", &["OrderCreated"])]),
+        disc(
+            DisciplineKind::EventSourcing,
+            "OrderStore",
+            vec![list_param("events", &["OrderCreated"])],
+        ),
     ]);
-    let cqrs: Vec<_> = check(&m).into_iter().filter(|e| e.contains("implies") && e.contains("CQRS")).collect();
-    assert!(cqrs.is_empty(), "event sourcing with CQRS should not warn: {cqrs:?}");
+    let cqrs: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("implies") && e.contains("CQRS"))
+        .collect();
+    assert!(
+        cqrs.is_empty(),
+        "event sourcing with CQRS should not warn: {cqrs:?}"
+    );
 }
 
 // ── checker: DI completeness ──────────────────────────────────────────────────
 
 #[test]
 fn checker_di_no_binds_warns() {
-    let m = make_module_with_discipline(disc(DisciplineKind::DependencyInjection, "AppContainer", vec![]));
-    let di: Vec<_> = check(&m).into_iter().filter(|e| e.contains("binds")).collect();
+    let m = make_module_with_discipline(disc(
+        DisciplineKind::DependencyInjection,
+        "AppContainer",
+        vec![],
+    ));
+    let di: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("binds"))
+        .collect();
     assert!(!di.is_empty(), "DI without binds should warn");
 }
 
 #[test]
 fn checker_di_with_binds_passes() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::DependencyInjection, "AppContainer",
+        DisciplineKind::DependencyInjection,
+        "AppContainer",
         vec![list_param("binds", &["IUserRepo"])],
     ));
-    let no_binds: Vec<_> = check(&m).into_iter().filter(|e| e.contains("no 'binds:'")).collect();
-    assert!(no_binds.is_empty(), "DI with binds should not warn: {no_binds:?}");
+    let no_binds: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("no 'binds:'"))
+        .collect();
+    assert!(
+        no_binds.is_empty(),
+        "DI with binds should not warn: {no_binds:?}"
+    );
 }
 
 // ── checker: Saga completeness ────────────────────────────────────────────────
@@ -301,18 +401,28 @@ fn checker_di_with_binds_passes() {
 #[test]
 fn checker_saga_no_steps_warns() {
     let m = make_module_with_discipline(disc(DisciplineKind::Saga, "CheckoutSaga", vec![]));
-    let saga: Vec<_> = check(&m).into_iter().filter(|e| e.contains("steps")).collect();
+    let saga: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("steps"))
+        .collect();
     assert!(!saga.is_empty(), "saga without steps should warn");
 }
 
 #[test]
 fn checker_saga_with_steps_passes() {
     let m = make_module_with_discipline(disc(
-        DisciplineKind::Saga, "CheckoutSaga",
+        DisciplineKind::Saga,
+        "CheckoutSaga",
         vec![list_param("steps", &["StepA", "StepB"])],
     ));
-    let no_steps: Vec<_> = check(&m).into_iter().filter(|e| e.contains("no 'steps:'")).collect();
-    assert!(no_steps.is_empty(), "saga with steps should not warn: {no_steps:?}");
+    let no_steps: Vec<_> = check(&m)
+        .into_iter()
+        .filter(|e| e.contains("no 'steps:'"))
+        .collect();
+    assert!(
+        no_steps.is_empty(),
+        "saga with steps should not warn: {no_steps:?}"
+    );
 }
 
 // ── checker: UnitOfWork + CQRS ────────────────────────────────────────────────
@@ -321,12 +431,18 @@ fn checker_saga_with_steps_passes() {
 fn checker_unit_of_work_no_errors() {
     let m = make_module_with_discipline(disc(DisciplineKind::UnitOfWork, "BillingContext", vec![]));
     let errors = check(&m);
-    assert!(errors.is_empty(), "valid UnitOfWork should have no errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "valid UnitOfWork should have no errors: {errors:?}"
+    );
 }
 
 #[test]
 fn checker_cqrs_no_errors() {
     let m = make_module_with_discipline(disc(DisciplineKind::Cqrs, "OrderStore", vec![]));
     let errors = check(&m);
-    assert!(errors.is_empty(), "valid CQRS should have no errors: {errors:?}");
+    assert!(
+        errors.is_empty(),
+        "valid CQRS should have no errors: {errors:?}"
+    );
 }

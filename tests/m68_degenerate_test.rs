@@ -92,7 +92,11 @@ fn degenerate_emits_require_non_degenerate() {
 #[test]
 fn degenerate_struct_is_generic() {
     let out = ok(degenerate_src());
-    assert!(out.contains("<T>") || out.contains("<T:"), "expected generic T:\n{}", out);
+    assert!(
+        out.contains("<T>") || out.contains("<T:"),
+        "expected generic T:\n{}",
+        out
+    );
 }
 
 #[test]

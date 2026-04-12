@@ -23,7 +23,10 @@ const MaxRetries: Int = 3
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const MAX_RETRIES: i64 = 3"), "missing MAX_RETRIES\n{out}");
+    assert!(
+        out.contains("pub const MAX_RETRIES: i64 = 3"),
+        "missing MAX_RETRIES\n{out}"
+    );
 }
 
 // ─── M157.2: float const emits ───────────────────────────────────────────────
@@ -36,7 +39,10 @@ const Timeout: Float = 30.5
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const TIMEOUT: f64 = 30.5"), "missing TIMEOUT\n{out}");
+    assert!(
+        out.contains("pub const TIMEOUT: f64 = 30.5"),
+        "missing TIMEOUT\n{out}"
+    );
 }
 
 // ─── M157.3: bool const emits ────────────────────────────────────────────────
@@ -49,7 +55,10 @@ const DebugMode: Bool = false
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const DEBUG_MODE: bool = false"), "missing DEBUG_MODE\n{out}");
+    assert!(
+        out.contains("pub const DEBUG_MODE: bool = false"),
+        "missing DEBUG_MODE\n{out}"
+    );
 }
 
 // ─── M157.4: string const emits ──────────────────────────────────────────────
@@ -62,7 +71,10 @@ const ServiceName: String = "api-gateway"
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const SERVICE_NAME: &str"), "missing SERVICE_NAME\n{out}");
+    assert!(
+        out.contains("pub const SERVICE_NAME: &str"),
+        "missing SERVICE_NAME\n{out}"
+    );
     assert!(out.contains("api-gateway"), "missing string value\n{out}");
 }
 
@@ -76,7 +88,10 @@ const MyConfigValue: Int = 42
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const MY_CONFIG_VALUE: i64 = 42"), "wrong snake case\n{out}");
+    assert!(
+        out.contains("pub const MY_CONFIG_VALUE: i64 = 42"),
+        "wrong snake case\n{out}"
+    );
 }
 
 // ─── M157.6: multiple consts in one module ────────────────────────────────────
@@ -106,7 +121,10 @@ const MaxRetries: Int = 3
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[const:item]"), "missing LOOM audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[const:item]"),
+        "missing LOOM audit comment\n{out}"
+    );
     assert!(out.contains("M157"), "missing M157 reference\n{out}");
 }
 
@@ -126,7 +144,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const MAX_CONNECTIONS"), "missing const\n{out}");
+    assert!(
+        out.contains("pub const MAX_CONNECTIONS"),
+        "missing const\n{out}"
+    );
     assert!(out.contains("struct User"), "missing store struct\n{out}");
 }
 
@@ -140,7 +161,11 @@ const Version: Int = 2
 end
 "#;
     let result = compile_check(src);
-    assert!(result.is_ok(), "const with Int type should compile: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "const with Int type should compile: {:?}",
+        result
+    );
 }
 
 // ─── M157.10: const type inference from float value ──────────────────────────
@@ -167,7 +192,10 @@ const Port: Int = 8080
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const PORT: i64 = 8080"), "missing PORT\n{out}");
+    assert!(
+        out.contains("pub const PORT: i64 = 8080"),
+        "missing PORT\n{out}"
+    );
 }
 
 // ─── M157.12: const mixed with dag and chain ─────────────────────────────────
@@ -188,7 +216,13 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub const MAX_NODES"), "missing MAX_NODES\n{out}");
-    assert!(out.contains("TrafficTransitionMatrix"), "missing chain\n{out}");
+    assert!(
+        out.contains("pub const MAX_NODES"),
+        "missing MAX_NODES\n{out}"
+    );
+    assert!(
+        out.contains("TrafficTransitionMatrix"),
+        "missing chain\n{out}"
+    );
     assert!(out.contains("PipelineDagItem"), "missing dag\n{out}");
 }

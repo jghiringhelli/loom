@@ -45,7 +45,11 @@ fn parse_type_declaration() {
 fn parse_emit_rust_bare() {
     let instr = LpnParser::parse_line("EMIT rust ScalpingAgent").unwrap();
     match instr {
-        LpnInstruction::Emit { target: EmitTarget::Rust, module, from } => {
+        LpnInstruction::Emit {
+            target: EmitTarget::Rust,
+            module,
+            from,
+        } => {
             assert_eq!(module, "ScalpingAgent");
             assert!(from.is_none());
         }
@@ -59,7 +63,11 @@ fn parse_emit_rust_from_file() {
         LpnParser::parse_line("EMIT rust ScalpingAgent FROM experiments/scalper/scalper.loom")
             .unwrap();
     match instr {
-        LpnInstruction::Emit { target: EmitTarget::Rust, module, from } => {
+        LpnInstruction::Emit {
+            target: EmitTarget::Rust,
+            module,
+            from,
+        } => {
             assert_eq!(module, "ScalpingAgent");
             assert_eq!(from.as_deref(), Some("experiments/scalper/scalper.loom"));
         }
@@ -69,10 +77,13 @@ fn parse_emit_rust_from_file() {
 
 #[test]
 fn parse_emit_typescript() {
-    let instr = LpnParser::parse_line("EMIT ts PaymentAPI FROM examples/02-payment-api.loom")
-        .unwrap();
+    let instr =
+        LpnParser::parse_line("EMIT ts PaymentAPI FROM examples/02-payment-api.loom").unwrap();
     match instr {
-        LpnInstruction::Emit { target: EmitTarget::TypeScript, .. } => {}
+        LpnInstruction::Emit {
+            target: EmitTarget::TypeScript,
+            ..
+        } => {}
         other => panic!("expected Emit TypeScript, got {:?}", other),
     }
 }
@@ -80,10 +91,12 @@ fn parse_emit_typescript() {
 #[test]
 fn parse_emit_openapi() {
     let instr =
-        LpnParser::parse_line("EMIT openapi PaymentAPI FROM examples/02-payment-api.loom")
-            .unwrap();
+        LpnParser::parse_line("EMIT openapi PaymentAPI FROM examples/02-payment-api.loom").unwrap();
     match instr {
-        LpnInstruction::Emit { target: EmitTarget::OpenApi, .. } => {}
+        LpnInstruction::Emit {
+            target: EmitTarget::OpenApi,
+            ..
+        } => {}
         other => panic!("expected Emit OpenApi, got {:?}", other),
     }
 }
@@ -94,7 +107,10 @@ fn parse_emit_openapi() {
 fn parse_check_all() {
     let instr = LpnParser::parse_line("CHECK all examples/01-hello-contracts.loom").unwrap();
     match instr {
-        LpnInstruction::Check { kind: CheckKind::All, file } => {
+        LpnInstruction::Check {
+            kind: CheckKind::All,
+            file,
+        } => {
             assert_eq!(file, "examples/01-hello-contracts.loom");
         }
         other => panic!("expected Check All, got {:?}", other),
@@ -105,7 +121,10 @@ fn parse_check_all() {
 fn parse_check_types() {
     let instr = LpnParser::parse_line("CHECK types examples/02-payment-api.loom").unwrap();
     match instr {
-        LpnInstruction::Check { kind: CheckKind::Types, .. } => {}
+        LpnInstruction::Check {
+            kind: CheckKind::Types,
+            ..
+        } => {}
         other => panic!("expected Check Types, got {:?}", other),
     }
 }
@@ -114,7 +133,10 @@ fn parse_check_types() {
 fn parse_check_contracts() {
     let instr = LpnParser::parse_line("CHECK contracts examples/02-payment-api.loom").unwrap();
     match instr {
-        LpnInstruction::Check { kind: CheckKind::Contracts, .. } => {}
+        LpnInstruction::Check {
+            kind: CheckKind::Contracts,
+            ..
+        } => {}
         other => panic!("expected Check Contracts, got {:?}", other),
     }
 }
@@ -123,10 +145,13 @@ fn parse_check_contracts() {
 
 #[test]
 fn parse_test_instruction() {
-    let instr =
-        LpnParser::parse_line("TEST spread_bps (100.0, 100.1) -> 10.0").unwrap();
+    let instr = LpnParser::parse_line("TEST spread_bps (100.0, 100.1) -> 10.0").unwrap();
     match instr {
-        LpnInstruction::Test { name, args, expected } => {
+        LpnInstruction::Test {
+            name,
+            args,
+            expected,
+        } => {
             assert_eq!(name, "spread_bps");
             assert_eq!(args, "100.0, 100.1");
             assert_eq!(expected, "10.0");
@@ -139,8 +164,7 @@ fn parse_test_instruction() {
 
 #[test]
 fn parse_verify() {
-    let instr =
-        LpnParser::parse_line("VERIFY M84 experiments/scalper/scalper.loom").unwrap();
+    let instr = LpnParser::parse_line("VERIFY M84 experiments/scalper/scalper.loom").unwrap();
     match instr {
         LpnInstruction::Verify { claim, file } => {
             assert_eq!(claim, "M84");
@@ -171,11 +195,15 @@ fn parse_impl_with_milestones_and_verify() {
     )
     .unwrap();
     match instr {
-        LpnInstruction::Impl { target, milestones, emit: EmitTarget::Rust, verify } => {
+        LpnInstruction::Impl {
+            target,
+            milestones,
+            emit: EmitTarget::Rust,
+            verify,
+        } => {
             assert_eq!(target, "ScalpingAgent");
             // M84-M89 expands to 6 milestones; M41 and M55 are singles → 8 total
-            let expanded: Vec<u32> =
-                milestones.iter().flat_map(|m| m.expand()).collect();
+            let expanded: Vec<u32> = milestones.iter().flat_map(|m| m.expand()).collect();
             assert_eq!(expanded.len(), 8);
             assert!(verify.contains(&VerifyStep::Compile));
         }
@@ -185,10 +213,9 @@ fn parse_impl_with_milestones_and_verify() {
 
 #[test]
 fn parse_impl_multi_verify() {
-    let instr = LpnParser::parse_line(
-        "IMPL PaymentAPI USING [M19,M20,M21] EMIT rust VERIFY compile+types",
-    )
-    .unwrap();
+    let instr =
+        LpnParser::parse_line("IMPL PaymentAPI USING [M19,M20,M21] EMIT rust VERIFY compile+types")
+            .unwrap();
     match instr {
         LpnInstruction::Impl { verify, .. } => {
             assert!(verify.contains(&VerifyStep::Compile));

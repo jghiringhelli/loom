@@ -349,7 +349,8 @@ fn m126_repository_port_uses_store_error() {
     // Should NOT use bare String in the port signature
     assert!(
         !out.contains("Result<Order, String>"),
-        "repository port should not use String error\n{}", out
+        "repository port should not use String error\n{}",
+        out
     );
 }
 
@@ -359,7 +360,11 @@ fn m126_repository_port_has_full_interface() {
     let out = compile(relational_src());
     assert!(out.contains("fn find_all"), "expected find_all\n{}", out);
     assert!(out.contains("fn exists"), "expected exists\n{}", out);
-    assert!(out.contains("Send + Sync"), "expected Send + Sync bounds\n{}", out);
+    assert!(
+        out.contains("Send + Sync"),
+        "expected Send + Sync bounds\n{}",
+        out
+    );
 }
 
 /// M126: InMemory adapter uses StoreError (not String) in method signatures.
@@ -436,7 +441,11 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("StoreError"), "expected StoreError\n{}", out);
-    assert!(out.contains("fn exists"), "expected exists in KV port\n{}", out);
+    assert!(
+        out.contains("fn exists"),
+        "expected exists in KV port\n{}",
+        out
+    );
 }
 
 /// M130: TimescaleDB adapter stub is emitted for TimeSeries stores.
@@ -454,4 +463,3 @@ fn m130_timeseries_emits_timescale_adapter_stub() {
         out
     );
 }
-

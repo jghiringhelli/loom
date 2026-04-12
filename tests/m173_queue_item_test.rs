@@ -13,7 +13,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("JobsQueue"), "expected JobsQueue struct, got:\n{}", out);
+    assert!(
+        out.contains("JobsQueue"),
+        "expected JobsQueue struct, got:\n{}",
+        out
+    );
 }
 
 // ── M173.2: generic type parameter ───────────────────────────────────────────
@@ -25,7 +29,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("TasksQueue<T>"), "expected generic param, got:\n{}", out);
+    assert!(
+        out.contains("TasksQueue<T>"),
+        "expected generic param, got:\n{}",
+        out
+    );
 }
 
 // ── M173.3: enqueue method emitted ───────────────────────────────────────────
@@ -37,7 +45,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn enqueue"), "expected enqueue method, got:\n{}", out);
+    assert!(
+        out.contains("fn enqueue"),
+        "expected enqueue method, got:\n{}",
+        out
+    );
 }
 
 // ── M173.4: dequeue method emitted ───────────────────────────────────────────
@@ -49,7 +61,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn dequeue"), "expected dequeue method, got:\n{}", out);
+    assert!(
+        out.contains("fn dequeue"),
+        "expected dequeue method, got:\n{}",
+        out
+    );
 }
 
 // ── M173.5: is_empty method emitted ──────────────────────────────────────────
@@ -61,7 +77,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("fn is_empty"), "expected is_empty method, got:\n{}", out);
+    assert!(
+        out.contains("fn is_empty"),
+        "expected is_empty method, got:\n{}",
+        out
+    );
 }
 
 // ── M173.6: capacity field emitted ───────────────────────────────────────────
@@ -73,7 +93,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("capacity: 100"), "expected capacity=100, got:\n{}", out);
+    assert!(
+        out.contains("capacity: 100"),
+        "expected capacity=100, got:\n{}",
+        out
+    );
 }
 
 // ── M173.7: default capacity is 0 (unbounded) ────────────────────────────────
@@ -85,7 +109,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("unbounded"), "expected unbounded annotation, got:\n{}", out);
+    assert!(
+        out.contains("unbounded"),
+        "expected unbounded annotation, got:\n{}",
+        out
+    );
 }
 
 // ── M173.8: kind annotation in comment ───────────────────────────────────────
@@ -97,7 +125,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("lifo"), "expected lifo in output, got:\n{}", out);
+    assert!(
+        out.contains("lifo"),
+        "expected lifo in output, got:\n{}",
+        out
+    );
 }
 
 // ── M173.9: VecDeque in inner field ──────────────────────────────────────────
@@ -109,7 +141,11 @@ module M
   end
 end
 "#);
-    assert!(out.contains("VecDeque"), "expected VecDeque inner field, got:\n{}", out);
+    assert!(
+        out.contains("VecDeque"),
+        "expected VecDeque inner field, got:\n{}",
+        out
+    );
 }
 
 // ── M173.10: LOOM annotation comment ─────────────────────────────────────────
@@ -139,8 +175,16 @@ module M
   end
 end
 "#);
-    assert!(out.contains("InboxQueue"), "expected InboxQueue, got:\n{}", out);
-    assert!(out.contains("OutboxQueue"), "expected OutboxQueue, got:\n{}", out);
+    assert!(
+        out.contains("InboxQueue"),
+        "expected InboxQueue, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("OutboxQueue"),
+        "expected OutboxQueue, got:\n{}",
+        out
+    );
 }
 
 // ── M173.12: queue alongside other items ─────────────────────────────────────
@@ -155,6 +199,14 @@ module Pipeline
   end
 end
 "#);
-    assert!(out.contains("BufferQueue"), "expected BufferQueue, got:\n{}", out);
-    assert!(out.contains("fn process"), "expected fn process, got:\n{}", out);
+    assert!(
+        out.contains("BufferQueue"),
+        "expected BufferQueue, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("fn process"),
+        "expected fn process, got:\n{}",
+        out
+    );
 }

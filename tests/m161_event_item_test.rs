@@ -28,7 +28,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("OrderPlacedEvent"), "expected OrderPlacedEvent in output\n{out}");
+    assert!(
+        out.contains("OrderPlacedEvent"),
+        "expected OrderPlacedEvent in output\n{out}"
+    );
 }
 
 // ─── M161.2: struct derive attrs emitted ──────────────────────────────────────
@@ -64,9 +67,18 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub user_id: i64"), "missing user_id field\n{out}");
-    assert!(out.contains("pub email: String"), "missing email field\n{out}");
-    assert!(out.contains("pub verified: bool"), "missing verified field\n{out}");
+    assert!(
+        out.contains("pub user_id: i64"),
+        "missing user_id field\n{out}"
+    );
+    assert!(
+        out.contains("pub email: String"),
+        "missing email field\n{out}"
+    );
+    assert!(
+        out.contains("pub verified: bool"),
+        "missing verified field\n{out}"
+    );
 }
 
 // ─── M161.4: Float type maps to f64 ───────────────────────────────────────────
@@ -82,7 +94,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub amount: f64"), "Float should map to f64\n{out}");
+    assert!(
+        out.contains("pub amount: f64"),
+        "Float should map to f64\n{out}"
+    );
 }
 
 // ─── M161.5: handler trait emitted ────────────────────────────────────────────
@@ -172,10 +187,22 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("UserCreatedEvent"), "missing UserCreatedEvent\n{out}");
-    assert!(out.contains("UserDeletedEvent"), "missing UserDeletedEvent\n{out}");
-    assert!(out.contains("UserCreatedEventHandler"), "missing UserCreatedEventHandler\n{out}");
-    assert!(out.contains("UserDeletedEventHandler"), "missing UserDeletedEventHandler\n{out}");
+    assert!(
+        out.contains("UserCreatedEvent"),
+        "missing UserCreatedEvent\n{out}"
+    );
+    assert!(
+        out.contains("UserDeletedEvent"),
+        "missing UserDeletedEvent\n{out}"
+    );
+    assert!(
+        out.contains("UserCreatedEventHandler"),
+        "missing UserCreatedEventHandler\n{out}"
+    );
+    assert!(
+        out.contains("UserDeletedEventHandler"),
+        "missing UserDeletedEventHandler\n{out}"
+    );
 }
 
 // ─── M161.10: event mixed with other items ────────────────────────────────────
@@ -193,7 +220,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("MAX_RETRIES"), "missing const\n{out}");
-    assert!(out.contains("NotificationSentEvent"), "missing event\n{out}");
+    assert!(
+        out.contains("NotificationSentEvent"),
+        "missing event\n{out}"
+    );
 }
 
 // ─── M161.11: M161 reference in output ────────────────────────────────────────

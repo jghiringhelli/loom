@@ -49,7 +49,10 @@ module Ctrl
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("// LOOM[role:effector]"), "expected role:effector");
+    assert!(
+        out.contains("// LOOM[role:effector]"),
+        "expected role:effector"
+    );
 }
 
 #[test]
@@ -66,7 +69,10 @@ module Ctrl
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("// LOOM[role:regulator]"), "expected role:regulator");
+    assert!(
+        out.contains("// LOOM[role:regulator]"),
+        "expected role:regulator"
+    );
 }
 
 /// A being without `role:` produces no LOOM[role:] comment.
@@ -178,11 +184,15 @@ module Env
 end
 "#;
     let out = compile(src);
-    let role_pos = out.find("LOOM[role:sensor]").expect("LOOM[role:sensor] expected");
+    let role_pos = out
+        .find("LOOM[role:sensor]")
+        .expect("LOOM[role:sensor] expected");
     let relates_pos = out
         .find("LOOM[relates_to:EnergyGrid:mutualistic]")
         .expect("relates_to expected");
-    let struct_pos = out.find("struct ClimateAdapter").or_else(|| out.find("ClimateAdapter"));
+    let struct_pos = out
+        .find("struct ClimateAdapter")
+        .or_else(|| out.find("ClimateAdapter"));
     if let Some(sp) = struct_pos {
         assert!(role_pos < sp, "LOOM[role:] must precede struct");
         assert!(relates_pos < sp, "LOOM[relates_to:] must precede struct");

@@ -1,4 +1,4 @@
-﻿//! Teleological checker — validates `being:` blocks.
+//! Teleological checker — validates `being:` blocks.
 //!
 //! Rules:
 //! - Every `being` must declare a `telos:` (final cause).
@@ -12,7 +12,9 @@
 //!   telos metric cannot be proven to converge.
 
 use crate::ast::Span;
-use crate::ast::{BeingDef, ClassifierDef, EcosystemDef, EvolveBlock, Item, Module, SearchStrategy, TelosDef};
+use crate::ast::{
+    BeingDef, ClassifierDef, EcosystemDef, EvolveBlock, Item, Module, SearchStrategy, TelosDef,
+};
 use crate::error::LoomError;
 
 /// Run all teleological checks on a module.
@@ -22,7 +24,13 @@ pub fn check(module: &Module) -> Result<(), Vec<LoomError>> {
     let classifiers: Vec<&ClassifierDef> = module
         .items
         .iter()
-        .filter_map(|item| if let Item::Classifier(c) = item { Some(c) } else { None })
+        .filter_map(|item| {
+            if let Item::Classifier(c) = item {
+                Some(c)
+            } else {
+                None
+            }
+        })
         .collect();
     for being in &module.being_defs {
         check_being(being, &mut errors);
@@ -527,7 +535,6 @@ fn check_ecosystem(
         }
     }
 }
-
 
 // M191: TelosConsistencyChecker for classifier retrain_strategy
 /// Verify that any being using a classifier-triggered regulate block with a

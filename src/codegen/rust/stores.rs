@@ -459,7 +459,9 @@ impl RustEmitter {
     // ── TimeSeries ────────────────────────────────────────────────────────────
 
     fn codegen_timeseries_store(&self, store: &StoreDef, out: &mut String) {
-        out.push_str("// Ecosystem: TimescaleDB (Postgres extension) | influxdb2 | timeseries-rs\n");
+        out.push_str(
+            "// Ecosystem: TimescaleDB (Postgres extension) | influxdb2 | timeseries-rs\n",
+        );
         out.push_str(
             "// LOOM[store:TimeSeries]: events have mandatory timestamp; ordered by time (M130)\n\n",
         );

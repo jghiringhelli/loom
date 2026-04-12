@@ -24,7 +24,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("PlaceOrderCommand"), "expected PlaceOrderCommand\n{out}");
+    assert!(
+        out.contains("PlaceOrderCommand"),
+        "expected PlaceOrderCommand\n{out}"
+    );
 }
 
 // ─── M162.2: command derive attrs ─────────────────────────────────────────────
@@ -39,7 +42,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive attrs\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive attrs\n{out}"
+    );
 }
 
 // ─── M162.3: command typed fields ─────────────────────────────────────────────
@@ -95,7 +101,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[command:cqrs]"), "missing command audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[command:cqrs]"),
+        "missing command audit comment\n{out}"
+    );
     assert!(out.contains("M162"), "missing M162 reference\n{out}");
 }
 
@@ -111,7 +120,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("GetOrderQuery"), "expected GetOrderQuery\n{out}");
+    assert!(
+        out.contains("GetOrderQuery"),
+        "expected GetOrderQuery\n{out}"
+    );
 }
 
 // ─── M162.7: query typed fields ───────────────────────────────────────────────
@@ -127,8 +139,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub keyword: String"), "missing keyword\n{out}");
-    assert!(out.contains("pub max_price: f64"), "missing max_price\n{out}");
+    assert!(
+        out.contains("pub keyword: String"),
+        "missing keyword\n{out}"
+    );
+    assert!(
+        out.contains("pub max_price: f64"),
+        "missing max_price\n{out}"
+    );
 }
 
 // ─── M162.8: query handler trait is generic ───────────────────────────────────
@@ -165,7 +183,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[query:cqrs]"), "missing query audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[query:cqrs]"),
+        "missing query audit comment\n{out}"
+    );
 }
 
 // ─── M162.10: command and query together in one module ────────────────────────
@@ -184,10 +205,22 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ChargeCardCommand"), "missing command struct\n{out}");
-    assert!(out.contains("ChargeCardHandler"), "missing command handler\n{out}");
-    assert!(out.contains("GetBalanceQuery"), "missing query struct\n{out}");
-    assert!(out.contains("GetBalanceQueryHandler"), "missing query handler\n{out}");
+    assert!(
+        out.contains("ChargeCardCommand"),
+        "missing command struct\n{out}"
+    );
+    assert!(
+        out.contains("ChargeCardHandler"),
+        "missing command handler\n{out}"
+    );
+    assert!(
+        out.contains("GetBalanceQuery"),
+        "missing query struct\n{out}"
+    );
+    assert!(
+        out.contains("GetBalanceQueryHandler"),
+        "missing query handler\n{out}"
+    );
 }
 
 // ─── M162.11: command mixed with event ────────────────────────────────────────
@@ -206,8 +239,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("SendNotificationCommand"), "missing command\n{out}");
-    assert!(out.contains("NotificationSentEvent"), "missing event\n{out}");
+    assert!(
+        out.contains("SendNotificationCommand"),
+        "missing command\n{out}"
+    );
+    assert!(
+        out.contains("NotificationSentEvent"),
+        "missing event\n{out}"
+    );
 }
 
 // ─── M162.12: empty command/query parses ──────────────────────────────────────

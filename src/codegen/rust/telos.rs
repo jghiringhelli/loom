@@ -133,31 +133,30 @@ fn emit_evaluation_struct(name: &str, out: &mut String) {
 /// M132–M133: convergence tracker with populated thresholds.
 fn emit_convergence_tracker(tf: &TelosFunctionDef, name: &str, out: &mut String) {
     // Threshold constants — use actual values or f64 stubs
-    let (convergence_val, warning_val, divergence_val, propagation_val) =
-        match &tf.thresholds {
-            Some(t) => {
-                let w = match t.warning {
-                    Some(w) => format!("Some({:.4}_f64)", w),
-                    None => "None".to_string(),
-                };
-                let p = match t.propagation {
-                    Some(p) => format!("Some({:.4}_f64)", p),
-                    None => "None".to_string(),
-                };
-                (
-                    format!("{:.4}_f64", t.convergence),
-                    w,
-                    format!("{:.4}_f64", t.divergence),
-                    p,
-                )
-            }
-            None => (
-                "0.75_f64 // TODO: set convergence threshold".to_string(),
-                "Some(0.50_f64) // TODO: optional warning threshold".to_string(),
-                "0.25_f64 // TODO: set divergence/alarm threshold".to_string(),
-                "None".to_string(),
-            ),
-        };
+    let (convergence_val, warning_val, divergence_val, propagation_val) = match &tf.thresholds {
+        Some(t) => {
+            let w = match t.warning {
+                Some(w) => format!("Some({:.4}_f64)", w),
+                None => "None".to_string(),
+            };
+            let p = match t.propagation {
+                Some(p) => format!("Some({:.4}_f64)", p),
+                None => "None".to_string(),
+            };
+            (
+                format!("{:.4}_f64", t.convergence),
+                w,
+                format!("{:.4}_f64", t.divergence),
+                p,
+            )
+        }
+        None => (
+            "0.75_f64 // TODO: set convergence threshold".to_string(),
+            "Some(0.50_f64) // TODO: optional warning threshold".to_string(),
+            "0.25_f64 // TODO: set divergence/alarm threshold".to_string(),
+            "None".to_string(),
+        ),
+    };
 
     out.push_str(&format!(
         "/// Rolling convergence tracker for the `{raw}` telos.\n\

@@ -22,8 +22,11 @@ impl RustEmitter {
                 for ann in &f.annotations {
                     match ann.key.as_str() {
                         "pii" => field_out.push_str("    #[cfg_attr(loom_runtime, loom_pii)]\n"),
-                        "secret" => field_out.push_str("    #[cfg_attr(loom_runtime, loom_secret)]\n"),
-                        "encrypt-at-rest" => field_out.push_str("    #[cfg_attr(loom_runtime, loom_encrypt_at_rest)]\n"),
+                        "secret" => {
+                            field_out.push_str("    #[cfg_attr(loom_runtime, loom_secret)]\n")
+                        }
+                        "encrypt-at-rest" => field_out
+                            .push_str("    #[cfg_attr(loom_runtime, loom_encrypt_at_rest)]\n"),
                         "never-log" => {
                             field_out.push_str(&format!("    // NEVER LOG: {}\n", f.name))
                         }

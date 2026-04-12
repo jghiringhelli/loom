@@ -25,7 +25,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ApiLimiterRateLimiter"), "expected ApiLimiterRateLimiter\n{out}");
+    assert!(
+        out.contains("ApiLimiterRateLimiter"),
+        "expected ApiLimiterRateLimiter\n{out}"
+    );
 }
 
 // ─── M165.2: struct fields emitted ────────────────────────────────────────────
@@ -42,9 +45,18 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub requests_per_window: u64"), "missing requests_per_window\n{out}");
-    assert!(out.contains("pub window_secs: u64"), "missing window_secs\n{out}");
-    assert!(out.contains("pub burst_capacity: u64"), "missing burst_capacity\n{out}");
+    assert!(
+        out.contains("pub requests_per_window: u64"),
+        "missing requests_per_window\n{out}"
+    );
+    assert!(
+        out.contains("pub window_secs: u64"),
+        "missing window_secs\n{out}"
+    );
+    assert!(
+        out.contains("pub burst_capacity: u64"),
+        "missing burst_capacity\n{out}"
+    );
 }
 
 // ─── M165.3: new() uses configured values ─────────────────────────────────────
@@ -61,7 +73,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("requests_per_window: 50"), "requests not 50\n{out}");
+    assert!(
+        out.contains("requests_per_window: 50"),
+        "requests not 50\n{out}"
+    );
     assert!(out.contains("window_secs: 10"), "per not 10\n{out}");
     assert!(out.contains("burst_capacity: 5"), "burst not 5\n{out}");
 }
@@ -77,9 +92,18 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("requests_per_window: 100"), "default requests should be 100\n{out}");
-    assert!(out.contains("window_secs: 60"), "default per should be 60\n{out}");
-    assert!(out.contains("burst_capacity: 0"), "default burst should be 0\n{out}");
+    assert!(
+        out.contains("requests_per_window: 100"),
+        "default requests should be 100\n{out}"
+    );
+    assert!(
+        out.contains("window_secs: 60"),
+        "default per should be 60\n{out}"
+    );
+    assert!(
+        out.contains("burst_capacity: 0"),
+        "default burst should be 0\n{out}"
+    );
 }
 
 // ─── M165.5: allow() method emitted ───────────────────────────────────────────
@@ -95,7 +119,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn allow(&self) -> bool"), "missing allow() method\n{out}");
+    assert!(
+        out.contains("pub fn allow(&self) -> bool"),
+        "missing allow() method\n{out}"
+    );
 }
 
 // ─── M165.6: allow() contains todo!() stub ────────────────────────────────────
@@ -126,7 +153,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("LOOM[rate_limiter:resilience]"), "missing audit comment\n{out}");
+    assert!(
+        out.contains("LOOM[rate_limiter:resilience]"),
+        "missing audit comment\n{out}"
+    );
     assert!(out.contains("M165"), "missing M165 reference\n{out}");
 }
 
@@ -143,7 +173,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("#[derive(Debug, Clone)]"), "missing derive\n{out}");
+    assert!(
+        out.contains("#[derive(Debug, Clone)]"),
+        "missing derive\n{out}"
+    );
 }
 
 // ─── M165.9: new() function emitted ───────────────────────────────────────────
@@ -159,7 +192,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub fn new() -> Self"), "missing new() fn\n{out}");
+    assert!(
+        out.contains("pub fn new() -> Self"),
+        "missing new() fn\n{out}"
+    );
 }
 
 // ─── M165.10: multiple limiters in one module ─────────────────────────────────
@@ -179,8 +215,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("ApiLimiterRateLimiter"), "missing ApiLimiter\n{out}");
-    assert!(out.contains("DatabaseLimiterRateLimiter"), "missing DatabaseLimiter\n{out}");
+    assert!(
+        out.contains("ApiLimiterRateLimiter"),
+        "missing ApiLimiter\n{out}"
+    );
+    assert!(
+        out.contains("DatabaseLimiterRateLimiter"),
+        "missing DatabaseLimiter\n{out}"
+    );
 }
 
 // ─── M165.11: mixed with retry ────────────────────────────────────────────────
@@ -201,7 +243,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("HttpRetryPolicy"), "missing retry\n{out}");
-    assert!(out.contains("HttpLimiterRateLimiter"), "missing rate limiter\n{out}");
+    assert!(
+        out.contains("HttpLimiterRateLimiter"),
+        "missing rate limiter\n{out}"
+    );
 }
 
 // ─── M165.12: burst=0 (no burst) parses cleanly ───────────────────────────────
@@ -221,5 +266,8 @@ end
     );
     assert!(out.is_ok(), "burst: 0 should parse: {:?}", out.err());
     let result = out.unwrap();
-    assert!(result.contains("burst_capacity: 0"), "burst_capacity should be 0");
+    assert!(
+        result.contains("burst_capacity: 0"),
+        "burst_capacity should be 0"
+    );
 }

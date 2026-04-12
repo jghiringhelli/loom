@@ -13,8 +13,8 @@
 //!    (you cannot propagate from a state below convergence).
 
 use crate::ast::{Item, Module};
-use crate::error::LoomError;
 use crate::checker::LoomChecker;
+use crate::error::LoomError;
 
 pub struct TelosFunctionChecker;
 
@@ -38,11 +38,7 @@ impl TelosFunctionChecker {
 
     // ── Completeness ──────────────────────────────────────────────────────────
 
-    fn check_completeness(
-        &self,
-        tf: &crate::ast::TelosFunctionDef,
-        errors: &mut Vec<LoomError>,
-    ) {
+    fn check_completeness(&self, tf: &crate::ast::TelosFunctionDef, errors: &mut Vec<LoomError>) {
         // measured_by is required for TelosMetric to be a typed function.
         // Without it the telos is just a string — no convergence can be tracked.
         if tf.measured_by.is_none() {

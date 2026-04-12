@@ -45,8 +45,16 @@ fn criticality_emits_loom_annotation() {
 #[test]
 fn criticality_annotation_includes_bounds() {
     let out = ok(&criticality_src("Network", "0.2", "0.8"));
-    assert!(out.contains("lower=0.2"), "expected lower in annotation:\n{}", out);
-    assert!(out.contains("upper=0.8"), "expected upper in annotation:\n{}", out);
+    assert!(
+        out.contains("lower=0.2"),
+        "expected lower in annotation:\n{}",
+        out
+    );
+    assert!(
+        out.contains("upper=0.8"),
+        "expected upper in annotation:\n{}",
+        out
+    );
 }
 
 #[test]
@@ -109,8 +117,16 @@ fn criticality_with_probe_fn_emits_probe_function() {
 #[test]
 fn criticality_different_bounds() {
     let out = ok(&criticality_src("Ecosystem", "0.1", "0.9"));
-    assert!(out.contains("ECOSYSTEM_CRITICALITY_LOWER"), "output:\n{}", out);
-    assert!(out.contains("ECOSYSTEM_CRITICALITY_UPPER"), "output:\n{}", out);
+    assert!(
+        out.contains("ECOSYSTEM_CRITICALITY_LOWER"),
+        "output:\n{}",
+        out
+    );
+    assert!(
+        out.contains("ECOSYSTEM_CRITICALITY_UPPER"),
+        "output:\n{}",
+        out
+    );
 }
 
 #[test]

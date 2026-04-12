@@ -192,7 +192,6 @@ impl Default for ExperimentParams {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LpnInstruction {
     // ── Tier 1: Atomic declarations ──────────────────────────────────────────
-
     /// `FN name :: TypeSig` — declare a function signature.
     Fn { name: String, sig: String },
 
@@ -203,13 +202,21 @@ pub enum LpnInstruction {
     Enum { name: String, body: String },
 
     /// `EMIT target Module [FROM file]` — compile and emit a module.
-    Emit { target: EmitTarget, module: String, from: Option<String> },
+    Emit {
+        target: EmitTarget,
+        module: String,
+        from: Option<String>,
+    },
 
     /// `CHECK kind file` — run the specified checker on a file.
     Check { kind: CheckKind, file: String },
 
     /// `TEST name (args) -> expected` — verify a function call.
-    Test { name: String, args: String, expected: String },
+    Test {
+        name: String,
+        args: String,
+        expected: String,
+    },
 
     /// `VERIFY claim file` — verify a correctness claim against a file.
     Verify { claim: String, file: String },
@@ -221,10 +228,13 @@ pub enum LpnInstruction {
     Del { item: String, from: String },
 
     /// `RENAME from TO to IN file` — rename a symbol in a file.
-    Rename { from: String, to: String, in_file: String },
+    Rename {
+        from: String,
+        to: String,
+        in_file: String,
+    },
 
     // ── Tier 2: Compound operations ──────────────────────────────────────────
-
     /// `IMPL target USING [milestones] EMIT target VERIFY steps`
     /// — implement a module covering specific milestones, then emit and verify.
     Impl {
@@ -238,12 +248,14 @@ pub enum LpnInstruction {
     Refactor { file: String, split_at: String },
 
     // ── Tier 3: Experiments ───────────────────────────────────────────────────
-
     /// `ALX n=N domain=D coverage>=C emit=T verify=V evidence=store`
     /// — run an ALX self-applicability experiment.
     Alx(ExperimentParams),
 
     /// Any other named experiment with key=value params.
     /// e.g. `SCALPER ticks=10000 ou_theta=2.0`
-    Experiment { name: String, params: Vec<(String, String)> },
+    Experiment {
+        name: String,
+        params: Vec<(String, String)>,
+    },
 }

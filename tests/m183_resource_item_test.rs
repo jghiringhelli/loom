@@ -18,15 +18,19 @@ fn parses_minimal_resource() {
 #[test]
 fn rejects_resource_without_name() {
     let e = err("module M\n  resource\n  end\nend\n");
-    assert!(e.contains("expected") || e.contains("identifier") || e.contains("Unexpected"),
-        "unexpected error: {e}");
+    assert!(
+        e.contains("expected") || e.contains("identifier") || e.contains("Unexpected"),
+        "unexpected error: {e}"
+    );
 }
 
 #[test]
 fn rejects_resource_without_end() {
     let e = err("module M\n  resource MyRes\nend\n");
-    assert!(e.contains("end") || e.contains("End") || e.contains("expected"),
-        "unexpected error: {e}");
+    assert!(
+        e.contains("end") || e.contains("End") || e.contains("expected"),
+        "unexpected error: {e}"
+    );
 }
 
 // ── Codegen — struct ─────────────────────────────────────────────────────────
@@ -34,7 +38,10 @@ fn rejects_resource_without_end() {
 #[test]
 fn emits_resource_struct() {
     let out = ok("module M\n  resource MyRes\n  end\nend\n");
-    assert!(out.contains("struct MyResResource"), "missing struct: {out}");
+    assert!(
+        out.contains("struct MyResResource"),
+        "missing struct: {out}"
+    );
 }
 
 #[test]
@@ -64,7 +71,10 @@ fn emits_is_acquired_method() {
 #[test]
 fn emits_compare_exchange() {
     let out = ok("module M\n  resource Lock\n  end\nend\n");
-    assert!(out.contains("compare_exchange"), "missing compare_exchange: {out}");
+    assert!(
+        out.contains("compare_exchange"),
+        "missing compare_exchange: {out}"
+    );
 }
 
 // ── LOOM annotation ───────────────────────────────────────────────────────────
@@ -72,7 +82,10 @@ fn emits_compare_exchange() {
 #[test]
 fn emits_loom_annotation() {
     let out = ok("module M\n  resource MyRes\n  end\nend\n");
-    assert!(out.contains("LOOM[resource:"), "missing LOOM annotation: {out}");
+    assert!(
+        out.contains("LOOM[resource:"),
+        "missing LOOM annotation: {out}"
+    );
 }
 
 // ── Name derivation ───────────────────────────────────────────────────────────
@@ -80,7 +93,10 @@ fn emits_loom_annotation() {
 #[test]
 fn pascal_case_struct_name() {
     let out = ok("module M\n  resource my_resource\n  end\nend\n");
-    assert!(out.contains("struct MyResourceResource"), "missing PascalCase struct: {out}");
+    assert!(
+        out.contains("struct MyResourceResource"),
+        "missing PascalCase struct: {out}"
+    );
 }
 
 // ── Multiple items ────────────────────────────────────────────────────────────
@@ -95,6 +111,12 @@ fn two_resources_in_module() {
 #[test]
 fn resource_and_lease_coexist() {
     let out = ok("module M\n  resource Lock\n  end\n  lease Token\n  end\nend\n");
-    assert!(out.contains("struct LockResource"), "missing LockResource: {out}");
-    assert!(out.contains("struct TokenLease"), "missing TokenLease: {out}");
+    assert!(
+        out.contains("struct LockResource"),
+        "missing LockResource: {out}"
+    );
+    assert!(
+        out.contains("struct TokenLease"),
+        "missing TokenLease: {out}"
+    );
 }

@@ -15,28 +15,44 @@ fn err(src: &str) -> String {
 #[test]
 fn t1_event_bus_generates_struct() {
     let out = ok("module M\n  event_bus MyBus\n  end\nend\n");
-    assert!(out.contains("struct MyBusEventBus"), "expected MyBusEventBus struct, got:\n{}", out);
+    assert!(
+        out.contains("struct MyBusEventBus"),
+        "expected MyBusEventBus struct, got:\n{}",
+        out
+    );
 }
 
 // T2 — struct is generic over event type
 #[test]
 fn t2_event_bus_is_generic() {
     let out = ok("module M\n  event_bus AppBus\n  end\nend\n");
-    assert!(out.contains("<E") || out.contains("EventBus<"), "expected generic param, got:\n{}", out);
+    assert!(
+        out.contains("<E") || out.contains("EventBus<"),
+        "expected generic param, got:\n{}",
+        out
+    );
 }
 
 // T3 — subscribe method emitted
 #[test]
 fn t3_event_bus_has_subscribe() {
     let out = ok("module M\n  event_bus Notifier\n  end\nend\n");
-    assert!(out.contains("fn subscribe"), "expected fn subscribe, got:\n{}", out);
+    assert!(
+        out.contains("fn subscribe"),
+        "expected fn subscribe, got:\n{}",
+        out
+    );
 }
 
 // T4 — publish method emitted
 #[test]
 fn t4_event_bus_has_publish() {
     let out = ok("module M\n  event_bus Notifier\n  end\nend\n");
-    assert!(out.contains("fn publish"), "expected fn publish, got:\n{}", out);
+    assert!(
+        out.contains("fn publish"),
+        "expected fn publish, got:\n{}",
+        out
+    );
 }
 
 // T5 — drain method emitted
@@ -50,7 +66,11 @@ fn t5_event_bus_has_drain() {
 #[test]
 fn t6_event_bus_has_subscribers_field() {
     let out = ok("module M\n  event_bus Hub\n  end\nend\n");
-    assert!(out.contains("subscribers"), "expected subscribers field, got:\n{}", out);
+    assert!(
+        out.contains("subscribers"),
+        "expected subscribers field, got:\n{}",
+        out
+    );
 }
 
 // T7 — name correctly embedded in struct name
@@ -79,8 +99,16 @@ fn t8_event_bus_loom_annotation() {
 #[test]
 fn t9_multiple_event_buses() {
     let out = ok("module M\n  event_bus A\n  end\n  event_bus B\n  end\nend\n");
-    assert!(out.contains("AEventBus"), "expected AEventBus, got:\n{}", out);
-    assert!(out.contains("BEventBus"), "expected BEventBus, got:\n{}", out);
+    assert!(
+        out.contains("AEventBus"),
+        "expected AEventBus, got:\n{}",
+        out
+    );
+    assert!(
+        out.contains("BEventBus"),
+        "expected BEventBus, got:\n{}",
+        out
+    );
 }
 
 // T10 — VecDeque or Vec used for pending events
@@ -99,7 +127,11 @@ fn t10_event_bus_has_pending_storage() {
 fn t11_event_bus_with_other_items() {
     let src = "module M\n  event_bus Events\n  end\n  entity Order\n    id: Int\n  end\nend\n";
     let out = ok(src);
-    assert!(out.contains("EventsEventBus"), "expected EventsEventBus, got:\n{}", out);
+    assert!(
+        out.contains("EventsEventBus"),
+        "expected EventsEventBus, got:\n{}",
+        out
+    );
     assert!(out.contains("Order"), "expected Order type, got:\n{}", out);
 }
 

@@ -188,7 +188,10 @@ end
 "#;
     let out = compile(src);
     assert!(out.contains("pub const MAX_STEPS"), "missing const\n{out}");
-    assert!(out.contains("pub struct ProcessPipeline"), "missing pipeline\n{out}");
+    assert!(
+        out.contains("pub struct ProcessPipeline"),
+        "missing pipeline\n{out}"
+    );
 }
 
 // ─── M159.11: pipeline mixed with chain ──────────────────────────────────────
@@ -212,7 +215,10 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct DataFlowPipeline"), "missing pipeline\n{out}");
+    assert!(
+        out.contains("pub struct DataFlowPipeline"),
+        "missing pipeline\n{out}"
+    );
     assert!(out.contains("LifecycleState"), "missing chain\n{out}");
 }
 
@@ -228,5 +234,8 @@ end
 end
 "#;
     let result = compile_check(src);
-    assert!(result.is_err(), "expected parse error for missing step keyword");
+    assert!(
+        result.is_err(),
+        "expected parse error for missing step keyword"
+    );
 }

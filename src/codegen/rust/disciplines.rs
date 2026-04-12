@@ -329,7 +329,6 @@ impl {T}Repository for InMemory{T}Repository {
         ));
     }
 
-
     /// Unit of Work — atomic transaction scope grouping multiple repositories (Fowler 2002).
     pub(super) fn emit_unit_of_work(&self, store_name: &str, tables: &[String], out: &mut String) {
         out.push_str(&format!(
@@ -628,7 +627,9 @@ impl RustEmitter {
             }
             // M137: PointToPoint — typed message queue with acknowledgement (AMQP model)
             Some(MessagingPattern::PointToPoint) => {
-                out.push_str("// AMQP 0-9-1 point-to-point — one producer, one consumer, explicit ack\n");
+                out.push_str(
+                    "// AMQP 0-9-1 point-to-point — one producer, one consumer, explicit ack\n",
+                );
                 out.push_str(&format!(
                     "pub trait {n}Sender<T> {{\n    \
                      /// Enqueue a message.  Returns the delivery tag on success.\n    \

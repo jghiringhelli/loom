@@ -3,7 +3,7 @@
 //! Gate: `RustEmitter::new().with_release_contracts(true)` emits `assert!` instead of
 //! `debug_assert!` for `require:` and `ensure:` contracts, so they survive `--release` builds.
 
-use loom::{codegen::rust::RustEmitter, parser::Parser, lexer::Lexer};
+use loom::{codegen::rust::RustEmitter, lexer::Lexer, parser::Parser};
 
 fn compile_default(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
@@ -14,7 +14,9 @@ fn compile_default(src: &str) -> String {
 fn compile_release(src: &str) -> String {
     let tokens = Lexer::tokenize(src).expect("lex failed");
     let module = Parser::new(&tokens).parse_module().expect("parse failed");
-    RustEmitter::new().with_release_contracts(true).emit(&module)
+    RustEmitter::new()
+        .with_release_contracts(true)
+        .emit(&module)
 }
 
 // ── Default mode: debug_assert! ──────────────────────────────────────────────
@@ -163,7 +165,9 @@ end
 "#;
     let tokens = Lexer::tokenize(src).expect("lex failed");
     let module = Parser::new(&tokens).parse_module().expect("parse failed");
-    let out = RustEmitter::new().with_release_contracts(true).emit(&module);
+    let out = RustEmitter::new()
+        .with_release_contracts(true)
+        .emit(&module);
     assert!(out.contains("assert!("));
 }
 

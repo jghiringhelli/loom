@@ -67,8 +67,14 @@ end
         out.contains("pub enum OrderSagaError"),
         "missing error enum\n{out}"
     );
-    assert!(out.contains("ReserveFailed"), "missing ReserveFailed variant\n{out}");
-    assert!(out.contains("ChargeFailed"), "missing ChargeFailed variant\n{out}");
+    assert!(
+        out.contains("ReserveFailed"),
+        "missing ReserveFailed variant\n{out}"
+    );
+    assert!(
+        out.contains("ChargeFailed"),
+        "missing ChargeFailed variant\n{out}"
+    );
 }
 
 // ─── M160.4: emits step fn returning Result ───────────────────────────────────
@@ -85,7 +91,10 @@ end
     let out = compile(src);
     assert!(out.contains("fn reserve("), "missing reserve fn\n{out}");
     assert!(out.contains("Result<"), "step should return Result\n{out}");
-    assert!(out.contains("OrderSagaError"), "step should use error enum\n{out}");
+    assert!(
+        out.contains("OrderSagaError"),
+        "step should use error enum\n{out}"
+    );
 }
 
 // ─── M160.5: compensate emits _compensate fn ─────────────────────────────────
@@ -123,7 +132,10 @@ end
     let out = compile(src);
     assert!(out.contains("LOOM[saga:item]"), "missing saga audit\n{out}");
     assert!(out.contains("LOOM[saga:step]"), "missing step audit\n{out}");
-    assert!(out.contains("LOOM[saga:compensate]"), "missing compensate audit\n{out}");
+    assert!(
+        out.contains("LOOM[saga:compensate]"),
+        "missing compensate audit\n{out}"
+    );
 }
 
 // ─── M160.7: emits execute() method ──────────────────────────────────────────
@@ -160,9 +172,15 @@ end
     let out = compile(src);
     assert!(out.contains("fn reserve("), "missing reserve\n{out}");
     assert!(out.contains("fn charge("), "missing charge\n{out}");
-    assert!(out.contains("fn charge_compensate("), "missing charge_compensate\n{out}");
+    assert!(
+        out.contains("fn charge_compensate("),
+        "missing charge_compensate\n{out}"
+    );
     assert!(out.contains("fn fulfill("), "missing fulfill\n{out}");
-    assert!(out.contains("fn fulfill_compensate("), "missing fulfill_compensate\n{out}");
+    assert!(
+        out.contains("fn fulfill_compensate("),
+        "missing fulfill_compensate\n{out}"
+    );
 }
 
 // ─── M160.9: type mapping in step params ──────────────────────────────────────
@@ -197,8 +215,14 @@ end
 end
 "#;
     let out = compile(src);
-    assert!(out.contains("pub struct PreProcessPipeline"), "missing pipeline\n{out}");
-    assert!(out.contains("pub struct ProcessSaga"), "missing saga\n{out}");
+    assert!(
+        out.contains("pub struct PreProcessPipeline"),
+        "missing pipeline\n{out}"
+    );
+    assert!(
+        out.contains("pub struct ProcessSaga"),
+        "missing saga\n{out}"
+    );
 }
 
 // ─── M160.11: empty saga parses ───────────────────────────────────────────────

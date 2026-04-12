@@ -52,7 +52,8 @@ end
 "#,
     );
     assert!(
-        out.contains("pub fn new(repo: Box<dyn UserRepository>") || out.contains("fn new(repo: Box<dyn UserRepository>"),
+        out.contains("pub fn new(repo: Box<dyn UserRepository>")
+            || out.contains("fn new(repo: Box<dyn UserRepository>"),
         "expected new(repo) constructor\n{out}"
     );
 }
@@ -73,7 +74,10 @@ module M
 end
 "#,
     );
-    assert!(out.contains("pub fn create"), "expected create method\n{out}");
+    assert!(
+        out.contains("pub fn create"),
+        "expected create method\n{out}"
+    );
 }
 
 #[test]
@@ -124,7 +128,10 @@ module M
 end
 "#,
     );
-    assert!(out.contains("pub fn update"), "expected update method\n{out}");
+    assert!(
+        out.contains("pub fn update"),
+        "expected update method\n{out}"
+    );
 }
 
 #[test]
@@ -141,7 +148,10 @@ module M
 end
 "#,
     );
-    assert!(out.contains("pub fn delete"), "expected delete method\n{out}");
+    assert!(
+        out.contains("pub fn delete"),
+        "expected delete method\n{out}"
+    );
 }
 
 #[test]
@@ -158,7 +168,10 @@ module M
 end
 "#,
     );
-    assert!(out.contains("pub fn exists"), "expected exists method\n{out}");
+    assert!(
+        out.contains("pub fn exists"),
+        "expected exists method\n{out}"
+    );
 }
 
 // ── Service semantics ─────────────────────────────────────────────────────────

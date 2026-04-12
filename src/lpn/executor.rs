@@ -93,15 +93,13 @@ impl LpnExecutor {
 
     fn dispatch(&self, instr: &LpnInstruction, label: &str, start: Instant) -> LpnResult {
         match instr {
-            LpnInstruction::Emit { target, from, module } => {
-                self.execute_emit(target, module, from.as_deref(), label, start)
-            }
-            LpnInstruction::Check { kind: _, file } => {
-                self.execute_check(file, label, start)
-            }
-            LpnInstruction::Fn { name, sig } => {
-                self.execute_fn_snippet(name, sig, label, start)
-            }
+            LpnInstruction::Emit {
+                target,
+                from,
+                module,
+            } => self.execute_emit(target, module, from.as_deref(), label, start),
+            LpnInstruction::Check { kind: _, file } => self.execute_check(file, label, start),
+            LpnInstruction::Fn { name, sig } => self.execute_fn_snippet(name, sig, label, start),
             LpnInstruction::Type { name, body } => {
                 self.execute_type_snippet(name, body, label, start)
             }
@@ -112,7 +110,13 @@ impl LpnExecutor {
                 // Resolve: look for target.loom near base_dir
                 let candidate = self.base_dir.join(format!("{target}.loom"));
                 if candidate.exists() {
-                    self.execute_emit(emit, target, Some(candidate.to_str().unwrap_or("")), label, start)
+                    self.execute_emit(
+                        emit,
+                        target,
+                        Some(candidate.to_str().unwrap_or("")),
+                        label,
+                        start,
+                    )
                 } else {
                     LpnResult::skipped(label, format!("file `{}.loom` not found", target))
                 }
@@ -141,8 +145,11 @@ impl LpnExecutor {
             Err(e) => {
                 return LpnResult::err(
                     label,
-                    LpnError::Io { path: path.display().to_string(), cause: e.to_string() }
-                        .to_string(),
+                    LpnError::Io {
+                        path: path.display().to_string(),
+                        cause: e.to_string(),
+                    }
+                    .to_string(),
                     elapsed(start),
                 )
             }
@@ -157,7 +164,11 @@ impl LpnExecutor {
         match result {
             Ok(out) => LpnResult::ok(label, out, elapsed(start)),
             Err(errors) => {
-                let msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+                let msg = errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 LpnResult::err(label, msg, elapsed(start))
             }
         }
@@ -170,8 +181,11 @@ impl LpnExecutor {
             Err(e) => {
                 return LpnResult::err(
                     label,
-                    LpnError::Io { path: path.display().to_string(), cause: e.to_string() }
-                        .to_string(),
+                    LpnError::Io {
+                        path: path.display().to_string(),
+                        cause: e.to_string(),
+                    }
+                    .to_string(),
                     elapsed(start),
                 )
             }
@@ -180,7 +194,11 @@ impl LpnExecutor {
         match crate::compile(&source) {
             Ok(_) => LpnResult::ok(label, "all checks passed", elapsed(start)),
             Err(errors) => {
-                let msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+                let msg = errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 LpnResult::err(label, msg, elapsed(start))
             }
         }
@@ -191,31 +209,55 @@ impl LpnExecutor {
         match crate::compile(&src) {
             Ok(_) => LpnResult::ok(label, format!("fn {name} :: {sig} — ok"), elapsed(start)),
             Err(errors) => {
-                let msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+                let msg = errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 LpnResult::err(label, msg, elapsed(start))
             }
         }
     }
 
-    fn execute_type_snippet(&self, name: &str, body: &str, label: &str, start: Instant) -> LpnResult {
+    fn execute_type_snippet(
+        &self,
+        name: &str,
+        body: &str,
+        label: &str,
+        start: Instant,
+    ) -> LpnResult {
         // Convert inline `field:Type field2:Type` to newline-separated fields
         let fields = body.replace(' ', "\n  ");
         let src = format!("module Snippet\ntype {name} =\n  {fields}\nend\n");
         match crate::compile(&src) {
             Ok(_) => LpnResult::ok(label, format!("type {name} — ok"), elapsed(start)),
             Err(errors) => {
-                let msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+                let msg = errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 LpnResult::err(label, msg, elapsed(start))
             }
         }
     }
 
-    fn execute_enum_snippet(&self, name: &str, body: &str, label: &str, start: Instant) -> LpnResult {
+    fn execute_enum_snippet(
+        &self,
+        name: &str,
+        body: &str,
+        label: &str,
+        start: Instant,
+    ) -> LpnResult {
         let src = format!("module Snippet\nenum {name} =\n  {body}\nend\n");
         match crate::compile(&src) {
             Ok(_) => LpnResult::ok(label, format!("enum {name} — ok"), elapsed(start)),
             Err(errors) => {
-                let msg = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+                let msg = errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 LpnResult::err(label, msg, elapsed(start))
             }
         }
@@ -223,11 +265,7 @@ impl LpnExecutor {
 
     /// Resolve a source file path: use `from` if given, else search for
     /// `{module}.loom` under `base_dir`.
-    fn resolve_source(
-        &self,
-        from: Option<&str>,
-        module: &str,
-    ) -> Result<PathBuf, LpnError> {
+    fn resolve_source(&self, from: Option<&str>, module: &str) -> Result<PathBuf, LpnError> {
         if let Some(f) = from {
             let p = if Path::new(f).is_absolute() {
                 PathBuf::from(f)

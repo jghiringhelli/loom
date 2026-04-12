@@ -8,8 +8,8 @@
 //! a user receives all violations at once rather than one-per-run.
 
 use crate::ast::{Item, Module};
-use crate::error::LoomError;
 use crate::checker::LoomChecker;
+use crate::error::LoomError;
 
 pub struct EntityChecker;
 

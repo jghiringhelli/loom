@@ -11,7 +11,8 @@ fn ok(src: &str) -> String {
 
 #[test]
 fn lifecycle_minimal_parses() {
-    let out = ok("module M\nlifecycle Connection :: Disconnected -> Connected -> Authenticated\nend\n");
+    let out =
+        ok("module M\nlifecycle Connection :: Disconnected -> Connected -> Authenticated\nend\n");
     assert!(out.contains("Connection"), "output:\n{}", out);
 }
 
@@ -56,7 +57,8 @@ fn lifecycle_emits_state_enum() {
 
 #[test]
 fn lifecycle_state_enum_contains_all_variants() {
-    let out = ok("module M\nlifecycle Order :: Pending -> Processing -> Shipped -> Delivered\nend\n");
+    let out =
+        ok("module M\nlifecycle Order :: Pending -> Processing -> Shipped -> Delivered\nend\n");
     for state in &["Pending", "Processing", "Shipped", "Delivered"] {
         assert!(out.contains(state), "expected {} in enum:\n{}", state, out);
     }
