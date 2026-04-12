@@ -6,6 +6,7 @@
 pub mod mermaid;
 pub mod neuroml;
 pub mod openapi;
+pub mod owl;
 pub mod rust;
 pub mod schema;
 pub mod simulation;
@@ -15,6 +16,7 @@ pub mod wasm;
 pub use mermaid::MermaidEmitter;
 pub use neuroml::NeuroMLEmitter;
 pub use openapi::OpenApiEmitter;
+pub use owl::OwlEmitter;
 pub use rust::RustEmitter;
 pub use schema::JsonSchemaEmitter;
 pub use simulation::SimulationEmitter;
