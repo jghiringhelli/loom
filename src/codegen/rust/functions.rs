@@ -612,12 +612,18 @@ impl RustEmitter {
         for contract in &fd.requires {
             let raw = self.emit_expr(&contract.expr);
             let expr_text = loom_predicate_to_rust(&raw);
+            let (macro_name, note) = if self.release_contracts {
+                ("assert", "all builds")
+            } else {
+                ("debug_assert", "debug builds only")
+            };
             body_lines.push(format!(
-                "    // LOOM[require]: {} — debug_assert! (runtime, debug builds only)",
-                expr_text
+                "    // LOOM[require]: {} — {}! (runtime, {})",
+                expr_text, macro_name, note
             ));
             body_lines.push(format!(
-                "    debug_assert!({}, \"precondition violated: {}\");",
+                "    {}!({}, \"precondition violated: {}\");",
+                macro_name,
                 expr_text,
                 expr_text.replace('"', "\\\""),
             ));
@@ -653,18 +659,24 @@ impl RustEmitter {
                     raw.clone()
                 };
                 if last_is_stub {
-                    // Body is a stub — emit ensure as a spec comment only (no debug_assert)
+                    // Body is a stub — emit ensure as a spec comment only (no assert)
                     body_lines.push(format!(
                         "    // LOOM[ensure]: {} — implement body to activate",
                         cond
                     ));
                 } else {
+                    let (macro_name, note) = if self.release_contracts {
+                        ("assert", "all builds")
+                    } else {
+                        ("debug_assert", "debug builds only")
+                    };
                     body_lines.push(format!(
-                        "    // LOOM[ensure]: {} — checked on return value via _loom_result",
-                        cond
+                        "    // LOOM[ensure]: {} — checked on return value via _loom_result ({})",
+                        cond, note
                     ));
                     body_lines.push(format!(
-                        "    debug_assert!({cond}, \"ensure: {}\");",
+                        "    {}!({cond}, \"ensure: {}\");",
+                        macro_name,
                         cond.replace('"', "\\\""),
                     ));
                 }

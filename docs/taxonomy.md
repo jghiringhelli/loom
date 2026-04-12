@@ -1,8 +1,9 @@
 # Loom Taxonomy and Ontology Design
 
-**Status:** Design — not yet implemented  
-**ADR candidate:** ADR-0006  
-**Date:** April 2026
+**Status:** M185–M190 implemented and committed. M191–M192 pending.  
+**ADR:** ADR-0006  
+**Date:** April 2026  
+**Last updated:** 2026-04-12
 
 ---
 
@@ -199,14 +200,14 @@ These features are proposed as the next milestone cluster (M185–M192):
 
 | Milestone | Feature | Tier |
 |---|---|---|
-| M185 | `domain:` annotation on modules + checker | Static |
-| M186 | `role:` annotation on beings (sensor/effector/regulator/integrator/memory/classifier) | Static |
-| M187 | `relates_to:` block in beings (regulates/monitors/depends_on) | Static |
-| M188 | `classifier` item type (model/input/output/threshold/retrain_trigger/retrain_strategy) | Static |
-| M189 | `trigger: classifier:` in regulate blocks | Static |
-| M190 | Ontology export — emit `.owl.json` alongside `.rs` | Codegen |
-| M191 | TelosConsistencyChecker — verify classifier retrain_strategy doesn't violate telos | Checker |
-| M192 | 5 BIOISO programs updated with roles/domains/classifiers | Runtime |
+| M185 | `domain:` annotation on modules | Static | ✅ Done |
+| M186 | `role:` annotation on beings | Static | ✅ Done |
+| M187 | `relates_to:` structural relationships | Static | ✅ Done |
+| M188 | `classifier` item type | Static | ✅ Done |
+| M189 | `trigger: classifier:` in regulate blocks | Static | ✅ Done |
+| M190 | Ontology export — `.owl.json` | Codegen | ✅ Done |
+| M191 | TelosConsistencyChecker for classifier retrain_strategy | Checker | ⬜ Planned |
+| M192 | 5 BIOISO programs updated with roles/domains/classifiers | Runtime | ⬜ Planned |
 
 ---
 

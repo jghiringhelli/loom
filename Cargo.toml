@@ -39,6 +39,7 @@ smt = []
 temporal = []
 separation = []
 full = ["smt", "temporal", "separation"]
+loom_proptest = []
 
 [dependencies]
 logos    = "0.15"

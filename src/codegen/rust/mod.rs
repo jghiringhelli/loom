@@ -96,12 +96,29 @@ const COMPRESSED_BINARY_PERSIST_TRAIT: &str = r#"
 /// ```rust,ignore
 /// let rust_src = RustEmitter::new().emit(&module);
 /// ```
-pub struct RustEmitter;
+pub struct RustEmitter {
+    /// When `true`, `require:`/`ensure:` emit `assert!` (active in `--release` builds).
+    /// When `false` (default), they emit `debug_assert!` (stripped in `--release`).
+    pub release_contracts: bool,
+}
 
 impl RustEmitter {
-    /// Create a new `RustEmitter`.
+    /// Create a new `RustEmitter` with `debug_assert!` contracts (default).
     pub fn new() -> Self {
-        RustEmitter
+        RustEmitter {
+            release_contracts: false,
+        }
+    }
+
+    /// Enable `assert!` for `require:`/`ensure:` so contracts survive `--release` builds.
+    ///
+    /// # Example
+    /// ```text
+    /// let rust_src = RustEmitter::new().with_release_contracts(true).emit(&module);
+    /// ```
+    pub fn with_release_contracts(mut self, enabled: bool) -> Self {
+        self.release_contracts = enabled;
+        self
     }
 
     /// Emit a complete Rust source file from a [`Module`].
@@ -111,7 +128,7 @@ impl RustEmitter {
         // File-level attributes and imports.
         out.push_str("#![allow(unused)]\n");
         out.push_str("use std::convert::TryFrom;\n");
-        out.push_str(&emit_audit_header(module));
+        out.push_str(&emit_audit_header(module, self.release_contracts));
 
         // Module wrapper with doc comments.
         let mod_name = to_snake_case(&module.name);
@@ -836,7 +853,7 @@ fn emit_entity(ed: &crate::ast::EntityDef) -> String {
 /// Format: `// == LOOM AUDIT: ModuleName ==` block with one line per claim category.
 /// Distinguishes "proved" (Kani, proptest, typestate) from "declared only" (Prusti,
 /// ctgrind, Dafny) — the latter require external tools to discharge.
-fn emit_audit_header(module: &Module) -> String {
+fn emit_audit_header(module: &Module, release_contracts: bool) -> String {
     let mut fn_count = 0u32;
     let mut contract_fns = 0u32;
     let mut props = 0u32;
@@ -886,8 +903,13 @@ fn emit_audit_header(module: &Module) -> String {
     h.push_str(&format!("// Functions  : {fn_count}\n"));
 
     if contract_fns > 0 {
+        let assert_kind = if release_contracts {
+            "assert!(all builds)"
+        } else {
+            "debug_assert!(debug only)"
+        };
         h.push_str(&format!(
-            "// Contracts  : {contract_fns} fn(s) → debug_assert!(runtime) + #[cfg(kani)] proof harness\n"
+            "// Contracts  : {contract_fns} fn(s) → {assert_kind} + #[cfg(kani)] proof harness\n"
         ));
     }
     if props > 0 {
