@@ -2491,7 +2491,7 @@ impl<'src> Parser<'src> {
     /// Parse `classifier Name model: <ident> [retrain_trigger: "..."] end`.
     ///
     /// Grammar:
-    /// ```
+    /// ```text
     /// classifier <Name>
     ///   model: bert-tiny
     ///   retrain_trigger: "accuracy < 0.85 over 1000 samples"

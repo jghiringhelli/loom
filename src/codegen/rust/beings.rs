@@ -279,6 +279,17 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 "        // target: {}, bounds: ({}, {})\n",
                 reg.target, low, high
             ));
+            // M189: emit LOOM[trigger:classifier:Name] when trigger is a classifier gate
+            if let Some(trigger) = &reg.trigger {
+                if let Some(classifier_name) = trigger.strip_prefix("classifier:") {
+                    out.push_str(&format!(
+                        "        // LOOM[trigger:classifier:{}]\n",
+                        classifier_name
+                    ));
+                } else {
+                    out.push_str(&format!("        // trigger: {}\n", trigger));
+                }
+            }
             if !reg.response.is_empty() {
                 let resp: Vec<String> = reg
                     .response

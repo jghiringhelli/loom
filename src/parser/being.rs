@@ -611,18 +611,34 @@ impl<'src> crate::parser::Parser<'src> {
                 if self.at(&Token::Trigger) {
                     self.advance();
                     self.expect(Token::Colon)?;
-                    // Collect tokens until next field or end as the trigger expression
-                    let mut parts = Vec::new();
-                    while !self.at(&Token::End)
-                        && !self.at(&Token::Action)
-                        && self.peek().is_some()
-                    {
-                        if let Some((tok, _)) = self.tokens.get(self.pos) {
-                            parts.push(format!("{:?}", tok));
+                    // M189: detect `classifier: Name` trigger — store as normalized "classifier:Name"
+                    if self.at(&Token::ClassifierKw) {
+                        self.advance(); // consume `classifier`
+                        if self.at(&Token::Colon) {
+                            self.advance(); // consume `:`
+                            if let Some(classifier_name) = self.token_as_ident() {
+                                trigger = Some(format!("classifier:{}", classifier_name));
+                                self.advance();
+                            }
                         }
-                        self.advance();
+                        // Skip any remaining tokens until action/end
+                        while !self.at(&Token::End) && !self.at(&Token::Action) && self.peek().is_some() {
+                            self.advance();
+                        }
+                    } else {
+                        // Collect tokens until next field or end as the trigger expression
+                        let mut parts = Vec::new();
+                        while !self.at(&Token::End)
+                            && !self.at(&Token::Action)
+                            && self.peek().is_some()
+                        {
+                            if let Some((tok, _)) = self.tokens.get(self.pos) {
+                                parts.push(format!("{:?}", tok));
+                            }
+                            self.advance();
+                        }
+                        trigger = Some(parts.join(" "));
                     }
-                    trigger = Some(parts.join(" "));
                 } else if self.at(&Token::Action) {
                     self.advance();
                     self.expect(Token::Colon)?;
