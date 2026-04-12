@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 # Python
 echo "$STAGED" | grep '\.py$' | xargs -r black --quiet 2>/dev/null

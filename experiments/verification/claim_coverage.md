@@ -235,14 +235,32 @@
 | M77 niche_construction: → probe_fn stub           | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
 | 5 BIOISO ALX programs compile (climate/energy/    | Runtime| loom  | PROVED  | experiments/alx/bioiso-*.loom |
 |   epidemics/antibiotics/materials)                |        |       |         |                               |
+| M185 domain: → module-level annotation            | Static | rustc | PROVED  | m185_m188_taxonomy_test.rs    |
+| M186 role: → being-level annotation               | Static | rustc | PROVED  | m185_m188_taxonomy_test.rs    |
+| M187 relates_to: → structural relationship        | Static | loom  | PROVED  | m185_m188_taxonomy_test.rs    |
+| M188 classifier item → OWL/ontology export        | Static | rustc | PROVED  | m185_m188_taxonomy_test.rs    |
+| M189 trigger: classifier: → regulate blocks       | Static | loom  | PROVED  | m185_m188_taxonomy_test.rs    |
+| M190 OWL JSON export → .owl.json emitted          | Static | loom  | PROVED  | m185_m188_taxonomy_test.rs    |
+| M191 TelosConsistencyChecker (classifier+retrain) | Checker| loom  | PROVED  | m191_telos_classifier_checker_test.rs |
+| M192 5 BIOISO programs compile w/ taxonomy vocab  | Runtime| loom  | PROVED  | experiments/bioiso/*.loom     |
 
-Total new PROVED claims this batch: +32
+Total new PROVED claims this batch: +8
 
-Total Loom claims tracked: 196
-PROVED  (machine/type-system verified): 170  (87%)
-EMITTED (scaffold ready, tool separate):  19  (10%)
-DECLARED (annotation only, no scaffold):   2   (1%)
-PENDING (implementation required):         5   (2%)
+Total Loom claims tracked: 204
+PROVED  (machine/type-system verified): 178  (87%)
+EMITTED (scaffold ready, tool separate):  19  (9%)
+DECLARED (annotation only, no scaffold):   2  (1%)
+PENDING (implementation required):         5  (2%)
+
+Changes from M185-M192 (taxonomy, ontology, micro-LLM classifiers):
+- M185 domain:: 1 new PROVED (module-level annotation)
+- M186 role:: 1 new PROVED (being-level role annotation)
+- M187 relates_to:: 1 new PROVED (ecological relationship declarations)
+- M188 classifier item: 1 new PROVED (retrain_trigger + OWL export)
+- M189 trigger: classifier:: 1 new PROVED (regulate block integration)
+- M190 OWL export: 1 new PROVED (.owl.json emitted from taxonomy)
+- M191 TelosConsistencyChecker: 1 new PROVED (8/8 tests — classifier+retrain implies telos measured_by)
+- M192 5 BIOISO programs: 1 new PROVED (all 5 BIOISO programs compile with taxonomy vocabulary)
 
 Changes from M66-M77 (biological layer codegen upgrades):
 - M66 aspect: 3 new PROVED (annotation + Advice struct + before/after/around dispatch)

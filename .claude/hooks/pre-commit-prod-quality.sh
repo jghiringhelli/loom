@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 SOURCE_FILES=$(echo "$STAGED" | grep -E '\.(py|ts|tsx|js|jsx|rs)$' | grep -vE '(test_|\.test\.|\.spec\.|__tests__|tests/|fixtures/|mock|conftest|_test\.rs)')
 if [ -z "$SOURCE_FILES" ]; then exit 0; fi

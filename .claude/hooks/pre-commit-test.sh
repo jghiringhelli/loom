@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 COVERAGE_MIN=80
 
 # Collect staged files once.

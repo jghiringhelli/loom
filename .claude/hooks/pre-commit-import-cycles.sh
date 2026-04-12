@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 echo "🔄 Checking for circular imports..."
 if [ -f "tsconfig.json" ]; then
   if command -v npx &> /dev/null; then

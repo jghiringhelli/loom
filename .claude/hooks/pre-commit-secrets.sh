@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 PATTERNS=(
   'AKIA[0-9A-Z]{16}'
   'password\s*=\s*["\x27][^"\x27]+'
@@ -8,6 +8,10 @@ PATTERNS=(
 )
 STAGED=$(git diff --cached --name-only)
 for file in $STAGED; do
+  # Skip hook scripts themselves (they contain patterns as literals)
+  if echo "$file" | grep -qE '\.claude/hooks/'; then
+    continue
+  fi
   for pattern in "${PATTERNS[@]}"; do
     if grep -qE "$pattern" "$file" 2>/dev/null; then
       echo "❌ Potential secret found in $file matching pattern"
