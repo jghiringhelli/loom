@@ -669,6 +669,8 @@ impl<'src> Parser<'src> {
                 items.push(Item::Resource(self.parse_resource_def()?));
             } else if self.at(&Token::LeaseKw) {
                 items.push(Item::Lease(self.parse_lease_def()?));
+            } else if self.at(&Token::ClassifierKw) {
+                items.push(Item::Classifier(self.parse_classifier_def()?));
             } else if self.at(&Token::At) {
                 // `@key("value")` before a fn — accumulate as pending annotations.
                 let anns = self.parse_annotations();
@@ -899,6 +901,7 @@ impl<'src> Parser<'src> {
             Some(Token::ProjectionKw) => Ok(Item::Projection(self.parse_projection_def()?)),
             Some(Token::ResourceKw) => Ok(Item::Resource(self.parse_resource_def()?)),
             Some(Token::LeaseKw) => Ok(Item::Lease(self.parse_lease_def()?)),
+            Some(Token::ClassifierKw) => Ok(Item::Classifier(self.parse_classifier_def()?)),
             Some(tok) => Err(LoomError::parse(
                 format!("unexpected token at item level: {:?}", tok),
                 self.current_span(),
@@ -2483,6 +2486,76 @@ impl<'src> Parser<'src> {
         let end_span = self.current_span();
         self.expect(Token::End)?;
         Ok(LeaseDef { name, ttl, span: Span::merge(&start, &end_span) })
+    }
+
+    /// Parse `classifier Name model: <ident> [retrain_trigger: "..."] end`.
+    ///
+    /// Grammar:
+    /// ```
+    /// classifier <Name>
+    ///   model: bert-tiny
+    ///   retrain_trigger: "accuracy < 0.85 over 1000 samples"
+    /// end
+    /// ```
+    /// `model` defaults to `"regex"` when omitted.
+    /// Model names may be hyphenated (`bert-tiny`, `distilbert-base`).
+    fn parse_classifier_def(&mut self) -> Result<ClassifierDef, LoomError> {
+        let start = self.current_span();
+        self.expect(Token::ClassifierKw)?;
+        let (name, _) = self.expect_ident()?;
+        let mut model = "regex".to_string();
+        let mut retrain_trigger: Option<String> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                self.advance();
+                if self.at(&Token::Colon) {
+                    self.advance();
+                    match key.as_str() {
+                        "model" => {
+                            // Read model name — may be hyphenated (bert-tiny, distilbert-base).
+                            if let Some(first) = self.token_as_ident() {
+                                let mut model_name = first;
+                                self.advance();
+                                while matches!(
+                                    self.tokens.get(self.pos),
+                                    Some((Token::Minus, _))
+                                ) {
+                                    self.advance(); // skip `-`
+                                    if let Some(part) = self.token_as_ident() {
+                                        model_name.push('-');
+                                        model_name.push_str(&part);
+                                        self.advance();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                model = model_name;
+                            }
+                        }
+                        "retrain_trigger" => {
+                            if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                                retrain_trigger = Some(s.clone());
+                                self.advance();
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // Whether or not a colon followed, continue — no extra advance needed.
+                continue;
+            }
+            self.advance();
+        }
+
+        let end_span = self.current_span();
+        self.expect(Token::End)?;
+        Ok(ClassifierDef {
+            name,
+            model,
+            retrain_trigger,
+            span: Span::merge(&start, &end_span),
+        })
     }
 }
 

@@ -527,6 +527,11 @@ impl RustEmitter {
                 self.emit_lease_def(ld, &mut buf);
                 buf
             }
+            Item::Classifier(cd) => {
+                let mut buf = String::new();
+                self.emit_classifier_def(cd, &mut buf);
+                buf
+            }
         }
     }
 }

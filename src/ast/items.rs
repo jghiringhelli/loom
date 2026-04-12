@@ -1381,3 +1381,25 @@ pub struct LeaseDef {
     pub span: Span,
 }
 
+// ── M188: ClassifierDef ───────────────────────────────────────────────────────
+
+/// `classifier Name model: <model_name> [retrain_trigger: "..."] end`
+///
+/// A lightweight named ML/regex gate. Lives between pure regex (insufficient
+/// expressive power) and a full LLM (too expensive for frequent gates).
+/// The BIOISO can retrain it on demand via `retrain_trigger`.
+///
+/// Emits: `// LOOM[classifier:Name:model_name]` scaffold in generated Rust.
+/// At M189, `regulate` blocks can declare `trigger: classifier: Name`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassifierDef {
+    pub name: String,
+    /// The base model to use (e.g. `bert-tiny`, `regex`, `tfidf`, `mlp`).
+    /// Default: `"regex"` — deterministic, zero ML dependency.
+    pub model: String,
+    /// Optional human-readable trigger condition that causes retraining.
+    /// e.g. `"accuracy < 0.85 over 1000 samples"`
+    pub retrain_trigger: Option<String>,
+    pub span: Span,
+}
+

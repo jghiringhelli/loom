@@ -219,4 +219,9 @@ pub enum Item {
     Resource(ResourceDef),
     /// M184: Named time-bounded lease — first-class module-level item.
     Lease(LeaseDef),
+    /// M188: Named lightweight ML/regex classifier gate — first-class module-level item.
+    ///
+    /// Syntax: `classifier Name model: bert-tiny [retrain_trigger: "..."] end`
+    /// Emits: `// LOOM[classifier:Name:model]` scaffold in generated code.
+    Classifier(ClassifierDef),
 }

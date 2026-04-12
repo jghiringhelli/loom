@@ -529,6 +529,10 @@ pub enum Token {
     #[token("lease")]
     LeaseKw,
 
+    // ── M188: classifier (lightweight named ML/regex gate) as first-class item ──
+    #[token("classifier")]
+    ClassifierKw,
+
     // ── Boolean literals (before Ident so `true`/`false` are not identifiers)
     #[token("true",  |_| true)]
     #[token("false", |_| false)]

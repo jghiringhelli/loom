@@ -1358,7 +1358,36 @@ impl {N}TransitionMatrix {
         ));
     }
 
-    /// M66: Emit AOP aspect as a Rust trait + wrapper struct.
+    /// M188: Emit classifier scaffold.
+    ///
+    /// Emits a `// LOOM[classifier:Name:model]` marker plus a skeletal `trait Classify`
+    /// + empty `struct NameClassifier`. The retrain trigger is noted as a comment.
+    /// Concrete ML integration is left to downstream code generation (M189+).
+    pub(super) fn emit_classifier_def(&self, cd: &ClassifierDef, out: &mut String) {
+        let n = to_pascal_case(&cd.name);
+        let model = &cd.model;
+        out.push_str(&format!(
+            "// LOOM[classifier:{n}:{model}]\n"
+        ));
+        if let Some(trigger) = &cd.retrain_trigger {
+            out.push_str(&format!("// retrain_trigger: {trigger}\n"));
+        }
+        out.push_str(&format!(
+            "pub trait {n}Classify {{\n\
+             \x20\x20\x20\x20// LOOM[classifier:predict]: return predicted class label for input\n\
+             \x20\x20\x20\x20fn predict(&self, input: &str) -> &'static str;\n\
+             }}\n\n\
+             pub struct {n}Classifier;\n\n\
+             impl {n}Classify for {n}Classifier {{\n\
+             \x20\x20\x20\x20fn predict(&self, _input: &str) -> &'static str {{\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20// LOOM[classifier:unimplemented]: wire {model} model here\n\
+             \x20\x20\x20\x20\x20\x20\x20\x20unimplemented!(\"classifier {n} ({model}) not yet wired\")\n\
+             \x20\x20\x20\x20}}\n\
+             }}\n\n"
+        ));
+    }
+
+
     /// The pointcut is emitted as a LOOM comment describing the match condition.
     /// `before`/`after`/`after_throwing` each generate a method body calling the named function.
     pub(super) fn emit_aspect_def(&self, ad: &AspectDef, out: &mut String) {
