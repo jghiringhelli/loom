@@ -26,6 +26,7 @@
 //!
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
+pub mod brain;
 pub mod drift;
 pub mod ganglion;
 pub mod gate;
@@ -35,6 +36,7 @@ pub mod signal;
 pub mod store;
 pub mod supervisor;
 
+pub use brain::{CostGuard, MammalBrain};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
@@ -71,6 +73,9 @@ pub struct Runtime {
     pub gate: MutationGate,
     /// Tier 2 Ganglion engine — local micro-LLM synthesis via Ollama.
     pub ganglion: Ganglion,
+    /// Tier 3 Mammal Brain — Claude API, full genome synthesis. Optional; skipped when
+    /// `CLAUDE_API_KEY` is not configured or manually set to `None`.
+    pub brain: Option<MammalBrain>,
 }
 
 impl Runtime {
@@ -85,6 +90,7 @@ impl Runtime {
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
+            brain: MammalBrain::from_env(),
         })
     }
 
@@ -197,6 +203,21 @@ impl Runtime {
     /// Returns the [`GateResult`] containing the verdict and the original proposal.
     pub fn apply_proposal(&self, proposal: &MutationProposal) -> GateResult {
         self.gate.evaluate(proposal, &self.store)
+    }
+    /// Run Tier 3 (Mammal Brain) against a drift event. Returns proposals, or an empty
+    /// vec if the brain is not configured or the cost guard is exhausted.
+    ///
+    /// `genome` is the full `.loom` source of the entity being evolved — pass `None`
+    /// if the genome has not been registered.
+    pub fn evaluate_tier3(
+        &mut self,
+        event: &DriftEvent,
+        genome: Option<&str>,
+    ) -> Vec<MutationProposal> {
+        match &mut self.brain {
+            Some(brain) => brain.evaluate(event, &self.store, genome),
+            None => vec![],
+        }
     }
 }
 
