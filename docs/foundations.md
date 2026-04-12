@@ -468,7 +468,7 @@ value-indexed invariants. `proof:` blocks with `structural_recursion` and `induc
 strategies emit Dafny methods where the `decreases` clause encodes the well-founded
 measure — the formal foundation of dependent induction.
 
-**Proof experiment:** `experiments/proofs/dependent-types/` — [`EMITTED`](../experiments/proofs/dependent-types/README.md) (Dafny scaffolds committed; run `dafny verify`)
+**Proof experiment:** `experiments/proofs/dependent-types/` — [`PROVED`](../experiments/proofs/dependent-types/README.md) (Dafny 4.11 verified `proof.dfy`: 7 verified, 0 errors. Run: `dafny verify proof.dfy` with Z3 on PATH.)
 
 ---
 
@@ -626,7 +626,7 @@ allowed transitions.
 | 11 | Plotkin-Power Algebraic Effects | Plotkin, Power, Pretnar | 2001 | **Plotkin 2023** | `Effect<[IO], T>` | PROVED |
 | 12 | Goguen-Meseguer Non-interference | Goguen, Meseguer | 1982 | — | `flow secret ::` | PROVED |
 | 13 | Liskov Substitution | Liskov, Wing | 1987–1994 | **2008** | `interface` `implements` | PROVED |
-| 14 | Martin-Löf Dependent Types | Martin-Löf | 1975 | — | `dependent:` `proof:` | EMITTED |
+| 14 | Martin-Löf Dependent Types | Martin-Löf | 1975 | — | `dependent:` `proof:` | PROVED |
 | 15 | Gradual Typing | Siek, Taha | 2006 | — | `gradual:` `Dynamic` | PROVED |
 | 16 | Waddington Canalization | Waddington | 1942 | — (biology) | `canalize:` | PROVED |
 | 17 | Maturana-Varela Autopoiesis | Maturana, Varela | 1972 | — (biology) | `autopoietic: true` | PROVED |
