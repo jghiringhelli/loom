@@ -26,10 +26,12 @@
 //!
 //! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
 
+pub mod drift;
 pub mod signal;
 pub mod store;
 pub mod supervisor;
 
+pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
 pub use store::{EntityRecord, SignalStore, TelosBound};
 pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
@@ -53,6 +55,8 @@ pub struct Runtime {
     pub store: SignalStore,
     /// The in-memory entity lifecycle supervisor.
     pub supervisor: EntitySupervisor,
+    /// The telos drift engine — evaluates signals against declared bounds.
+    pub drift_engine: DriftEngine,
 }
 
 impl Runtime {
@@ -63,6 +67,7 @@ impl Runtime {
         Ok(Self {
             store: SignalStore::new(db_path)?,
             supervisor: EntitySupervisor::new(),
+            drift_engine: DriftEngine::new(),
         })
     }
 
@@ -110,6 +115,29 @@ impl Runtime {
         n: usize,
     ) -> Result<Vec<Signal>, rusqlite::Error> {
         self.store.signals_for_entity(entity_id, n)
+    }
+
+    /// Evaluate a signal for telos drift and return a [`DriftEvent`] if threshold exceeded.
+    ///
+    /// This is the primary integration point for R2 from the orchestration loop.
+    pub fn evaluate_drift(
+        &self,
+        signal: &Signal,
+    ) -> Result<Option<DriftEvent>, rusqlite::Error> {
+        self.drift_engine.evaluate(signal, &self.store)
+    }
+
+    /// Evaluate all recent signals for every entity and return emitted drift events.
+    pub fn evaluate_all_drift(
+        &self,
+        lookback: usize,
+    ) -> Result<Vec<DriftEvent>, rusqlite::Error> {
+        let entity_ids: Vec<EntityId> = self
+            .entities()?
+            .into_iter()
+            .map(|e| e.id)
+            .collect();
+        self.drift_engine.evaluate_all(&entity_ids, &self.store, lookback)
     }
 
     /// Return all registered entity records.
