@@ -1012,19 +1012,86 @@ fn emit_correctness_report(report: &CorrectnessReport) -> String {
     buf
 }
 
-/// Emit a pathway declaration as doc comments.
+/// Emit a pathway as a typed Rust sequential transformation (saga pattern).
+///
+/// Generates:
+/// - `// LOOM[pathway:Name]` annotation comment
+/// - A `NameStep` enum with one variant per step
+/// - A `Name` struct holding current step state
+/// - An `impl Name` with `execute()` advancing the step and `compensate()` for rollback
 fn emit_pathway(pw: &PathwayDef) -> String {
-    let mut src = format!("// pathway {}:\n", pw.name);
+    let name = &pw.name;
+    let mut src = format!("// LOOM[pathway:{}]: typed sequential transformation\n", name);
     for step in &pw.steps {
         src.push_str(&format!(
-            "//   {} -[{}]-> {}\n",
+            "// LOOM[pathway:step]: {} -[{}]-> {}\n",
             step.from, step.via, step.to
         ));
     }
     if let Some(c) = &pw.compensate {
-        src.push_str(&format!("//   compensate: {}\n", c));
+        src.push_str(&format!("// LOOM[pathway:compensate]: {}\n", c));
     }
+
+    // Step enum
+    src.push_str(&format!("#[derive(Debug, Clone, PartialEq)]\npub enum {}Step {{\n", name));
+    for step in &pw.steps {
+        let variant = pascal_case(&step.from);
+        src.push_str(&format!("    {},\n", variant));
+    }
+    if let Some(last) = pw.steps.last() {
+        src.push_str(&format!("    {},\n", pascal_case(&last.to)));
+    }
+    src.push_str("}\n\n");
+
+    // Struct
+    src.push_str(&format!(
+        "#[derive(Debug, Clone)]\npub struct {} {{\n    pub step: {}Step,\n}}\n\n",
+        name, name
+    ));
+
+    // impl
+    src.push_str(&format!("impl {} {{\n", name));
+    src.push_str(&format!(
+        "    pub fn new() -> Self {{ Self {{ step: {}Step::{} }} }}\n",
+        name,
+        if pw.steps.is_empty() { "Done".to_string() } else { pascal_case(&pw.steps[0].from) }
+    ));
+    src.push_str("    /// Advance to the next step, returning the via label.\n");
+    src.push_str("    pub fn execute(&mut self) -> Option<&'static str> {\n        match self.step {\n");
+    for step in &pw.steps {
+        src.push_str(&format!(
+            "            {}Step::{} => {{ self.step = {}Step::{}; Some(\"{}\") }}\n",
+            name, pascal_case(&step.from), name, pascal_case(&step.to), step.via
+        ));
+    }
+    if let Some(last) = pw.steps.last() {
+        src.push_str(&format!(
+            "            {}Step::{} => None,\n",
+            name, pascal_case(&last.to)
+        ));
+    }
+    src.push_str("        }\n    }\n");
+    if let Some(c) = &pw.compensate {
+        src.push_str(&format!(
+            "    /// Saga compensation: rollback via `{}`.\n    pub fn compensate(&mut self) {{ {}(); }}\n",
+            c, c
+        ));
+    }
+    src.push_str("}\n");
     src
+}
+
+/// Convert snake_case or lowercase string to PascalCase.
+fn pascal_case(s: &str) -> String {
+    s.split('_')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect()
 }
 
 /// Emit a niche construction declaration as doc comments.
