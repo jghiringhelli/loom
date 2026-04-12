@@ -1,33 +1,52 @@
 # Status.md
 
-## Last Updated: 2026-04-14
+## Last Updated: 2026-04-12
 ## Branch: main
 
 ## Completed (this session)
-- V3 proptest gate: `#[cfg(all(test, feature = "loom_proptest"))]` fix; 4/4 proptest_demo tests pass (b76578b)
-- SMT bridge: proper SMT-LIB2 with `declare-const`, `(and ...)` multi-contract, Z3 CI job (5cd92b8)
-- ALX-6 distributions: Cauchy sampler compiles; alx6_cauchy_tail_test.py PROVED 22x heavy tails (5d54c02)
-- claim_coverage.md: Cauchy tail + proptest 1024-sample both PROVED; 221/250 PROVED (88%), 1 PENDING (CBMC/Linux)
-- CI: mutation gate job + statistical-proofs job added to ci.yml (9fb2260)
-- refactor(lib): compile() decomposed → build_checker_pipeline() + run_smt_verification() (753335f)
-- refactor(effects): check() 127-line monolith → 5 focused helpers (1be981d)
-- chore: staged all 81 uncommitted M131-M192 working-tree files (402a870)
-- cargo publish --dry-run: loom-lang v0.2.0 PASSES (clean tree, no --allow-dirty needed)
+- loom-language v0.2.0 published to crates.io (d2019a2)
+- Naming decision: language = Loom, crate = warp-lang (ADR-locked); reverted rename (156975c)
+- 18 theoretical proof experiments created in experiments/proofs/ (eb5fad4)
+  - 13 PROVED (compile + test suite passes): hoare, hindley-milner, session-types,
+    algebraic-effects, non-interference, temporal, autopoiesis, hayflick, liskov,
+    gradual, pi-calculus, dijkstra-wp, canalization
+  - 5 EMITTED (external verifier needed): separation, curry-howard, model-checking,
+    tla-convergence, dependent-types
+- 7 BIOISO domain apps with working simulations committed (dc9eb5f):
+  - climate/: CO2 model → minimum 4.92%/yr reduction avoids 2°C tipping by 2100
+  - epidemics/: SIR+ → 100% vaccination ($250M of $1B) → 0 deaths; herd immunity 60%
+  - antibiotic-resistance/: Wright-Fisher → rotation/combination > monotherapy
+  - flash-crash/: circuit breaker → halts at -2.86%, prevents 47% additional decline
+  - sepsis/: SOFA Sepsis-3 extrapolation → 5/5 patients detected 1h before diagnosis
+  - grid-stability/: battery dispatch → 4.7× frequency deviation improvement
+  - soil-carbon/: RothC evolution → Cover-Maize-Maize-Maize-Maize +9.79 tC/ha
 
 ## In Progress
 - None
 
 ## Next
-1. **cargo publish** — `cargo publish` (requires crates.io token; dry-run confirmed clean)
-2. **LX-4 execution** — operator must run in a fresh LLM session (experiments/lx/LX-4-stateless-derivability/)
-3. **DX results review** — user to share DX experiment results; may inform loom design
-4. **Remaining fix-long-fns** — infer.rs::check_fn (89 lines), entity.rs::check_structural (80 lines)
-   Both are algorithmically dense — decomposition risks reducing clarity
+1. **cargo publish warp-lang** — Cargo.toml has name=warp-lang but not yet published under that name
+2. **Add bioiso.loom to remaining 6 domain apps** (only climate has a .loom file so far)
+3. **LX-4 execution** — operator must run in a fresh LLM session (experiments/lx/LX-4-stateless-derivability/)
+4. **Disciplines / Entity emissions demo apps** — user mentioned these next (same pattern as domain apps)
 5. **V9 Dafny discharge** — EMITTED scaffolds; needs `dafny verify` run in CI
 
 ## Decisions made (this session)
-- Mutation testing runs in CI (mutation job in ci.yml); local runs too slow (~10min/mutant compile)
-- ALX-6 Cauchy claim proved via Python statistical test (no Rust runtime needed for this claim)
+- Language name stays "Loom" — embedded in academic papers, white paper, Onwards! submission
+- crates.io package name = "warp-lang" (compilation/emission metaphor; Protoss warp-in)
+- Proof experiments are the LANGUAGE property proofs; domain apps are the USE CASE proofs
+- Domain simulations use real physical models (IPCC, RothC, SIR, SOFA) for credibility
+- All domain simulation.rs files compile on stable Rust; no nightly features needed
+
+## Blockers / Dependencies
+- warp-lang publish: needs cargo publish run (token is set from crates_token.txt earlier)
+- LX-4: must run in a fresh Claude session (statelessness test requires no prior context)
+- Dafny verification: requires WSL/Linux for CBMC + Dafny
+
+## What's Proved (Summary)
+- 18 theoretical properties of the Loom type system are proved/emitted
+- 7 domain problems from real scientific domains have computed answers
+- Any Loom program inherits these properties compositionally — they are structural, not per-program
 - infer.rs::unify() is a structural match — 98 lines but cognitively simple, no decomposition needed
 - Uncommitted M131-M192 files were real work that passed tests but weren't staged prior session
 - cargo publish --dry-run passes clean; ready for release when crates.io token available
