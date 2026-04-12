@@ -56,8 +56,8 @@ end
     assert!(result.is_ok(), "should compile: {:?}", result);
     let code = result.unwrap();
     assert!(
-        code.contains("// correctness_report:"),
-        "codegen should emit report comment:\n{}",
+        code.contains("// LOOM[correctness_report]"),
+        "codegen should emit LOOM annotation comment:\n{}",
         code
     );
     assert!(

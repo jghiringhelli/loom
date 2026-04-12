@@ -1357,6 +1357,112 @@ impl {N}TransitionMatrix {
              }}\n\n"
         ));
     }
+
+    /// M66: Emit AOP aspect as a Rust trait + wrapper struct.
+    /// The pointcut is emitted as a LOOM comment describing the match condition.
+    /// `before`/`after`/`after_throwing` each generate a method body calling the named function.
+    pub(super) fn emit_aspect_def(&self, ad: &AspectDef, out: &mut String) {
+        let n = to_pascal_case(&ad.name);
+        let order = ad.order.unwrap_or(1);
+        let pointcut_str = ad.pointcut
+            .as_ref()
+            .map(|p| format!("{:?}", p))
+            .unwrap_or_else(|| "unspecified".to_string());
+
+        let before_method = if !ad.before.is_empty() {
+            let calls: String = ad.before.iter()
+                .map(|f| format!("        {f}();\n"))
+                .collect();
+            format!(
+                "    // LOOM[aspect:before]: calls {} before matched join points\n\
+                 \x20\x20\x20\x20fn before(&self) {{\n\
+                 {calls}\
+                 \x20\x20\x20\x20}}\n",
+                ad.before.join(", ")
+            )
+        } else {
+            "    fn before(&self) {}\n".to_string()
+        };
+
+        let after_method = if !ad.after.is_empty() {
+            let calls: String = ad.after.iter()
+                .map(|f| format!("        {f}();\n"))
+                .collect();
+            format!(
+                "    // LOOM[aspect:after]: calls {} after matched join points\n\
+                 \x20\x20\x20\x20fn after(&self) {{\n\
+                 {calls}\
+                 \x20\x20\x20\x20}}\n",
+                ad.after.join(", ")
+            )
+        } else {
+            "    fn after(&self) {}\n".to_string()
+        };
+
+        let throwing_method = if !ad.after_throwing.is_empty() {
+            let calls: String = ad.after_throwing.iter()
+                .map(|f| format!("        {f}();\n"))
+                .collect();
+            format!(
+                "    // LOOM[aspect:after_throwing]: calls {} on exception path\n\
+                 \x20\x20\x20\x20fn after_throwing(&self) {{\n\
+                 {calls}\
+                 \x20\x20\x20\x20}}\n",
+                ad.after_throwing.join(", ")
+            )
+        } else {
+            "    fn after_throwing(&self) {}\n".to_string()
+        };
+
+        out.push_str(&format!(
+            "// LOOM[aspect:{n}]: pointcut: {pointcut_str}, order: {order}\n\
+             pub trait {n}Trait {{\n\
+             \x20\x20\x20\x20fn before(&self);\n\
+             \x20\x20\x20\x20fn after(&self);\n\
+             \x20\x20\x20\x20fn after_throwing(&self);\n\
+             }}\n\n\
+             pub struct {n};\n\n\
+             impl {n}Trait for {n} {{\n\
+             {before_method}\
+             {after_method}\
+             {throwing_method}\
+             }}\n\n"
+        ));
+    }
+
+    /// M67: Emit correctness report as a Rust const + structured comment block.
+    pub(super) fn emit_correctness_report_def(&self, cr: &CorrectnessReport, out: &mut String) {
+        let mut lines = vec!["// LOOM[correctness_report]: proof certificate".to_string()];
+
+        if !cr.proved.is_empty() {
+            lines.push("// proved:".to_string());
+            for claim in &cr.proved {
+                lines.push(format!("//   {}: {}", claim.property, claim.checker));
+            }
+        }
+
+        if !cr.unverified.is_empty() {
+            lines.push("// unverified:".to_string());
+            for (prop, reason) in &cr.unverified {
+                lines.push(format!("//   {prop}: {reason}"));
+            }
+        }
+
+        let mut report_entries = Vec::new();
+        for claim in &cr.proved {
+            report_entries.push(format!("proved:{}:{}", claim.property, claim.checker));
+        }
+        for (prop, reason) in &cr.unverified {
+            report_entries.push(format!("unverified:{prop}:{reason}"));
+        }
+        let report_value = report_entries.join(";");
+
+        out.push_str(&lines.join("\n"));
+        out.push('\n');
+        out.push_str(&format!(
+            "pub const CORRECTNESS_REPORT: &str = \"{report_value}\";\n\n"
+        ));
+    }
 }
 // ═══════════════════════════════════════════════════════════════════════════
 

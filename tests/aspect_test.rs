@@ -206,8 +206,8 @@ end
     assert!(result.is_ok(), "compile should succeed: {:?}", result);
     let code = result.unwrap();
     assert!(
-        code.contains("// aspect: SecurityAspect"),
-        "codegen should emit aspect doc comment:\n{}",
+        code.contains("// LOOM[aspect:SecurityAspect]"),
+        "codegen should emit aspect LOOM annotation comment:\n{}",
         code
     );
 }

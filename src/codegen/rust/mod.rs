@@ -284,32 +284,7 @@ impl RustEmitter {
 
     /// Emit aspect block as doc comment.
     fn emit_aspect_comment(&self, aspect: &AspectDef, body: &mut String) {
-        body.push_str(&format!(
-            "// aspect: {} (order: {})\n",
-            aspect.name,
-            aspect.order.map_or("unset".to_string(), |o| o.to_string())
-        ));
-        if let Some(pointcut) = &aspect.pointcut {
-            body.push_str(&format!(
-                "//   pointcut: {}\n",
-                Self::fmt_pointcut(pointcut)
-            ));
-        }
-        for b in &aspect.before {
-            body.push_str(&format!("//   before: {}\n", b));
-        }
-        for a in &aspect.after {
-            body.push_str(&format!("//   after: {}\n", a));
-        }
-        for a in &aspect.after_throwing {
-            body.push_str(&format!("//   after_throwing: {}\n", a));
-        }
-        for a in &aspect.around {
-            body.push_str(&format!("//   around: {}\n", a));
-        }
-        if let Some(f) = &aspect.on_failure {
-            body.push_str(&format!("//   on_failure: {}\n", f));
-        }
+        self.emit_aspect_def(aspect, body);
     }
 
     /// Emit all items, invariants, beings, and ecosystems into `body`.
@@ -1032,20 +1007,9 @@ fn emit_annotation_decl(decl: &AnnotationDecl) -> String {
 
 /// Emit a correctness report as doc comments.
 fn emit_correctness_report(report: &CorrectnessReport) -> String {
-    let mut src = String::from("// correctness_report:\n");
-    if !report.proved.is_empty() {
-        src.push_str("//   proved:\n");
-        for claim in &report.proved {
-            src.push_str(&format!("//     - {}: {}\n", claim.property, claim.checker));
-        }
-    }
-    if !report.unverified.is_empty() {
-        src.push_str("//   unverified:\n");
-        for (property, reason) in &report.unverified {
-            src.push_str(&format!("//     - {}: {}\n", property, reason));
-        }
-    }
-    src
+    let mut buf = String::new();
+    RustEmitter::new().emit_correctness_report_def(report, &mut buf);
+    buf
 }
 
 /// Emit a pathway declaration as doc comments.
