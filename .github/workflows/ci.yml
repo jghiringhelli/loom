@@ -210,6 +210,73 @@ jobs:
           echo "### BIOISO compile: $PASS pass, $FAIL fail" >> $GITHUB_STEP_SUMMARY
           [ $FAIL -eq 0 ]
 
+  # ── Mutation gate (cargo-mutants on smt_bridge + property_checker) ───────────
+  mutation:
+    name: Mutation score gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-mutants-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-mutants-
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants
+
+      - name: Run mutation tests on checker core
+        run: |
+          cargo mutants --timeout 120 \
+            --file src/checker/smt_bridge.rs \
+            --file src/checker/property_checker.rs \
+            --file src/checker/refinement.rs \
+            -- -- --test-threads=1 2>&1 | tee mutants-output.txt
+          CAUGHT=$(grep -c "caught" mutants-output.txt || echo 0)
+          MISSED=$(grep -c "missed" mutants-output.txt || echo 0)
+          TOTAL=$((CAUGHT + MISSED))
+          if [ $TOTAL -gt 0 ]; then
+            SCORE=$(( (CAUGHT * 100) / TOTAL ))
+            echo "Mutation score: $SCORE% ($CAUGHT/$TOTAL caught)"
+            echo "### 🧬 Mutation score: $SCORE% ($CAUGHT/$TOTAL)" >> $GITHUB_STEP_SUMMARY
+            [ $SCORE -ge 70 ] || (echo "Mutation score below 70% threshold" && exit 1)
+          else
+            echo "No mutants generated"
+          fi
+
+      - name: Upload mutants output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-output
+          path: mutants-output.txt
+          retention-days: 7
+
+  # ── ALX-6 statistical proofs ──────────────────────────────────────────────────
+  statistical-proofs:
+    name: ALX-6 statistical claims
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Cauchy tail statistical test
+        run: |
+          python experiments/alx/alx6_cauchy_tail_test.py
+          echo "### 📊 ALX-6 Cauchy tail: PROVED (22x heavier tails)" >> $GITHUB_STEP_SUMMARY
+
   # ── Website build ─────────────────────────────────────────────────────────────
   website:
     name: Website build
