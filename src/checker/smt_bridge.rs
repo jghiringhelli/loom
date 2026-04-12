@@ -43,9 +43,13 @@ impl SmtBridgeChecker {
         let precondition = Self::translate_contracts(&fn_def.requires);
         let postcondition = Self::translate_contracts(&fn_def.ensures);
 
+        // Collect all identifiers from contracts → SMT-LIB2 declare-const declarations.
+        // Variables that appear in contracts must be declared before assert.
+        let declarations = Self::collect_declarations(fn_def);
+
         // Feature-gated: when smt feature is absent, all contracts are Skipped.
         #[cfg(feature = "smt")]
-        let status = Self::discharge_smt(&precondition, &postcondition);
+        let status = Self::discharge_smt(&declarations, &precondition, &postcondition);
         #[cfg(not(feature = "smt"))]
         let status = SmtStatus::Skipped;
 
@@ -57,12 +61,74 @@ impl SmtBridgeChecker {
         })
     }
 
+    /// Collect SMT-LIB2 `declare-const` lines for all identifiers in contracts.
+    ///
+    /// Maps Loom types to SMT sorts:
+    /// - `Int` / `Bool` → `Int` / `Bool`
+    /// - `Float` / `Prob` → `Real`
+    /// - everything else → `Int` (conservative)
+    fn collect_declarations(fn_def: &FnDef) -> String {
+        use std::collections::BTreeSet;
+
+        let mut idents: BTreeSet<String> = BTreeSet::new();
+        for c in fn_def.requires.iter().chain(fn_def.ensures.iter()) {
+            Self::collect_idents_expr(&c.expr, &mut idents);
+        }
+
+        // Build a name→sort map from the function's parameter names (if derivable).
+        // FnTypeSignature only holds types; names come from body param slots.
+        let param_types = &fn_def.type_sig.params;
+
+        idents
+            .into_iter()
+            .enumerate()
+            .map(|(i, name)| {
+                let sort = param_types
+                    .get(i)
+                    .map(|t| loom_type_to_smt_sort(t))
+                    .unwrap_or("Int");
+                format!("(declare-const {name} {sort})")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn collect_idents_expr(expr: &Expr, out: &mut std::collections::BTreeSet<String>) {
+        match expr {
+            Expr::Ident(name) if name != "true" && name != "false" => {
+                out.insert(name.clone());
+            }
+            Expr::BinOp { left, right, .. } => {
+                Self::collect_idents_expr(left, out);
+                Self::collect_idents_expr(right, out);
+            }
+            Expr::Call { func, args, .. } => {
+                Self::collect_idents_expr(func, out);
+                for a in args {
+                    Self::collect_idents_expr(a, out);
+                }
+            }
+            Expr::Pipe { left, right, .. } => {
+                Self::collect_idents_expr(left, out);
+                Self::collect_idents_expr(right, out);
+            }
+            Expr::FieldAccess { object, .. } => Self::collect_idents_expr(object, out),
+            Expr::As(inner, _) => Self::collect_idents_expr(inner, out),
+            Expr::Let { value, .. } => Self::collect_idents_expr(value, out),
+            _ => {}
+        }
+    }
+
     fn translate_contracts(contracts: &[Contract]) -> String {
-        contracts
+        let parts: Vec<String> = contracts
             .iter()
             .map(|c| Self::translate_expr_node(&c.expr))
-            .collect::<Vec<_>>()
-            .join(" ")
+            .collect();
+        if parts.len() == 1 {
+            parts.into_iter().next().unwrap()
+        } else {
+            format!("(and {})", parts.join(" "))
+        }
     }
 
     /// Translate a Loom [`Expr`] AST node to SMT-LIB2 format.
@@ -154,11 +220,15 @@ impl SmtBridgeChecker {
     /// When Z3 is not available the caller falls back to [`SmtStatus::Skipped`]
     /// via the `#[cfg(not(feature = "smt"))]` branch in `check_fn`.
     #[cfg(feature = "smt")]
-    fn discharge_smt(precondition: &str, postcondition: &str) -> SmtStatus {
-        // SMT-LIB2 query: assert precondition and negated postcondition.
-        // If UNSAT → the Hoare triple is valid. If SAT/Unknown → not proved.
+    fn discharge_smt(declarations: &str, precondition: &str, postcondition: &str) -> SmtStatus {
+        // SMT-LIB2 query:
+        //   1. Declare constants (one per contract variable)
+        //   2. Assert precondition
+        //   3. Assert negated postcondition
+        //   4. check-sat: UNSAT → Hoare triple is valid; SAT/Unknown → not proved
         let query = format!(
-            "(assert {precondition})\n\
+            "{declarations}\n\
+             (assert {precondition})\n\
              (assert (not {postcondition}))\n\
              (check-sat)\n"
         );
@@ -234,5 +304,19 @@ impl SmtBridgeChecker {
             }
         }
         None
+    }
+}
+
+/// Map a Loom [`TypeExpr`] to an SMT-LIB2 sort name.
+///
+/// Conservative defaults: unknown types → `Int` (sound; may produce false negatives).
+fn loom_type_to_smt_sort(ty: &TypeExpr) -> &'static str {
+    match ty {
+        TypeExpr::Base(name) => match name.as_str() {
+            "Bool" => "Bool",
+            "Float" | "Prob" | "Probability" => "Real",
+            _ => "Int", // Int, Nat, custom refined types default to Int
+        },
+        _ => "Int",
     }
 }

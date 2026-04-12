@@ -143,6 +143,45 @@ jobs:
           path: experiments/lx/LX-4-stateless-derivability/evidence/
           retention-days: 30
 
+  # ── SMT contract verification via Z3 ─────────────────────────────────────────
+  smt-verify:
+    name: SMT Z3 contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Z3
+        run: sudo apt-get install -y z3
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-smt-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-smt-
+
+      - name: Build + test with smt feature
+        run: cargo test --features smt -- --test-threads=1 2>&1 | tee smt-output.txt
+
+      - name: Smoke test Z3 invocation
+        run: |
+          echo "(declare-const x Int)(assert (> x 0))(assert (not (> x 0)))(check-sat)" | z3 -in
+          echo "### Z3 smoke test: $(echo '(declare-const x Int)(assert (> x 0))(assert (not (> x 0)))(check-sat)' | z3 -in)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload SMT output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smt-output
+          path: smt-output.txt
+          retention-days: 7
+
   # ── Compile all BIOISO programs ───────────────────────────────────────────────
   compile-experiments:
     name: Compile BIOISO programs
