@@ -1,4 +1,4 @@
-# Loom Language Specification
+# Loom language Specification
 
 > **Canonical reference for AI assistants and human authors.**  
 > Every valid Loom construct is documented here with exact syntax and examples.  

@@ -360,7 +360,7 @@ The seven GS properties map to Loom features as follows:
 
 ## 11. Implementation Notes
 
-The Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
+the Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 1. **Lexer** (logos 0.15): tokenises source into `(Token, Span)` pairs
 2. **Parser**: recursive-descent LL(2), produces `Module` AST

@@ -1,6 +1,6 @@
 {
   "name": "loom-vscode",
-  "displayName": "Loom Language",
+  "displayName": "Loom language",
   "description": "Language support for the Loom functional language",
   "version": "0.1.0",
   "publisher": "pragmaworks",

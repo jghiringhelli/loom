@@ -1,6 +1,6 @@
-# Loom
+# Warp
 
-**Loom** is an AI-native declaration engine that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file.
+**Warp** is an AI-native declaration engine that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file.
 
 It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
 
@@ -8,15 +8,15 @@ It is designed around one constraint: every architectural decision, behavioral c
 
 ---
 
-## Why Loom
+## Why Warp
 
 Traditional code has three structural problems that compound as AI becomes the primary executor:
 
-1. **Ambiguity** — natural-language intent + code must be reconciled every session. Loom makes intent the source of truth, not comments alongside code.
-2. **Correctness gap** — Rust's type system is powerful but expressing contracts, privacy rules, effect tiers, and lifecycle protocols requires boilerplate that most developers skip. Loom makes them the default, not the exception.
-3. **Knowledge gap** — proven disciplines (refined types, session types, separation logic, information flow) are hard to learn and easy to skip. Loom enforces them structurally; the developer cannot accidentally bypass them.
+1. **Ambiguity** — natural-language intent + code must be reconciled every session. Warp makes intent the source of truth, not comments alongside code.
+2. **Correctness gap** — Rust's type system is powerful but expressing contracts, privacy rules, effect tiers, and lifecycle protocols requires boilerplate that most developers skip. Warp makes them the default, not the exception.
+3. **Knowledge gap** — proven disciplines (refined types, session types, separation logic, information flow) are hard to learn and easy to skip. Warp enforces them structurally; the developer cannot accidentally bypass them.
 
-Loom bridges theory and implementation — a gap that has persisted across the entire history of computer science.
+Warp bridges theory and implementation — a gap that has persisted across the entire history of computer science.
 
 ---
 
@@ -35,7 +35,7 @@ Loom bridges theory and implementation — a gap that has persisted across the e
 ## Language features
 
 ### Type system
-```loom
+```Warp
 type Point   = x: Float, y: Float end                          -- product type
 enum Shape   = | Circle of Float | Rect of Float * Float end   -- sum type
 type Email   = String where valid_email end                     -- refined type
@@ -43,7 +43,7 @@ type Pair<A,B> = first: A, second: B end                       -- generics
 ```
 
 ### Functions and contracts
-```loom
+```Warp
 fn transfer :: Float<usd> -> Account -> Effect<[DB], Account>
   require: amount > 0.0
   ensure:  result.balance >= 0.0
@@ -53,7 +53,7 @@ end
 Contracts emit as `debug_assert!` in Rust when the body is implemented. They are also the input for Kani formal proofs.
 
 ### Effect tracking
-```loom
+```Warp
 fn fetch_user  :: Int  -> Effect<[IO, DB], User>
 fn pure_add    :: Int  -> Int -> Int                       -- no effects, pure
 fn send_email  :: User -> Effect<[IO@irreversible], Unit>  -- consequence tier
@@ -74,9 +74,9 @@ fn send_email  :: User -> Effect<[IO@irreversible], Unit>  -- consequence tier
 
 ### Biological / autonomous agent constructs
 
-Loom supports a class of constructs for autonomous, self-regulating agents:
+Warp supports a class of constructs for autonomous, self-regulating agents:
 
-```loom
+```Warp
 being ScalpingAgent
   regulate:     drawdown < 0.02
   telomere:     trades < 5000
@@ -90,13 +90,13 @@ These emit safety checks, kill-switches, and regime-adaptation logic in the gene
 
 ### Stochastic processes and finance
 
-```loom
+```Warp
 process ScalpSignal = OrnsteinUhlenbeck { theta: 2.0, mu: 0.0, sigma: 0.15 }
 type TailRisk = Float<usd> where distribution = Cauchy { location: 0.0, scale: 0.02 }
 ```
 
 ### Module system
-```loom
+```Warp
 module PaymentService
 describe: "Handles payment processing"
 
@@ -113,7 +113,7 @@ end
 ```
 
 ### GS constructs (self-describing, auditable, verifiable)
-```loom
+```Warp
 describe: "Computes final invoice price with tax"
 @author("billing-team")
 @decision("Use exclusive tax to match EU VAT rules")
@@ -127,9 +127,9 @@ end
 
 ### OpenAPI REST inference
 
-Loom derives full REST semantics from type signatures — no annotations required:
+Warp derives full REST semantics from type signatures — no annotations required:
 
-```loom
+```Warp
 fn get_order    :: Int   -> Effect<[DB], Order>        -- GET  /orders/{id}
 fn create_order :: Order -> Effect<[DB], Order>        -- POST /orders  (201)
 fn delete_order :: Int   -> Effect<[DB], Unit>         -- DELETE /orders/{id}
@@ -142,7 +142,7 @@ fn list_orders  :: Unit  -> Effect<[DB], List<Order>>  -- GET  /orders
 
 ## LPN — AI-to-AI Protocol
 
-Loom ships a minimal AI-to-AI wire format (`.lp` files) for orchestrating the compiler pipeline:
+Warp ships a minimal AI-to-AI wire format (`.lp` files) for orchestrating the compiler pipeline:
 
 ```lp
 # Tier 1: atomic ops
@@ -158,8 +158,8 @@ SCALPER ticks=10000 ou_theta=2.0 ou_sigma=0.15 emit=rust run=backtest
 ```
 
 ```sh
-loom lpn experiment.lp
-loom lpn experiment.lp --format json   # machine-readable output
+Warp lpn experiment.lp
+Warp lpn experiment.lp --format json   # machine-readable output
 ```
 
 LPN eliminates prompt ambiguity between AI agents. Each instruction is unambiguous, token-efficient, and fully typed.
@@ -168,7 +168,7 @@ LPN eliminates prompt ambiguity between AI agents. Each instruction is unambiguo
 
 ## Verification pipeline
 
-Loom's compiler is multi-level: it writes code you run AND proof artifacts you verify.
+Warp's compiler is multi-level: it writes code you run AND proof artifacts you verify.
 
 | Tier | Mechanism | Tool | Status |
 |------|-----------|------|--------|
@@ -189,7 +189,7 @@ Loom's compiler is multi-level: it writes code you run AND proof artifacts you v
 
 ```sh
 cargo build --release
-# binary at target/release/loom (or target/release/loom.exe on Windows)
+# binary at target/release/Warp (or target/release/Warp.exe on Windows)
 ```
 
 Or run directly:
@@ -264,7 +264,7 @@ All 119 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) fo
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit issues, propose features, and open pull requests.
 
-Loom welcomes contributions in:
+Warp welcomes contributions in:
 - New emission targets (LLVM IR, C, Python)
 - Verification pipeline (Prusti, Lean4, Coq)
 - Standard library modules

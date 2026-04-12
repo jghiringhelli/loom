@@ -144,7 +144,7 @@ parsed.
 
 ## ALX-3: Self-Description
 
-**What:** The Loom compiler itself, described in Loom. Every public function in
+**What:** the Loom compiler itself, described in Loom. Every public function in
 `src/checker/` has a Loom signature with `require:`, `ensure:`, and `@conserved`
 where applicable.
 
@@ -157,7 +157,7 @@ Self-description without self-contradiction is a strong consistency signal.
 ```loom
 module LoomCompiler
 
-  describe: "The Loom compiler — self-certifying since M65"
+  describe: "the Loom compiler — self-certifying since M65"
 
   fn compile @idempotent @pure
       :: Source -> Result<CompiledOutput, Vec<Error>>

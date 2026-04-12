@@ -606,22 +606,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "loom-language"
-version = "0.2.0"
-dependencies = [
- "clap",
- "logos",
- "pretty_assertions",
- "proptest",
- "regex",
- "serde",
- "thiserror",
- "tokio",
- "toml",
- "tower-lsp",
-]
-
-[[package]]
 name = "lsp-types"
 version = "0.94.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1287,6 +1271,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "warp-lang"
+version = "0.2.0"
+dependencies = [
+ "clap",
+ "logos",
+ "pretty_assertions",
+ "proptest",
+ "regex",
+ "serde",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tower-lsp",
 ]
 
 [[package]]

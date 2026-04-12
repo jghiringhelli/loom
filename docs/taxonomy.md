@@ -125,7 +125,7 @@ machinery.
 
 ## Outside the Language (Exported Ontology)
 
-The Loom compiler should emit a `.owl.json` (OWL/JSON-LD) alongside each `.rs`:
+the Loom compiler should emit a `.owl.json` (OWL/JSON-LD) alongside each `.rs`:
 
 ```json
 {

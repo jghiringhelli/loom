@@ -1,4 +1,4 @@
-# ADR-001: Implement the Loom Compiler in Rust
+# ADR-001: Implement the Loom compiler in Rust
 
 **Date**: 2026-04-04  
 **Status**: Accepted  

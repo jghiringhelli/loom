@@ -1,8 +1,8 @@
 [package]
-name = "loom-language"
+name = "warp-lang"
 version = "0.2.0"
 edition = "2021"
-description = "Loom — an AI-native functional language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema with built-in correctness guarantees"
+description = "Warp — an AI-native functional language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema with built-in correctness guarantees"
 license = "MIT"
 homepage = "https://pragma.works/loom"
 repository = "https://github.com/PragmaWorks/loom"
