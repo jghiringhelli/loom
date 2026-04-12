@@ -154,7 +154,7 @@
 | Poisson process struct                      | Static   | rustc       | PROVED   | structures codegen      |
 | DAG: Kahn topological sort                  | Static   | rustc       | PROVED   | structures codegen      |
 | 12 distribution families sample correctly  | Runtime  | proptest    | EMITTED  | v6_distributions.loom   |
-| Cauchy tail > CLT boundary                 | Statistical | proptest | PENDING  | alx-6 distributions     |
+| Cauchy tail > CLT boundary (22x at 99p)    | Statistical | python   | PROVED   | alx6_cauchy_tail_test.py |
 
 # ── V7: audit trail in generated code ─────────────────────────────────────────
 
