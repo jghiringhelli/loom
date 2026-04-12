@@ -25,6 +25,7 @@ pub mod lpn;
 pub mod lsp;
 pub mod parser;
 pub mod project;
+pub mod runtime;
 pub mod stdlib;
 
 pub use error::LoomError;
@@ -242,6 +243,32 @@ pub fn compile_neuroml(source: &str) -> Result<String, Vec<LoomError>> {
         .map_err(|e| vec![e])?;
     checker::TypeChecker::new().check(&module)?;
     Ok(codegen::NeuroMLEmitter::emit(&module))
+}
+
+/// Compile a Loom source string to a BIOISO runtime bootstrap.
+///
+/// Emits a Rust `main.rs` that, when compiled and run, creates a [`Runtime`],
+/// spawns every `being:` as an entity, registers `telos:` bounds, registers
+/// `signal` channels from `ecosystem:` blocks, and starts the supervision loop.
+///
+/// The generated file requires `loom` as a Cargo dependency:
+/// ```toml
+/// [dependencies]
+/// loom = "0.2.0"
+/// ```
+///
+/// [`Runtime`]: crate::runtime::Runtime
+pub fn compile_runtime(source: &str) -> Result<String, Vec<LoomError>> {
+    let tokens = lexer::Lexer::tokenize(source)?;
+    let module = parser::Parser::new(&tokens)
+        .parse_module()
+        .map_err(|e| vec![e])?;
+
+    for stage in build_checker_pipeline() {
+        stage.run(&module)?;
+    }
+
+    Ok(codegen::RuntimeEmitter::new().emit(&module))
 }
 
 ///
