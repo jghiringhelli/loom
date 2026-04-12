@@ -198,13 +198,65 @@
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
-Total Loom claims tracked: 163
-PROVED  (machine/type-system verified): 138  (85%)
-EMITTED (scaffold ready, tool separate):  19  (14%)
-DECLARED (annotation only, no scaffold):   2   (1%)
-PENDING (implementation required):         4   (3%)
+# ── M66–M77: Biological layer codegen upgrades ────────────────────────────────
 
-Changes from M172 (M173–M175):
+| Claim                                              | Tier   | Tool  | Status  | Experiment                    |
+|----------------------------------------------------|--------|-------|---------|-------------------------------|
+| M66 aspect: → LOOM[aspect:Name] annotation        | Static | rustc | PROVED  | m66_aspect_item_test.rs       |
+| M66 aspect: → pub struct {Name}Advice             | Static | rustc | PROVED  | m66_aspect_item_test.rs       |
+| M66 aspect: before/after/around advice dispatch   | Static | rustc | PROVED  | m66_aspect_item_test.rs       |
+| M67 correctness_report: → LOOM[correctness_report]| Static | rustc | PROVED  | m67_correctness_report_test.rs|
+| M67 correctness_report: → {Name}CorrectnessReport | Static | rustc | PROVED  | m67_correctness_report_test.rs|
+| M67 correctness_report: → verify() method         | Static | rustc | PROVED  | m67_correctness_report_test.rs|
+| M71 pathway: → LOOM[pathway:Name] annotation      | Static | rustc | PROVED  | m71_pathway_test.rs           |
+| M71 pathway: → {Name}Step enum (PascalCase)        | Static | rustc | PROVED  | m71_pathway_test.rs           |
+| M71 pathway: → {Name} struct + execute()          | Static | rustc | PROVED  | m71_pathway_test.rs           |
+| M71 pathway: compensate fn stub when declared     | Static | rustc | PROVED  | m71_pathway_test.rs           |
+| M69 lifecycle: → LOOM[lifecycle:Name] annotation  | Static | rustc | PROVED  | m69_lifecycle_checkpoint_test |
+| M69 lifecycle: → zero-sized state marker structs  | Static | rustc | PROVED  | m69_lifecycle_checkpoint_test |
+| M69 lifecycle: → {Name}State enum + transition()  | Static | rustc | PROVED  | m69_lifecycle_checkpoint_test |
+| M69 checkpoint: → LOOM[lifecycle:checkpoint:Name] | Static | rustc | PROVED  | m69_lifecycle_checkpoint_test |
+| M76 criticality: → LOOM[criticality:Name]         | Static | rustc | PROVED  | m76_criticality_test.rs       |
+| M76 criticality: → NAME_CRITICALITY_LOWER/UPPER   | Static | rustc | PROVED  | m76_criticality_test.rs       |
+| M76 criticality: → probe_fn stub when declared    | Static | rustc | PROVED  | m76_criticality_test.rs       |
+| M68 degenerate: → LOOM[contract:Degenerate]       | Static | rustc | PROVED  | m68_degenerate_test.rs        |
+| M68 degenerate: → {Name}DegenerateFallback<T>     | Static | rustc | PROVED  | m68_degenerate_test.rs        |
+| M68 degenerate: → normal/fallback/require methods | Static | rustc | PROVED  | m68_degenerate_test.rs        |
+| M75 adopt: → LOOM[hgt:Interface] annotation       | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M75 adopt: → pub use FromModule::Interface        | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M75 adopt: → InterfaceAdopter struct + impl       | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M70 canalize: → LOOM[canalize:Name] annotation    | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M70 canalize: → {Name}Canalization struct         | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M70 canalize: → TOWARD/DESPITE consts             | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M70 canalize: → is_canalized(perturbation) fn     | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M77 niche_construction: → LOOM annotation         | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M77 niche_construction: → {Name}NicheConstruction | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M77 niche_construction: → apply_niche_pressure()  | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| M77 niche_construction: → probe_fn stub           | Static | rustc | PROVED  | m75_m77_m70_codegen_test.rs   |
+| 5 BIOISO ALX programs compile (climate/energy/    | Runtime| loom  | PROVED  | experiments/alx/bioiso-*.loom |
+|   epidemics/antibiotics/materials)                |        |       |         |                               |
+
+Total new PROVED claims this batch: +32
+
+Total Loom claims tracked: 196
+PROVED  (machine/type-system verified): 170  (87%)
+EMITTED (scaffold ready, tool separate):  19  (10%)
+DECLARED (annotation only, no scaffold):   2   (1%)
+PENDING (implementation required):         5   (2%)
+
+Changes from M66-M77 (biological layer codegen upgrades):
+- M66 aspect: 3 new PROVED (annotation + Advice struct + before/after/around dispatch)
+- M67 correctness_report: 3 new PROVED (annotation + CorrectnessReport struct + verify())
+- M71 pathway: 4 new PROVED (annotation + Step enum + struct + execute + compensate)
+- M69 lifecycle: 4 new PROVED (annotation + state markers + State enum + transition())
+- M76 criticality: 3 new PROVED (annotation + LOWER/UPPER consts + probe_fn stub)
+- M68 degenerate: 3 new PROVED (LOOM[contract:Degenerate] + DegenerateFallback<T> + methods)
+- M75 adopt/HGT: 3 new PROVED (LOOM[hgt:] + pub use + Adopter struct + impl)
+- M70 canalize: 4 new PROVED (annotation + struct + TOWARD/DESPITE + is_canalized())
+- M77 niche_construction: 4 new PROVED (annotation + struct + MODIFIES/AFFECTS + probe_fn)
+- 5 BIOISO ALX programs compile: 1 new PROVED (climate/energy/epidemics/antibiotics/materials)
+
+Prior changes (M172, M173-M175):
 - M173: 3 new PROVED claims for queue<T> item (FIFO/LIFO + enqueue/dequeue/is_empty)
 - M174: 3 new PROVED claims for lock item (AtomicBool + acquire/release/is_locked)
 - M175: 3 new PROVED claims for channel<T> item (MPSC scaffold + PhantomData)
