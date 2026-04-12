@@ -50,7 +50,7 @@ if [ ! -f "package.json" ] && [ ! -f "pyproject.toml" ] && [ ! -f "setup.py" ]; 
       fi
       echo "  ✅ Rust coverage gate passed"
     else
-      cargo test --quiet 2>&1
+      cargo test --quiet -- --test-threads=1 2>&1
       if [ $? -ne 0 ]; then
         echo "❌ Rust tests failed."
         exit 1

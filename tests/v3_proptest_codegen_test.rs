@@ -177,9 +177,12 @@ end
 "#;
     let out = compile(src);
     assert!(
-        out.contains(r#"#[cfg(feature = "loom_proptest")]"#),
-        "expected cfg(feature = \"loom_proptest\") block, got:\n{}",
-        &out[out.find("loom_proptest").unwrap_or(0)..].chars().take(80).collect::<String>()
+        out.contains(r#"#[cfg(all(test, feature = "loom_proptest"))]"#),
+        "expected cfg(all(test, feature = \"loom_proptest\")) block, got:\n{}",
+        &out[out.find("loom_proptest").unwrap_or(0)..]
+            .chars()
+            .take(80)
+            .collect::<String>()
     );
     assert!(out.contains("proptest!"), "expected proptest! macro");
     assert!(out.contains("prop_assert!"), "expected prop_assert!");

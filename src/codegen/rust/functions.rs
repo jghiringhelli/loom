@@ -67,11 +67,15 @@ impl RustEmitter {
         out.push_str("}\n\n");
 
         // V3+ — proptest random sampling
-        // Gate: add to Cargo.toml: [features] loom_proptest = ["proptest"]
+        // Gate: add to Cargo.toml: [features] loom_proptest = []
+        //                          [dev-dependencies] proptest = "1"
         //       then run: cargo test --features loom_proptest
         // 1024 random cases per run; bounded Int range avoids debug overflow.
-        out.push_str("// V3+: add `proptest` to [dev-dependencies] and `loom_proptest = []` to [features]\n");
-        out.push_str("#[cfg(feature = \"loom_proptest\")]\n");
+        // NOTE: must be #[cfg(test)] so dev-dependencies are visible to the macro.
+        out.push_str(
+            "// V3+: add `proptest` to [dev-dependencies] and `loom_proptest = []` to [features]\n",
+        );
+        out.push_str("#[cfg(all(test, feature = \"loom_proptest\"))]\n");
         out.push_str(&format!("mod property_{fn_name}_proptest {{\n"));
         out.push_str("    use super::*;\n");
         out.push_str("    use proptest::prelude::*;\n\n");
@@ -634,8 +638,8 @@ impl RustEmitter {
         // Only use the _loom_result binding pattern when at least one ensure
         // condition actually references "result" — otherwise it's a type-name
         // expression that can't be bound as a value.
-        let last_is_stub = body_count > 0
-            && is_type_name_stub(&self.emit_expr(&fd.body[body_count - 1]));
+        let last_is_stub =
+            body_count > 0 && is_type_name_stub(&self.emit_expr(&fd.body[body_count - 1]));
         let needs_result_binding = has_ensures
             && !last_is_stub
             && fd

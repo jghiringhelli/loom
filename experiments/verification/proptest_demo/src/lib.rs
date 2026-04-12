@@ -21,7 +21,7 @@ pub mod natural_numbers {
     }
 
     // V3+: add `proptest` to [dev-dependencies] and `loom_proptest = []` to [features]
-    #[cfg(feature = "loom_proptest")]
+    #[cfg(all(test, feature = "loom_proptest"))]
     mod property_non_negative_square_proptest {
         use super::*;
         use proptest::prelude::*;
@@ -48,7 +48,7 @@ pub mod natural_numbers {
     }
 
     // V3+: add `proptest` to [dev-dependencies] and `loom_proptest = []` to [features]
-    #[cfg(feature = "loom_proptest")]
+    #[cfg(all(test, feature = "loom_proptest"))]
     mod property_additive_identity_proptest {
         use super::*;
         use proptest::prelude::*;
