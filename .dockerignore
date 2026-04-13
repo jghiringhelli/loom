@@ -1,0 +1,30 @@
+# Build artifacts — never ship these to Railway
+target/
+mutants.out/
+mutants.out.old/
+
+# Local data
+*.db
+*.db-shm
+*.db-wal
+/data/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.local
+
+# Large docs / media (not needed for runtime)
+experiments/
+corpus/
+dist/
+out/
+website/
+docs/
+specs/

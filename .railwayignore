@@ -1,0 +1,22 @@
+# Railway upload ignore — mirrors .dockerignore
+target/
+mutants.out/
+mutants.out.old/
+*.db
+*.db-shm
+*.db-wal
+/data/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+.env
+.env.local
+experiments/
+corpus/
+dist/
+out/
+website/
+docs/
+specs/
