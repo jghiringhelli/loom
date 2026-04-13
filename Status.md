@@ -1,6 +1,6 @@
 # Status.md
 
-## Last Updated: 2026-04-12
+## Last Updated: 2026-04-13
 ## Branch: main
 
 ## Completed (this session)
@@ -28,6 +28,49 @@
   - R5 (4cf236a): Ganglion Tier 2 — Ollama HTTP client, signal corpus, escalation counter
   - R6 (b8af196): Mammal Brain Tier 3 — Claude API client, cost guard, full genome prompt
   - R7 (0b97cd5): Orchestration loop + canary deploy + `loom runtime` CLI commands
+- **CEMS Runtime R8–R13 complete** — full biological isomorphisms:
+  - R8  (70a40f6): Stage 0 Membrane (immune.rs) — SHA-256 genome hash, token bucket rate limit,
+    5-window quarantine (1m→5m→30m→1h→24h), plausibility check + security_events store
+  - R9  (6320d4e): Epigenome E-axis — Buffer (time-decaying), Working (rolling mean/var),
+    Core (CORE_MAX_ENTRIES=1000), Security tier; 5 memory types
+  - R10 (765bad3): Circadian C-axis — cron parser (5 field patterns), WallTime (pure Rust
+    Gregorian), Kalman SNR pre-filter with first-observation guard
+  - R11 (a29b4df): Epigenome distillation — Working→Core (Semantic), high-drift→Core (Episodic)
+  - R12 (93aafc8): Mycelium M-axis — gossip protocol, ACO pheromone stigmergy, offline queue
+    (OFFLINE_QUEUE_CAPACITY=1000), MetabolicLoad EMA hibernation gating
+  - sampler (1aacddc): MutationSampler — xorshift64 PRNG, Gaussian/Cauchy/Lévy distributions,
+    guidance force (Telos attractor), telomere SA annealing, AdaptiveTracker σ adjustment
+  - R13 (7af8fb5): Stage 5 Simulation — DigitalTwin, MeioticPool, SVD cosine independence,
+    RecombinationPlan (orthogonal clique builder)
+  - R7-CEMS (dc8a037): CEMS axes wired into orchestrator — C gate, E distil tick, M tick,
+    sampler feedback from gate+deploy; auto-rollback with pre/post telos comparison;
+    `loom runtime start --db --tick-ms` daemon command
+
+## Current state
+- **245 lib tests passing** (R8–R13 + sampler + R7-CEMS wiring)
+- `loom runtime start|status|log|rollback` CLI fully operational
+- All 264 tracked todos: DONE
+
+## Architecture complete
+The CEMS runtime is fully operational:
+- C (Circadian): temporal gating, Kalman SNR pre-filter
+- E (Epigenome): Buffer/Working/Core/Security + distillation cascade
+- M (Mycelium): gossip, ACO stigmergy, offline resilience, hibernation
+- S (Stages 0–8): Membrane → Reflex → Ganglion → Cortex → Gate → Simulation → Soft Release → Acclimatization → Propagation
+
+## Next (candidate work)
+- **Polycephalum refactor**: replace hardcoded delta arithmetic with `MutationSampler::sample()`
+- **MeioticPool integration**: `sampler.sample()` generates param_deltas for meiotic candidates
+- **Colony propagation**: wire `Mycelium::prepare_gossip()` / `drain_inbound()` into orchestrator tick
+- **`loom runtime spawn`**: CLI command to register an entity from a `.loom` file
+- **CAE/LTE hardening environments**: pre-prod simulation gauntlet (survival testing before deploy)
+- **Epigenome security tier**: `absorb_security_events()` call in orchestrator tick
+
+## Decisions made
+- Gate rejections feed `sampler.record_outcome(false)` — structural invalidity is negative feedback
+- Auto-rollback threshold: post_score > pre_score + 0.05 (5% noise band prevents thrashing)
+- Distillation interval: 10 ticks default, configurable via OrchestratorConfig.epigenome_distil_interval
+- `loom runtime start` uses stdin-EOF as stop signal (no ctrlc dep; Ctrl-C works via OS default)
   - Total: 129 lib tests + 3 e2e integration tests, all passing
 
 ## In Progress
