@@ -63,11 +63,19 @@ pub struct ReqwestOllamaClient {
     base_url: String,
     timeout_secs: u64,
     client: reqwest::blocking::Client,
+    /// Separate short-timeout client used only for health checks.
+    /// Allows fast failure when Ollama is not running (e.g. in tests / CI).
+    health_client: reqwest::blocking::Client,
 }
 
 impl ReqwestOllamaClient {
     /// Create a client targeting `base_url` (default: `http://localhost:11434`).
     pub fn new(base_url: impl Into<String>, timeout_secs: u64) -> Self {
+        let health_client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_millis(500))
+            .connect_timeout(std::time::Duration::from_millis(300))
+            .build()
+            .unwrap_or_default();
         Self {
             base_url: base_url.into(),
             timeout_secs,
@@ -75,6 +83,7 @@ impl ReqwestOllamaClient {
                 .timeout(std::time::Duration::from_secs(timeout_secs))
                 .build()
                 .expect("failed to build reqwest client"),
+            health_client,
         }
     }
 }
@@ -95,7 +104,11 @@ impl OllamaClient for ReqwestOllamaClient {
 
     fn health_check(&self) -> bool {
         let url = format!("{}/api/tags", self.base_url);
-        self.client.get(&url).send().map(|r| r.status().is_success()).unwrap_or(false)
+        self.health_client
+            .get(&url)
+            .send()
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
     }
 }
 
@@ -225,6 +238,11 @@ pub struct Ganglion {
     client: Box<dyn OllamaClient>,
     /// Consecutive Tier 1 failure counter per entity.
     tier1_fail_counts: std::collections::HashMap<EntityId, usize>,
+    /// Cached health check result — avoids blocking every tick when Ollama is down.
+    /// `None` means not yet checked; `Some((result, checked_at_ms))` is the cache.
+    health_cache: Option<(bool, u64)>,
+    /// How long (ms) to honour a cached health result before re-checking.
+    health_cache_ttl_ms: u64,
 }
 
 impl Ganglion {
@@ -238,6 +256,9 @@ impl Ganglion {
             config,
             client,
             tier1_fail_counts: std::collections::HashMap::new(),
+            health_cache: None,
+            // Re-check Ollama health at most every 60 seconds
+            health_cache_ttl_ms: 60_000,
         }
     }
 
@@ -247,6 +268,8 @@ impl Ganglion {
             config,
             client,
             tier1_fail_counts: std::collections::HashMap::new(),
+            health_cache: None,
+            health_cache_ttl_ms: 60_000,
         }
     }
 
@@ -275,11 +298,11 @@ impl Ganglion {
     /// Returns an empty vec if the Ollama service is unreachable or returns
     /// an unparseable response.
     pub fn evaluate(
-        &self,
+        &mut self,
         event: &DriftEvent,
         store: &SignalStore,
     ) -> Vec<MutationProposal> {
-        if !self.client.health_check() {
+        if !self.cached_health_check() {
             return vec![];
         }
 
@@ -291,6 +314,42 @@ impl Ganglion {
             Ok(text) => parse_proposals(&text),
             Err(_) => vec![],
         }
+    }
+
+    /// Evaluate using a pre-built corpus string (avoids double-borrow of `store`).
+    ///
+    /// The caller is responsible for building the corpus via [`serialize_corpus`].
+    pub fn evaluate_with_corpus(
+        &mut self,
+        event: &DriftEvent,
+        corpus: &str,
+    ) -> Vec<MutationProposal> {
+        if !self.cached_health_check() {
+            return vec![];
+        }
+
+        let prompt = build_prompt(&event.entity_id, corpus);
+
+        match self.client.generate(&self.config.model, &prompt) {
+            Ok(text) => parse_proposals(&text),
+            Err(_) => vec![],
+        }
+    }
+
+    /// Check Ollama health, using a cached result to avoid blocking every tick.
+    ///
+    /// When Ollama is unreachable, the first check blocks for `timeout_secs` but
+    /// subsequent calls within `health_cache_ttl_ms` return immediately.
+    fn cached_health_check(&mut self) -> bool {
+        let now = crate::runtime::signal::now_ms();
+        if let Some((result, checked_at)) = self.health_cache {
+            if now.saturating_sub(checked_at) < self.health_cache_ttl_ms {
+                return result;
+            }
+        }
+        let result = self.client.health_check();
+        self.health_cache = Some((result, now));
+        result
     }
 }
 
@@ -409,7 +468,7 @@ mod tests {
         let store = mem_store();
         store.register_entity("climate", "ClimateModel", "{}", 0).unwrap();
 
-        let ganglion = ganglion_with_response(
+        let mut ganglion = ganglion_with_response(
             r#"[{"kind":"parameter_adjust","entity_id":"climate","param":"albedo","delta":-0.01,"reason":"test"}]"#,
         );
         let event = make_event("climate", "temperature", 0.8);
@@ -420,7 +479,7 @@ mod tests {
     #[test]
     fn ganglion_returns_empty_when_unreachable() {
         let store = mem_store();
-        let ganglion = ganglion_unreachable();
+        let mut ganglion = ganglion_unreachable();
         let event = make_event("climate", "temperature", 0.9);
         let proposals = ganglion.evaluate(&event, &store);
         assert!(proposals.is_empty());

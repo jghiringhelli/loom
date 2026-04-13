@@ -204,6 +204,56 @@ enum RuntimeCommands {
         #[arg(long)]
         only: Option<String>,
     },
+
+    /// Run an autonomous experiment: inject signals, evolve entities, auto-branch.
+    ///
+    /// The experiment driver injects realistic domain-specific telemetry every tick,
+    /// drives the full CEMS cycle (Membrane → drift → T1/T2/T3 proposals → gate →
+    /// canary → promote/rollback → epigenome distillation → mycelium gossip), and
+    /// automatically branches child entities when stable mutations accumulate.
+    ///
+    /// Progress is printed every `--summary-interval` ticks.  A final JSON summary is
+    /// written to stdout (and optionally to `--log-path` as JSON lines).
+    ///
+    /// Example:
+    ///   loom runtime experiment --db bioiso.db --ticks 500 --seed 42
+    Experiment {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Total number of ticks to simulate.
+        #[arg(long, default_value_t = 500)]
+        ticks: u64,
+
+        /// Pseudo-random seed for the signal simulator.  42 = reproducible.
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+
+        /// Milliseconds between ticks.  0 = maximum speed (no sleep).
+        #[arg(long, default_value_t = 100)]
+        tick_ms: u64,
+
+        /// Print a progress summary every N ticks.
+        #[arg(long, default_value_t = 10)]
+        summary_interval: u64,
+
+        /// Minimum stable mutations on a parent before spawning a branch.
+        #[arg(long, default_value_t = 3)]
+        branch_threshold: u32,
+
+        /// Maximum child branches per parent entity over the run.
+        #[arg(long, default_value_t = 2)]
+        max_branches: u32,
+
+        /// Restrict simulation to comma-separated entity IDs (empty = all).
+        #[arg(long, default_value = "")]
+        domains: String,
+
+        /// Write per-tick JSON-lines to this file (optional).
+        #[arg(long, default_value = "")]
+        log_path: String,
+    },
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -643,6 +693,108 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 }
             }
             println!("\nseed complete: {seeded} seeded, {skipped} skipped");
+        }
+
+        RuntimeCommands::Experiment {
+            db,
+            ticks,
+            seed,
+            tick_ms,
+            summary_interval,
+            branch_threshold,
+            max_branches,
+            domains,
+            log_path,
+        } => {
+            use loom::runtime::{BIOISORunner, Runtime, all_domain_specs};
+            use loom::runtime::experiment::{ExperimentConfig, ExperimentDriver};
+
+            let mut runtime = match Runtime::new(&db) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+
+            // Auto-seed if no entities registered yet
+            {
+                let existing = runtime.store.all_entities().unwrap_or_default();
+                if existing.is_empty() {
+                    eprintln!("info: no entities found — running seed first");
+                    let runner = BIOISORunner::new();
+                    for spec in all_domain_specs() {
+                        if let Err(e) = runner.spawn_domain(&mut runtime, &spec) {
+                            eprintln!("  warn: seed failed for {}: {e}", spec.entity_id);
+                        } else {
+                            eprintln!("  seeded {}", spec.entity_id);
+                        }
+                    }
+                }
+            }
+
+            let entity_filter: Vec<String> = if domains.is_empty() {
+                Vec::new()
+            } else {
+                domains.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+            };
+
+            let config = ExperimentConfig {
+                total_ticks: ticks,
+                tick_interval_ms: tick_ms,
+                rng_seed: seed,
+                entity_filter,
+                summary_interval,
+                branch_threshold,
+                max_branches_per_entity: max_branches,
+                autonomous: true,
+                log_path: log_path.clone(),
+            };
+
+            eprintln!(
+                "experiment: ticks={ticks} seed={seed} tick_ms={tick_ms} \
+                 branch_threshold={branch_threshold} autonomous=true"
+            );
+            if !log_path.is_empty() {
+                eprintln!("experiment: writing JSON-lines to `{log_path}`");
+            }
+
+            let mut driver = ExperimentDriver::new(runtime, config);
+            let summary = driver.run(None);
+
+            println!("\n=== Experiment Complete ===");
+            println!("Ticks:           {}", summary.total_ticks);
+            println!("Signals injected:{}", summary.total_signals_injected);
+            println!("Drift events:    {}", summary.total_drift_events);
+            println!("Proposals:       {}", summary.total_proposals);
+            println!("Promoted:        {}", summary.total_promoted);
+            println!("Rolled back:     {}", summary.total_rolled_back);
+            println!("Branches:        {}", summary.branch_decisions.len());
+            if let Some(ct) = summary.convergence_tick {
+                println!("Convergence:     tick {ct}");
+            } else {
+                println!("Convergence:     not reached");
+            }
+            println!("\nFinal entities: {}", summary.entities_final.join(", "));
+
+            if !summary.branch_decisions.is_empty() {
+                println!("\nBranch decisions:");
+                for b in &summary.branch_decisions {
+                    println!("  tick {:>4}: {} → {} ({})", b.tick, b.parent_id, b.child_id, b.trigger_reason);
+                }
+            }
+
+            println!("\nTier activations:");
+            for tier in ["1", "2", "3"] {
+                let count = summary.tier_activations.get(tier).copied().unwrap_or(0);
+                println!("  Tier {tier}: {count}");
+            }
+
+            // Write JSON summary to stdout
+            if let Ok(json) = serde_json::to_string_pretty(&summary) {
+                println!("\n--- JSON Summary ---");
+                println!("{json}");
+            }
         }
     }
 }

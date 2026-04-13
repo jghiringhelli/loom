@@ -299,7 +299,14 @@ impl Orchestrator {
         }
 
         // Tier 2 — Ganglion (Ollama).
-        let t2_proposals = self.runtime.ganglion.evaluate(event, &self.runtime.store);
+        // Split borrow: build corpus string first, then call evaluate.
+        let corpus = crate::runtime::ganglion::serialize_corpus(
+            &event.entity_id,
+            event,
+            &self.runtime.store,
+            self.runtime.ganglion.config.corpus_lookback,
+        );
+        let t2_proposals = self.runtime.ganglion.evaluate_with_corpus(event, &corpus);
         if !t2_proposals.is_empty() {
             self.tier2_fail_counts.insert(eid.clone(), 0);
             return (t2_proposals, 2);
