@@ -16,6 +16,7 @@
 pub mod brain;
 pub mod deploy;
 pub mod drift;
+pub mod epigenetic;
 pub mod ganglion;
 pub mod gate;
 pub mod immune;
@@ -29,6 +30,7 @@ pub mod supervisor;
 pub use brain::{CostGuard, MammalBrain};
 pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
+pub use epigenetic::{BufferEntry, CoreEntry, Epigenome, MemoryType, WorkingSummary};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
 pub use immune::{Membrane, MembraneConfig, MembraneVerdict, RejectReason, SecurityCategory};
@@ -61,6 +63,8 @@ pub struct Runtime {
     pub drift_engine: DriftEngine,
     /// Stage 0 — Membrane / Immune layer.
     pub membrane: Membrane,
+    /// Cross-cutting E axis — Epigenome (Buffer / Working / Core / Security tiers).
+    pub epigenome: Epigenome,
     /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
     pub polycephalum: Polycephalum,
     /// Type-safe mutation gate — validates proposals through the full compiler.
@@ -82,6 +86,7 @@ impl Runtime {
             supervisor: EntitySupervisor::new(),
             drift_engine: DriftEngine::new(),
             membrane: Membrane::new(MembraneConfig::default()),
+            epigenome: Epigenome::new(),
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
@@ -114,12 +119,22 @@ impl Runtime {
 
     /// Emit a telemetry signal from a running entity.
     ///
-    /// Signals pass through the Membrane (Stage 0) first. Returns `Ok(true)` when
-    /// admitted and stored, `Ok(false)` when rejected or quarantined by the Membrane.
+    /// Signals pass through the Membrane (Stage 0) first. Admitted signals are stored
+    /// in the SQLite signal store and ingested into the Epigenome Buffer tier.
+    /// Returns `Ok(true)` when admitted, `Ok(false)` when rejected or quarantined.
     pub fn emit(&mut self, signal: Signal) -> Result<bool, rusqlite::Error> {
         match self.membrane.evaluate(&signal, &self.store) {
             MembraneVerdict::Admit => {
                 self.store.write_signal(&signal)?;
+                // Feed Epigenome Buffer (drift score unknown at this stage — set 0.0;
+                // the orchestrator overwrites after evaluate_drift).
+                self.epigenome.record_signal(BufferEntry {
+                    entity_id: signal.entity_id.clone(),
+                    metric: signal.metric.clone(),
+                    value: signal.value,
+                    ts: signal.timestamp,
+                    drift_score: 0.0,
+                });
                 Ok(true)
             }
             MembraneVerdict::Reject(_) | MembraneVerdict::Quarantine(_) => Ok(false),
