@@ -27,6 +27,7 @@ pub mod ganglion;
 pub mod gate;
 pub mod gauntlet;
 pub mod immune;
+pub mod meiosis;
 pub mod mutation;
 pub mod orchestrator;
 pub mod polycephalum;

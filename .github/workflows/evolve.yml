@@ -1,0 +1,96 @@
+name: Evolve — validate and merge evolved genomes
+
+on:
+  push:
+    branches:
+      - "genomes/evolved"
+    paths:
+      - "genomes/**/*.loom"
+
+jobs:
+  validate-genomes:
+    name: Validate evolved genome
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: genomes/evolved
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-evolve-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-evolve-
+
+      - name: Build Loom CLI
+        run: cargo build --bin loom --release
+
+      - name: Find changed genome files
+        id: genomes
+        run: |
+          FILES=$(git diff --name-only HEAD~1 HEAD -- 'genomes/**/*.loom' 2>/dev/null || \
+                  git diff --name-only $(git hash-object -t tree /dev/null) HEAD -- 'genomes/**/*.loom')
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "Found genomes: $FILES"
+
+      - name: Compile each genome
+        id: compile
+        run: |
+          PASS=0; FAIL=0; FAILED_FILES=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo "▶ Compiling $f"
+            if ./target/release/loom compile "$f" 2>&1; then
+              echo "  ✅ $f"
+              PASS=$((PASS+1))
+            else
+              echo "  ❌ $f"
+              FAIL=$((FAIL+1))
+              FAILED_FILES="$FAILED_FILES $f"
+            fi
+          done <<< "${{ steps.genomes.outputs.files }}"
+          echo "pass=$PASS" >> "$GITHUB_OUTPUT"
+          echo "fail=$FAIL" >> "$GITHUB_OUTPUT"
+          echo "failed_files=$FAILED_FILES" >> "$GITHUB_OUTPUT"
+          echo "### 🧬 Genome compile: $PASS pass, $FAIL fail" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate — fail if any genome does not compile
+        if: steps.compile.outputs.fail != '0'
+        run: |
+          echo "Failed genomes: ${{ steps.compile.outputs.failed_files }}"
+          exit 1
+
+      - name: Open PR to merge validated genomes into main
+        if: steps.compile.outputs.pass != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="genomes/evolved"
+          TITLE="feat(genomes): merge ${{ steps.compile.outputs.pass }} validated evolved genomes"
+          BODY="## Autonomous Evolution — Validated Genomes\n\nGenomes rendered by MeiosisEngine and validated:\n- **Compile gate**: ✅ ${{ steps.compile.outputs.pass }} pass\n- **Source branch**: \`$BRANCH\`\n\nThis PR was opened automatically by the \`evolve.yml\` workflow.\nReview the genome files before merging."
+          # Create PR if it doesn't already exist for this branch
+          EXISTING=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --title "$TITLE" \
+              --body "$(printf '%b' "$BODY")" \
+              --head "$BRANCH" \
+              --base main \
+              --label "evolved-genome" || echo "PR creation skipped (label may not exist)"
+          else
+            echo "PR #$EXISTING already open for $BRANCH"
+          fi

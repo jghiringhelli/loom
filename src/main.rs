@@ -749,6 +749,9 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 max_branches_per_entity: max_branches,
                 autonomous: true,
                 log_path: log_path.clone(),
+                run_meiosis: std::env::var("GITHUB_TOKEN").is_ok()
+                    && std::env::var("GITHUB_REPO").is_ok(),
+                meiosis_generation: 1,
             };
 
             eprintln!(

@@ -37,6 +37,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::runtime::{
+    deploy::DeployStatus,
+    meiosis::{MeiosisEngine, MeiosisReport, PromotedRecord},
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
     signal::now_ms,
     signals_sim::SignalSimulator,
@@ -75,6 +77,15 @@ pub struct ExperimentConfig {
 
     /// Path for JSON-lines experiment log. Empty = stderr only.
     pub log_path: String,
+
+    /// Whether to run the meiosis engine at end of experiment.
+    ///
+    /// When `true`, promoted mutations are collected and pushed to GitHub.
+    /// Requires `GITHUB_TOKEN` and `GITHUB_REPO` env vars to actually publish.
+    pub run_meiosis: bool,
+
+    /// Generation number for meiosis — passed to `MeiosisConfig::generation`.
+    pub meiosis_generation: u32,
 }
 
 impl Default for ExperimentConfig {
@@ -89,6 +100,8 @@ impl Default for ExperimentConfig {
             max_branches_per_entity: 2,
             autonomous: true,
             log_path: String::new(),
+            run_meiosis: false,
+            meiosis_generation: 1,
         }
     }
 }
@@ -144,6 +157,10 @@ pub struct ExperimentSummary {
     pub final_epigenome_core_entries: HashMap<String, usize>,
     pub convergence_reached: bool,
     pub convergence_tick: Option<u64>,
+    /// All promoted mutations collected across the entire run.
+    pub promoted_records: Vec<PromotedRecord>,
+    /// Meiosis report produced at end of run (when `run_meiosis = true`).
+    pub meiosis_report: Option<MeiosisReport>,
 }
 
 // ── BranchingEngine ───────────────────────────────────────────────────────────
@@ -318,6 +335,8 @@ pub struct ExperimentDriver {
     brancher: BranchingEngine,
     log: ExperimentLog,
     config: ExperimentConfig,
+    /// All promoted mutations accumulated during the run — fed to meiosis at end.
+    promoted_records: Vec<PromotedRecord>,
 }
 
 impl ExperimentDriver {
@@ -344,6 +363,7 @@ impl ExperimentDriver {
             brancher,
             log,
             config,
+            promoted_records: Vec::new(),
         }
     }
 
@@ -352,7 +372,6 @@ impl ExperimentDriver {
     /// Blocks until complete or `stop_requested` is set.
     pub fn run(&mut self, stop_requested: Option<&std::sync::atomic::AtomicBool>) -> ExperimentSummary {
         use std::sync::atomic::Ordering;
-        use crate::runtime::deploy::DeployStatus;
 
         let mut totals = ExperimentTotals::default();
         let mut convergence_tick: Option<u64> = None;
@@ -406,10 +425,15 @@ impl ExperimentDriver {
                 *totals.tier_activations.entry(tier.to_string()).or_insert(0) += 1;
             }
 
-            // Record promoted mutations for branching
+            // Record promoted mutations for branching + meiosis
             for outcome in &tick_result.deploy_outcomes {
                 if outcome.status == DeployStatus::Promoted {
                     self.brancher.record_promotion(&outcome.entity_id);
+                    self.promoted_records.push(PromotedRecord {
+                        tick,
+                        entity_id: outcome.entity_id.clone(),
+                        proposal: outcome.proposal.clone(),
+                    });
                 }
             }
 
@@ -557,6 +581,16 @@ impl ExperimentDriver {
 
         let final_epi = self.collect_epigenome_sizes();
 
+        let meiosis_report = if self.config.run_meiosis {
+            let engine = MeiosisEngine::new(crate::runtime::meiosis::MeiosisConfig {
+                generation: self.config.meiosis_generation,
+                ..Default::default()
+            });
+            Some(engine.run(&self.promoted_records))
+        } else {
+            None
+        };
+
         ExperimentSummary {
             total_ticks: self.config.total_ticks,
             total_signals_injected: totals.signals_injected,
@@ -570,6 +604,8 @@ impl ExperimentDriver {
             final_epigenome_core_entries: final_epi,
             convergence_reached: convergence_tick.is_some(),
             convergence_tick,
+            promoted_records: self.promoted_records.clone(),
+            meiosis_report,
         }
     }
 }
