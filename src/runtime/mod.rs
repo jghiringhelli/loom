@@ -27,6 +27,7 @@ pub mod orchestrator;
 pub mod polycephalum;
 pub mod sampler;
 pub mod signal;
+pub mod simulation;
 pub mod store;
 pub mod supervisor;
 
@@ -43,6 +44,10 @@ pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
 pub use sampler::{AcceptanceTracker, MutationSampler, SamplingMode};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
+pub use simulation::{
+    DigitalTwin, EffectVector, MeioticPool, MutationRelationship, PooledMutation,
+    RecombinationPlan, SimulationConfig, SimulationResult, SimulationStage,
+};
 pub use store::{EntityRecord, SecurityEvent, SignalStore, TelosBound};
 pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
 
@@ -87,6 +92,8 @@ pub struct Runtime {
     /// Cross-cutting — MutationSampler: biased stochastic delta generator.
     /// Shared by Polycephalum (mitotic deltas) and the Meiotic Pool (meiotic candidates).
     pub sampler: MutationSampler,
+    /// Stage 5 — Simulation: digital twin + Meiotic Pool + independence analysis.
+    pub simulation: SimulationStage,
 }
 
 impl Runtime {
@@ -107,6 +114,7 @@ impl Runtime {
             ganglion: Ganglion::new(GanglionConfig::default()),
             brain: MammalBrain::from_env(),
             sampler: MutationSampler::for_entity("runtime"),
+            simulation: SimulationStage::default(),
         })
     }
 
