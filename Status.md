@@ -2,7 +2,63 @@
 
 ## Last Updated: 2026-04-14
 ## Branch: main
-## Commit: 1783a60
+## Commits: 1783a60 (CEMS), 5bcddd9 (deploy), 5a8f3de (docs)
+
+## Completed (this session)
+- loom-language v0.2.0 published to crates.io (d2019a2)
+- 18 theoretical proof experiments in experiments/proofs/ (eb5fad4)
+- 7 BIOISO domain apps with working simulations (dc9eb5f)
+- **BIOISO Runtime R1–R7 complete** (R1: 388c555 → R7: 0b97cd5)
+- **CEMS Runtime R8–R13 complete** (R8: 70a40f6 → R13: 7af8fb5 + R7-CEMS: dc8a037)
+- **Genetic memory + BIOISO infrastructure (1783a60)**:
+  - `Epigenome::inherit_from()` + `warm_start_params()` + `record_param_baseline()`
+  - `Runtime::inherit_epigenome()` / `warm_start_params()` convenience API
+  - `loom runtime spawn --inherit <parent_id>` CLI command
+  - `SurvivalGauntlet` — CAE + LTE adversarial hardening gate (gauntlet.rs)
+  - `BIOISORunner` — 11 domain entities + `RetroValidator` (bioiso_runner.rs)
+  - Sampler wiring, gossip absorption, pheromone deposit, security absorption
+- **Railway deployment (5bcddd9)**:
+  - `Dockerfile` — multi-stage Rust build, non-root user, /data volume, healthcheck
+  - `railway.toml` — service config, volume, restart-on-failure
+  - `scripts/start-colony.sh` — idempotent spawn of 11 entities + daemon start
+  - `.env.example` — CLAUDE_API_KEY, DB_PATH, TICK_MS, OLLAMA_BASE_URL, RUST_LOG
+  - `docs/deploy-railway.md` — step-by-step guide
+- **Documentation complete (5a8f3de)**:
+  - `docs/diagrams/c4-context.md` — Developer/Researcher/Ollama/Claude/SQLite
+  - `docs/diagrams/c4-container.md` — all 15 CEMS modules mapped
+  - `docs/diagrams/sequence-primary.md` — full CEMS evolution tick sequence
+  - `docs/diagrams/state-primary.md` — BIOISO entity lifecycle (Spawned→Active→Canary→Stable→Senescent→Dead + Rollback/Quarantined/Hibernating)
+  - `docs/diagrams/flow-primary.md` — full mutation proposal flow with gauntlet gate
+  - `docs/adrs/ADR-0012` — genetic memory + gauntlet + BIOISO runner decisions
+  - `docs/TechSpec.md` — full spec: CEMS architecture, module map, stack, data flow, CLI, env vars, schema
+
+## Current State
+- **270 lib tests passing** — 0 failures
+- `loom runtime start|status|log|rollback|spawn` CLI fully operational
+- All deployment artifacts committed and ready
+- All documentation UNFILLED stubs replaced with real content
+- No known blockers
+
+## Architecture: COMPLETE + DEPLOYED
+
+### CEMS Axes
+- **C** (Circadian): temporal gating, Kalman SNR pre-filter
+- **E** (Epigenome): Buffer/Working/Core/Security + distillation + genetic inheritance
+- **M** (Mycelium): gossip, ACO stigmergy, offline resilience, hibernation
+- **S** (Stages 0–8): Membrane → Polycephalum → Ganglion → Mammal Brain → Gate → Simulation → Canary → Gauntlet → Stable
+
+### Domain Entities (11)
+climate, epidemics, antibiotic_res, grid_stability, soil_carbon, sepsis, flash_crash, nuclear_safety, supply_chain, water_basin, urban_heat
+
+## Next
+1. **Deploy**: `railway login && railway init` → add Volume at /data → set CLAUDE_API_KEY → `railway up`
+2. **Observe**: watch 11 entities evolve in real time via `railway logs`
+3. **Retro-validation**: inject historical crisis signals (Jan 2020 COVID, May 2010 HFT, Feb 2021 ERCOT) and score CEMS against academic baselines
+4. **Wire gauntlet into deploy.rs**: call `SurvivalGauntlet::run()` as a gate before Canary→Stable promotion (currently standalone; not yet in the deploy pipeline)
+
+## Blockers / Dependencies
+- None. `railway up` is the only remaining action.
+
 
 ## Completed (this session)
 - loom-language v0.2.0 published to crates.io (d2019a2)
