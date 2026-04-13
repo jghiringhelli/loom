@@ -58,6 +58,115 @@ pub trait OllamaClient: Send + Sync {
     fn health_check(&self) -> bool;
 }
 
+// ── Claude-backed Tier 2 client ───────────────────────────────────────────────
+
+/// Anthropic Messages API response (minimal — only what Ganglion needs).
+#[derive(Debug, serde::Deserialize)]
+struct ClaudeGanglionResponse {
+    content: Vec<ClaudeGanglionBlock>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ClaudeGanglionBlock {
+    #[serde(rename = "type")]
+    kind: String,
+    text: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ClaudeGanglionRequest<'a> {
+    model: &'a str,
+    max_tokens: u32,
+    messages: Vec<ClaudeGanglionMessage<'a>>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ClaudeGanglionMessage<'a> {
+    role: &'a str,
+    content: &'a str,
+}
+
+/// Claude-backed implementation of [`OllamaClient`].
+///
+/// Allows Tier 2 (Ganglion) to use the Anthropic API when Ollama is not
+/// available.  Configured via environment variables:
+///
+/// | Env var | Default | Description |
+/// |---|---|---|
+/// | `CLAUDE_API_KEY` | — | Required |
+/// | `CLAUDE_BASE_URL` | `https://api.anthropic.com/v1` | API base URL |
+/// | `GANGLION_CLAUDE_MODEL` | `claude-3-haiku-20240307` | Model to use (cheapest) |
+///
+/// The `model` argument passed to [`generate`] is ignored — the client always
+/// uses its own configured model (Ollama model names are not valid here).
+pub struct ClaudeGanglionClient {
+    base_url: String,
+    api_key: String,
+    model: String,
+    client: reqwest::blocking::Client,
+}
+
+impl ClaudeGanglionClient {
+    /// Create a client from environment variables.  Returns `None` if
+    /// `CLAUDE_API_KEY` is not set.
+    pub fn from_env() -> Option<Self> {
+        let api_key = std::env::var("CLAUDE_API_KEY").ok()?;
+        let base_url = std::env::var("CLAUDE_BASE_URL")
+            .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
+        let model = std::env::var("GANGLION_CLAUDE_MODEL")
+            .unwrap_or_else(|_| "claude-3-haiku-20240307".into());
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .ok()?;
+        Some(Self { base_url, api_key, model, client })
+    }
+}
+
+impl OllamaClient for ClaudeGanglionClient {
+    fn generate(&self, _model: &str, prompt: &str) -> Result<String, String> {
+        let url = format!("{}/messages", self.base_url);
+        let body = ClaudeGanglionRequest {
+            model: &self.model,
+            max_tokens: 512,
+            messages: vec![ClaudeGanglionMessage { role: "user", content: prompt }],
+        };
+        let resp = self
+            .client
+            .post(&url)
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .map_err(|e| e.to_string())?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().unwrap_or_default();
+            return Err(format!("Ganglion Claude error {status}: {text}"));
+        }
+
+        let cr: ClaudeGanglionResponse = resp.json().map_err(|e| e.to_string())?;
+        let text = cr
+            .content
+            .into_iter()
+            .filter(|b| b.kind == "text")
+            .filter_map(|b| b.text)
+            .collect::<Vec<_>>()
+            .join("");
+        Ok(text)
+    }
+
+    /// Returns `true` immediately (no network call) — the presence of an API
+    /// key is sufficient to declare the backend healthy.
+    fn health_check(&self) -> bool {
+        true
+    }
+}
+
+// ── Ollama HTTP client ────────────────────────────────────────────────────────
+
 /// Real blocking HTTP client backed by `reqwest`.
 pub struct ReqwestOllamaClient {
     base_url: String,
@@ -246,18 +355,26 @@ pub struct Ganglion {
 }
 
 impl Ganglion {
-    /// Create a Ganglion with the real `reqwest`-backed client.
+    /// Create a Ganglion, auto-selecting the backend:
+    ///
+    /// 1. If `CLAUDE_API_KEY` is set → use [`ClaudeGanglionClient`] (cheapest
+    ///    Claude model, no Ollama required).
+    /// 2. Otherwise → use [`ReqwestOllamaClient`] pointing at `config.base_url`.
+    ///
+    /// The Claude backend is preferred when available because it is always
+    /// reachable, whereas Ollama requires a local install.  Switch back to
+    /// Ollama by unsetting `CLAUDE_API_KEY` and setting `OLLAMA_BASE_URL`.
     pub fn new(config: GanglionConfig) -> Self {
-        let client = Box::new(ReqwestOllamaClient::new(
-            config.base_url.clone(),
-            config.timeout_secs,
-        ));
+        let client: Box<dyn OllamaClient> = if let Some(c) = ClaudeGanglionClient::from_env() {
+            Box::new(c)
+        } else {
+            Box::new(ReqwestOllamaClient::new(config.base_url.clone(), config.timeout_secs))
+        };
         Self {
             config,
             client,
             tier1_fail_counts: std::collections::HashMap::new(),
             health_cache: None,
-            // Re-check Ollama health at most every 60 seconds
             health_cache_ttl_ms: 60_000,
         }
     }

@@ -103,7 +103,7 @@ impl AnthropicClient {
         let base_url = std::env::var("CLAUDE_BASE_URL")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
         let model = std::env::var("CLAUDE_MODEL")
-            .unwrap_or_else(|_| "claude-3-5-haiku-20241022".into());
+            .unwrap_or_else(|_| "claude-sonnet-4-5".into());
         Some(Self::new(base_url, api_key, model, 60))
     }
 }
@@ -232,12 +232,12 @@ impl CostGuard {
         Self { max_calls_per_hour, call_log: Vec::new() }
     }
 
-    /// Create a guard using `BIOISO_MAX_TIER3_CALLS_PER_HOUR` env var, default 10.
+    /// Create a guard using `BIOISO_MAX_TIER3_CALLS_PER_HOUR` env var, default 5.
     pub fn from_env() -> Self {
         let limit = std::env::var("BIOISO_MAX_TIER3_CALLS_PER_HOUR")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(10);
+            .unwrap_or(5);
         Self::new(limit)
     }
 
