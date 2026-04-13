@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+﻿#!/usr/bin/env sh
 # CEMS colony startup script.
 #
 # 1. Seeds all 11 pre-configured BIOISO domain entities with expert-calibrated
