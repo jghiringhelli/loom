@@ -1,7 +1,97 @@
 # Status.md
 
-## Last Updated: 2026-04-13
+## Last Updated: 2026-04-14
 ## Branch: main
+## Commit: 1783a60
+
+## Completed (this session)
+- loom-language v0.2.0 published to crates.io (d2019a2)
+- Naming decision: language = Loom, crate = warp-lang (ADR-locked); reverted rename (156975c)
+- 18 theoretical proof experiments created in experiments/proofs/ (eb5fad4)
+  - 13 PROVED (compile + test suite passes): hoare, hindley-milner, session-types,
+    algebraic-effects, non-interference, temporal, autopoiesis, hayflick, liskov,
+    gradual, pi-calculus, dijkstra-wp, canalization
+  - 5 EMITTED (external verifier needed): separation, curry-howard, model-checking,
+    tla-convergence, dependent-types
+- 7 BIOISO domain apps with working simulations committed (dc9eb5f):
+  - climate/: CO2 model → minimum 4.92%/yr reduction avoids 2°C tipping by 2100
+  - epidemics/: SIR+ → 100% vaccination ($250M of $1B) → 0 deaths; herd immunity 60%
+  - antibiotic-resistance/: Wright-Fisher → rotation/combination > monotherapy
+  - flash-crash/: circuit breaker → halts at -2.86%, prevents 47% additional decline
+  - sepsis/: SOFA Sepsis-3 extrapolation → 5/5 patients detected 1h before diagnosis
+  - grid-stability/: battery dispatch → 4.7× frequency deviation improvement
+  - soil-carbon/: RothC evolution → Cover-Maize-Maize-Maize-Maize +9.79 tC/ha
+- **BIOISO Runtime R1–R7 complete** — Loom is now an evolving system:
+  - R1 (388c555): Signal runtime — SQLite store, entity supervisor, codegen emitter
+  - R2 (0334222): Telos drift engine — normalised 0–1 score, severity levels, escalation
+  - R3 (39330eb): Polycephalum Tier 1 — deterministic rule engine, MutationProposal enum
+  - R4 (8bf06e2): Type-safe mutation gate — every proposal compiled through loom::compile()
+  - R5 (4cf236a): Ganglion Tier 2 — Ollama HTTP client, signal corpus, escalation counter
+  - R6 (b8af196): Mammal Brain Tier 3 — Claude API client, cost guard, full genome prompt
+  - R7 (0b97cd5): Orchestration loop + canary deploy + `loom runtime` CLI commands
+- **CEMS Runtime R8–R13 complete** — full biological isomorphisms:
+  - R8  (70a40f6): Stage 0 Membrane (immune.rs) — SHA-256 genome hash, token bucket rate limit,
+    5-window quarantine (1m→5m→30m→1h→24h), plausibility check + security_events store
+  - R9  (6320d4e): Epigenome E-axis — Buffer (time-decaying), Working (rolling mean/var),
+    Core (CORE_MAX_ENTRIES=1000), Security tier; 5 memory types
+  - R10 (765bad3): Circadian C-axis — cron parser (5 field patterns), WallTime (pure Rust
+    Gregorian), Kalman SNR pre-filter with first-observation guard
+  - R11 (a29b4df): Epigenome distillation — Working→Core (Semantic), high-drift→Core (Episodic)
+  - R12 (93aafc8): Mycelium M-axis — gossip protocol, ACO pheromone stigmergy, offline queue
+    (OFFLINE_QUEUE_CAPACITY=1000), MetabolicLoad EMA hibernation gating
+  - sampler (1aacddc): MutationSampler — xorshift64 PRNG, Gaussian/Cauchy/Lévy distributions,
+    guidance force (Telos attractor), telomere SA annealing, AdaptiveTracker σ adjustment
+  - R13 (7af8fb5): Stage 5 Simulation — DigitalTwin, MeioticPool, SVD cosine independence,
+    RecombinationPlan (orthogonal clique builder)
+  - R7-CEMS (dc8a037): CEMS axes wired into orchestrator — C gate, E distil tick, M tick,
+    sampler feedback from gate+deploy; auto-rollback with pre/post telos comparison;
+    `loom runtime start --db --tick-ms` daemon command
+- **Genetic memory + BIOISO infrastructure (1783a60)**:
+  - epigenetic.rs: `Epigenome::inherit_from()`, `warm_start_params()`, `record_param_baseline()`
+    + `parse_param_value()` helper — offspring inherit parent Core memories (Semantic+Procedural+
+    Declarative), not Episodic/Relational; param baselines persist as `param=X value=Y` entries
+  - mod.rs: `Runtime::inherit_epigenome()`, `warm_start_params()`, `record_param_baseline()`
+    public convenience API on the Runtime facade
+  - main.rs: `loom runtime spawn` CLI — registers entity + optional `--inherit <parent_id>`
+    epigenome inheritance; prints warm-start param table
+  - gauntlet.rs: `SurvivalGauntlet` with CAE (catastrophic spike + recovery window) +
+    LTE (long-term entropy at 2× drift) phases; `GauntletResult` struct; inline bound drift
+    computation (no orchestrator required)
+  - bioiso_runner.rs: `BIOISORunner` with 11 pre-configured domain entities; `RetroScenario` +
+    `RetroValidator` for replaying historical episodes and scoring against academic baselines
+  - polycephalum.rs: `DeltaSpec::Sampled` variant + `evaluate_with_sampler()`
+  - simulation.rs: `MeioticPool::add_sampled_candidate()`
+  - orchestrator.rs: gossip absorption → Relational memories, security absorption per entity,
+    pheromone deposit on promoted mutations, `TickResult.gossip_absorbed/.security_absorbed`
+
+## Current State
+- **270 lib tests passing** (all green, 0 failures)
+- `loom runtime start|status|log|rollback|spawn` CLI fully operational
+- 11 BIOISO domain entities with pre-configured telos bounds + baseline signals
+- Retrospective validator ready: `RetroValidator::run_all()` scores CEMS vs academic baselines
+
+## Architecture: COMPLETE
+- C (Circadian): temporal gating, Kalman SNR pre-filter
+- E (Epigenome): Buffer/Working/Core/Security + distillation cascade + genetic inheritance
+- M (Mycelium): gossip, ACO stigmergy, offline resilience, hibernation
+- S (Stages 0–8): Membrane → Reflex → Ganglion → Cortex → Gate → Simulation → Soft Release → Acclimatization → Propagation
+- Genetic Memory: offspring inherit parent priors (Semantic+Procedural+Declarative), warm-start params
+- Survival Gauntlet: CAE + LTE hardening gate before Promoted state
+
+## Next
+- **Deployment**: create `Dockerfile` + `railway.toml` to deploy live colony to Railway or GCP
+  - Entry point: `loom runtime start --db /data/bioiso.db --tick-ms 5000`
+  - Persist SQLite to mounted volume
+- **Wire gauntlet into deploy.rs**: call `SurvivalGauntlet::run()` before promoting canary
+- **First live run**: spawn all 11 domain entities in a live deployment, observe evolution over 24h
+- **RetroVal experiment**: inject historical crisis data (Jan 2020 COVID signals, May 2010 HFT data)
+  and compare CEMS discoveries against the O'Neill/IPCC/SEC baselines
+
+## Blockers / Dependencies
+- None. All infrastructure is in place for live deployment.
+- Railway free tier: 512 MB RAM / 1 vCPU — should be sufficient for a single-process colony
+  running 11 entities at 5s ticks (most computation is in-memory SQLite)
+
 
 ## Completed (this session)
 - loom-language v0.2.0 published to crates.io (d2019a2)
