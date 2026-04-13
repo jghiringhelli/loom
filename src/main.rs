@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 use std::process;
+use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 
@@ -435,8 +436,6 @@ fn main() {
 fn handle_runtime(subcommand: RuntimeCommands) {
     match subcommand {
         RuntimeCommands::Start { db, tick_ms } => {
-            use std::io::BufRead as _;
-            use std::sync::Arc;
             use std::sync::atomic::{AtomicBool, Ordering};
             use loom::runtime::orchestrator::{Orchestrator, OrchestratorConfig};
 
@@ -452,17 +451,22 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             config.tick_interval = std::time::Duration::from_millis(tick_ms);
 
             let stop = Arc::new(AtomicBool::new(false));
-            let stop_clone = Arc::clone(&stop);
 
-            // Spawn a thread that sets the stop flag when stdin closes (EOF / Ctrl-D)
-            // or after receiving SIGINT via the OS default handler (process terminates).
-            // For interactive use: press Ctrl-C once to terminate.
-            std::thread::spawn(move || {
-                // Block until stdin EOF — signals `stop` to the daemon loop.
-                let mut buf = String::new();
-                let _ = std::io::stdin().read_line(&mut buf);
-                stop_clone.store(true, Ordering::Relaxed);
-            });
+            // In interactive terminals: stop when stdin closes (Ctrl-D or Ctrl-C).
+            // In Docker / CI (stdin is /dev/null): ignore stdin entirely — the
+            // daemon runs until SIGTERM (Railway) or SIGKILL terminates the process.
+            #[cfg(unix)]
+            let stdin_is_tty = unsafe { libc::isatty(libc::STDIN_FILENO) } == 1;
+            #[cfg(not(unix))]
+            let stdin_is_tty = false;
+            if stdin_is_tty {
+                let stop_clone = Arc::clone(&stop);
+                std::thread::spawn(move || {
+                    let mut buf = String::new();
+                    let _ = std::io::stdin().read_line(&mut buf);
+                    stop_clone.store(true, Ordering::Relaxed);
+                });
+            }
 
             println!(
                 "bioiso: starting evolution daemon (store={db}, tick={tick_ms}ms). \
