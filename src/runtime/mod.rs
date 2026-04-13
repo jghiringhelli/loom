@@ -14,6 +14,7 @@
 //! See [`ADR-0011`](../../docs/adrs/ADR-0011-ceks-runtime-architecture.md).
 
 pub mod brain;
+pub mod circadian;
 pub mod deploy;
 pub mod drift;
 pub mod epigenetic;
@@ -28,6 +29,7 @@ pub mod store;
 pub mod supervisor;
 
 pub use brain::{CostGuard, MammalBrain};
+pub use circadian::{Circadian, CircadianAction, CircadianVerdict, KalmanFilter, Schedule, WallTime};
 pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use epigenetic::{BufferEntry, CoreEntry, Epigenome, MemoryType, WorkingSummary};
@@ -65,6 +67,8 @@ pub struct Runtime {
     pub membrane: Membrane,
     /// Cross-cutting E axis — Epigenome (Buffer / Working / Core / Security tiers).
     pub epigenome: Epigenome,
+    /// Cross-cutting C axis — Circadian (temporal gating + Kalman SNR pre-filter).
+    pub circadian: Circadian,
     /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
     pub polycephalum: Polycephalum,
     /// Type-safe mutation gate — validates proposals through the full compiler.
@@ -87,6 +91,7 @@ impl Runtime {
             drift_engine: DriftEngine::new(),
             membrane: Membrane::new(MembraneConfig::default()),
             epigenome: Epigenome::new(),
+            circadian: Circadian::new(),
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
