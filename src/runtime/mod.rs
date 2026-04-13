@@ -25,6 +25,7 @@ pub mod immune;
 pub mod mutation;
 pub mod orchestrator;
 pub mod polycephalum;
+pub mod sampler;
 pub mod signal;
 pub mod store;
 pub mod supervisor;
@@ -40,6 +41,7 @@ pub use gate::{GateResult, GateVerdict, MutationGate};
 pub use immune::{Membrane, MembraneConfig, MembraneVerdict, RejectReason, SecurityCategory};
 pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
+pub use sampler::{AcceptanceTracker, MutationSampler, SamplingMode};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
 pub use store::{EntityRecord, SecurityEvent, SignalStore, TelosBound};
 pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
@@ -82,6 +84,9 @@ pub struct Runtime {
     /// Tier 3 Mammal Brain — Claude API, full genome synthesis. Optional; skipped when
     /// `CLAUDE_API_KEY` is not configured or manually set to `None`.
     pub brain: Option<MammalBrain>,
+    /// Cross-cutting — MutationSampler: biased stochastic delta generator.
+    /// Shared by Polycephalum (mitotic deltas) and the Meiotic Pool (meiotic candidates).
+    pub sampler: MutationSampler,
 }
 
 impl Runtime {
@@ -101,6 +106,7 @@ impl Runtime {
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
             brain: MammalBrain::from_env(),
+            sampler: MutationSampler::for_entity("runtime"),
         })
     }
 
