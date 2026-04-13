@@ -76,6 +76,15 @@ impl SignalStore {
                 state_json TEXT NOT NULL,
                 ts         INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS security_events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_id   TEXT NOT NULL,
+                category    TEXT NOT NULL,
+                description TEXT NOT NULL,
+                ts          INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_security_entity
+                ON security_events(entity_id, ts);
             ",
         )
     }
@@ -267,6 +276,47 @@ impl SignalStore {
             None => Ok(None),
         }
     }
+
+    // ── Security events ───────────────────────────────────────────────────────
+
+    /// Append a security classification event (written by Stage 0 — Membrane).
+    ///
+    /// These records will be absorbed into the Epigenome Security memory tier in R9.
+    pub fn write_security_event(
+        &self,
+        entity_id: &str,
+        category: &str,
+        description: &str,
+        ts: Timestamp,
+    ) -> SqlResult<()> {
+        self.conn.execute(
+            "INSERT INTO security_events (entity_id, category, description, ts)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![entity_id, category, description, ts as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Return up to `limit` most-recent security events for an entity, newest first.
+    pub fn security_events_for_entity(
+        &self,
+        entity_id: &str,
+        limit: usize,
+    ) -> SqlResult<Vec<SecurityEvent>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT entity_id, category, description, ts FROM security_events
+             WHERE entity_id = ?1 ORDER BY ts DESC LIMIT ?2",
+        )?;
+        let rows = stmt.query_map(params![entity_id, limit as i64], |row| {
+            Ok(SecurityEvent {
+                entity_id: row.get(0)?,
+                category: row.get(1)?,
+                description: row.get(2)?,
+                ts: row.get::<_, i64>(3)? as u64,
+            })
+        })?;
+        rows.collect()
+    }
 }
 
 // ── Value types ───────────────────────────────────────────────────────────────
@@ -292,6 +342,18 @@ pub struct EntityRecord {
     pub telos_json: Option<String>,
     pub born_at: Timestamp,
     pub state: String,
+}
+
+/// A security classification event written by the Membrane (Stage 0).
+///
+/// Absorbed into the Epigenome Security memory tier in R9.
+#[derive(Debug, Clone)]
+pub struct SecurityEvent {
+    pub entity_id: String,
+    /// The threat category string (e.g. `"rate_limit_exceeded"`).
+    pub category: String,
+    pub description: String,
+    pub ts: Timestamp,
 }
 
 #[cfg(test)]

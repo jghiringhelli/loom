@@ -1,36 +1,24 @@
-//! BIOISO runtime — the living execution layer for Loom programs.
+//! CEMS runtime — the living execution layer for Loom programs.
 //!
 //! Converts a compiled Loom program from a static type-checked artifact into a
 //! running system that emits telemetry, measures telos drift, proposes mutations,
 //! and evolves toward its declared intent.
 //!
-//! # Architecture
+//! # CEMS architecture
 //!
-//! ```text
-//! Signal emission → Signal store → Telos drift engine
-//!                                        ↓
-//!                         Mutation proposals (three tiers)
-//!                                        ↓
-//!                         Type-safe mutation gate (compile())
-//!                                        ↓
-//!                         Canary deploy → monitor → promote/rollback
-//! ```
+//! Two axes:
+//! - **Stages 0–8** (linear pipeline): Membrane → Reflex → Ganglion → Cortex →
+//!   Gate → Simulation → Soft Release → Acclimatization → Propagation
+//! - **Cross-cutting** (always-on): C (Circadian) · E (Epigenome) · M (Mycelium)
 //!
-//! # Three-tier synthesis
-//!
-//! | Tier | Analog | Technology | Latency |
-//! |---|---|---|---|
-//! | Polycephalum | Slime mold | Deterministic Rust rule engine | < 50ms |
-//! | Ganglion | Nerve cluster | Local micro-LLM (Ollama) | seconds |
-//! | Mammal Brain | Cortex | External LLM API (Claude) | seconds + cost |
-//!
-//! See [`ADR-0010`](../../docs/adrs/ADR-0010-bioiso-runtime-architecture.md).
+//! See [`ADR-0011`](../../docs/adrs/ADR-0011-ceks-runtime-architecture.md).
 
 pub mod brain;
 pub mod deploy;
 pub mod drift;
 pub mod ganglion;
 pub mod gate;
+pub mod immune;
 pub mod mutation;
 pub mod orchestrator;
 pub mod polycephalum;
@@ -43,10 +31,11 @@ pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
+pub use immune::{Membrane, MembraneConfig, MembraneVerdict, RejectReason, SecurityCategory};
 pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
 pub use signal::{now_ms, EntityId, MetricName, Signal, Timestamp};
-pub use store::{EntityRecord, SignalStore, TelosBound};
+pub use store::{EntityRecord, SecurityEvent, SignalStore, TelosBound};
 pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
 
 // ── Runtime context ───────────────────────────────────────────────────────────
@@ -70,6 +59,8 @@ pub struct Runtime {
     pub supervisor: EntitySupervisor,
     /// The telos drift engine — evaluates signals against declared bounds.
     pub drift_engine: DriftEngine,
+    /// Stage 0 — Membrane / Immune layer.
+    pub membrane: Membrane,
     /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
     pub polycephalum: Polycephalum,
     /// Type-safe mutation gate — validates proposals through the full compiler.
@@ -90,6 +81,7 @@ impl Runtime {
             store: SignalStore::new(db_path)?,
             supervisor: EntitySupervisor::new(),
             drift_engine: DriftEngine::new(),
+            membrane: Membrane::new(MembraneConfig::default()),
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
@@ -97,10 +89,11 @@ impl Runtime {
         })
     }
 
-    /// Spawn a new entity: registers in supervisor + signal store.
+    /// Spawn a new entity: registers in supervisor, signal store, and Membrane.
     ///
     /// `telos_json` is the serialised telos declaration (used by the drift engine).
     /// `telomere_limit` is the maximum number of evolutions before senescence.
+    /// `genome_source` is hashed and registered for lineage verification (optional).
     pub fn spawn_entity(
         &mut self,
         id: impl Into<EntityId>,
@@ -112,25 +105,36 @@ impl Runtime {
         let entity_id: EntityId = id.into();
         let entity_name: String = name.into();
         let born_at = now_ms();
-        self.store
-            .register_entity(&entity_id, &entity_name, telos_json, born_at)?;
-        self.supervisor
-            .spawn(entity_id, entity_name, telomere_limit, on_exhaustion);
+        self.store.register_entity(&entity_id, &entity_name, telos_json, born_at)?;
+        self.supervisor.spawn(entity_id.clone(), entity_name, telomere_limit, on_exhaustion);
+        self.membrane.register_entity(&entity_id);
+        self.membrane.register_genome(&entity_id, telos_json);
         Ok(())
     }
 
     /// Emit a telemetry signal from a running entity.
-    pub fn emit(&self, signal: Signal) -> Result<(), rusqlite::Error> {
-        self.store.write_signal(&signal)
+    ///
+    /// Signals pass through the Membrane (Stage 0) first. Returns `Ok(true)` when
+    /// admitted and stored, `Ok(false)` when rejected or quarantined by the Membrane.
+    pub fn emit(&mut self, signal: Signal) -> Result<bool, rusqlite::Error> {
+        match self.membrane.evaluate(&signal, &self.store) {
+            MembraneVerdict::Admit => {
+                self.store.write_signal(&signal)?;
+                Ok(true)
+            }
+            MembraneVerdict::Reject(_) | MembraneVerdict::Quarantine(_) => Ok(false),
+        }
     }
 
     /// Convenience: emit a named metric value for an entity with the current timestamp.
+    ///
+    /// Returns `Ok(true)` if admitted, `Ok(false)` if blocked by the Membrane.
     pub fn emit_metric(
-        &self,
+        &mut self,
         entity_id: impl Into<EntityId>,
         metric: impl Into<MetricName>,
         value: f64,
-    ) -> Result<(), rusqlite::Error> {
+    ) -> Result<bool, rusqlite::Error> {
         self.emit(Signal::new(entity_id, metric, value))
     }
 

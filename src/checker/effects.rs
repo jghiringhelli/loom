@@ -40,7 +40,11 @@ impl EffectChecker {
             }
         }
 
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }
 
@@ -114,7 +118,10 @@ fn check_fn_effects(
     for eff in &transitive_effects {
         if !fn_declared.contains(eff) && !is_pure {
             errors.push(LoomError::effect(
-                format!("function `{}` uses effect `{}` but does not declare it", fd.name, eff),
+                format!(
+                    "function `{}` uses effect `{}` but does not declare it",
+                    fd.name, eff
+                ),
                 fd.span.clone(),
             ));
         }
