@@ -315,20 +315,325 @@ a PROMOTED verdict. It does not block the pipeline.
                                     └───────────────────────────┘
 ```
 
-### 8. Build roadmap
+### 8. Build roadmap (R8–R12)
 
 | Phase | Component | Depends on |
 |---|---|---|
-| R8 | Stage 0: Membrane / Immune (hash lineage) | Store (done) |
+| R8 | Stage 0: Membrane / Immune (hash lineage + security metadata → E) | Store (done) |
 | R9 | E: Epigenetic Buffer tier (raw outcome logging) | Store (done), Stage 5 (done) |
 | R10 | C: Circadian (cron gates + SNR gate) | Store, Orchestrator (done) |
 | R11 | E: Working + Core tiers (Ollama/Claude distillation) | R9 (Buffer), GPU laptop |
-| R12 | K: Colony gossip (HTTP, cross-node E sync) | R9 (E), multi-node setup |
+| R12 | K: Colony gossip (HTTP, cross-node E sync, offline cache, hibernation) | R9 (E), multi-node setup |
 
 R8 and R9 can be built without new infrastructure.
 R10 requires the `cron` crate (pure Rust, no OS daemon).
 R11 requires Ollama running on the GPU laptop.
 R12 requires both nodes running and discoverable on the network.
+
+---
+
+### 9. Extended Validation Pipeline (R13–R15)
+
+After Stage 4 (Gate), the proposal enters a four-stage biological validation pipeline
+that mirrors the drug development pathway: _in silico_ → _in vitro_ → _in vivo partial_
+→ full production.
+
+```
+[4: Gate] ──► [5: Simulation] ──► [6: Soft Release] ──► [7: Acclimatization] ──► [8: Propagation]
+               in silico           in vitro                in vivo partial            full wild
+```
+
+**Stage 5 — Simulation (digital twin, _in silico_)**
+
+Biological analog: predictive coding / mental rehearsal. The mammalian brain simulates
+outcomes before committing to action. Zero-cost elimination of visibly bad strategies.
+
+- Replay entity's historical signals against the proposed mutation
+- Measure telos delta across the full signal history
+- Check whether the entity reaches Senescent or Dead lifecycle state in simulation
+- Failure writes negative Semantic entry to Epigenome: "this mutation class collapses
+  telos under these signal conditions"
+
+**Stage 6 — Soft Release (mesocosm, _in vitro_-equivalent)**
+
+Biological analog: conservation biology soft release — animals reintroduced to a
+protected enclosure within their natural habitat before full wild release.
+
+- Deploy to isolated real environment with no production traffic
+- Run N ticks with real infrastructure (DB, network, clocks — no mocks)
+- Survival criteria: entity alive, telos not worse, no invariant fires, signals continue
+- **Security hardening**: full pre-release security test suite runs here
+  (MITM simulation, DoS probe, input fuzzing, reverse-engineering resistance checks)
+- **Passing writes to Epigenome Procedural tier** (never decays — immunological memory)
+- Failure: rollback to checkpoint, negative Procedural candidate flagged to Cortex
+
+**Stage 7 — Acclimatization (low-traffic real, _in vivo_ partial)**
+
+Biological analog: acclimatization — physiological adjustment to new conditions via
+partial exposure before full habitat release.
+
+- Deploy to low-traffic production slice
+- Measure telos delta against full-traffic baseline
+- Colony notified of delta; siblings receive the Episodic entry regardless of outcome
+- Failure: rollback + Episodic entry; Gaia telos aggregate recalculated
+
+---
+
+### 10. Propagation Decision — Mitosis vs. Meiosis (R16)
+
+At Stage 8, before production, the system decides: **mutate internally** or **spawn a
+new entity instance**. This maps to mitosis vs. meiosis.
+
+**Mitosis** (internal update):
+- Same entity instance, new behavioral parameters
+- Triggered when: telos improves, structural divergence is low, no new signal types
+
+**Meiosis** (spawn new entity):
+- A new entity instance is created with a recombined genome
+- Triggered when: structural divergence exceeds threshold, new signal types detected,
+  or operator configures explicit clone policy
+- Registered in the Colony K layer with parent lineage
+
+**Multi-parent recombination** (generalized, not limited to 2 parents):
+- New offspring can inherit orthogonal traits from N parents
+- Each parent contributes the trait package where it has highest Epigenome fitness score
+- Cortex (Stage 3) selects the recombination map when N > 2
+- Biological analog: horizontal gene transfer + RNA segment reassortment (influenza)
+
+**Git lineage protocol**:
+- Structurally distinct entities get their own branch: `entity/<colony-id>/<variant-id>`
+- Branch is preserved when the entity exhausts its telomere or is confirmed worse via
+  Epigenome evidence — it becomes read-only history, never deleted
+- Confirmed-worse mutation + epigenetic evidence → accelerated telomere burn
+- Clones inherit most Epigenome entries of parent (Procedural: all; Semantic: copy;
+  Episodic: none — a new instance starts with no personal history)
+
+**Mutation Independence Testing — Eigendecomposition of the Effect Matrix**
+
+This solves the **epistasis problem** (also: clonal interference, sign epistasis,
+Muller's Ratchet). It is the fundamental reason sexual reproduction exists.
+
+**The problem:** Mutation A has telos effect +0.3. Mutation B has telos effect −0.3.
+If both are applied together and measured as a scalar, Δtelos = 0. The system
+concludes neither mutation is significant and discards both. Mutation A — which
+was beneficial — is silently lost.
+
+**Root cause:** telos is not a scalar. It is a vector across M measurable dimensions
+(throughput, latency, accuracy, cost, survival rate, …). Two mutations that cancel
+each other in one dimension may be entirely independent in the others.
+
+**The Meiotic Pool — mutation staging area:**
+
+Mutations do not go directly from Gate (Stage 4) to Propagation (Stage 8).
+They accumulate in a staging area and are tested individually in Simulation
+(Stage 5) first, computing a full telos **effect vector** (not a scalar):
+
+```
+effect_vector[i] = Δtelos per dimension for mutation i
+                 = [Δthroughput, Δlatency, Δaccuracy, Δcost, ...]
+```
+
+Once N mutations have accumulated (configurable, default N=5), or a time window
+expires, the system runs eigendecomposition of the effect matrix E (shape: M×T,
+M mutations × T telos dimensions):
+
+```rust
+// Conceptually:
+let E: Matrix<f64> = build_effect_matrix(&pending_mutations);
+let (singular_values, left_vecs, right_vecs) = svd(E);
+// right_vecs: orthogonal basis of telos-effect space
+// Each mutation projected onto this basis reveals its independence
+```
+
+**Reading the result:**
+
+| Relationship between mutations | Effect vector geometry | Action |
+|---|---|---|
+| Orthogonal | Vectors perpendicular in telos space | Combine in single offspring — effects are additive, no interference |
+| Parallel (same direction) | Vectors point the same way | Combine — reinforcing, test together |
+| Anti-parallel (opposite direction) | Vectors cancel | **Separate lineages** — do not combine. Each is tested in isolation. If one is +0.3 and the other −0.3, combining them hides both. |
+| Partially correlated | Oblique angle | Decompose: project onto orthogonal components. Combine the orthogonal part; defer the correlated part. |
+
+**Biological grounding:**
+- Orthogonal mutations = mutations on different chromosomes (free recombination)
+- Correlated mutations = mutations on the same chromosome (linkage disequilibrium)
+- Anti-parallel mutations = sign epistasis — the known case where beneficial alleles
+  cancel each other when combined; the reason recombination evolved
+
+**The algorithm in practice:**
+1. Every mutation passing Stage 4 (Gate) enters the Meiotic Pool with status `pending_independence_test`
+2. Simulation (Stage 5) runs each pending mutation **in isolation** → records effect vector
+3. Once the pool reaches threshold N or timer fires, SVD of effect matrix
+4. Orthogonal clusters → candidate for a single multi-parent offspring (Propagation Stage 8)
+5. Anti-parallel pairs → each gets its own lineage branch; telomere budget allocated separately
+6. Results written to Epigenome Semantic tier: "mutations M3 and M7 are anti-parallel on
+   latency dimension — do not recombine"
+
+**ICA extension (long-term):**
+SVD finds *uncorrelated* components. ICA (Independent Component Analysis) finds
+*statistically independent* components — a stronger guarantee. Once the Epigenome
+has accumulated enough signal history, an ICA pass on the full mutation effect corpus
+can discover the true orthogonal axes of the entity's telos space, potentially
+revealing that the declared telos dimensions are not the natural coordinates of the
+system. These empirical coordinates are federated back to the Cortex and used to
+update the entity's `.loom` telos block in the next meiotic cycle.
+
+---
+
+### 11. Ganglion Micro-LM Evolution Path
+
+The current Ganglion (Stage 2) starts as Ollama with a general-purpose model.
+The long-term architecture is a distributed localized nervous system: self-contained
+micro-LMs that understand both BIOISO semantics and the specific app they serve.
+
+**Evolutionary stages:**
+
+| Stage | Technology | Training | Infrastructure |
+|---|---|---|---|
+| G1 (current) | Ollama + general model (Phi-3, Qwen2.5) | None | GPU laptop |
+| G2 | Ollama + fine-tuned on promoted outcomes | Epigenome Procedural corpus | GPU laptop |
+| G3 | GGUF-quantized micro-LM, ONNX runtime | Entity-specific signal history | CPU, per-node |
+| G4 | Distributed micro-LMs per signal domain | Domain-specific promoted outcomes | CPU, per-entity |
+
+**Training pipeline** (G2+):
+- Source: Epigenome Procedural + Semantic tiers (highest-quality, non-decaying knowledge)
+- Format: (signal_context, genome_excerpt) → mutation_proposal pairs
+- Supervised by Cortex: Claude reviews training examples before they enter the corpus
+- Distillation: large Cortex model supervises compression into small Ganglion model
+
+**Infrastructure goal**: each deployed entity node carries its own micro-LM. No network
+required for Stage 2 synthesis. True peripheral nervous system — autonomous, distributed,
+no dependency on GPU laptop or external API for the common case.
+
+---
+
+### 12. Security Metadata at Membrane → Epigenome (R8 extension)
+
+Stage 0 (Membrane) does not just admit or reject — it classifies and annotates.
+Every admitted signal and mutation receives a security category written to the
+Epigenome Security tier (a new sub-type alongside Episodic/Semantic/Procedural/Preference).
+
+**Security classification written at Stage 0:**
+
+| Threat | Detection mechanism | Epigenome entry |
+|---|---|---|
+| MITM / signal spoofing | HMAC signature on all signals | `security::signal_tamper_detected` |
+| DoS | Token bucket rate limiting per source entity | `security::rate_limit_exceeded` |
+| Genome tampering | SHA-256 lineage hash chain break | `security::genome_hash_mismatch` |
+| Faulty hardware / sensor | Signal plausibility bounds check | `security::implausible_signal` |
+| Unauthorized mutation | Source entity not in colony registry | `security::unregistered_mutation_source` |
+
+**Effect on pipeline:**
+- Security entries are read by Reflex (Stage 1) as rule-matching context
+- A source with repeated `signal_tamper_detected` entries is down-weighted automatically
+- Cortex (Stage 3) receives security summary in its system prompt
+- Soft Release (Stage 6) includes a security hardening test pass before promotion
+
+---
+
+### 13. Umwelt Spectrum
+
+Umwelt is not binary. Each entity declares a perception scope on a three-level spectrum:
+
+| Level | Name | Sees | Use case |
+|---|---|---|---|
+| 0 | Restricted (default) | Only signals declared in this entity's `.loom` source | All domain entities |
+| 1 | Domain | All signals emitted within the entity's ecosystem | Cross-entity correlation |
+| 2 | Omniscient | All signals across all entities in the entire runtime | Analytics, monitoring, Gaia-level observers |
+
+The Membrane (Stage 0) enforces the declared scope. Signals outside scope are
+silently dropped at entry — they do not exist for that entity.
+
+Omniscient entities enable cross-input distribution discovery (correlation, anomaly
+detection across entity boundaries) without exposing that scope to domain entities.
+Gaia Telos is computed by an Omniscient observer; individual entities remain scoped.
+
+---
+
+### 14. Bayesian Allostery
+
+Allostery — context-sensitive signal interpretation — is implemented via Bayesian
+inference in the Reflex stage (Stage 1) rule-matching layer.
+
+**Formulation:**
+```
+P(interpretation | signal, context) ∝ P(signal | interpretation, context) × P(interpretation | context)
+```
+
+Where:
+- **Prior** `P(interpretation | context)`: Epigenome history of this `(signal_type, entity_state)` pair
+- **Likelihood** `P(signal | interpretation, context)`: current signal value + adjacent context signals
+- **Posterior**: updated distribution over interpretations; the rule fires on the MAP estimate
+
+**Effect**: the same signal value of `0.8` for `metabolism_rate` means "critical high"
+when entity is in `Stressed` state and `normal_operating` when in `Peak` state — because
+the prior distributions differ.
+
+**Implementation note**: Naïve Bayes sufficient for initial implementation (independence
+assumption across context signals). Full Bayes (Bayesian network) if cross-signal
+dependencies are needed later.
+
+---
+
+### 15. Colony Offline Resilience + Hibernation (R12 extension)
+
+**Local cache:**
+- Persist last N Mycelium broadcasts to disk (SQLite, same store as signal store)
+- Cache survives process restart; replayed on reconnect in chronological order
+
+**Fallback mode (colony unreachable):**
+- Entity continues on local Epigenome only
+- Colony broadcast queue accumulates locally
+- No proposals written to shared K layer until reconnect
+
+**Catch-up on reconnect:**
+- Replay queued broadcasts in timestamp order
+- Merge Epigenome deltas: newer timestamp wins; Procedural memories are protected
+  from remote overwrites (local Procedural is never overwritten by colony broadcast —
+  only reinforced or supplemented)
+
+**Hibernation:**
+- Threshold: `disconnected_duration > T` AND `local_telos_stable` (variance < ε over last W ticks)
+- Effect: reduce tick rate to `H%` of normal (configurable, default 10%)
+- Biological analog: tardigrade cryptobiosis / bear hibernation — reduce metabolic cost
+  when environment is stable and no communication is available
+- Wake: on reconnect OR telos drift exceeds emergency threshold
+
+---
+
+### 16. Classic Optimization Algorithms Embedded in CEKS
+
+Each biological behavior in the runtime is backed by a well-understood classical
+optimization algorithm, applied locally within its scope:
+
+| Biological behavior | Classic algorithm | CEKS application | Location |
+|---|---|---|---|
+| Stigmergy (pheromone trails) | Ant Colony Optimization (ACO) | Signal weight = pheromone strength; Circadian decay = evaporation rate; Colony broadcast = trail reinforcement | Signal store + K layer |
+| Punctuated equilibrium | Simulated Annealing (SA) | Temperature = current telos stability score; mutation rate = f(1/T); cooling schedule = telos stability trend over W ticks | Orchestrator tick scheduler |
+| Multi-parent recombination | Genetic Algorithm (GA) crossover | Parent trait packages selected by Epigenome fitness per domain; crossover point selected by Cortex | Stage 8 Propagation Decision |
+| Colony coordination | Particle Swarm Optimization (PSO) | Entity positions in telos space; velocity = drift direction; swarm attractor = Gaia telos target | K layer + Gaia telos aggregate |
+| Signal noise suppression | Kalman filter | State estimate = running signal mean; measurement noise covariance = Circadian SNR | Stage 0 Membrane + SNR gate |
+| Mutation independence testing | SVD / Eigendecomposition ("eigen" = German for *intrinsic*) | Effect matrix E[mutation × telos_dim]; SVD reveals orthogonal vs anti-parallel mutations; prevents sign epistasis masking | Meiotic Pool (Stage 5 → Stage 8) |
+| Telos space discovery | ICA (Independent Component Analysis) | Finds statistically independent axes of telos space from accumulated signal history; updates declared telos dimensions in `.loom` source | Epigenome distillation cycle (monthly) |
+
+These algorithms are not novel. They are deployed locally within their biological
+analog's scope — they are not global optimizers for the whole system.
+
+---
+
+### 17. Updated module additions
+
+```
+src/runtime/
+  immune.rs        — Stage 0: hash lineage + security classification → E (R8)
+  epigenetic.rs    — E: memory bus Buffer/Working/Core + Security tier, decay (R9, R11)
+  circadian.rs     — C: cron gates + SNR gate + Kalman pre-filter (R10)
+  colony.rs        — K: HTTP gossip, offline cache, hibernation, ACO stigmergy (R12)
+  simulation.rs    — Stage 5: digital twin signal replay, telos delta (R13)
+  soft_release.rs  — Stage 6: isolated real env, security hardening, Procedural write (R14)
+  acclimatization.rs — Stage 7: LTE slice, telos delta vs baseline (R15)
+  propagation.rs   — Stage 8: mitosis/meiosis decision, multi-parent recombination (R16)
+```
 
 ## Alternatives Considered
 
@@ -363,12 +668,22 @@ epigenetic store could be poisoned by unverified mutations. Stage 0 must come fi
 
 **What the AI must know to work in this codebase:**
 - `src/runtime/` is the CEKS runtime — the execution engine for BIOISO entities
-- Stages 0–5 are sequential pipeline steps (`immune.rs`, existing layers, `deploy.rs`)
+- Pipeline Stages 0–8 are sequential. Stages 0–4 were R1–R7; Stages 5–8 are R13–R16.
 - C, E, K are cross-cutting modules: `circadian.rs`, `epigenetic.rs`, `colony.rs`
 - The mutation gate (Stage 4) is non-negotiable and never gated by Circadian
 - E is a read dependency for Stages 1, 2, 3 — inject before synthesis, not after
+- E has 5 memory sub-types: Episodic / Semantic / Procedural / Preference / Security
 - K writes back into E — this is the horizontal gene transfer mechanism
+- Stage 6 (Soft Release) writes to Procedural memory (never decays — hardening)
+- Stage 8 (Propagation) decides mitosis vs meiosis — internal update vs new instance
+- Multi-parent recombination: N parents, Cortex selects trait map, Epigenome fitness scores guide selection
+- Ganglion starts as Ollama; evolves toward CPU-optimized micro-LMs per signal domain
+- Umwelt is a 3-level spectrum: Restricted / Domain / Omniscient — not binary
+- Bayesian Allostery: context-sensitive rule matching uses Epigenome as prior
+- Colony offline: local cache, hibernation threshold, catch-up on reconnect; Procedural memories are never overwritten by remote broadcasts
+- ACO → stigmergy; SA → punctuated equilibrium; GA → multi-parent recombination; PSO → colony coordination; Kalman → SNR pre-filter
 - BIOISO = the language philosophy; CEKS = the runtime that implements it
+- Git branches track structural variants; dead branches are history, never deleted
 
 ## Module additions
 
