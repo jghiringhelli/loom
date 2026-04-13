@@ -1,0 +1,85 @@
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+# Use the official Rust image pinned to stable for reproducible builds.
+FROM rust:1.87-slim AS builder
+
+WORKDIR /build
+
+# Install system dependencies needed by rusqlite (bundled) and reqwest (TLS).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cache dependency compilation separately from source.
+# Copy manifests first so this layer is only rebuilt when dependencies change.
+COPY Cargo.toml Cargo.lock ./
+
+# Create a stub lib + main so `cargo build --release` can compile deps.
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "" > src/lib.rs
+
+RUN cargo build --release --bin loom 2>&1 | grep -v "^warning" || true
+
+# Remove stub artifacts so the real source replaces them cleanly.
+RUN rm -rf src target/release/loom target/release/deps/warp_lang* target/release/deps/loom*
+
+# Copy the full source tree and build the real binary.
+COPY src/ src/
+
+RUN cargo build --release --bin loom
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# Minimal Debian image — no Rust toolchain needed at runtime.
+FROM debian:bookworm-slim AS runtime
+
+# Install runtime-only dependencies: libssl for reqwest TLS, ca-certificates for
+# HTTPS to Claude API and Ollama.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for the daemon process.
+RUN useradd --system --create-home --shell /usr/sbin/nologin bioiso
+
+# The SQLite database is stored on a mounted volume.  The directory must exist
+# and be writable by the bioiso user before the daemon starts.
+RUN mkdir -p /data && chown bioiso:bioiso /data
+
+COPY --from=builder /build/target/release/loom /usr/local/bin/loom
+COPY scripts/start-colony.sh /usr/local/bin/start-colony.sh
+RUN chmod +x /usr/local/bin/start-colony.sh
+
+USER bioiso
+WORKDIR /home/bioiso
+
+# ── Environment defaults ───────────────────────────────────────────────────────
+# All values can be overridden in the Railway service variables UI or .env file.
+
+# Path to the SQLite signal store (mounted volume in production).
+ENV DB_PATH=/data/bioiso.db
+
+# Orchestrator tick interval in milliseconds (5 seconds default).
+ENV TICK_MS=5000
+
+# Ollama base URL — set to your local/remote Ollama instance if Tier 2 is desired.
+# Leave empty to skip Tier 2 and escalate directly to Tier 3 (Claude).
+ENV OLLAMA_BASE_URL=""
+
+# Claude API key — required for Tier 3 (Mammal Brain) synthesis.
+# Injected as a Railway secret variable; never committed to source.
+ENV CLAUDE_API_KEY=""
+
+# Log verbosity: error | warn | info | debug | trace
+ENV RUST_LOG=info
+
+# ── Health check ──────────────────────────────────────────────────────────────
+# Check that the binary is present and responsive.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD loom runtime status --db ${DB_PATH} || exit 1
+
+# ── Entrypoint ────────────────────────────────────────────────────────────────
+# Start the CEMS evolution daemon.  Signal store is opened at DB_PATH.
+# The daemon blocks until Ctrl-C or SIGTERM (Railway sends SIGTERM on redeploy).
+ENTRYPOINT ["/usr/local/bin/start-colony.sh"]
