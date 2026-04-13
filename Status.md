@@ -1,8 +1,8 @@
 # Status.md
 
-## Last Updated: 2026-04-14
+## Last Updated: 2026-04-13
 ## Branch: main
-## Commits: 1783a60 (CEMS), 5bcddd9 (deploy), 5a8f3de (docs)
+## Commits: 76ec9c8 (daemon fix) — colony LIVE on Railway
 
 ## Completed (this session)
 - loom-language v0.2.0 published to crates.io (d2019a2)
@@ -17,29 +17,37 @@
   - `SurvivalGauntlet` — CAE + LTE adversarial hardening gate (gauntlet.rs)
   - `BIOISORunner` — 11 domain entities + `RetroValidator` (bioiso_runner.rs)
   - Sampler wiring, gossip absorption, pheromone deposit, security absorption
-- **Railway deployment (5bcddd9)**:
-  - `Dockerfile` — multi-stage Rust build, non-root user, /data volume, healthcheck
-  - `railway.toml` — service config, volume, restart-on-failure
-  - `scripts/start-colony.sh` — idempotent spawn of 11 entities + daemon start
-  - `.env.example` — CLAUDE_API_KEY, DB_PATH, TICK_MS, OLLAMA_BASE_URL, RUST_LOG
-  - `docs/deploy-railway.md` — step-by-step guide
+- **`loom runtime seed` command (86f1e09)**:
+  - Calls `BIOISORunner::spawn_domain()` for all 11 entities
+  - Sets telos bounds + injects baseline signals (the missing piece before deploy)
+  - Idempotent — skips already-registered entities
+  - `start-colony.sh` simplified to a single `loom runtime seed` + daemon start
+- **Railway deployment — COLONY LIVE (76ec9c8)**:
+  - Project: `loom-bioiso` (jghiringhelli's Projects)
+  - Service: `loom-bioiso`, environment: `production`
+  - Volume: `loom-bioiso-volume` mounted at `/data`
+  - Env vars set: `CLAUDE_API_KEY`, `DB_PATH=/data/bioiso.db`, `TICK_MS=5000`, `RUST_LOG=info`
+  - 11 entities seeded, daemon running continuously (ticks every 5s)
+  - Fixes applied: stub-build cache corruption, LF line endings, exec format error, stdin-watcher TTY issue
 - **Documentation complete (5a8f3de)**:
-  - `docs/diagrams/c4-context.md` — Developer/Researcher/Ollama/Claude/SQLite
-  - `docs/diagrams/c4-container.md` — all 15 CEMS modules mapped
-  - `docs/diagrams/sequence-primary.md` — full CEMS evolution tick sequence
-  - `docs/diagrams/state-primary.md` — BIOISO entity lifecycle (Spawned→Active→Canary→Stable→Senescent→Dead + Rollback/Quarantined/Hibernating)
-  - `docs/diagrams/flow-primary.md` — full mutation proposal flow with gauntlet gate
-  - `docs/adrs/ADR-0012` — genetic memory + gauntlet + BIOISO runner decisions
-  - `docs/TechSpec.md` — full spec: CEMS architecture, module map, stack, data flow, CLI, env vars, schema
+  - All 5 diagram stubs filled (c4-context, c4-container, sequence, state, flow)
+  - ADR-0012, TechSpec.md fully populated
 
 ## Current State
 - **270 lib tests passing** — 0 failures
-- `loom runtime start|status|log|rollback|spawn` CLI fully operational
-- All deployment artifacts committed and ready
-- All documentation UNFILLED stubs replaced with real content
-- No known blockers
+- **Colony LIVE on Railway** — 11 domain entities evolving (5s tick)
+- `CLAUDE_API_KEY` set — Tier 3 (Mammal Brain) will activate when drift persists
+- Volume persists SQLite DB across redeploys (verified: skip 11 on restart)
 
-## Architecture: COMPLETE + DEPLOYED
+## Next
+1. **Observe**: `railway logs` — watch entities accumulate drift events + mutations
+2. **Inject crisis signals**: use `loom runtime` CLI or direct SQLite writes to trigger evolution
+3. **Run retro-validation**: `BIOISORunner::run_retrospective()` against historical data
+4. **Wire gauntlet into deploy.rs**: call `SurvivalGauntlet::run()` as Canary→Stable gate
+5. **Tier 2 (Ganglion)**: set `OLLAMA_BASE_URL` in Railway to activate local micro-LLM
+6. **Genetic inheritance experiments**: spawn child entities from evolved parents with `loom runtime spawn --inherit`
+
+## Architecture: COMPLETE + LIVE
 
 ### CEMS Axes
 - **C** (Circadian): temporal gating, Kalman SNR pre-filter
@@ -47,12 +55,9 @@
 - **M** (Mycelium): gossip, ACO stigmergy, offline resilience, hibernation
 - **S** (Stages 0–8): Membrane → Polycephalum → Ganglion → Mammal Brain → Gate → Simulation → Canary → Gauntlet → Stable
 
-### Domain Entities (11)
+### Domain Entities (11) — all live on Railway
 climate, epidemics, antibiotic_res, grid_stability, soil_carbon, sepsis, flash_crash, nuclear_safety, supply_chain, water_basin, urban_heat
 
-## Next
-1. **Deploy**: `railway login && railway init` → add Volume at /data → set CLAUDE_API_KEY → `railway up`
-2. **Observe**: watch 11 entities evolve in real time via `railway logs`
 3. **Retro-validation**: inject historical crisis signals (Jan 2020 COVID, May 2010 HFT, Feb 2021 ERCOT) and score CEMS against academic baselines
 4. **Wire gauntlet into deploy.rs**: call `SurvivalGauntlet::run()` as a gate before Canary→Stable promotion (currently standalone; not yet in the deploy pipeline)
 
