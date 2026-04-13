@@ -185,6 +185,24 @@ enum RuntimeCommands {
         #[arg(long)]
         telomere_limit: Option<u32>,
     },
+
+    /// Seed the signal store with all 11 pre-configured BIOISO domain entities.
+    ///
+    /// Each entity is registered with its expert-calibrated telos bounds and
+    /// baseline signals injected.  Already-registered entities are skipped
+    /// (idempotent — safe to run on every deploy).
+    ///
+    /// Example:
+    ///   loom runtime seed --db bioiso.db
+    Seed {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Only seed a specific entity ID instead of all 11.
+        #[arg(long)]
+        only: Option<String>,
+    },
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -574,6 +592,63 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                     }
                 }
             }
+        }
+
+        RuntimeCommands::Seed { db, only } => {
+            let mut runtime = match loom::runtime::Runtime::new(&db) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+
+            let runner = loom::runtime::BIOISORunner::new();
+            let specs = loom::runtime::all_domain_specs();
+
+            let to_seed: Vec<_> = if let Some(ref id) = only {
+                specs.iter().filter(|s| s.entity_id == id.as_str()).collect()
+            } else {
+                specs.iter().collect()
+            };
+
+            if to_seed.is_empty() {
+                if let Some(ref id) = only {
+                    eprintln!("error: no built-in spec found for entity `{id}`");
+                    eprintln!("built-in IDs: climate, epidemics, antibiotic_res, grid_stability,");
+                    eprintln!("              soil_carbon, sepsis, flash_crash, nuclear_safety,");
+                    eprintln!("              supply_chain, water_basin, urban_heat");
+                }
+                process::exit(1);
+            }
+
+            let mut seeded = 0usize;
+            let mut skipped = 0usize;
+            for spec in &to_seed {
+                // Check if already registered — idempotent.
+                let already = runtime.store.all_entities().unwrap_or_default()
+                    .iter().any(|e| e.id == spec.entity_id);
+                if already {
+                    println!("  skip  {} (already registered)", spec.entity_id);
+                    skipped += 1;
+                    continue;
+                }
+                match runner.spawn_domain(&mut runtime, spec) {
+                    Ok(()) => {
+                        let bound_count = spec.bounds.len();
+                        let sig_count = spec.baseline_signals.len();
+                        println!(
+                            "  seeded {} ({}) — {bound_count} telos bounds, {sig_count} baseline signals",
+                            spec.entity_id, spec.name
+                        );
+                        seeded += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("  error seeding {}: {e}", spec.entity_id);
+                    }
+                }
+            }
+            println!("\nseed complete: {seeded} seeded, {skipped} skipped");
         }
     }
 }
