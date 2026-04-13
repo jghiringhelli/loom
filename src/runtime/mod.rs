@@ -13,6 +13,9 @@
 //!
 //! See [`ADR-0011`](../../docs/adrs/ADR-0011-ceks-runtime-architecture.md).
 
+use std::collections::HashMap;
+
+pub mod bioiso_runner;
 pub mod brain;
 pub mod circadian;
 pub mod colony;
@@ -21,6 +24,7 @@ pub mod drift;
 pub mod epigenetic;
 pub mod ganglion;
 pub mod gate;
+pub mod gauntlet;
 pub mod immune;
 pub mod mutation;
 pub mod orchestrator;
@@ -31,6 +35,10 @@ pub mod simulation;
 pub mod store;
 pub mod supervisor;
 
+pub use bioiso_runner::{
+    all_domain_specs, BIOISORunner, BIOISOSpec, MetricBoundSpec, RetroResult, RetroScenario,
+    RetroValidator,
+};
 pub use brain::{CostGuard, MammalBrain};
 pub use circadian::{Circadian, CircadianAction, CircadianVerdict, KalmanFilter, Schedule, WallTime};
 pub use colony::{ColonyPeer, GossipMessage, Mycelium, PeerStatus, PheromoneTrail};
@@ -39,6 +47,7 @@ pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use epigenetic::{BufferEntry, CoreEntry, Epigenome, MemoryType, WorkingSummary};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
+pub use gauntlet::{GauntletConfig, GauntletResult, SurvivalGauntlet};
 pub use immune::{Membrane, MembraneConfig, MembraneVerdict, RejectReason, SecurityCategory};
 pub use mutation::MutationProposal;
 pub use polycephalum::{DeltaSpec, Polycephalum, Rule, RuleAction, RuleCondition, RuleRegistry};
@@ -264,6 +273,37 @@ impl Runtime {
             Some(brain) => brain.evaluate(event, &self.store, genome),
             None => vec![],
         }
+    }
+
+    // ── Genetic memory convenience API ────────────────────────────────────────
+
+    /// Copy a parent entity's Core memories (Semantic + Procedural + Declarative)
+    /// into a child entity.  Returns the number of entries copied.
+    ///
+    /// Typically called immediately after [`spawn_entity`] for a child so it inherits
+    /// the parent's learned priors.
+    pub fn inherit_epigenome(&mut self, parent_id: &str, child_id: &str) -> usize {
+        self.epigenome.inherit_from(parent_id, child_id, now_ms())
+    }
+
+    /// Return parameter baselines for an entity parsed from its Declarative Core memories.
+    ///
+    /// Used to warm-start a freshly spawned child entity with its parent's last known
+    /// good parameter values instead of the hard-coded system defaults.
+    pub fn warm_start_params(&self, entity_id: &str) -> HashMap<MetricName, f64> {
+        self.epigenome.warm_start_params(entity_id)
+    }
+
+    /// Persist a parameter baseline in the entity's Declarative Core memory so it can
+    /// be propagated to offspring via [`inherit_epigenome`].
+    pub fn record_param_baseline(
+        &mut self,
+        entity_id: impl Into<EntityId>,
+        param: &str,
+        value: f64,
+    ) {
+        self.epigenome
+            .record_param_baseline(&entity_id.into(), param, value, "runtime", now_ms());
     }
 }
 

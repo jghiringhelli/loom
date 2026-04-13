@@ -14,9 +14,12 @@
 //! - Completes in < 50 ms for up to 1 000 rules.
 //! - Escalates to Tier 2 (Ganglion) when no rule matches or proposals fail the gate.
 
+use std::collections::HashMap;
+
 use crate::runtime::{
     drift::{DriftEvent, DriftSeverity},
     mutation::MutationProposal,
+    sampler::MutationSampler,
     signal::EntityId,
 };
 
@@ -91,14 +94,50 @@ pub enum DeltaSpec {
     Fixed(f64),
     /// Delta = `factor * drift_score` — proportional to observed drift.
     Proportional(f64),
+    /// Use the [`MutationSampler`] — combines telos guidance force with stochastic noise.
+    ///
+    /// Falls back to guidance-only when no sampler context is available.
+    Sampled {
+        /// Declared telos target for this parameter.
+        target: f64,
+        /// Hard bounds `(min, max)` from the telos declaration.
+        bounds: (f64, f64),
+    },
 }
 
 impl DeltaSpec {
-    /// Evaluate the delta given the current drift score.
+    /// Evaluate the delta given the current drift score (no sampler — deterministic only).
+    ///
+    /// For `Sampled`, returns the guidance-force component without stochastic noise.
     pub fn evaluate(&self, drift_score: f64) -> f64 {
         match self {
             Self::Fixed(v) => *v,
             Self::Proportional(f) => f * drift_score,
+            Self::Sampled { target, bounds } => {
+                // Guidance-force fallback: normalised pull toward target scaled by drift.
+                let width = (bounds.1 - bounds.0).abs().max(1e-12);
+                (*target / width) * drift_score * 0.4 // 0.4 = DEFAULT_LEARNING_RATE
+            }
+        }
+    }
+
+    /// Evaluate using the sampler when context is available.
+    ///
+    /// `current` is the current observed value of the parameter (from Epigenome Working tier).
+    /// `relative_telomere` is the entity's telomere fraction [0, 1].
+    pub fn evaluate_with_sampler(
+        &self,
+        drift_score: f64,
+        current: f64,
+        sampler: &mut MutationSampler,
+        relative_telomere: f64,
+    ) -> f64 {
+        match self {
+            Self::Fixed(v) => *v,
+            Self::Proportional(f) => f * drift_score,
+            Self::Sampled { target, bounds } => {
+                sampler.sample(current, *target, *bounds, drift_score, relative_telomere)
+            }
         }
     }
 }
@@ -203,6 +242,43 @@ impl Polycephalum {
         proposals
     }
 
+    /// Evaluate with sampler context — `Sampled` deltas call the biased stochastic sampler.
+    ///
+    /// `current_values` maps metric names to current observed parameter values (from
+    /// Epigenome Working tier). `relative_telomere` governs exploration temperature.
+    pub fn evaluate_with_sampler(
+        &self,
+        event: &DriftEvent,
+        severity: DriftSeverity,
+        checkpoint_id: Option<i64>,
+        sampler: &mut MutationSampler,
+        current_values: &HashMap<String, f64>,
+        relative_telomere: f64,
+    ) -> Vec<MutationProposal> {
+        let rules = self.registry.rules_for(&event.entity_id);
+        let mut proposals = Vec::new();
+
+        for rule in rules {
+            if proposals.len() >= self.max_proposals {
+                break;
+            }
+            if !rule.condition.matches(event, severity) {
+                continue;
+            }
+            if let Some(proposal) = self.apply_action_sampled(
+                event,
+                &rule.action,
+                checkpoint_id,
+                sampler,
+                current_values,
+                relative_telomere,
+            ) {
+                proposals.push(proposal);
+            }
+        }
+        proposals
+    }
+
     fn apply_action(
         &self,
         event: &DriftEvent,
@@ -219,6 +295,48 @@ impl Polycephalum {
                     event.score, event.triggering_metric
                 ),
             }),
+            RuleAction::PruneEntity { reason } => Some(MutationProposal::EntityPrune {
+                entity_id: event.entity_id.clone(),
+                reason: reason.clone(),
+            }),
+            RuleAction::RollbackToCheckpoint { reason } => checkpoint_id.map(|id| {
+                MutationProposal::EntityRollback {
+                    entity_id: event.entity_id.clone(),
+                    checkpoint_id: id,
+                    reason: reason.clone(),
+                }
+            }),
+        }
+    }
+
+    fn apply_action_sampled(
+        &self,
+        event: &DriftEvent,
+        action: &RuleAction,
+        checkpoint_id: Option<i64>,
+        sampler: &mut MutationSampler,
+        current_values: &HashMap<String, f64>,
+        relative_telomere: f64,
+    ) -> Option<MutationProposal> {
+        match action {
+            RuleAction::AdjustParam { param, delta } => {
+                let current = current_values.get(param).copied().unwrap_or(0.0);
+                let computed = delta.evaluate_with_sampler(
+                    event.score,
+                    current,
+                    sampler,
+                    relative_telomere,
+                );
+                Some(MutationProposal::ParameterAdjust {
+                    entity_id: event.entity_id.clone(),
+                    param: param.clone(),
+                    delta: computed,
+                    reason: format!(
+                        "polycephalum[sampled]: drift score {:.3} on metric '{}'",
+                        event.score, event.triggering_metric
+                    ),
+                })
+            }
             RuleAction::PruneEntity { reason } => Some(MutationProposal::EntityPrune {
                 entity_id: event.entity_id.clone(),
                 reason: reason.clone(),
@@ -424,5 +542,58 @@ mod tests {
         assert_eq!(rules[0].priority, 99);
         assert_eq!(rules[1].priority, 50);
         assert_eq!(rules[2].priority, 1);
+    }
+
+    #[test]
+    fn sampled_delta_uses_sampler_and_moves_toward_target() {
+        use crate::runtime::sampler::MutationSampler;
+
+        let mut engine = Polycephalum::new();
+        engine.registry.add_for_entity(
+            "climate_1",
+            Rule {
+                name: "reduce_co2".into(),
+                condition: RuleCondition::for_metric("co2_ppm"),
+                action: RuleAction::AdjustParam {
+                    param: "co2_ppm".into(),
+                    delta: DeltaSpec::Sampled {
+                        target: 350.0,
+                        bounds: (300.0, 500.0),
+                    },
+                },
+                priority: 10,
+            },
+        );
+
+        let event = make_event("climate_1", "co2_ppm", 0.8);
+        let mut sampler = MutationSampler::with_seed(42);
+        let current_values: HashMap<String, f64> =
+            [("co2_ppm".to_string(), 420.0)].into_iter().collect();
+
+        let proposals = engine.evaluate_with_sampler(
+            &event,
+            DriftSeverity::Critical,
+            None,
+            &mut sampler,
+            &current_values,
+            0.8,
+        );
+        assert_eq!(proposals.len(), 1);
+        match &proposals[0] {
+            MutationProposal::ParameterAdjust { param, delta, reason, .. } => {
+                assert_eq!(param, "co2_ppm");
+                // Should be negative (current=420 > target=350)
+                assert!(*delta < 0.0, "expected negative delta, got {delta}");
+                assert!(reason.contains("sampled"), "expected 'sampled' tag in reason");
+            }
+            other => panic!("unexpected proposal: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sampled_delta_evaluate_fallback_is_nonzero_on_drift() {
+        let spec = DeltaSpec::Sampled { target: 100.0, bounds: (0.0, 200.0) };
+        let fallback = spec.evaluate(0.8);
+        assert!(fallback != 0.0, "guidance fallback should be nonzero when drifted");
     }
 }

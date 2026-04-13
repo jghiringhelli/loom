@@ -354,6 +354,92 @@ impl Epigenome {
         }
     }
 
+    // ── Genetic memory / epigenetic inheritance ────────────────────────────────
+
+    /// Copy a parent entity's Core memories to a child entity — epigenetic inheritance.
+    ///
+    /// Mirrors biological epigenetic inheritance: offspring receive the parent's
+    /// methylation marks (learned patterns, distilled rules, telos constraints) as
+    /// priors, bypassing the cold-start learning phase.
+    ///
+    /// Only Semantic, Procedural, and Declarative memories are copied — Episodic
+    /// entries (time-stamped events) are not inherited (they are specific to the parent's
+    /// lived experience). Relational memories are not inherited to avoid circularity.
+    ///
+    /// Each inherited entry is prefixed with `[inherited:parent_id]` so auditors can
+    /// distinguish learned-from-experience from inherited priors.
+    ///
+    /// Returns the number of entries copied.
+    pub fn inherit_from(&mut self, parent_id: &str, child_id: &str, now: Timestamp) -> usize {
+        let inheritable: Vec<(String, MemoryType, String)> = self
+            .core
+            .get(parent_id)
+            .map(|bucket| {
+                bucket
+                    .iter()
+                    .filter(|e| matches!(
+                        e.memory_type,
+                        MemoryType::Semantic | MemoryType::Procedural | MemoryType::Declarative
+                    ))
+                    .map(|e| (
+                        format!("[inherited:{}] {}", parent_id, e.content),
+                        e.memory_type.clone(),
+                        e.source.clone(),
+                    ))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let count = inheritable.len();
+        for (content, mem_type, source) in inheritable {
+            self.write_core(child_id, content, mem_type, source, now);
+        }
+        count
+    }
+
+    /// Extract parameter priors for a new entity from its Core Declarative memories.
+    ///
+    /// Parses inherited Declarative entries that carry the pattern
+    /// `param=<name> value=<f64>` and returns them as an initial parameter map.
+    /// This allows a spawned child to start at the parent's last known good values
+    /// rather than the system default.
+    ///
+    /// If no Declarative memories exist, returns an empty map (cold start).
+    pub fn warm_start_params(&self, entity_id: &str) -> HashMap<MetricName, f64> {
+        let mut params = HashMap::new();
+        let entries = self.core_entries(entity_id);
+        for entry in entries {
+            if entry.memory_type != MemoryType::Declarative {
+                continue;
+            }
+            if let Some((param, value)) = parse_param_value(&entry.content) {
+                params.insert(param, value);
+            }
+        }
+        params
+    }
+
+    /// Write a parameter baseline as a Declarative Core memory for later warm-start.
+    ///
+    /// Call this when a parameter is adjusted and the new value should be remembered
+    /// across lineages.
+    pub fn record_param_baseline(
+        &mut self,
+        entity_id: &str,
+        param: &str,
+        value: f64,
+        source: &str,
+        now: Timestamp,
+    ) {
+        self.write_core(
+            entity_id,
+            format!("param={param} value={value:.6}"),
+            MemoryType::Declarative,
+            source,
+            now,
+        );
+    }
+
     // ── Cross-tier queries ────────────────────────────────────────────────────
 
     /// Compute the mean drift score in the Buffer for an entity.
@@ -497,6 +583,27 @@ impl WorkingSummary {
             last_ts: 0,
         }
     }
+}
+
+/// Parse `param=<name> value=<f64>` from anywhere in a content string.
+///
+/// Used by `warm_start_params` to extract numeric parameter baselines from
+/// Declarative Core entries.  Returns `None` on parse failure.
+fn parse_param_value(content: &str) -> Option<(String, f64)> {
+    // Accept "param=foo value=1.23" with optional [inherited:...] prefix.
+    let param_start = content.find("param=")?;
+    let after_param = &content[param_start + 6..];
+    let param_end = after_param.find(|c: char| c == ' ' || c == '\t').unwrap_or(after_param.len());
+    let param_name = after_param[..param_end].to_string();
+
+    let value_start = content.find("value=")?;
+    let after_value = &content[value_start + 6..];
+    let value_end = after_value
+        .find(|c: char| c == ' ' || c == '\t' || c == '\n')
+        .unwrap_or(after_value.len());
+    let value: f64 = after_value[..value_end].parse().ok()?;
+
+    Some((param_name, value))
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -751,5 +858,67 @@ mod tests {
         }
         let written = ep.distil_working_to_core(3, "cortex", 20_000);
         assert_eq!(written, 2);
+    }
+
+    // ── Genetic memory / warm-start ───────────────────────────────────────────
+
+    #[test]
+    fn inherit_from_copies_semantic_procedural_declarative_not_episodic() {
+        let mut ep = epigenome();
+        let now = 1_000_u64;
+        ep.write_core("parent", "semantic knowledge".to_string(), MemoryType::Semantic, "src", now);
+        ep.write_core("parent", "procedural rule".to_string(), MemoryType::Procedural, "src", now);
+        ep.write_core("parent", "param=k value=3.14".to_string(), MemoryType::Declarative, "src", now);
+        ep.write_core("parent", "event at t=0".to_string(), MemoryType::Episodic, "src", now);
+        ep.write_core("parent", "correlation xy".to_string(), MemoryType::Relational, "src", now);
+
+        let copied = ep.inherit_from("parent", "child", 2_000);
+        assert_eq!(copied, 3, "should copy Semantic + Procedural + Declarative");
+        let child_entries = ep.core_entries("child");
+        assert_eq!(child_entries.len(), 3);
+        assert!(child_entries.iter().all(|e| e.content.contains("[inherited:parent]")));
+        // Episodic and Relational must NOT be present.
+        assert!(child_entries.iter().all(|e| e.memory_type != MemoryType::Episodic));
+        assert!(child_entries.iter().all(|e| e.memory_type != MemoryType::Relational));
+    }
+
+    #[test]
+    fn inherit_from_empty_parent_copies_nothing() {
+        let mut ep = epigenome();
+        let copied = ep.inherit_from("nobody", "child", 1_000);
+        assert_eq!(copied, 0);
+        assert!(ep.core_entries("child").is_empty());
+    }
+
+    #[test]
+    fn warm_start_params_parses_declarative_param_entries() {
+        let mut ep = epigenome();
+        ep.record_param_baseline("e1", "learning_rate", 0.01, "test", 1_000);
+        ep.record_param_baseline("e1", "batch_size", 64.0, "test", 1_000);
+        let params = ep.warm_start_params("e1");
+        assert_eq!(params.get("learning_rate").copied(), Some(0.01));
+        assert_eq!(params.get("batch_size").copied(), Some(64.0));
+    }
+
+    #[test]
+    fn warm_start_params_works_after_inheritance() {
+        let mut ep = epigenome();
+        // Parent has learned a good learning rate.
+        ep.record_param_baseline("parent", "learning_rate", 0.005, "orchestrator", 1_000);
+        ep.inherit_from("parent", "child", 2_000);
+        // Child's warm-start should surface the inherited value.
+        let params = ep.warm_start_params("child");
+        assert!(params.contains_key("learning_rate"), "child should inherit param baseline");
+        assert!((params["learning_rate"] - 0.005).abs() < 1e-9);
+    }
+
+    #[test]
+    fn parse_param_value_handles_prefix_and_suffix() {
+        let content = "[inherited:parent] param=co2_ppm value=415.000000";
+        let result = parse_param_value(content);
+        assert!(result.is_some());
+        let (name, val) = result.unwrap();
+        assert_eq!(name, "co2_ppm");
+        assert!((val - 415.0).abs() < 1e-4);
     }
 }

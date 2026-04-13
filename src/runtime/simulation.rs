@@ -46,7 +46,7 @@
 
 use std::collections::HashMap;
 
-use crate::runtime::signal::Timestamp;
+use crate::runtime::{sampler::MutationSampler, signal::Timestamp};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -319,6 +319,35 @@ impl MeioticPool {
             id.clone(),
             PooledMutation { proposal_id: id, param_deltas, effect: None, entered_at: now },
         );
+    }
+
+    /// Generate and add a meiotic candidate using the [`MutationSampler`].
+    ///
+    /// For each telos dimension, calls `sampler.sample()` to produce a biologically
+    /// realistic param delta: guidance toward target + stochastic noise scaled by telomere.
+    ///
+    /// Returns the assigned proposal id.
+    pub fn add_sampled_candidate(
+        &mut self,
+        proposal_id: impl Into<String>,
+        telos_dims: &HashMap<String, (f64, f64, f64)>, // metric → (min, max, target)
+        current_values: &HashMap<String, f64>,
+        drift_score: f64,
+        sampler: &mut MutationSampler,
+        relative_telomere: f64,
+        now: Timestamp,
+    ) -> String {
+        let id = proposal_id.into();
+        let param_deltas: HashMap<String, f64> = telos_dims
+            .iter()
+            .map(|(metric, (min, max, target))| {
+                let current = current_values.get(metric).copied().unwrap_or(*target);
+                let delta = sampler.sample(current, *target, (*min, *max), drift_score, relative_telomere);
+                (metric.clone(), delta)
+            })
+            .collect();
+        self.add_candidate(id.clone(), param_deltas, now);
+        id
     }
 
     /// Test all candidates against the digital twin.
@@ -815,5 +844,30 @@ mod tests {
         pool.add_candidate("b", HashMap::new(), 0);
         pool.clear();
         assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn sampled_candidates_have_nonzero_deltas_and_move_toward_target() {
+        use crate::runtime::sampler::MutationSampler;
+
+        let mut pool = MeioticPool::new();
+        let telos: HashMap<String, (f64, f64, f64)> = [
+            ("cpu".to_string(), (0.0, 1.0, 0.3)),     // target 0.3, current 0.8 → should be negative
+            ("latency".to_string(), (0.0, 200.0, 50.0)), // target 50, current 120 → should be negative
+        ].into_iter().collect();
+        let current: HashMap<String, f64> = [
+            ("cpu".to_string(), 0.8),
+            ("latency".to_string(), 120.0),
+        ].into_iter().collect();
+
+        let mut sampler = MutationSampler::with_seed(7);
+        let id = pool.add_sampled_candidate("s1", &telos, &current, 0.75, &mut sampler, 0.9, 0);
+        assert_eq!(id, "s1");
+        let candidate = &pool.candidates["s1"];
+        // Both deltas should be non-trivially generated (sampler produces non-zero).
+        assert!(candidate.param_deltas.len() == 2);
+        // Guidance force dominates for high drift — cpu delta should be negative (toward 0.3 from 0.8)
+        let cpu_delta = candidate.param_deltas["cpu"];
+        assert!(cpu_delta < 0.0, "expected negative cpu delta, got {cpu_delta}");
     }
 }

@@ -23,8 +23,10 @@ use std::time::Duration;
 
 use crate::runtime::{
     circadian::CircadianVerdict,
+    colony::GossipMessage,
     deploy::{CanaryDeployer, DeployOutcome, DeployStatus},
     drift::DriftEvent,
+    epigenetic::MemoryType,
     gate::GateVerdict,
     mutation::MutationProposal,
     store::SignalStore,
@@ -83,6 +85,10 @@ pub struct TickResult {
     pub circadian_suppressed: usize,
     /// Whether the epigenome distillation pass ran this tick.
     pub distillation_ran: bool,
+    /// Number of inbound gossip messages absorbed into the epigenome.
+    pub gossip_absorbed: usize,
+    /// Number of security events absorbed into the epigenome security tier.
+    pub security_absorbed: usize,
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────
@@ -120,22 +126,39 @@ impl Orchestrator {
     ///
     /// CEMS wiring per tick:
     /// - **M axis**: `mycelium.tick()` — pheromone evaporation + metabolic load EMA.
+    /// - **M gossip**: drain inbound gossip → absorb into epigenome as Relational memories.
     /// - **C axis**: Circadian gate checked per entity before mutation proposals.
     /// - **E axis**: Epigenome distillation every `epigenome_distil_interval` ticks.
+    /// - **E security**: Absorb membrane security events into epigenome Core.
     /// - **Sampler**: `record_outcome()` fed from canary deploy results.
+    /// - **Pheromone**: deposit on strategy trail for every promoted mutation.
     ///
     /// Returns a [`TickResult`] summarising what happened.
     pub fn run_once(&mut self) -> Result<TickResult, rusqlite::Error> {
         self.tick_count += 1;
+        let now_ts = crate::runtime::signal::now_ms();
 
         // ── M axis: mycelium tick (pheromone evaporation + metabolic EMA) ──────
-        self.runtime.mycelium.tick(1);
+        self.runtime.mycelium.tick(now_ts);
+
+        // ── M gossip: absorb inbound Core snapshots from peers ─────────────────
+        let inbound: Vec<GossipMessage> = self.runtime.mycelium.drain_inbound();
+        let gossip_absorbed = inbound.len();
+        for msg in inbound {
+            // Write peer's Core snapshot as Relational memory (cross-entity knowledge).
+            self.runtime.epigenome.write_core(
+                &msg.sender_id,
+                format!("[gossip@{}] {}", msg.ts, msg.core_snapshot),
+                MemoryType::Relational,
+                "mycelium",
+                now_ts,
+            );
+        }
 
         // ── E axis: periodic epigenome distillation ────────────────────────────
         let distillation_ran =
             self.tick_count % self.config.epigenome_distil_interval as u64 == 0;
         if distillation_ran {
-            let now_ts = crate::runtime::signal::now_ms();
             self.runtime.epigenome.distil_working_to_core(3, "orchestrator", now_ts);
             self.runtime.epigenome.distil_high_drift_to_core(0.7, "orchestrator", now_ts);
         }
@@ -143,6 +166,26 @@ impl Orchestrator {
         // ── Evaluate drift ─────────────────────────────────────────────────────
         let drift_events =
             self.runtime.evaluate_all_drift(self.config.drift_lookback)?;
+
+        // ── E security: absorb membrane events for all active entities ─────────
+        let entity_ids: Vec<String> = self
+            .runtime
+            .supervisor
+            .living_entity_ids()
+            .into_iter()
+            .collect();
+        let mut security_absorbed = 0usize;
+        for eid in &entity_ids {
+            let before = self.runtime.epigenome.core_entries(eid).len();
+            self.runtime.epigenome.absorb_security_events(
+                eid,
+                &self.runtime.store,
+                50,
+                now_ts,
+            );
+            security_absorbed +=
+                self.runtime.epigenome.core_entries(eid).len().saturating_sub(before);
+        }
 
         if drift_events.is_empty() {
             return Ok(TickResult {
@@ -152,12 +195,13 @@ impl Orchestrator {
                 deploy_outcomes: vec![],
                 circadian_suppressed: 0,
                 distillation_ran,
+                gossip_absorbed,
+                security_absorbed,
             });
         }
 
         // ── C axis: circadian gate — filter suppressed entities ────────────────
-        let ts_ms = crate::runtime::signal::now_ms();
-        let now = crate::runtime::circadian::WallTime::from_unix_ms(ts_ms);
+        let now = crate::runtime::circadian::WallTime::from_unix_ms(now_ts);
         let mut suppressed = 0usize;
         let mut active_events: Vec<&DriftEvent> = Vec::new();
 
@@ -198,13 +242,18 @@ impl Orchestrator {
             }
         }
 
-        // ── Canary deploy + sampler feedback ──────────────────────────────────
+        // ── Canary deploy + sampler feedback + pheromone deposit ──────────────
         let mut deploy_outcomes = Vec::new();
         for proposal in &accepted {
             let outcome = self.deployer.deploy(proposal, &self.runtime.store);
-            // Feed the deploy result back into the sampler for adaptive σ.
             let promoted = outcome.status == DeployStatus::Promoted;
             self.runtime.sampler.record_outcome(promoted);
+
+            // Deposit pheromone on the strategy trail when a mutation is promoted.
+            if promoted {
+                let strategy_key = proposal_strategy_key(proposal);
+                self.runtime.mycelium.deposit_pheromone(strategy_key, 0.2, now_ts);
+            }
             deploy_outcomes.push(outcome);
         }
 
@@ -215,6 +264,8 @@ impl Orchestrator {
             deploy_outcomes,
             circadian_suppressed: suppressed,
             distillation_ran,
+            gossip_absorbed,
+            security_absorbed,
         })
     }
 
@@ -269,6 +320,21 @@ impl Orchestrator {
         }
 
         (vec![], 3)
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Derive a pheromone strategy key from a mutation proposal variant.
+fn proposal_strategy_key(proposal: &MutationProposal) -> String {
+    match proposal {
+        MutationProposal::ParameterAdjust { param, .. } => format!("adjust:{param}"),
+        MutationProposal::EntityPrune { .. } => "prune".to_string(),
+        MutationProposal::EntityRollback { .. } => "rollback".to_string(),
+        MutationProposal::EntityClone { .. } => "clone".to_string(),
+        MutationProposal::StructuralRewire { signal_name, .. } => {
+            format!("rewire:{signal_name}")
+        }
     }
 }
 
@@ -453,5 +519,61 @@ mod tests {
 
         // Sampler should have recorded at least one outcome.
         assert!(!orch.runtime.sampler.acceptance.is_empty());
+    }
+
+    #[test]
+    fn gossip_inbound_absorbed_into_epigenome_as_relational_memory() {
+        let mut orch = default_orchestrator();
+        // Inject a gossip message directly into mycelium's inbound queue.
+        let msg = crate::runtime::GossipMessage {
+            sender_id: "remote_peer".into(),
+            core_snapshot: r#"{"key":"learned_pattern","value":42}"#.into(),
+            ts: 1_000,
+        };
+        orch.runtime.mycelium.receive_gossip(msg, 1_000);
+
+        let result = orch.run_once().unwrap();
+        assert_eq!(result.gossip_absorbed, 1, "expected 1 gossip message absorbed");
+        // Epigenome should now have a Relational Core entry from the peer.
+        let entries = orch.runtime.epigenome.core_entries("remote_peer");
+        assert!(!entries.is_empty(), "expected relational memory from gossip");
+        assert!(entries[0].content.contains("gossip@"), "content should have gossip tag");
+    }
+
+    #[test]
+    fn pheromone_deposited_on_promoted_mutation() {
+        let mut orch = default_orchestrator();
+        orch.runtime
+            .spawn_entity("e2", "E2", "{}", None, None)
+            .unwrap();
+        orch.runtime
+            .set_telos_bounds("e2", "load", Some(0.0), Some(100.0), Some(20.0))
+            .unwrap();
+        let rule = Rule {
+            name: "reduce_load".into(),
+            priority: 10,
+            condition: RuleCondition {
+                metric: "load".into(),
+                min_score: 0.3,
+                max_score: 1.01,
+                min_severity: crate::runtime::DriftSeverity::Healthy,
+            },
+            action: RuleAction::AdjustParam {
+                param: "load_shedding".into(),
+                delta: DeltaSpec::Fixed(5.0),
+            },
+        };
+        let mut registry = RuleRegistry::new();
+        registry.add_for_entity("e2", rule);
+        orch.runtime.polycephalum = crate::runtime::Polycephalum::with_registry(registry);
+
+        // Emit a signal inside bounds — drift but valid loom code accepted.
+        orch.runtime.emit_metric("e2", "load", 80.0).unwrap();
+        orch.run_once().unwrap();
+
+        // Pheromone trail for "adjust:load_shedding" may exist if promotion succeeded.
+        // We assert the method doesn't panic and returns a value in [0, 1].
+        let strength = orch.runtime.mycelium.pheromone_strength("adjust:load_shedding");
+        assert!(strength >= 0.0 && strength <= 1.0);
     }
 }

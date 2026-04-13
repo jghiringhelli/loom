@@ -147,6 +147,44 @@ enum RuntimeCommands {
         /// Checkpoint ID to restore to.
         checkpoint: i64,
     },
+
+    /// Spawn a new BIOISO entity, optionally inheriting epigenome from a parent.
+    ///
+    /// Reads the `.loom` source file (for metadata), registers the entity in the
+    /// signal store, and optionally copies the parent's Core memories so the child
+    /// warm-starts with inherited priors.
+    ///
+    /// Example:
+    ///   loom runtime spawn my-entity --db bioiso.db --name "ClimateChild" \
+    ///        --telos '{"target":1.5}' --inherit parent-entity
+    Spawn {
+        /// Entity ID to register.
+        entity_id: String,
+
+        /// Human-readable display name for the entity.
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Telos JSON string (e.g. `{"target":1.5}`).
+        /// Defaults to `{}` if not provided.
+        #[arg(long, default_value = "{}")]
+        telos: String,
+
+        /// Parent entity ID to inherit epigenome from.
+        /// If supplied, the new entity copies the parent's Semantic, Procedural,
+        /// and Declarative Core memories as warm-start priors.
+        #[arg(long)]
+        inherit: Option<String>,
+
+        /// Maximum number of divisions (telomere length).
+        /// If omitted the entity has no senescence limit.
+        #[arg(long)]
+        telomere_limit: Option<u32>,
+    },
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -479,6 +517,62 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             } else {
                 eprintln!("error: rollback failed for entity `{entity}`");
                 process::exit(1);
+            }
+        }
+
+        RuntimeCommands::Spawn {
+            entity_id,
+            name,
+            db,
+            telos,
+            inherit,
+            telomere_limit,
+        } => {
+            let mut runtime = match loom::runtime::Runtime::new(&db) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+
+            let display_name = name.unwrap_or_else(|| entity_id.clone());
+
+            if let Err(e) =
+                runtime.spawn_entity(&entity_id, &display_name, &telos, telomere_limit, None)
+            {
+                eprintln!("error: failed to register entity `{entity_id}`: {e}");
+                process::exit(1);
+            }
+
+            // Epigenetic inheritance: copy Core memories from parent if requested.
+            let inherited_count = if let Some(ref parent_id) = inherit {
+                let count = runtime.inherit_epigenome(parent_id, &entity_id);
+                if count == 0 {
+                    eprintln!(
+                        "warning: parent `{parent_id}` has no Core memories to inherit \
+                         (entity may not exist or is a cold-start with no epigenome data)"
+                    );
+                }
+                count
+            } else {
+                0
+            };
+
+            // Summarise warm-start params if any were inherited.
+            let params = runtime.warm_start_params(&entity_id);
+
+            println!("spawned entity `{entity_id}` ({display_name})");
+            if let Some(ref parent_id) = inherit {
+                println!("  inherited {inherited_count} Core memories from `{parent_id}`");
+                if !params.is_empty() {
+                    println!("  warm-start params ({}):", params.len());
+                    let mut sorted: Vec<_> = params.iter().collect();
+                    sorted.sort_by_key(|(k, _)| k.as_str());
+                    for (param, value) in sorted {
+                        println!("    {param} = {value:.6}");
+                    }
+                }
             }
         }
     }
