@@ -436,8 +436,8 @@ fn main() {
 fn handle_runtime(subcommand: RuntimeCommands) {
     match subcommand {
         RuntimeCommands::Start { db, tick_ms } => {
-            use std::sync::atomic::{AtomicBool, Ordering};
             use loom::runtime::orchestrator::{Orchestrator, OrchestratorConfig};
+            use std::sync::atomic::{AtomicBool, Ordering};
 
             let runtime = match loom::runtime::Runtime::new(&db) {
                 Ok(r) => r,
@@ -452,21 +452,11 @@ fn handle_runtime(subcommand: RuntimeCommands) {
 
             let stop = Arc::new(AtomicBool::new(false));
 
-            // In interactive terminals: stop when stdin closes (Ctrl-D or Ctrl-C).
-            // In Docker / CI (stdin is /dev/null): ignore stdin entirely — the
-            // daemon runs until SIGTERM (Railway) or SIGKILL terminates the process.
-            #[cfg(unix)]
-            let stdin_is_tty = unsafe { libc::isatty(libc::STDIN_FILENO) } == 1;
-            #[cfg(not(unix))]
-            let stdin_is_tty = false;
-            if stdin_is_tty {
-                let stop_clone = Arc::clone(&stop);
-                std::thread::spawn(move || {
-                    let mut buf = String::new();
-                    let _ = std::io::stdin().read_line(&mut buf);
-                    stop_clone.store(true, Ordering::Relaxed);
-                });
-            }
+            // The daemon runs until SIGTERM (Railway redeploy) or SIGKILL terminates
+            // the process.  For local interactive use, Ctrl-C sends SIGINT which
+            // terminates the process via the default OS handler.
+            // We never stop on stdin EOF — Railway attaches a pseudo-TTY which would
+            // cause immediate EOF otherwise.
 
             println!(
                 "bioiso: starting evolution daemon (store={db}, tick={tick_ms}ms). \

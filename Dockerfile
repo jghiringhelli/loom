@@ -3,7 +3,7 @@
 FROM rust:1.87-slim AS builder
 
 # Cache-bust argument — change to force a full rebuild.
-ARG BUILD_DATE=2026-04-13
+ARG BUILD_DATE=2026-04-13b
 
 WORKDIR /build
 
