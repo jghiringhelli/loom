@@ -382,6 +382,100 @@ impl Epigenome {
             }
         }
     }
+
+    // ── Distillation ──────────────────────────────────────────────────────────
+
+    /// Distil Working tier summaries into Core Semantic memories.
+    ///
+    /// For each `(entity_id, metric)` pair that has accumulated at least
+    /// `min_observations` data points, a Semantic Core entry is written
+    /// capturing the statistical profile (mean, std_dev, min, max, n).
+    ///
+    /// This is the Working → Core transition: short-term statistical patterns
+    /// become long-term institutional memory, analogous to short-term chromatin
+    /// state consolidating into stable DNA methylation marks.
+    ///
+    /// The caller (orchestrator) is responsible for timing: call this on a
+    /// periodic tick (e.g., every N minutes) rather than every signal.
+    ///
+    /// Returns the number of Core entries written.
+    pub fn distil_working_to_core(
+        &mut self,
+        min_observations: usize,
+        source: &str,
+        now: Timestamp,
+    ) -> usize {
+        let mut written = 0;
+
+        // Collect distillable (entity, metric, stats) triples first to avoid
+        // borrow conflicts between self.working (read) and self.core (write).
+        let distillable: Vec<(EntityId, MetricName, f64, f64, f64, f64, usize)> = self
+            .working
+            .iter()
+            .filter_map(|((entity_id, metric), summary)| {
+                if summary.len() < min_observations {
+                    return None;
+                }
+                let mean = summary.mean()?;
+                let std_dev = summary.std_dev().unwrap_or(0.0);
+                let min = summary.window.iter().cloned().fold(f64::INFINITY, f64::min);
+                let max = summary.window.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                Some((entity_id.clone(), metric.clone(), mean, std_dev, min, max, summary.len()))
+            })
+            .collect();
+
+        for (entity_id, metric, mean, std_dev, min, max, n) in distillable {
+            let content = format!(
+                "metric '{metric}' over {n} obs: mean={mean:.4} std={std_dev:.4} \
+                 min={min:.4} max={max:.4}"
+            );
+            self.write_core(&entity_id, content, MemoryType::Semantic, source, now);
+            written += 1;
+        }
+
+        written
+    }
+
+    /// Distil high-drift Buffer entries into Episodic Core memories.
+    ///
+    /// Buffer entries with `drift_score >= drift_threshold` are promoted to
+    /// Core as Episodic memories before they expire. This preserves the
+    /// record of significant anomalies even after the Buffer TTL elapses —
+    /// analogous to a traumatic memory bypassing normal memory consolidation
+    /// and writing directly to long-term storage.
+    ///
+    /// Returns the number of Core entries written.
+    pub fn distil_high_drift_to_core(
+        &mut self,
+        drift_threshold: f64,
+        source: &str,
+        now: Timestamp,
+    ) -> usize {
+        let high_drift: Vec<(EntityId, MetricName, f64, f64, Timestamp)> = self
+            .buffer
+            .iter()
+            .flat_map(|(_, bucket)| bucket.iter())
+            .filter(|e| e.drift_score >= drift_threshold)
+            .map(|e| {
+                (
+                    e.entity_id.clone(),
+                    e.metric.clone(),
+                    e.value,
+                    e.drift_score,
+                    e.ts,
+                )
+            })
+            .collect();
+
+        for (entity_id, metric, value, drift, ts) in &high_drift {
+            let content = format!(
+                "high-drift event: metric '{metric}' value={value:.4} \
+                 drift={drift:.4} at ts={ts}"
+            );
+            self.write_core(entity_id, content, MemoryType::Episodic, source, now);
+        }
+        high_drift.len()
+    }
 }
 
 impl Default for Epigenome {
@@ -595,5 +689,67 @@ mod tests {
         let mut metrics = ep.observed_metrics("e1");
         metrics.sort();
         assert_eq!(metrics, vec!["cpu", "mem"]);
+    }
+
+    // ── Distillation ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn distil_working_to_core_writes_semantic_entries() {
+        let mut ep = epigenome(); // window = 5
+        for i in 0..5 {
+            ep.record_signal(entry("e1", "cpu", i as f64 * 0.1, i, 0.0));
+        }
+        let written = ep.distil_working_to_core(3, "ganglion", 10_000);
+        assert_eq!(written, 1);
+        let cores = ep.core_entries("e1");
+        assert_eq!(cores.len(), 1);
+        assert_eq!(cores[0].memory_type, MemoryType::Semantic);
+        assert_eq!(cores[0].source, "ganglion");
+        assert!(cores[0].content.contains("cpu"));
+        assert!(cores[0].content.contains("mean="));
+    }
+
+    #[test]
+    fn distil_working_to_core_skips_underfull_window() {
+        let mut ep = epigenome();
+        ep.record_signal(entry("e1", "cpu", 0.5, 1, 0.0));
+        // Only 1 observation; min_observations = 5
+        let written = ep.distil_working_to_core(5, "ganglion", 1_000);
+        assert_eq!(written, 0);
+        assert!(ep.core_entries("e1").is_empty());
+    }
+
+    #[test]
+    fn distil_high_drift_to_core_writes_episodic_entries() {
+        let mut ep = epigenome();
+        ep.record_signal(entry("e1", "cpu", 0.9, 100, 0.85)); // high drift
+        ep.record_signal(entry("e1", "cpu", 0.1, 200, 0.05)); // normal
+        ep.record_signal(entry("e1", "mem", 0.7, 300, 0.92)); // high drift
+        let written = ep.distil_high_drift_to_core(0.8, "orchestrator", 5_000);
+        assert_eq!(written, 2);
+        let cores = ep.core_entries("e1");
+        assert_eq!(cores.len(), 2);
+        assert!(cores.iter().all(|e| e.memory_type == MemoryType::Episodic));
+        assert!(cores.iter().all(|e| e.content.contains("high-drift")));
+    }
+
+    #[test]
+    fn distil_high_drift_noop_when_all_drift_below_threshold() {
+        let mut ep = epigenome();
+        ep.record_signal(entry("e1", "cpu", 0.5, 100, 0.1));
+        ep.record_signal(entry("e1", "cpu", 0.6, 200, 0.2));
+        let written = ep.distil_high_drift_to_core(0.5, "orchestrator", 1_000);
+        assert_eq!(written, 0);
+    }
+
+    #[test]
+    fn distil_multiple_metrics_writes_one_entry_per_metric() {
+        let mut ep = epigenome();
+        for i in 0..5_u64 {
+            ep.record_signal(entry("e1", "cpu", 0.3, i, 0.0));
+            ep.record_signal(entry("e1", "mem", 0.7, i + 100, 0.0));
+        }
+        let written = ep.distil_working_to_core(3, "cortex", 20_000);
+        assert_eq!(written, 2);
     }
 }
