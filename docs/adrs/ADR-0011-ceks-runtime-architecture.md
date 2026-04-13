@@ -621,6 +621,116 @@ analog's scope — they are not global optimizers for the whole system.
 
 ---
 
+### 17. Immune Checkpoint Healing (quarantine + selective reconstruction)
+
+**Biological analog:** Leukocyte response — white blood cells isolate, neutralize, and
+signal the colony. The organism doesn't shut down; the *affected compartment* does.
+
+**Attack detected at Stage 0 → Quarantine protocol:**
+
+```
+ATTACK DETECTED
+      │
+      ▼
+Entity → Quarantine state (stop processing external signals)
+      │
+      ▼
+Increment quarantine_window (exponential backoff): 1m → 5m → 30m → 1h → 24h
+      │
+      ▼
+At each window: re-probe — is threat signature still present?
+  YES → extend window, broadcast quarantine to Colony (K)
+  NO  → reconstruct affected module from last promoted checkpoint
+      → selective redeploy (only the compromised module, not the full entity)
+      → resume with heightened Membrane sensitivity for N ticks
+```
+
+**Modular binary reconstruction:**
+- Each compiled module tracks its own hash in the immune registry independently
+- If `auth.loom` module is compromised, reconstruct only that module from checkpoint
+- Other modules continue operating — the entity is partially isolated, not dead
+- Biological analog: immune response isolates a tissue region; the organism continues
+
+**This closes the tolerance gap**: promoted mutations write their new hash to the
+immune registry as *self*. The checkpoint healing system rebuilds from the most recent
+*promoted* checkpoint — the last known-good, compiler-verified, telos-improving state.
+If all promoted checkpoints are compromised, escalate to git lineage (immutable history).
+
+---
+
+### 18. Degeneracy — Pass-Through Fallback Chain
+
+Each pipeline layer has exactly two degenerate paths: **pass-through** or **sleep**.
+No new mechanism — the escalation chain already *is* degeneracy. Made explicit:
+
+| Layer | Primary | Degenerate path A | Degenerate path B |
+|---|---|---|---|
+| Membrane (0) | Reject non-self | Colony-vouched pass-through with warning | Block all + quarantine |
+| Reflex (1) | Match rule | No rule matched → pass-through to Ganglion | — |
+| Ganglion (2) | Ollama synthesis | Offline → pass-through to Cortex | — |
+| Cortex (3) | Claude synthesis | Budget exceeded → pass last known good proposal | No proposal → pass-through to Gate empty |
+| Gate (4) | Compile + check | Never degenerates — always runs or blocks | — |
+| Simulation (5) | Digital twin | No history → skip, pass-through to Soft Release | — |
+| Soft Release (6) | Isolated env | Environment unavailable → skip with warning | — |
+| Propagation (8) | Mitosis/meiosis | Meiotic Pool empty → mitosis default | — |
+
+The escalation chain IS degeneracy. Each layer's "miss" is its degenerate path.
+No new module needed. Degeneracy is a documentation property of the chain, not a system.
+
+---
+
+### 19. Developmental Gating via Relative Telomere Length
+
+Juvenile entities cannot reproduce. Senescent entities cannot mutate.
+No new mechanism — telomere already tracks this. Made explicit:
+
+```
+relative_telomere = current_telomere / max_telomere
+
+> 0.9  →  Juvenile:   mitosis only, no meiosis, no offspring spawning
+0.5–0.9 →  Mature:    full pipeline, meiosis enabled, multi-parent recombination allowed
+0.1–0.5 →  Senescent: mutations allowed but Cortex is consulted on every proposal
+< 0.1  →  Terminal:   read-only, no new mutations, prepare checkpoint, notify Colony
+= 0    →  Dead:       apoptosis, final Colony broadcast, git branch archived
+```
+
+Checked at Stage 8 (Propagation) before any meiosis decision.
+The threshold values are configurable per entity type in the `.loom` source.
+
+---
+
+### 20. Circadian + Colony → Infrastructure Autoscaling
+
+Sleeping cycles make infrastructure scaling a natural consequence of biology,
+not a separate orchestration problem.
+
+**Mechanism:**
+- Colony hibernation (§15): entity reduces tick rate to H% → CPU/memory usage drops
+- Circadian suppression (§4): no proposals generated in suppression window
+- Together these produce measurable low-load periods that map to scale-down signals
+
+**What the entity emits:**
+```rust
+// Entity becomes a first-class signal source for its own infrastructure
+Signal::InfrastructureHint {
+    direction: ScaleDirection::Down,
+    reason: "circadian_suppression + colony_hibernation",
+    suggested_instances: 1,
+    resume_at: next_cron_window,
+}
+```
+
+**Receiving side:** any orchestrator (Kubernetes HPA, Docker Swarm, bare systemd)
+listens on this signal channel and acts accordingly. The entity defines its own
+scaling policy via Circadian cron expressions — `0 2 * * *` means "scale down at 2am"
+without configuring anything in the orchestrator. The biology drives the infrastructure.
+
+**Biological analog:** the organism's metabolic rate determines the resources it draws
+from the ecosystem. A sleeping organism doesn't need to be told to reduce consumption —
+it just does. The ecosystem (infrastructure) responds to the draw, not to instructions.
+
+---
+
 ### 17. Updated module additions
 
 ```
