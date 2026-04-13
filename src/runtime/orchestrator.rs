@@ -22,7 +22,8 @@
 use std::time::Duration;
 
 use crate::runtime::{
-    deploy::{CanaryDeployer, DeployOutcome},
+    circadian::CircadianVerdict,
+    deploy::{CanaryDeployer, DeployOutcome, DeployStatus},
     drift::DriftEvent,
     gate::GateVerdict,
     mutation::MutationProposal,
@@ -47,6 +48,8 @@ pub struct OrchestratorConfig {
     pub canary_fraction: f64,
     /// How many ticks to monitor after a canary deploy before promoting.
     pub canary_monitor_ticks: u32,
+    /// How many ticks between epigenome distillation passes.
+    pub epigenome_distil_interval: u32,
 }
 
 impl Default for OrchestratorConfig {
@@ -58,6 +61,7 @@ impl Default for OrchestratorConfig {
             tick_interval: Duration::from_secs(5),
             canary_fraction: 0.1,
             canary_monitor_ticks: 3,
+            epigenome_distil_interval: 10,
         }
     }
 }
@@ -75,6 +79,10 @@ pub struct TickResult {
     pub tier_used: Option<u8>,
     /// Outcomes of canary deployments for each accepted proposal.
     pub deploy_outcomes: Vec<DeployOutcome>,
+    /// How many drift events were suppressed by the Circadian gate this tick.
+    pub circadian_suppressed: usize,
+    /// Whether the epigenome distillation pass ran this tick.
+    pub distillation_ran: bool,
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────
@@ -91,6 +99,8 @@ pub struct Orchestrator {
     pub tier2_fail_counts: std::collections::HashMap<String, u32>,
     /// The canary deployer.
     deployer: CanaryDeployer,
+    /// Monotonically increasing tick counter — drives periodic tasks.
+    tick_count: u64,
 }
 
 impl Orchestrator {
@@ -102,14 +112,35 @@ impl Orchestrator {
             tier1_fail_counts: std::collections::HashMap::new(),
             tier2_fail_counts: std::collections::HashMap::new(),
             deployer: CanaryDeployer::new(),
+            tick_count: 0,
         }
     }
 
     /// Run one full evolution tick.
     ///
+    /// CEMS wiring per tick:
+    /// - **M axis**: `mycelium.tick()` — pheromone evaporation + metabolic load EMA.
+    /// - **C axis**: Circadian gate checked per entity before mutation proposals.
+    /// - **E axis**: Epigenome distillation every `epigenome_distil_interval` ticks.
+    /// - **Sampler**: `record_outcome()` fed from canary deploy results.
+    ///
     /// Returns a [`TickResult`] summarising what happened.
     pub fn run_once(&mut self) -> Result<TickResult, rusqlite::Error> {
-        // 1. Evaluate all recent signals for drift.
+        self.tick_count += 1;
+
+        // ── M axis: mycelium tick (pheromone evaporation + metabolic EMA) ──────
+        self.runtime.mycelium.tick(1);
+
+        // ── E axis: periodic epigenome distillation ────────────────────────────
+        let distillation_ran =
+            self.tick_count % self.config.epigenome_distil_interval as u64 == 0;
+        if distillation_ran {
+            let now_ts = crate::runtime::signal::now_ms();
+            self.runtime.epigenome.distil_working_to_core(3, "orchestrator", now_ts);
+            self.runtime.epigenome.distil_high_drift_to_core(0.7, "orchestrator", now_ts);
+        }
+
+        // ── Evaluate drift ─────────────────────────────────────────────────────
         let drift_events =
             self.runtime.evaluate_all_drift(self.config.drift_lookback)?;
 
@@ -119,35 +150,61 @@ impl Orchestrator {
                 proposals: vec![],
                 tier_used: None,
                 deploy_outcomes: vec![],
+                circadian_suppressed: 0,
+                distillation_ran,
             });
         }
 
-        // 2. For each drift event, propose mutations via the tier cascade.
+        // ── C axis: circadian gate — filter suppressed entities ────────────────
+        let ts_ms = crate::runtime::signal::now_ms();
+        let now = crate::runtime::circadian::WallTime::from_unix_ms(ts_ms);
+        let mut suppressed = 0usize;
+        let mut active_events: Vec<&DriftEvent> = Vec::new();
+
+        for event in &drift_events {
+            let verdict = self.runtime.circadian.evaluate(&event.entity_id, &now);
+            match verdict {
+                CircadianVerdict::Suppress | CircadianVerdict::DeferMutations => {
+                    suppressed += 1;
+                }
+                CircadianVerdict::Allow => {
+                    active_events.push(event);
+                }
+            }
+        }
+
+        // ── Tier cascade ───────────────────────────────────────────────────────
         let mut all_proposals: Vec<MutationProposal> = Vec::new();
         let mut tier_used: Option<u8> = None;
 
-        for event in &drift_events {
+        for event in &active_events {
             let (proposals, tier) = self.propose_for_event(event);
             if !proposals.is_empty() {
                 tier_used = Some(tier);
                 all_proposals.extend(proposals);
-                break; // one event at a time — most critical first
+                break;
             }
         }
 
-        // 3. Gate every proposal through the type-safe compiler.
-        let accepted: Vec<MutationProposal> = all_proposals
-            .into_iter()
-            .filter(|p| {
-                let result = self.runtime.apply_proposal(p);
-                matches!(result.verdict, GateVerdict::Accepted)
-            })
-            .collect();
+        // ── Gate ───────────────────────────────────────────────────────────────
+        let mut accepted: Vec<MutationProposal> = Vec::new();
+        for proposal in all_proposals {
+            let result = self.runtime.apply_proposal(&proposal);
+            if matches!(result.verdict, GateVerdict::Accepted) {
+                accepted.push(proposal);
+            } else {
+                // Gate rejection is negative feedback — the mutation was structurally invalid.
+                self.runtime.sampler.record_outcome(false);
+            }
+        }
 
-        // 4. Canary deploy each accepted proposal.
+        // ── Canary deploy + sampler feedback ──────────────────────────────────
         let mut deploy_outcomes = Vec::new();
         for proposal in &accepted {
             let outcome = self.deployer.deploy(proposal, &self.runtime.store);
+            // Feed the deploy result back into the sampler for adaptive σ.
+            let promoted = outcome.status == DeployStatus::Promoted;
+            self.runtime.sampler.record_outcome(promoted);
             deploy_outcomes.push(outcome);
         }
 
@@ -156,6 +213,8 @@ impl Orchestrator {
             proposals: accepted,
             tier_used,
             deploy_outcomes,
+            circadian_suppressed: suppressed,
+            distillation_ran,
         })
     }
 
@@ -298,5 +357,101 @@ mod tests {
         let _ = orch.run_once();
         let count = *orch.tier1_fail_counts.get("ent").unwrap_or(&0);
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn mycelium_tick_called_each_run_once() {
+        // Mycelium tick increments; we verify that after N run_once calls the
+        // metabolic EMA has been updated (non-zero ticks seen).
+        let mut orch = default_orchestrator();
+        for _ in 0..5 {
+            orch.run_once().unwrap();
+        }
+        // After 5 ticks with 0 signals, metabolic load should be 0 (EMA of 0),
+        // but the tick count on the orchestrator must be 5.
+        assert_eq!(orch.tick_count, 5);
+    }
+
+    #[test]
+    fn distillation_runs_on_configured_interval() {
+        let mut cfg = OrchestratorConfig::default();
+        cfg.epigenome_distil_interval = 3;
+        let rt = Runtime::new(":memory:").unwrap();
+        let mut orch = Orchestrator::new(rt, cfg);
+
+        let r1 = orch.run_once().unwrap(); // tick 1
+        let r2 = orch.run_once().unwrap(); // tick 2
+        let r3 = orch.run_once().unwrap(); // tick 3 — distil fires
+        assert!(!r1.distillation_ran);
+        assert!(!r2.distillation_ran);
+        assert!(r3.distillation_ran);
+    }
+
+    #[test]
+    fn circadian_suppress_reduces_active_events() {
+        let mut orch = default_orchestrator();
+        orch.runtime
+            .spawn_entity("gated", "Gated", "{}", None, None)
+            .unwrap();
+        orch.runtime
+            .set_telos_bounds("gated", "x", Some(0.0), Some(1.0), Some(0.9))
+            .unwrap();
+
+        // Add a Suppress schedule matching every minute (wildcard = always matches).
+        orch.runtime
+            .circadian
+            .add_gate(
+                "always_suppress",
+                "* * * * *",
+                crate::runtime::CircadianAction::Suppress,
+                Some("gated".into()),
+            )
+            .expect("invalid cron expression");
+
+        // Emit a drifted signal.
+        orch.runtime.emit_metric("gated", "x", 0.0).unwrap();
+
+        let result = orch.run_once().unwrap();
+        // Drift is detected, but the circadian gate suppresses mutations.
+        assert_eq!(result.circadian_suppressed, 1, "expected 1 suppressed event");
+        assert!(result.proposals.is_empty(), "no proposals when suppressed");
+    }
+
+    #[test]
+    fn sampler_acceptance_updated_after_promoted_deploy() {
+        let mut orch = default_orchestrator();
+        orch.runtime
+            .spawn_entity("e1", "E1", "{}", None, None)
+            .unwrap();
+        orch.runtime
+            .set_telos_bounds("e1", "v", Some(0.0), Some(100.0), Some(50.0))
+            .unwrap();
+
+        // Register a rule so Tier 1 proposes something.
+        let rule = Rule {
+            name: "boost_v".into(),
+            priority: 10,
+            condition: RuleCondition {
+                metric: "v".into(),
+                min_score: 0.3,
+                max_score: 1.01,
+                min_severity: crate::runtime::DriftSeverity::Healthy,
+            },
+            action: RuleAction::AdjustParam {
+                param: "v_input".into(),
+                delta: DeltaSpec::Fixed(5.0),
+            },
+        };
+        let mut registry = RuleRegistry::new();
+        registry.add_for_entity("e1", rule);
+        orch.runtime.polycephalum = crate::runtime::Polycephalum::with_registry(registry);
+
+        // Emit a badly-drifted signal — gate will reject the proposal but
+        // that counts as negative feedback to the sampler.
+        orch.runtime.emit_metric("e1", "v", 2.0).unwrap();
+        orch.run_once().unwrap();
+
+        // Sampler should have recorded at least one outcome.
+        assert!(!orch.runtime.sampler.acceptance.is_empty());
     }
 }

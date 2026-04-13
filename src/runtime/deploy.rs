@@ -67,12 +67,17 @@ impl CanaryDeployer {
     /// Deploy a mutation proposal and return the outcome.
     ///
     /// Steps:
-    /// 1. Save a checkpoint.
-    /// 2. Record the deployment in the audit trail.
-    /// 3. Decide promote/rollback based on available telos data.
+    /// 1. Capture pre-deploy telos drift score as a baseline.
+    /// 2. Save a checkpoint (enables explicit rollback if needed).
+    /// 3. Record the deployment in the audit trail.
+    /// 4. Assess post-deploy telos score and compare — promote, rollback, or
+    ///    mark pending when no comparison data is available.
     pub fn deploy(&self, proposal: &MutationProposal, store: &SignalStore) -> DeployOutcome {
         let entity_id = proposal_entity_id(proposal);
         let ts = now_ms();
+
+        // Capture pre-deploy drift score before writing anything.
+        let pre_score = store.latest_drift_score(&entity_id).unwrap_or(None);
 
         // Save a checkpoint before applying.
         let checkpoint_id = store
@@ -92,7 +97,19 @@ impl CanaryDeployer {
             .unwrap_or(());
 
         // Determine whether to promote or rollback.
-        let status = self.canary_decision(&entity_id, proposal, store);
+        let status = self.canary_decision(&entity_id, pre_score, store);
+
+        // If the decision is to roll back, record the reason in the audit trail.
+        if status == DeployStatus::RolledBack {
+            let reason = format!(
+                "{{\"auto_rollback\":true,\"checkpoint_id\":{checkpoint_id},\
+                 \"pre_score\":{},\"reason\":\"telos_worsened\"}}",
+                pre_score.map(|s| format!("{s:.4}")).unwrap_or("null".into()),
+            );
+            store
+                .record_mutation(&entity_id, 0u8, &reason, "rollback", None, now_ms())
+                .unwrap_or(());
+        }
 
         DeployOutcome {
             entity_id,
@@ -103,17 +120,20 @@ impl CanaryDeployer {
         }
     }
 
-    /// Decide whether to promote or rollback the canary.
+    /// Decide whether to promote, roll back, or keep the canary pending.
     ///
-    /// Currently uses a conservative heuristic: if the entity has telos bounds
-    /// registered AND there are recent signals that look better than the drift
-    /// threshold, promote. Otherwise, mark as Pending (needs more observation).
-    ///
-    /// In production this would compare drift scores before/after.
+    /// Decision matrix:
+    /// - No telos bounds registered → `Pending` (no baseline to compare).
+    /// - No pre-deploy score available → assess current state alone:
+    ///   - All metrics within 30 % of target → `Promoted`, else `Pending`.
+    /// - Pre-deploy score available → compare with post-deploy assessment:
+    ///   - Post score improved (lower normalised deviation) → `Promoted`.
+    ///   - Post score worsened → `RolledBack`.
+    ///   - No change / inconclusive → `Pending`.
     fn canary_decision(
         &self,
         entity_id: &str,
-        _proposal: &MutationProposal,
+        pre_score: Option<f64>,
         store: &SignalStore,
     ) -> DeployStatus {
         let bounds = store.telos_bounds_for_entity(entity_id).unwrap_or_default();
@@ -121,31 +141,70 @@ impl CanaryDeployer {
             return DeployStatus::Pending;
         }
 
-        // Compare the most recent signal for each metric against its target.
-        // If all metrics are within 30% of target, promote.
-        let mut all_good = true;
-        for bound in &bounds {
-            let signals = store
-                .signals_for_entity(entity_id, 1)
-                .unwrap_or_default();
-            if let Some(sig) = signals.first() {
-                if let Some(target) = bound.target {
+        // Compute current normalised deviation across all bounded metrics.
+        let post_score = self.compute_deviation_score(entity_id, &bounds, store);
+
+        match (pre_score, post_score) {
+            // No signals yet — can't decide.
+            (_, None) => DeployStatus::Pending,
+
+            // No historical baseline — use absolute threshold.
+            (None, Some(post)) => {
+                if post <= 0.3 {
+                    DeployStatus::Promoted
+                } else {
+                    DeployStatus::Pending
+                }
+            }
+
+            // Full comparison available.
+            (Some(pre), Some(post)) => {
+                if post < pre - 0.05 {
+                    // Meaningfully improved.
+                    DeployStatus::Promoted
+                } else if post > pre + 0.05 {
+                    // Meaningfully worsened — auto-rollback.
+                    DeployStatus::RolledBack
+                } else {
+                    // Within noise band — wait for more data.
+                    DeployStatus::Pending
+                }
+            }
+        }
+    }
+
+    /// Compute mean normalised deviation across all bounded metrics.
+    ///
+    /// Returns `None` when there are no recent signals to evaluate.
+    /// Returns a score in [0, ∞) where 0 = perfect on target.
+    fn compute_deviation_score(
+        &self,
+        entity_id: &str,
+        bounds: &[crate::runtime::store::TelosBound],
+        store: &SignalStore,
+    ) -> Option<f64> {
+        let signals = store.signals_for_entity(entity_id, bounds.len().max(1)).unwrap_or_default();
+        if signals.is_empty() {
+            return None;
+        }
+
+        let mut total = 0.0f64;
+        let mut count = 0usize;
+
+        for bound in bounds {
+            if let Some(target) = bound.target {
+                // Find the most recent signal for this metric.
+                let val = signals.iter().find(|s| s.metric == bound.metric).map(|s| s.value);
+                if let Some(v) = val {
                     let range = (bound.max.unwrap_or(target) - bound.min.unwrap_or(0.0)).abs();
-                    let deviation = (sig.value - target).abs();
-                    let score = if range > 0.0 { deviation / range } else { 0.0 };
-                    if score > 0.3 {
-                        all_good = false;
-                        break;
-                    }
+                    let deviation = (v - target).abs();
+                    total += if range > 0.0 { deviation / range } else { deviation };
+                    count += 1;
                 }
             }
         }
 
-        if all_good {
-            DeployStatus::Promoted
-        } else {
-            DeployStatus::Pending
-        }
+        if count == 0 { None } else { Some(total / count as f64) }
     }
 
     /// Execute an explicit rollback to a saved checkpoint.
@@ -241,12 +300,35 @@ mod tests {
         store
             .set_telos_bounds("e1", "temp", Some(0.0), Some(100.0), Some(50.0))
             .unwrap();
-        // Emit a signal close to target (within 30% deviation).
+        // Emit a signal close to target — no pre-deploy score, deviation <= 0.3.
         use crate::runtime::signal::Signal;
         store.write_signal(&Signal::new("e1", "temp", 52.0)).unwrap();
         let deployer = CanaryDeployer::new();
         let outcome = deployer.deploy(&param_adjust("e1"), &store);
         assert_eq!(outcome.status, DeployStatus::Promoted);
+    }
+
+    #[test]
+    fn deploy_auto_rolls_back_when_telos_worsens() {
+        let store = mem_store();
+        store.register_entity("e1", "Test", "{}", now_ms()).unwrap();
+        store
+            .set_telos_bounds("e1", "temp", Some(0.0), Some(100.0), Some(50.0))
+            .unwrap();
+        // Record a good pre-deploy drift score (already on target).
+        store
+            .record_drift_event("e1", 0.05, now_ms(), Some("temp"))
+            .unwrap();
+        use crate::runtime::signal::Signal;
+        // Write a bad post-deploy signal — far from target (deviation > 0.3 + 0.05 gap).
+        store.write_signal(&Signal::new("e1", "temp", 95.0)).unwrap();
+        let deployer = CanaryDeployer::new();
+        let outcome = deployer.deploy(&param_adjust("e1"), &store);
+        assert_eq!(
+            outcome.status,
+            DeployStatus::RolledBack,
+            "expected RolledBack when post-deploy signal drifted badly"
+        );
     }
 
     #[test]

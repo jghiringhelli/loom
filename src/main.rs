@@ -103,6 +103,20 @@ enum Commands {
 /// Subcommands under `loom runtime`.
 #[derive(Subcommand)]
 enum RuntimeCommands {
+    /// Start the BIOISO evolution daemon (runs until Ctrl-C).
+    ///
+    /// Opens the signal store at `--db`, creates an Orchestrator, and runs the
+    /// evolution loop on the configured tick interval.  Press Ctrl-C to stop.
+    Start {
+        /// Path to the BIOISO SQLite store (default: `bioiso.db`).
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Tick interval in milliseconds (default: 5000).
+        #[arg(long, default_value = "5000")]
+        tick_ms: u64,
+    },
+
     /// Show the current status of all entities in a BIOISO store.
     Status {
         /// Path to the BIOISO SQLite store (default: `bioiso.db`).
@@ -364,6 +378,47 @@ fn main() {
 
 fn handle_runtime(subcommand: RuntimeCommands) {
     match subcommand {
+        RuntimeCommands::Start { db, tick_ms } => {
+            use std::io::BufRead as _;
+            use std::sync::Arc;
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use loom::runtime::orchestrator::{Orchestrator, OrchestratorConfig};
+
+            let runtime = match loom::runtime::Runtime::new(&db) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+
+            let mut config = OrchestratorConfig::default();
+            config.tick_interval = std::time::Duration::from_millis(tick_ms);
+
+            let stop = Arc::new(AtomicBool::new(false));
+            let stop_clone = Arc::clone(&stop);
+
+            // Spawn a thread that sets the stop flag when stdin closes (EOF / Ctrl-D)
+            // or after receiving SIGINT via the OS default handler (process terminates).
+            // For interactive use: press Ctrl-C once to terminate.
+            std::thread::spawn(move || {
+                // Block until stdin EOF — signals `stop` to the daemon loop.
+                let mut buf = String::new();
+                let _ = std::io::stdin().read_line(&mut buf);
+                stop_clone.store(true, Ordering::Relaxed);
+            });
+
+            println!(
+                "bioiso: starting evolution daemon (store={db}, tick={tick_ms}ms). \
+                 Press Ctrl-C or send EOF to stop."
+            );
+
+            let mut orch = Orchestrator::new(runtime, config);
+            orch.run_loop(&stop);
+
+            println!("bioiso: daemon stopped.");
+        }
+
         RuntimeCommands::Status { db } => {
             let store = match loom::runtime::SignalStore::new(&db) {
                 Ok(s) => s,
