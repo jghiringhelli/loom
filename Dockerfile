@@ -69,4 +69,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 # Start the CEMS evolution daemon.  Signal store is opened at DB_PATH.
 # The daemon blocks until Ctrl-C or SIGTERM (Railway sends SIGTERM on redeploy).
-ENTRYPOINT ["/usr/local/bin/start-colony.sh"]
+ENTRYPOINT ["/bin/sh", "/usr/local/bin/start-colony.sh"]
