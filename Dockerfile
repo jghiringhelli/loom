@@ -10,21 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Cache dependency compilation separately from source.
-# Copy manifests first so this layer is only rebuilt when dependencies change.
+# Copy the full source tree and build the release binary.
 COPY Cargo.toml Cargo.lock ./
-
-# Create a stub lib + main so `cargo build --release` can compile deps.
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "" > src/lib.rs
-
-RUN cargo build --release --bin loom 2>&1 | grep -v "^warning" || true
-
-# Remove stub artifacts so the real source replaces them cleanly.
-RUN rm -rf src target/release/loom target/release/deps/warp_lang* target/release/deps/loom*
-
-# Copy the full source tree and build the real binary.
 COPY src/ src/
 
 RUN cargo build --release --bin loom
