@@ -1,4 +1,4 @@
-# ADR-0011: CEKS Runtime Architecture
+# ADR-0011: CEMS runtime Architecture
 
 **Date**: 2026-04-13
 **Status**: Accepted
@@ -32,8 +32,8 @@ A deeper architectural observation: the pipeline stages (0–5) and the cross-cu
 concerns (memory, timing, coordination) are fundamentally different in kind. Numbering
 them all together obscures both. They need separate taxonomy axes.
 
-Additionally: the acronym **CEKS** — formed from the four cross-cutting concerns
-(Circadian, Epigenetic, Kin/Colony, Stages 0–5) — maps precisely onto the **CEKS
+Additionally: the acronym **CEMS** — formed from the four architectural axes
+(Circadian · Epigenome · Mycelium · Stages) — is one letter off the **CEKS
 abstract machine** from programming language theory (Control · Environment · Kontinuation
 · Store), and mirrors what sexual reproduction does for biological organisms:
 distributes adaptation laterally and across generations faster than any individual can
@@ -41,19 +41,23 @@ adapt alone.
 
 ## Decision
 
-### 1. Rename the runtime model: BIOISO → CEKS
+### 1. Rename the runtime model: BIOISO → CEMS
 
 **BIOISO** remains the name for the Loom *language philosophy* — beings with telos,
 autopoietic mutation, biological paradigm mapping. It is the "what."
 
-**CEKS runtime** is the execution engine that implements BIOISO. It is the "how."
+**CEMS runtime** is the execution engine that implements BIOISO. It is the "how."
+- **C** — Circadian (temporal gating)
+- **E** — Epigenome (institutional memory)
+- **M** — Mycelium (collective/colony coordination)
+- **S** — Stages (the 0–8 pipeline)
 
-The module remains `src/runtime/`. The concept is now called the CEKS runtime in all
+The module remains `src/runtime/`. The concept is now called the CEMS runtime in all
 documentation, ADRs, and CLI help text.
 
 ### 2. Two-axis architecture
 
-The CEKS runtime has two distinct axes that must not be conflated:
+The CEMS runtime has two distinct axes that must not be conflated:
 
 **Axis A — The Linear Pipeline (Stages 0–5)**
 
@@ -601,12 +605,12 @@ dependencies are needed later.
 
 ---
 
-### 16. Classic Optimization Algorithms Embedded in CEKS
+### 16. Classic Optimization Algorithms Embedded in CEMS
 
 Each biological behavior in the runtime is backed by a well-understood classical
 optimization algorithm, applied locally within its scope:
 
-| Biological behavior | Classic algorithm | CEKS application | Location |
+| Biological behavior | Classic algorithm | CEMS application | Location |
 |---|---|---|---|
 | Stigmergy (pheromone trails) | Ant Colony Optimization (ACO) | Signal weight = pheromone strength; Circadian decay = evaporation rate; Colony broadcast = trail reinforcement | Signal store + K layer |
 | Punctuated equilibrium | Simulated Annealing (SA) | Temperature = current telos stability score; mutation rate = f(1/T); cooling schedule = telos stability trend over W ticks | Orchestrator tick scheduler |
@@ -751,9 +755,9 @@ src/runtime/
 Rejected. Mixing sequential and orthogonal concerns in a single number line obscures
 both. Stages 0–5 are sequential; C, E, K are always-on. Different kind, different axis.
 
-**Use a different name (not CEKS)**
-Rejected. CEKS is the exact acronym for the four architectural axes
-(Circadian · Epigenetic · Kin · Stages). It independently maps to the CEKS abstract
+**Use a different name (not CEMS)**
+Rejected. CEMS is the acronym for the four architectural axes
+(Circadian · Epigenome · Mycelium · Stages). It independently maps to the CEKS abstract
 machine from programming language operational semantics (Control · Environment ·
 Kontinuation · Store) — a convergence too meaningful to discard.
 
@@ -777,7 +781,7 @@ epigenetic store could be poisoned by unverified mutations. Stage 0 must come fi
 - The system now has more moving parts that need operational observability
 
 **What the AI must know to work in this codebase:**
-- `src/runtime/` is the CEKS runtime — the execution engine for BIOISO entities
+- `src/runtime/` is the CEMS runtime — the execution engine for BIOISO entities
 - Pipeline Stages 0–8 are sequential. Stages 0–4 were R1–R7; Stages 5–8 are R13–R16.
 - C, E, K are cross-cutting modules: `circadian.rs`, `epigenetic.rs`, `colony.rs`
 - The mutation gate (Stage 4) is non-negotiable and never gated by Circadian
@@ -792,7 +796,7 @@ epigenetic store could be poisoned by unverified mutations. Stage 0 must come fi
 - Bayesian Allostery: context-sensitive rule matching uses Epigenome as prior
 - Colony offline: local cache, hibernation threshold, catch-up on reconnect; Procedural memories are never overwritten by remote broadcasts
 - ACO → stigmergy; SA → punctuated equilibrium; GA → multi-parent recombination; PSO → colony coordination; Kalman → SNR pre-filter
-- BIOISO = the language philosophy; CEKS = the runtime that implements it
+- BIOISO = the language philosophy; CEMS = the runtime that implements it
 - Git branches track structural variants; dead branches are history, never deleted
 
 ## Module additions
@@ -804,3 +808,6 @@ src/runtime/
   circadian.rs    — C: cron gates + SNR gate (R10)
   colony.rs       — K: HTTP gossip, colony registry, broadcast (R12)
 ```
+
+
+
