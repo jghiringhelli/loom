@@ -1,8 +1,8 @@
-﻿#!/usr/bin/env sh
+#!/bin/sh
 # CEMS colony startup script.
 #
 # 1. Seeds all 11 pre-configured BIOISO domain entities with expert-calibrated
-#    telos bounds and baseline signals (idempotent — skips already-registered entities).
+#    telos bounds and baseline signals (idempotent -- skips already-registered entities).
 # 2. Starts the CEMS evolution daemon.
 
 set -e

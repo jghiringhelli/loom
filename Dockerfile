@@ -27,19 +27,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for the daemon process.
+# Create a non-root user for future hardening reference.
+# NOTE: Railway volumes mount as root, so we run as root to allow writes to /data.
 RUN useradd --system --create-home --shell /usr/sbin/nologin bioiso
 
-# The SQLite database is stored on a mounted volume.  The directory must exist
-# and be writable by the bioiso user before the daemon starts.
-RUN mkdir -p /data && chown bioiso:bioiso /data
+# The SQLite database is stored on a mounted volume.
+RUN mkdir -p /data
 
 COPY --from=builder /build/target/release/loom /usr/local/bin/loom
 COPY scripts/start-colony.sh /usr/local/bin/start-colony.sh
 RUN chmod +x /usr/local/bin/start-colony.sh
 
-USER bioiso
-WORKDIR /home/bioiso
+# Run as root so the Railway volume mount at /data is writable.
+# The container is sandboxed by Railway's platform isolation.
+WORKDIR /root
 
 # ── Environment defaults ───────────────────────────────────────────────────────
 # All values can be overridden in the Railway service variables UI or .env file.
