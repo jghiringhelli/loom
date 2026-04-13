@@ -1,7 +1,7 @@
 # ADR-0010: BIOISO Runtime Architecture — Three-Tier Synthesis
 
 **Date**: 2026-04-12
-**Status**: Accepted
+**Status**: Superseded by ADR-0011
 
 ## Context
 
