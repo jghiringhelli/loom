@@ -15,6 +15,7 @@
 
 pub mod brain;
 pub mod circadian;
+pub mod colony;
 pub mod deploy;
 pub mod drift;
 pub mod epigenetic;
@@ -30,6 +31,7 @@ pub mod supervisor;
 
 pub use brain::{CostGuard, MammalBrain};
 pub use circadian::{Circadian, CircadianAction, CircadianVerdict, KalmanFilter, Schedule, WallTime};
+pub use colony::{ColonyPeer, GossipMessage, Mycelium, PeerStatus, PheromoneTrail};
 pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
 pub use epigenetic::{BufferEntry, CoreEntry, Epigenome, MemoryType, WorkingSummary};
@@ -69,6 +71,8 @@ pub struct Runtime {
     pub epigenome: Epigenome,
     /// Cross-cutting C axis — Circadian (temporal gating + Kalman SNR pre-filter).
     pub circadian: Circadian,
+    /// Cross-cutting M axis — Mycelium (colony gossip, stigmergy, offline resilience).
+    pub mycelium: Mycelium,
     /// Tier 1 Polycephalum rule engine — proposes mutations from drift events.
     pub polycephalum: Polycephalum,
     /// Type-safe mutation gate — validates proposals through the full compiler.
@@ -92,6 +96,7 @@ impl Runtime {
             membrane: Membrane::new(MembraneConfig::default()),
             epigenome: Epigenome::new(),
             circadian: Circadian::new(),
+            mycelium: Mycelium::new(),
             polycephalum: Polycephalum::new(),
             gate: MutationGate::new(),
             ganglion: Ganglion::new(GanglionConfig::default()),
