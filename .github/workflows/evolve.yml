@@ -1,4 +1,4 @@
-name: Evolve — validate and merge evolved genomes
+name: Evolve — autonomous genome promotion
 
 on:
   push:
@@ -8,18 +8,18 @@ on:
       - "genomes/**/*.loom"
 
 jobs:
-  validate-genomes:
-    name: Validate evolved genome
+  promote:
+    name: Compile-gate and autonomously promote genomes
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
         with:
           ref: genomes/evolved
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -47,50 +47,67 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
           echo "Found genomes: $FILES"
 
-      - name: Compile each genome
+      - name: Compile-gate each genome
         id: compile
         run: |
-          PASS=0; FAIL=0; FAILED_FILES=""
+          PASS=0; FAIL=0; PASSED_FILES=""; FAILED_FILES=""
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             echo "▶ Compiling $f"
             if ./target/release/loom compile "$f" 2>&1; then
               echo "  ✅ $f"
               PASS=$((PASS+1))
+              PASSED_FILES="$PASSED_FILES $f"
             else
               echo "  ❌ $f"
               FAIL=$((FAIL+1))
               FAILED_FILES="$FAILED_FILES $f"
             fi
           done <<< "${{ steps.genomes.outputs.files }}"
-          echo "pass=$PASS" >> "$GITHUB_OUTPUT"
-          echo "fail=$FAIL" >> "$GITHUB_OUTPUT"
+          echo "pass=$PASS"         >> "$GITHUB_OUTPUT"
+          echo "fail=$FAIL"         >> "$GITHUB_OUTPUT"
+          echo "passed_files=$PASSED_FILES" >> "$GITHUB_OUTPUT"
           echo "failed_files=$FAILED_FILES" >> "$GITHUB_OUTPUT"
           echo "### 🧬 Genome compile: $PASS pass, $FAIL fail" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Gate — fail if any genome does not compile
+      - name: Auto-promote passing genomes to main
+        if: steps.compile.outputs.pass != '0'
+        run: |
+          git config user.email "genome-bot@loom.run"
+          git config user.name "Loom Evolution Bot"
+
+          # Checkout main and merge genome files from evolved branch
+          git fetch origin main
+          git checkout main
+
+          PROMOTED=0
+          for f in ${{ steps.compile.outputs.passed_files }}; do
+            git checkout genomes/evolved -- "$f"
+            TYPE="meiosis"
+            if echo "$f" | grep -q "mitosis_"; then
+              TYPE="mitosis"
+            fi
+            echo "  → promoting $f as $TYPE"
+            PROMOTED=$((PROMOTED+1))
+          done
+
+          if [ "$PROMOTED" -gt 0 ]; then
+            git add genomes/
+            git commit -m "auto(genome): promote $PROMOTED evolved genomes [$(git rev-parse --short genomes/evolved)]
+
+Decision types promoted autonomously by EvolutionJudge.
+Mitosis files overwrite parent entities; meiosis files register new offspring.
+Compile gate: ${{ steps.compile.outputs.pass }} pass / ${{ steps.compile.outputs.fail }} fail."
+            git push origin main
+            echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Log rejected genomes
         if: steps.compile.outputs.fail != '0'
         run: |
-          echo "Failed genomes: ${{ steps.compile.outputs.failed_files }}"
-          exit 1
+          echo "### ❌ Failed compile (not promoted):" >> "$GITHUB_STEP_SUMMARY"
+          for f in ${{ steps.compile.outputs.failed_files }}; do
+            echo "  - $f" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "Compilation failures logged. Passing genomes were still promoted."
 
-      - name: Open PR to merge validated genomes into main
-        if: steps.compile.outputs.pass != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="genomes/evolved"
-          TITLE="feat(genomes): merge ${{ steps.compile.outputs.pass }} validated evolved genomes"
-          BODY="## Autonomous Evolution — Validated Genomes\n\nGenomes rendered by MeiosisEngine and validated:\n- **Compile gate**: ✅ ${{ steps.compile.outputs.pass }} pass\n- **Source branch**: \`$BRANCH\`\n\nThis PR was opened automatically by the \`evolve.yml\` workflow.\nReview the genome files before merging."
-          # Create PR if it doesn't already exist for this branch
-          EXISTING=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -z "$EXISTING" ]; then
-            gh pr create \
-              --title "$TITLE" \
-              --body "$(printf '%b' "$BODY")" \
-              --head "$BRANCH" \
-              --base main \
-              --label "evolved-genome" || echo "PR creation skipped (label may not exist)"
-          else
-            echo "PR #$EXISTING already open for $BRANCH"
-          fi

@@ -1,25 +1,25 @@
-//! Meiosis engine — R14: cross-entity genetic recombination + GitHub publication.
+//! Meiosis engine — R14: cross-entity genetic recombination + autonomous evolution judge.
 //!
 //! After an experiment completes, [`MeiosisEngine`] closes the evolutionary loop:
 //!
 //! 1. **Select donors** — entities with the most promoted mutations qualify.
 //! 2. **Recombine** — pair donors and cross-breed their mutations into hybrid
-//!    `.loom` genome files (parameter strategies from parent A, structural rewires
-//!    from parent B).
-//! 3. **Publish** — push rendered genomes to the `genomes/evolved/` branch on
-//!    GitHub via the REST API.
-//!
-//! The GitHub Actions `evolve.yml` workflow then validates each incoming genome:
-//! - `loom compile` — syntax + type-check
-//! - Gauntlet — if the survival gate passes, open a PR for human review.
+//!    `.loom` genome files.
+//! 3. **Judge** — [`EvolutionJudge`] (Claude) evaluates each genome autonomously:
+//!    - **Mitosis**: convergent mutations → apply back to the fittest parent entity.
+//!    - **Meiosis**: orthogonal mutations → register as a new independent offspring.
+//!    - **Reject**: contradictory or non-beneficial — discarded, never pushed.
+//! 4. **Publish** — accepted genomes are pushed to GitHub; the `evolve.yml`
+//!    workflow compiles and auto-merges them to `main` (no PR required).
 //!
 //! # Configuration (environment)
 //!
 //! | Env var | Default | Description |
 //! |---|---|---|
 //! | `GITHUB_TOKEN` | — | PAT with `contents: write` on the target repo |
-//! | `GITHUB_REPO` | — | `owner/repo` (e.g. `PragmaWorks/loom`) |
+//! | `GITHUB_REPO` | — | `owner/repo` (e.g. `jghiringhelli/loom`) |
 //! | `GITHUB_GENOMES_BRANCH` | `genomes/evolved` | Branch to push genomes to |
+//! | `JUDGE_CLAUDE_MODEL` | `claude-3-haiku-20240307` | Model for evolution judge |
 
 use std::collections::HashMap;
 
@@ -86,12 +86,16 @@ pub struct EvolvedGenome {
     pub parent_a: String,
     /// Secondary parent entity (cross-breed) or `None` for selfing.
     pub parent_b: Option<String>,
-    /// Relative path for the GitHub file (e.g. `genomes/evolved/gen1/climate_epidemics.loom`).
+    /// Relative path for the GitHub file.
+    /// Mitosis: `genomes/evolved/gen{N}/mitosis_{parent_a}.loom`
+    /// Meiosis: `genomes/evolved/gen{N}/{a}_x_{b}.loom`
     pub filename: String,
     /// Full `.loom` source content.
     pub source: String,
     /// Total number of mutations incorporated from both parents.
     pub mutations_incorporated: usize,
+    /// Judge decision (set after evaluation; `None` before judge runs).
+    pub decision: Option<EvolutionDecision>,
 }
 
 /// Render a hybrid `.loom` being from one or two donor entities.
@@ -216,7 +220,7 @@ end
     );
 
     let filename = format!("genomes/evolved/gen{generation}/{slug}.loom");
-    EvolvedGenome { generation, parent_a: parent_a.entity_id.clone(), parent_b: parent_b.map(|b| b.entity_id.clone()), filename, source, mutations_incorporated }
+    EvolvedGenome { generation, parent_a: parent_a.entity_id.clone(), parent_b: parent_b.map(|b| b.entity_id.clone()), filename, source, mutations_incorporated, decision: None }
 }
 
 fn to_pascal_case(s: &str) -> String {
@@ -235,6 +239,178 @@ fn to_pascal_case(s: &str) -> String {
 /// Replace non-alphanumeric characters with underscores.
 fn sanitize_ident(s: &str) -> String {
     s.chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect()
+}
+
+// ── Evolution judge ───────────────────────────────────────────────────────────
+
+/// Autonomous decision for a candidate genome.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvolutionDecision {
+    /// Mutations are convergent — apply changes back to the fittest parent (self-update).
+    Mitosis,
+    /// Mutations are orthogonal — register as a new independent offspring entity.
+    Meiosis,
+    /// Contradictory changes, no net benefit, or evaluation error — discard.
+    Reject,
+}
+
+/// Full verdict returned by [`EvolutionJudge`] for a candidate genome.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvolutionVerdict {
+    /// Whether to self-update, spawn offspring, or discard.
+    pub decision: EvolutionDecision,
+    /// One-sentence justification from the judge.
+    pub reasoning: String,
+    /// 0.0 = identical mutation domains; 1.0 = completely independent domains.
+    pub orthogonality_score: f64,
+    /// Estimated fitness change: positive = improvement, negative = regression.
+    pub fitness_delta: f64,
+}
+
+/// LLM-backed judge that evaluates evolved genomes autonomously.
+///
+/// Uses `claude-3-haiku-20240307` by default (cheap, fires per genome).
+/// Configurable via `JUDGE_CLAUDE_MODEL`.
+pub struct EvolutionJudge {
+    api_key: String,
+    model: String,
+    client: reqwest::blocking::Client,
+}
+
+impl EvolutionJudge {
+    /// Build from environment. Returns `None` when `CLAUDE_API_KEY` is unset.
+    pub fn from_env() -> Option<Self> {
+        let api_key = std::env::var("CLAUDE_API_KEY").ok()?;
+        let model = std::env::var("JUDGE_CLAUDE_MODEL")
+            .unwrap_or_else(|_| "claude-3-haiku-20240307".to_string());
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .ok()?;
+        Some(Self { api_key, model, client })
+    }
+
+    /// Evaluate a candidate genome against its donors.
+    ///
+    /// Returns `Reject` with an error note on any network or parse failure.
+    pub fn evaluate(&self, genome: &EvolvedGenome, donors: &[&MeiosisDonor]) -> EvolutionVerdict {
+        self.call_claude(genome, donors).unwrap_or_else(|e| {
+            eprintln!("[EvolutionJudge] evaluation failed for {}: {e}", genome.filename);
+            EvolutionVerdict {
+                decision: EvolutionDecision::Reject,
+                reasoning: format!("evaluation error: {e}"),
+                orthogonality_score: 0.0,
+                fitness_delta: 0.0,
+            }
+        })
+    }
+
+    fn call_claude(
+        &self,
+        genome: &EvolvedGenome,
+        donors: &[&MeiosisDonor],
+    ) -> Result<EvolutionVerdict, String> {
+        let prompt = Self::build_prompt(genome, donors);
+        let body = serde_json::json!({
+            "model": self.model,
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": prompt}]
+        });
+        let resp = self
+            .client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .json(&body)
+            .send()
+            .map_err(|e| e.to_string())?;
+        let json: serde_json::Value = resp.json().map_err(|e| e.to_string())?;
+        let text = json["content"][0]["text"].as_str().unwrap_or("").to_string();
+        Self::parse_verdict(&text)
+    }
+
+    fn build_prompt(genome: &EvolvedGenome, donors: &[&MeiosisDonor]) -> String {
+        let donor_lines = donors
+            .iter()
+            .map(|d| {
+                let types: Vec<String> = d
+                    .records
+                    .iter()
+                    .map(|r| match &r.proposal {
+                        crate::runtime::mutation::MutationProposal::ParameterAdjust {
+                            param, delta, ..
+                        } => format!("param:{param}({delta:+.3})"),
+                        crate::runtime::mutation::MutationProposal::StructuralRewire {
+                            signal_name,
+                            ..
+                        } => format!("rewire:{signal_name}"),
+                        _ => "other".to_string(),
+                    })
+                    .collect();
+                format!(
+                    "  entity={} promotions={} mutations=[{}]",
+                    d.entity_id,
+                    d.score(),
+                    types.join(", ")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Truncate genome source to stay within token budget
+        let source_preview = &genome.source[..genome.source.len().min(1200)];
+
+        format!(
+            r#"You are the autonomous evolution judge for a self-modifying adaptive system.
+
+DONOR ENTITIES:
+{donor_lines}
+
+EVOLVED GENOME ({filename}):
+```
+{source_preview}
+```
+
+RULES:
+- MITOSIS: mutations target the same behavioral domain (convergent) — apply back to fittest parent as a self-update.
+- MEIOSIS: mutations target different behavioral domains (orthogonal) — create a new independent offspring entity.
+- REJECT: contradictory changes, circular dependencies, no net benefit, or likely to break compilation.
+
+Respond ONLY in this exact format (no extra text):
+ORTHOGONALITY: <0.0-1.0>
+FITNESS_DELTA: <-1.0 to 1.0>
+DECISION: <MITOSIS|MEIOSIS|REJECT>
+REASONING: <one sentence>"#,
+            donor_lines = donor_lines,
+            filename = genome.filename,
+            source_preview = source_preview,
+        )
+    }
+
+    fn parse_verdict(text: &str) -> Result<EvolutionVerdict, String> {
+        let mut orthogonality = 0.5f64;
+        let mut fitness_delta = 0.0f64;
+        let mut decision = EvolutionDecision::Reject;
+        let mut reasoning = "no reasoning provided".to_string();
+
+        for line in text.lines() {
+            if let Some(val) = line.strip_prefix("ORTHOGONALITY:") {
+                orthogonality = val.trim().parse().unwrap_or(0.5);
+            } else if let Some(val) = line.strip_prefix("FITNESS_DELTA:") {
+                fitness_delta = val.trim().parse().unwrap_or(0.0);
+            } else if let Some(val) = line.strip_prefix("DECISION:") {
+                decision = match val.trim() {
+                    "MITOSIS" => EvolutionDecision::Mitosis,
+                    "MEIOSIS" => EvolutionDecision::Meiosis,
+                    _ => EvolutionDecision::Reject,
+                };
+            } else if let Some(val) = line.strip_prefix("REASONING:") {
+                reasoning = val.trim().to_string();
+            }
+        }
+
+        Ok(EvolutionVerdict { decision, reasoning, orthogonality_score: orthogonality, fitness_delta })
+    }
 }
 
 // ── GitHub publisher ──────────────────────────────────────────────────────────
@@ -392,10 +568,14 @@ pub struct MeiosisReport {
     pub donors_selected: usize,
     /// Number of hybrid genomes rendered.
     pub genomes_rendered: usize,
+    /// Number of genomes accepted by the judge (Mitosis + Meiosis decisions).
+    pub genomes_accepted: usize,
     /// Number of genomes successfully pushed to GitHub.
     pub genomes_published: usize,
     /// Per-genome publish results.
     pub publish_results: Vec<PublishResult>,
+    /// Judge verdicts keyed by genome filename.
+    pub verdicts: Vec<(String, EvolutionVerdict)>,
 }
 
 impl MeiosisEngine {
@@ -444,20 +624,93 @@ impl MeiosisEngine {
         genomes
     }
 
-    /// Run the full pipeline: select → recombine → publish.
+    /// Run the full pipeline: select → recombine → judge → publish.
     ///
-    /// If `GITHUB_TOKEN` / `GITHUB_REPO` are unset, genomes are logged to stderr
-    /// but the function returns without error.
+    /// The judge evaluates each genome autonomously:
+    /// - **Mitosis**: filename gets `mitosis_` prefix; genome self-updates the parent.
+    /// - **Meiosis**: filename unchanged; genome registers as a new offspring entity.
+    /// - **Reject**: genome is discarded and never pushed.
+    ///
+    /// If `GITHUB_TOKEN` / `GITHUB_REPO` are unset, genomes are logged but not pushed.
+    /// If `CLAUDE_API_KEY` is unset, the judge is skipped and all genomes default to Meiosis.
     pub fn run(&self, promoted: &[PromotedRecord]) -> MeiosisReport {
         let donors = self.select_donors(promoted);
-        let genomes = self.recombine(&donors);
+        let mut raw_genomes = self.recombine(&donors);
 
+        let judge = EvolutionJudge::from_env();
         let publisher = GitHubPublisher::from_env();
-        let mut results = Vec::new();
+
+        let mut accepted_genomes: Vec<EvolvedGenome> = Vec::new();
+        let mut verdicts: Vec<(String, EvolutionVerdict)> = Vec::new();
+
+        // Build donor pairs for judge context (mirrors recombine pairing)
+        let mut donor_pairs: Vec<Vec<&MeiosisDonor>> = Vec::new();
+        let mut i = 0;
+        while i < donors.len() {
+            if i + 1 < donors.len() {
+                donor_pairs.push(vec![&donors[i], &donors[i + 1]]);
+                i += 2;
+            } else {
+                donor_pairs.push(vec![&donors[i]]);
+                i += 1;
+            }
+        }
+
+        for (genome_idx, mut genome) in raw_genomes.drain(..).enumerate() {
+            let pair = donor_pairs.get(genome_idx).map(|v| v.as_slice()).unwrap_or(&[]);
+
+            let verdict = match &judge {
+                Some(j) => {
+                    eprintln!("[meiosis] judging {} ...", genome.filename);
+                    j.evaluate(&genome, pair)
+                }
+                None => {
+                    // No judge: default all to Meiosis
+                    EvolutionVerdict {
+                        decision: EvolutionDecision::Meiosis,
+                        reasoning: "no judge configured — default meiosis".to_string(),
+                        orthogonality_score: 0.5,
+                        fitness_delta: 0.0,
+                    }
+                }
+            };
+
+            eprintln!(
+                "[meiosis] {} → {:?} (orthogonality={:.2}, Δfitness={:+.2}): {}",
+                genome.filename,
+                verdict.decision,
+                verdict.orthogonality_score,
+                verdict.fitness_delta,
+                verdict.reasoning,
+            );
+
+            match verdict.decision {
+                EvolutionDecision::Reject => {
+                    verdicts.push((genome.filename.clone(), verdict));
+                    // Discarded — not pushed
+                }
+                EvolutionDecision::Mitosis => {
+                    // Self-update: rename with mitosis_ prefix so evolve.yml can route it
+                    let base = genome.filename.rsplit('/').next().unwrap_or(&genome.filename);
+                    let dir = genome.filename.rsplit_once('/').map(|(d, _)| d).unwrap_or("genomes/evolved");
+                    genome.filename = format!("{dir}/mitosis_{base}");
+                    genome.decision = Some(EvolutionDecision::Mitosis);
+                    verdicts.push((genome.filename.clone(), verdict));
+                    accepted_genomes.push(genome);
+                }
+                EvolutionDecision::Meiosis => {
+                    genome.decision = Some(EvolutionDecision::Meiosis);
+                    verdicts.push((genome.filename.clone(), verdict));
+                    accepted_genomes.push(genome);
+                }
+            }
+        }
+
+        let mut results: Vec<PublishResult> = Vec::new();
         let mut published = 0usize;
 
         if let Some(pub_client) = publisher {
-            for genome in &genomes {
+            for genome in &accepted_genomes {
                 let r = pub_client.publish(genome);
                 if r.success {
                     published += 1;
@@ -468,7 +721,7 @@ impl MeiosisEngine {
                 results.push(r);
             }
         } else {
-            for genome in &genomes {
+            for genome in &accepted_genomes {
                 eprintln!(
                     "[meiosis] GITHUB_TOKEN/GITHUB_REPO not set — genome not pushed: {}",
                     genome.filename
@@ -483,9 +736,11 @@ impl MeiosisEngine {
 
         MeiosisReport {
             donors_selected: donors.len(),
-            genomes_rendered: genomes.len(),
+            genomes_rendered: accepted_genomes.len() + verdicts.iter().filter(|(_, v)| v.decision == EvolutionDecision::Reject).count(),
+            genomes_accepted: accepted_genomes.len(),
             genomes_published: published,
             publish_results: results,
+            verdicts,
         }
     }
 }
@@ -622,7 +877,8 @@ mod tests {
         let records = vec![param_record("climate", "albedo", -0.02, 1)];
         let report = engine.run(&records);
         assert_eq!(report.donors_selected, 1);
-        assert_eq!(report.genomes_rendered, 1);
+        // 1 genome rendered (selfed), accepted as Meiosis (no judge = default meiosis)
+        assert_eq!(report.genomes_accepted, 1);
         assert_eq!(report.genomes_published, 0);
         assert!(!report.publish_results[0].success);
     }
@@ -633,6 +889,57 @@ mod tests {
         let report = engine.run(&[]);
         assert_eq!(report.donors_selected, 0);
         assert_eq!(report.genomes_rendered, 0);
+        assert_eq!(report.genomes_accepted, 0);
         assert_eq!(report.genomes_published, 0);
+    }
+
+    #[test]
+    fn judge_parse_verdict_mitosis() {
+        let text = "ORTHOGONALITY: 0.2\nFITNESS_DELTA: 0.4\nDECISION: MITOSIS\nREASONING: Same parameter domain.";
+        let verdict = EvolutionJudge::parse_verdict(text).unwrap();
+        assert_eq!(verdict.decision, EvolutionDecision::Mitosis);
+        assert!((verdict.orthogonality_score - 0.2).abs() < 0.001);
+        assert!((verdict.fitness_delta - 0.4).abs() < 0.001);
+    }
+
+    #[test]
+    fn judge_parse_verdict_meiosis() {
+        let text = "ORTHOGONALITY: 0.85\nFITNESS_DELTA: 0.6\nDECISION: MEIOSIS\nREASONING: Orthogonal behavioral domains.";
+        let verdict = EvolutionJudge::parse_verdict(text).unwrap();
+        assert_eq!(verdict.decision, EvolutionDecision::Meiosis);
+        assert!((verdict.orthogonality_score - 0.85).abs() < 0.001);
+    }
+
+    #[test]
+    fn judge_parse_verdict_reject() {
+        let text = "ORTHOGONALITY: 0.5\nFITNESS_DELTA: -0.3\nDECISION: REJECT\nREASONING: Contradictory parameter changes.";
+        let verdict = EvolutionJudge::parse_verdict(text).unwrap();
+        assert_eq!(verdict.decision, EvolutionDecision::Reject);
+        assert!((verdict.fitness_delta - (-0.3)).abs() < 0.001);
+    }
+
+    #[test]
+    fn judge_parse_verdict_unknown_defaults_to_reject() {
+        let text = "ORTHOGONALITY: 0.5\nFITNESS_DELTA: 0.0\nDECISION: UNKNOWN\nREASONING: Garbage.";
+        let verdict = EvolutionJudge::parse_verdict(text).unwrap();
+        assert_eq!(verdict.decision, EvolutionDecision::Reject);
+    }
+
+    #[test]
+    fn run_mitosis_decision_prefixes_filename() {
+        std::env::remove_var("GITHUB_TOKEN");
+        std::env::remove_var("CLAUDE_API_KEY");
+        // Without judge, all default to Meiosis — verify no mitosis_ prefix
+        let engine = MeiosisEngine::with_defaults();
+        let records = vec![
+            param_record("climate", "albedo", -0.02, 1),
+            param_record("epidemics", "r0", 0.1, 2),
+        ];
+        let report = engine.run(&records);
+        // Both accepted (no judge → Meiosis default), no mitosis_ prefix
+        for (filename, verdict) in &report.verdicts {
+            assert_eq!(verdict.decision, EvolutionDecision::Meiosis);
+            assert!(!filename.contains("mitosis_"));
+        }
     }
 }
