@@ -75,6 +75,75 @@ impl MeiosisDonor {
     }
 }
 
+// ── Mutation vectors ──────────────────────────────────────────────────────────
+
+/// A sparse vector in mutation-parameter space.
+///
+/// Each `ParameterAdjust` contributes a signed delta to the named parameter
+/// dimension.  Each `StructuralRewire` contributes +1.0 to a synthetic
+/// `rewire:<signal>` dimension.  This lets us compute real cosine similarity
+/// between two donors' mutation histories before asking the LLM judge.
+///
+/// Decision thresholds (loose guidelines, LLM may override):
+/// - cosine ≈  1.0  → same parameters, same direction  → **Mitosis**
+/// - cosine ≈  0.0  → different parameter spaces       → **Meiosis**
+/// - cosine ≈ −1.0  → same parameters, opposite sign   → **Reject**
+#[derive(Debug, Clone, Default)]
+pub struct MutationVector(HashMap<String, f64>);
+
+impl MutationVector {
+    /// Build a vector from a slice of promoted records.
+    pub fn from_records(records: &[PromotedRecord]) -> Self {
+        let mut map: HashMap<String, f64> = HashMap::new();
+        for r in records {
+            match &r.proposal {
+                MutationProposal::ParameterAdjust { param, delta, .. } => {
+                    *map.entry(param.clone()).or_insert(0.0) += delta;
+                }
+                MutationProposal::StructuralRewire { signal_name, .. } => {
+                    *map.entry(format!("rewire:{signal_name}")).or_insert(0.0) += 1.0;
+                }
+                _ => {}
+            }
+        }
+        MutationVector(map)
+    }
+
+    /// Cosine similarity ∈ [−1, 1].  Returns 0.0 if either vector is zero.
+    pub fn cosine_similarity(&self, other: &Self) -> f64 {
+        let dot: f64 = self
+            .0
+            .iter()
+            .filter_map(|(k, v)| other.0.get(k).map(|u| v * u))
+            .sum();
+        let mag_a: f64 = self.0.values().map(|v| v * v).sum::<f64>().sqrt();
+        let mag_b: f64 = other.0.values().map(|v| v * v).sum::<f64>().sqrt();
+        if mag_a == 0.0 || mag_b == 0.0 {
+            0.0
+        } else {
+            (dot / (mag_a * mag_b)).clamp(-1.0, 1.0)
+        }
+    }
+
+    /// Orthogonality score ∈ [0, 1].
+    /// 1.0 = truly orthogonal (different spaces), 0.0 = identical or opposing.
+    pub fn orthogonality_score(&self, other: &Self) -> f64 {
+        1.0 - self.cosine_similarity(other).abs()
+    }
+
+    /// True if no mutations contributed to this vector.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Dimension names present in this vector.
+    pub fn dimensions(&self) -> Vec<&str> {
+        let mut dims: Vec<&str> = self.0.keys().map(|s| s.as_str()).collect();
+        dims.sort_unstable();
+        dims
+    }
+}
+
 // ── Genome rendering ──────────────────────────────────────────────────────────
 
 /// A hybrid `.loom` genome file ready for publication.
@@ -330,6 +399,26 @@ impl EvolutionJudge {
     }
 
     fn build_prompt(genome: &EvolvedGenome, donors: &[&MeiosisDonor]) -> String {
+        // Compute math-grounded orthogonality before asking the LLM.
+        // Two vectors → cosine similarity → orthogonality score.
+        // For a single donor (selfing), orthogonality is 0 by definition.
+        let (math_cosine, math_orthogonality, math_hint) = if donors.len() >= 2 {
+            let va = MutationVector::from_records(&donors[0].records);
+            let vb = MutationVector::from_records(&donors[1].records);
+            let cos = va.cosine_similarity(&vb);
+            let orth = 1.0 - cos.abs();
+            let hint = if cos > 0.7 {
+                "math suggests MITOSIS (convergent)"
+            } else if cos < -0.7 {
+                "math suggests REJECT (contradictory)"
+            } else {
+                "math suggests MEIOSIS (orthogonal)"
+            };
+            (cos, orth, hint)
+        } else {
+            (1.0, 0.0, "math suggests MITOSIS (single donor — selfing)")
+        };
+
         let donor_lines = donors
             .iter()
             .map(|d| {
@@ -363,6 +452,13 @@ impl EvolutionJudge {
         format!(
             r#"You are the autonomous evolution judge for a self-modifying adaptive system.
 
+MATHEMATICAL ORTHOGONALITY ANALYSIS (computed before this prompt):
+  cosine_similarity = {math_cosine:.3}   (1=same direction, 0=orthogonal, -1=contradictory)
+  orthogonality_score = {math_orthogonality:.3}   (1=truly orthogonal, 0=convergent/opposing)
+  {math_hint}
+
+Use the math as a strong prior. Override only if you have clear semantic evidence.
+
 DONOR ENTITIES:
 {donor_lines}
 
@@ -381,6 +477,9 @@ ORTHOGONALITY: <0.0-1.0>
 FITNESS_DELTA: <-1.0 to 1.0>
 DECISION: <MITOSIS|MEIOSIS|REJECT>
 REASONING: <one sentence>"#,
+            math_cosine = math_cosine,
+            math_orthogonality = math_orthogonality,
+            math_hint = math_hint,
             donor_lines = donor_lines,
             filename = genome.filename,
             source_preview = source_preview,
@@ -745,6 +844,139 @@ impl MeiosisEngine {
     }
 }
 
+// ── Telomere tracker ──────────────────────────────────────────────────────────
+
+/// Runtime telomere state for a single entity.
+///
+/// The telomere shortens when **telos drift exceeds a tolerance window** —
+/// not on time or invocation count.  This implements the insight-document
+/// contract (Part 3): the countdown is semantic divergence from intent.
+///
+/// Within the tolerance window, drift is allowed — it is how the system
+/// escapes local fitness maxima (random walk).  Sustained drift above the
+/// window triggers shortening.  At zero remaining, the entity is senescent
+/// and should be replaced by the meiosis cycle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelomereState {
+    /// Entity identifier.
+    pub entity_id: String,
+    /// Original telos string captured when the entity was first tracked.
+    pub original_telos: String,
+    /// Remaining telomere length.  Starts at `initial_length`.
+    pub remaining: u32,
+    /// Fraction of max drift tolerated before shortening begins (0.0–1.0).
+    /// Default 0.3 — up to 30 % telos drift is treated as exploration.
+    pub tolerance_window: f64,
+    /// Shortening per unit of excess drift above the window.
+    /// `floor(excess * decay_rate)` ticks are removed per drift event.
+    pub decay_rate: f64,
+}
+
+impl TelomereState {
+    /// Create a fresh telomere state for an entity.
+    pub fn new(
+        entity_id: impl Into<String>,
+        original_telos: impl Into<String>,
+        initial_length: u32,
+    ) -> Self {
+        Self {
+            entity_id: entity_id.into(),
+            original_telos: original_telos.into(),
+            remaining: initial_length,
+            tolerance_window: 0.3,
+            decay_rate: 5.0,
+        }
+    }
+
+    /// True when the entity has reached senescence.
+    pub fn is_senescent(&self) -> bool {
+        self.remaining == 0
+    }
+
+    /// Record a drift event.  `drift_score` ∈ [0, 1] where 1.0 is max drift.
+    ///
+    /// - Below `tolerance_window`: treated as exploration; slight recovery applied.
+    /// - Above `tolerance_window`: shortens by `floor(excess * decay_rate)`.
+    ///
+    /// Returns `true` if the telomere was shortened this event.
+    pub fn record_drift(&mut self, drift_score: f64) -> bool {
+        let drift_score = drift_score.clamp(0.0, 1.0);
+        if drift_score <= self.tolerance_window {
+            // Within tolerance — local exploration permitted.
+            // Small recovery: gap between score and window absorbs prior stress.
+            let _recovery = (self.tolerance_window - drift_score) * 0.1;
+            // (Recovery on `remaining` not yet modelled — telomere doesn't grow back.)
+            return false;
+        }
+        let excess = drift_score - self.tolerance_window;
+        let shortening = (excess * self.decay_rate).floor() as u32;
+        if shortening > 0 {
+            self.remaining = self.remaining.saturating_sub(shortening);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Colony-level telomere registry — one [`TelomereState`] per entity.
+///
+/// Wired into the meiosis cycle so that entities approaching senescence
+/// are prioritised as meiosis donors (their genome is preserved before
+/// they retire).
+#[derive(Debug, Clone, Default)]
+pub struct TelomereTracker {
+    states: HashMap<String, TelomereState>,
+    /// Initial telomere length assigned to newly registered entities.
+    pub initial_length: u32,
+}
+
+impl TelomereTracker {
+    /// Create a tracker with a given default initial length.
+    pub fn new(initial_length: u32) -> Self {
+        Self { states: HashMap::new(), initial_length }
+    }
+
+    /// Record a drift event for an entity, registering it if unseen.
+    ///
+    /// Returns `true` when the entity has reached senescence after this event.
+    pub fn record_drift(&mut self, entity_id: &str, telos: &str, drift_score: f64) -> bool {
+        let initial = self.initial_length;
+        let state = self.states.entry(entity_id.to_string()).or_insert_with(|| {
+            TelomereState::new(entity_id, telos, initial)
+        });
+        state.record_drift(drift_score);
+        state.is_senescent()
+    }
+
+    /// Check senescence without recording a drift event.
+    pub fn is_senescent(&self, entity_id: &str) -> bool {
+        self.states.get(entity_id).is_some_and(|s| s.is_senescent())
+    }
+
+    /// Remaining telomere length, or `None` if the entity has not been seen.
+    pub fn remaining(&self, entity_id: &str) -> Option<u32> {
+        self.states.get(entity_id).map(|s| s.remaining)
+    }
+
+    /// Entities currently in senescence.
+    pub fn senescent_entities(&self) -> Vec<&str> {
+        self.states
+            .values()
+            .filter(|s| s.is_senescent())
+            .map(|s| s.entity_id.as_str())
+            .collect()
+    }
+
+    /// All tracked states, sorted by remaining length ascending
+    /// (most critical first).
+    pub fn all_states_by_urgency(&self) -> Vec<&TelomereState> {
+        let mut states: Vec<&TelomereState> = self.states.values().collect();
+        states.sort_by_key(|s| s.remaining);
+        states
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -941,5 +1173,109 @@ mod tests {
             assert_eq!(verdict.decision, EvolutionDecision::Meiosis);
             assert!(!filename.contains("mitosis_"));
         }
+    }
+
+    // ── MutationVector tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn mutation_vector_cosine_identical_vectors_is_one() {
+        let records = vec![
+            param_record("e", "albedo", -0.02, 1),
+            param_record("e", "co2", 5.0, 2),
+        ];
+        let va = MutationVector::from_records(&records);
+        let cos = va.cosine_similarity(&va);
+        assert!((cos - 1.0).abs() < 1e-9, "identical vectors should have cosine=1.0, got {cos}");
+    }
+
+    #[test]
+    fn mutation_vector_cosine_orthogonal_is_zero() {
+        let ra = vec![param_record("a", "albedo", 1.0, 1)];
+        let rb = vec![param_record("b", "r0", 1.0, 1)];
+        let va = MutationVector::from_records(&ra);
+        let vb = MutationVector::from_records(&rb);
+        let cos = va.cosine_similarity(&vb);
+        assert!(cos.abs() < 1e-9, "disjoint param spaces should have cosine≈0, got {cos}");
+    }
+
+    #[test]
+    fn mutation_vector_cosine_opposite_is_negative() {
+        let ra = vec![param_record("a", "albedo", 1.0, 1)];
+        let rb = vec![param_record("b", "albedo", -1.0, 1)];
+        let va = MutationVector::from_records(&ra);
+        let vb = MutationVector::from_records(&rb);
+        let cos = va.cosine_similarity(&vb);
+        assert!(cos < -0.99, "opposite deltas on same param should have cosine≈-1, got {cos}");
+    }
+
+    #[test]
+    fn mutation_vector_orthogonality_score_complement() {
+        let ra = vec![param_record("a", "x", 1.0, 1)];
+        let rb = vec![param_record("b", "y", 1.0, 1)];
+        let va = MutationVector::from_records(&ra);
+        let vb = MutationVector::from_records(&rb);
+        let orth = va.orthogonality_score(&vb);
+        assert!((orth - 1.0).abs() < 1e-9, "orthogonal vectors → score=1.0, got {orth}");
+    }
+
+    #[test]
+    fn mutation_vector_empty_returns_zero_cosine() {
+        let va = MutationVector::from_records(&[]);
+        let vb = MutationVector::from_records(&[param_record("b", "x", 1.0, 1)]);
+        let cos = va.cosine_similarity(&vb);
+        assert_eq!(cos, 0.0, "empty vector cosine should be 0.0");
+    }
+
+    // ── TelomereTracker tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn telomere_no_shortening_within_tolerance() {
+        let mut tracker = TelomereTracker::new(100);
+        // drift = 0.2, tolerance_window = 0.3 → no shortening
+        let senescent = tracker.record_drift("e1", "telos text", 0.2);
+        assert!(!senescent);
+        assert_eq!(tracker.remaining("e1"), Some(100));
+    }
+
+    #[test]
+    fn telomere_shortens_above_tolerance() {
+        let mut tracker = TelomereTracker::new(100);
+        // drift = 0.8, excess = 0.5, decay_rate = 5.0 → floor(2.5) = 2 shortening
+        let senescent = tracker.record_drift("e1", "telos text", 0.8);
+        assert!(!senescent);
+        assert_eq!(tracker.remaining("e1"), Some(98));
+    }
+
+    #[test]
+    fn telomere_reaches_senescence_on_sustained_drift() {
+        let mut state = TelomereState::new("e1", "telos", 5);
+        // High drift (1.0): excess = 0.7, floor(0.7 * 5.0) = 3 shortening per event
+        state.record_drift(1.0); // remaining: 5 → 2
+        state.record_drift(1.0); // remaining: 2 → 0 (saturating_sub)
+        assert!(state.is_senescent());
+    }
+
+    #[test]
+    fn telomere_allows_exploration_below_tolerance() {
+        let mut state = TelomereState::new("e1", "telos", 50);
+        // drift oscillates below tolerance — telomere must not shorten
+        for _ in 0..20 {
+            state.record_drift(0.1);
+            state.record_drift(0.25);
+        }
+        assert_eq!(state.remaining, 50);
+        assert!(!state.is_senescent());
+    }
+
+    #[test]
+    fn telomere_tracker_senescent_entities_listed() {
+        let mut tracker = TelomereTracker::new(3);
+        tracker.record_drift("dying", "telos", 1.0); // 3 → 0 (floor(0.7*5)=3)
+        tracker.record_drift("healthy", "telos", 0.1);
+        assert!(tracker.is_senescent("dying"));
+        assert!(!tracker.is_senescent("healthy"));
+        let s = tracker.senescent_entities();
+        assert!(s.contains(&"dying"));
+        assert!(!s.contains(&"healthy"));
     }
 }

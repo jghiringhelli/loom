@@ -499,6 +499,11 @@ fn handle_runtime(subcommand: RuntimeCommands) {
 
             let mut config = OrchestratorConfig::default();
             config.tick_interval = std::time::Duration::from_millis(tick_ms);
+            if let Ok(v) = std::env::var("T2_MIN_INTERVAL_TICKS") {
+                if let Ok(n) = v.parse::<u64>() {
+                    config.t2_min_interval_ticks = n;
+                }
+            }
 
             let stop = Arc::new(AtomicBool::new(false));
 

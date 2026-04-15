@@ -52,6 +52,16 @@ pub struct OrchestratorConfig {
     pub canary_monitor_ticks: u32,
     /// How many ticks between epigenome distillation passes.
     pub epigenome_distil_interval: u32,
+    /// Minimum ticks between Tier 2 (Ganglion/Claude) calls **per entity**.
+    ///
+    /// When T1 consistently produces zero proposals every entity escalates to T2
+    /// after `tier1_fail_threshold` ticks, which means T2 fires continuously and
+    /// burns API budget.  This cooldown prevents T2 from firing more often than
+    /// once every N ticks per entity regardless of T1 miss counts.
+    ///
+    /// Configured via the `T2_MIN_INTERVAL_TICKS` environment variable.
+    /// Default: 100 (≈ 8 min at a 5 s tick, ~97 % cost reduction vs no guard).
+    pub t2_min_interval_ticks: u64,
 }
 
 impl Default for OrchestratorConfig {
@@ -64,6 +74,7 @@ impl Default for OrchestratorConfig {
             canary_fraction: 0.1,
             canary_monitor_ticks: 3,
             epigenome_distil_interval: 10,
+            t2_min_interval_ticks: 100,
         }
     }
 }
@@ -103,6 +114,8 @@ pub struct Orchestrator {
     pub tier1_fail_counts: std::collections::HashMap<String, u32>,
     /// Per-entity Tier 2 failure counters.
     pub tier2_fail_counts: std::collections::HashMap<String, u32>,
+    /// Tick at which T2 last fired per entity — enforces `t2_min_interval_ticks`.
+    pub last_t2_tick: std::collections::HashMap<String, u64>,
     /// The canary deployer.
     deployer: CanaryDeployer,
     /// Monotonically increasing tick counter — drives periodic tasks.
@@ -117,6 +130,7 @@ impl Orchestrator {
             config,
             tier1_fail_counts: std::collections::HashMap::new(),
             tier2_fail_counts: std::collections::HashMap::new(),
+            last_t2_tick: std::collections::HashMap::new(),
             deployer: CanaryDeployer::new(),
             tick_count: 0,
         }
@@ -298,7 +312,15 @@ impl Orchestrator {
             return (vec![], 1);
         }
 
+        // T2 cooldown — prevent runaway API spend when T1 is always silent.
+        let last_t2 = self.last_t2_tick.get(eid).copied().unwrap_or(0);
+        if self.tick_count - last_t2 < self.config.t2_min_interval_ticks {
+            return (vec![], 1);
+        }
+
         // Tier 2 — Ganglion (Ollama).
+        // Record the tick before the call so the cooldown is enforced even if T2 returns empty.
+        self.last_t2_tick.insert(eid.clone(), self.tick_count);
         // Split borrow: build corpus string first, then call evaluate.
         let corpus = crate::runtime::ganglion::serialize_corpus(
             &event.entity_id,
