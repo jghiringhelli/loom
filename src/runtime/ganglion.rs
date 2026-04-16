@@ -23,10 +23,7 @@
 //! that the Ganglion engine itself can be tested without a running Ollama instance.
 
 use crate::runtime::{
-    drift::DriftEvent,
-    mutation::MutationProposal,
-    signal::EntityId,
-    store::SignalStore,
+    drift::DriftEvent, mutation::MutationProposal, signal::EntityId, store::SignalStore,
 };
 
 // ── Ollama HTTP client ────────────────────────────────────────────────────────
@@ -119,7 +116,12 @@ impl ClaudeGanglionClient {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .ok()?;
-        Some(Self { base_url, api_key, model, client })
+        Some(Self {
+            base_url,
+            api_key,
+            model,
+            client,
+        })
     }
 }
 
@@ -129,7 +131,10 @@ impl OllamaClient for ClaudeGanglionClient {
         let body = ClaudeGanglionRequest {
             model: &self.model,
             max_tokens: 512,
-            messages: vec![ClaudeGanglionMessage { role: "user", content: prompt }],
+            messages: vec![ClaudeGanglionMessage {
+                role: "user",
+                content: prompt,
+            }],
         };
         let resp = self
             .client
@@ -200,7 +205,11 @@ impl ReqwestOllamaClient {
 impl OllamaClient for ReqwestOllamaClient {
     fn generate(&self, model: &str, prompt: &str) -> Result<String, String> {
         let url = format!("{}/api/generate", self.base_url);
-        let body = OllamaRequest { model, prompt, stream: false };
+        let body = OllamaRequest {
+            model,
+            prompt,
+            stream: false,
+        };
         let resp = self
             .client
             .post(&url)
@@ -234,9 +243,7 @@ pub fn serialize_corpus(
     let signals = store
         .signals_for_entity(entity_id, recent_n)
         .unwrap_or_default();
-    let bounds = store
-        .telos_bounds_for_entity(entity_id)
-        .unwrap_or_default();
+    let bounds = store.telos_bounds_for_entity(entity_id).unwrap_or_default();
 
     let mut corpus = String::new();
     corpus.push_str(&format!("# Entity: {entity_id}\n"));
@@ -256,7 +263,10 @@ pub fn serialize_corpus(
     }
 
     if !signals.is_empty() {
-        corpus.push_str(&format!("# Last {} signals (newest first):\n", signals.len()));
+        corpus.push_str(&format!(
+            "# Last {} signals (newest first):\n",
+            signals.len()
+        ));
         for s in &signals {
             corpus.push_str(&format!(
                 "#   {} = {} @ {}\n",
@@ -368,7 +378,10 @@ impl Ganglion {
         let client: Box<dyn OllamaClient> = if let Some(c) = ClaudeGanglionClient::from_env() {
             Box::new(c)
         } else {
-            Box::new(ReqwestOllamaClient::new(config.base_url.clone(), config.timeout_secs))
+            Box::new(ReqwestOllamaClient::new(
+                config.base_url.clone(),
+                config.timeout_secs,
+            ))
         };
         Self {
             config,
@@ -414,17 +427,12 @@ impl Ganglion {
     ///
     /// Returns an empty vec if the Ollama service is unreachable or returns
     /// an unparseable response.
-    pub fn evaluate(
-        &mut self,
-        event: &DriftEvent,
-        store: &SignalStore,
-    ) -> Vec<MutationProposal> {
+    pub fn evaluate(&mut self, event: &DriftEvent, store: &SignalStore) -> Vec<MutationProposal> {
         if !self.cached_health_check() {
             return vec![];
         }
 
-        let corpus =
-            serialize_corpus(&event.entity_id, event, store, self.config.corpus_lookback);
+        let corpus = serialize_corpus(&event.entity_id, event, store, self.config.corpus_lookback);
         let prompt = build_prompt(&event.entity_id, &corpus);
 
         match self.client.generate(&self.config.model, &prompt) {
@@ -487,6 +495,8 @@ mod tests {
             triggering_metric: metric.into(),
             score,
             ts: 1_000_000,
+            entity_aggregate_score: None,
+            velocity: 0.0,
         }
     }
 
@@ -537,7 +547,10 @@ mod tests {
         let text = r#"[{"kind":"parameter_adjust","entity_id":"climate","param":"albedo","delta":-0.02,"reason":"reduce drift"}]"#;
         let proposals = parse_proposals(text);
         assert_eq!(proposals.len(), 1);
-        assert!(matches!(proposals[0], MutationProposal::ParameterAdjust { .. }));
+        assert!(matches!(
+            proposals[0],
+            MutationProposal::ParameterAdjust { .. }
+        ));
     }
 
     #[test]
@@ -571,7 +584,9 @@ mod tests {
     fn serialize_corpus_includes_bounds_when_set() {
         let store = mem_store();
         store.register_entity("e1", "E", "{}", 0).unwrap();
-        store.set_telos_bounds("e1", "temp", Some(0.0), Some(4.0), Some(2.0)).unwrap();
+        store
+            .set_telos_bounds("e1", "temp", Some(0.0), Some(4.0), Some(2.0))
+            .unwrap();
         let event = make_event("e1", "temp", 0.9);
         let corpus = serialize_corpus("e1", &event, &store, 5);
         assert!(corpus.contains("temp"));
@@ -583,7 +598,9 @@ mod tests {
     #[test]
     fn ganglion_returns_proposals_from_mock_client() {
         let store = mem_store();
-        store.register_entity("climate", "ClimateModel", "{}", 0).unwrap();
+        store
+            .register_entity("climate", "ClimateModel", "{}", 0)
+            .unwrap();
 
         let mut ganglion = ganglion_with_response(
             r#"[{"kind":"parameter_adjust","entity_id":"climate","param":"albedo","delta":-0.01,"reason":"test"}]"#,

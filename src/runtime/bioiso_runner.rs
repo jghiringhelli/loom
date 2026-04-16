@@ -32,10 +32,8 @@
 
 use std::collections::HashMap;
 
-use crate::runtime::{
-    now_ms, EntityId, MetricName, Runtime, Signal, TelosBound,
-};
 use crate::runtime::polycephalum::{DeltaSpec, Rule, RuleAction, RuleCondition};
+use crate::runtime::{now_ms, EntityId, MetricName, Runtime, Signal, TelosBound};
 
 // ── Domain Spec ───────────────────────────────────────────────────────────────
 
@@ -98,10 +96,30 @@ fn climate_spec() -> BIOISOSpec {
         name: "Climate Change Mitigation",
         telos_json: r#"{"target":"limit warming to 1.5°C above pre-industrial","metrics":["co2_ppm","temp_anomaly_c","renewable_share"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "co2_ppm", min: Some(280.0), max: Some(450.0), target: 350.0 },
-            MetricBoundSpec { metric: "temp_anomaly_c", min: Some(-0.5), max: Some(2.0), target: 0.0 },
-            MetricBoundSpec { metric: "renewable_share", min: Some(0.0), max: Some(1.0), target: 0.8 },
-            MetricBoundSpec { metric: "emissions_gt_co2e", min: Some(0.0), max: Some(60.0), target: 0.0 },
+            MetricBoundSpec {
+                metric: "co2_ppm",
+                min: Some(280.0),
+                max: Some(450.0),
+                target: 350.0,
+            },
+            MetricBoundSpec {
+                metric: "temp_anomaly_c",
+                min: Some(-0.5),
+                max: Some(2.0),
+                target: 0.0,
+            },
+            MetricBoundSpec {
+                metric: "renewable_share",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.8,
+            },
+            MetricBoundSpec {
+                metric: "emissions_gt_co2e",
+                min: Some(0.0),
+                max: Some(60.0),
+                target: 0.0,
+            },
         ],
         baseline_signals: vec![
             ("co2_ppm", 354.0),
@@ -120,10 +138,30 @@ fn epidemics_spec() -> BIOISOSpec {
         name: "Epidemic Response (COVID-19)",
         telos_json: r#"{"target":"suppress Rt below 1.0 while minimising economic disruption","metrics":["rt","hospitalisation_rate","vaccination_coverage","mobility_index"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "rt", min: Some(0.0), max: Some(3.0), target: 0.8 },
-            MetricBoundSpec { metric: "hospitalisation_rate", min: Some(0.0), max: Some(0.05), target: 0.005 },
-            MetricBoundSpec { metric: "vaccination_coverage", min: Some(0.0), max: Some(1.0), target: 0.85 },
-            MetricBoundSpec { metric: "mobility_index", min: Some(0.3), max: Some(1.0), target: 0.85 },
+            MetricBoundSpec {
+                metric: "rt",
+                min: Some(0.0),
+                max: Some(3.0),
+                target: 0.8,
+            },
+            MetricBoundSpec {
+                metric: "hospitalisation_rate",
+                min: Some(0.0),
+                max: Some(0.05),
+                target: 0.005,
+            },
+            MetricBoundSpec {
+                metric: "vaccination_coverage",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.85,
+            },
+            MetricBoundSpec {
+                metric: "mobility_index",
+                min: Some(0.3),
+                max: Some(1.0),
+                target: 0.85,
+            },
         ],
         baseline_signals: vec![
             ("rt", 2.4),
@@ -142,10 +180,30 @@ fn antibiotic_resistance_spec() -> BIOISOSpec {
         name: "Antibiotic Resistance (AMR)",
         telos_json: r#"{"target":"reduce AMR attributable deaths below 700k/year","metrics":["amr_attributable_deaths_m","antibiotic_consumption_ddd","novel_antibiotic_pipeline","inappropriate_prescription_rate"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "amr_attributable_deaths_m", min: Some(0.0), max: Some(2.0), target: 0.35 },
-            MetricBoundSpec { metric: "antibiotic_consumption_ddd", min: Some(0.0), max: Some(30.0), target: 10.0 },
-            MetricBoundSpec { metric: "novel_antibiotic_pipeline", min: Some(0.0), max: Some(20.0), target: 10.0 },
-            MetricBoundSpec { metric: "inappropriate_prescription_rate", min: Some(0.0), max: Some(1.0), target: 0.1 },
+            MetricBoundSpec {
+                metric: "amr_attributable_deaths_m",
+                min: Some(0.0),
+                max: Some(2.0),
+                target: 0.35,
+            },
+            MetricBoundSpec {
+                metric: "antibiotic_consumption_ddd",
+                min: Some(0.0),
+                max: Some(30.0),
+                target: 10.0,
+            },
+            MetricBoundSpec {
+                metric: "novel_antibiotic_pipeline",
+                min: Some(0.0),
+                max: Some(20.0),
+                target: 10.0,
+            },
+            MetricBoundSpec {
+                metric: "inappropriate_prescription_rate",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.1,
+            },
         ],
         baseline_signals: vec![
             ("amr_attributable_deaths_m", 0.7),
@@ -164,10 +222,30 @@ fn grid_stability_spec() -> BIOISOSpec {
         name: "Power Grid Stability (ERCOT)",
         telos_json: r#"{"target":"maintain frequency within ±0.5 Hz of 60 Hz","metrics":["frequency_hz","reserve_margin","demand_mw","renewable_curtailment"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "frequency_hz", min: Some(59.5), max: Some(60.5), target: 60.0 },
-            MetricBoundSpec { metric: "reserve_margin", min: Some(0.10), max: Some(0.30), target: 0.15 },
-            MetricBoundSpec { metric: "demand_mw", min: Some(20_000.0), max: Some(80_000.0), target: 45_000.0 },
-            MetricBoundSpec { metric: "renewable_curtailment", min: Some(0.0), max: Some(0.20), target: 0.02 },
+            MetricBoundSpec {
+                metric: "frequency_hz",
+                min: Some(59.5),
+                max: Some(60.5),
+                target: 60.0,
+            },
+            MetricBoundSpec {
+                metric: "reserve_margin",
+                min: Some(0.10),
+                max: Some(0.30),
+                target: 0.15,
+            },
+            MetricBoundSpec {
+                metric: "demand_mw",
+                min: Some(20_000.0),
+                max: Some(80_000.0),
+                target: 45_000.0,
+            },
+            MetricBoundSpec {
+                metric: "renewable_curtailment",
+                min: Some(0.0),
+                max: Some(0.20),
+                target: 0.02,
+            },
         ],
         baseline_signals: vec![
             ("frequency_hz", 60.0),
@@ -186,10 +264,30 @@ fn soil_carbon_spec() -> BIOISOSpec {
         name: "Soil Organic Carbon Sequestration",
         telos_json: r#"{"target":"increase soil organic carbon by 4‰ per year (4per1000 initiative)","metrics":["soc_percent","tillage_intensity","cover_crop_adoption","microbial_biomass_ratio"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "soc_percent", min: Some(0.5), max: Some(8.0), target: 3.0 },
-            MetricBoundSpec { metric: "tillage_intensity", min: Some(0.0), max: Some(1.0), target: 0.2 },
-            MetricBoundSpec { metric: "cover_crop_adoption", min: Some(0.0), max: Some(1.0), target: 0.6 },
-            MetricBoundSpec { metric: "microbial_biomass_ratio", min: Some(0.0), max: Some(1.0), target: 0.7 },
+            MetricBoundSpec {
+                metric: "soc_percent",
+                min: Some(0.5),
+                max: Some(8.0),
+                target: 3.0,
+            },
+            MetricBoundSpec {
+                metric: "tillage_intensity",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.2,
+            },
+            MetricBoundSpec {
+                metric: "cover_crop_adoption",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.6,
+            },
+            MetricBoundSpec {
+                metric: "microbial_biomass_ratio",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.7,
+            },
         ],
         baseline_signals: vec![
             ("soc_percent", 1.5),
@@ -208,10 +306,30 @@ fn sepsis_spec() -> BIOISOSpec {
         name: "ICU Sepsis Protocol Optimisation",
         telos_json: r#"{"target":"reduce 28-day sepsis mortality below 20%","metrics":["mortality_28d","sofa_score","lactate_clearance","abx_within_1h"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "mortality_28d", min: Some(0.0), max: Some(0.50), target: 0.20 },
-            MetricBoundSpec { metric: "sofa_score", min: Some(0.0), max: Some(24.0), target: 6.0 },
-            MetricBoundSpec { metric: "lactate_clearance", min: Some(0.0), max: Some(1.0), target: 0.70 },
-            MetricBoundSpec { metric: "abx_within_1h", min: Some(0.0), max: Some(1.0), target: 0.90 },
+            MetricBoundSpec {
+                metric: "mortality_28d",
+                min: Some(0.0),
+                max: Some(0.50),
+                target: 0.20,
+            },
+            MetricBoundSpec {
+                metric: "sofa_score",
+                min: Some(0.0),
+                max: Some(24.0),
+                target: 6.0,
+            },
+            MetricBoundSpec {
+                metric: "lactate_clearance",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.70,
+            },
+            MetricBoundSpec {
+                metric: "abx_within_1h",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.90,
+            },
         ],
         baseline_signals: vec![
             ("mortality_28d", 0.35),
@@ -230,10 +348,30 @@ fn flash_crash_spec() -> BIOISOSpec {
         name: "HFT Flash Crash Prevention",
         telos_json: r#"{"target":"prevent order book collapse and circuit breaker activation","metrics":["order_book_depth","bid_ask_spread_bps","volatility_index","cancellation_rate"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "order_book_depth", min: Some(0.0), max: Some(1.0), target: 0.7 },
-            MetricBoundSpec { metric: "bid_ask_spread_bps", min: Some(0.1), max: Some(50.0), target: 1.0 },
-            MetricBoundSpec { metric: "volatility_index", min: Some(0.0), max: Some(1.0), target: 0.2 },
-            MetricBoundSpec { metric: "cancellation_rate", min: Some(0.0), max: Some(1.0), target: 0.3 },
+            MetricBoundSpec {
+                metric: "order_book_depth",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.7,
+            },
+            MetricBoundSpec {
+                metric: "bid_ask_spread_bps",
+                min: Some(0.1),
+                max: Some(50.0),
+                target: 1.0,
+            },
+            MetricBoundSpec {
+                metric: "volatility_index",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.2,
+            },
+            MetricBoundSpec {
+                metric: "cancellation_rate",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.3,
+            },
         ],
         baseline_signals: vec![
             ("order_book_depth", 0.9),
@@ -252,10 +390,30 @@ fn nuclear_safety_spec() -> BIOISOSpec {
         name: "Nuclear Reactor Safety Monitoring",
         telos_json: r#"{"target":"maintain reactor core within safety envelope at all times","metrics":["core_temp_c","reactivity_rho","coolant_flow_rate","shutdown_margin"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "core_temp_c", min: Some(280.0), max: Some(350.0), target: 310.0 },
-            MetricBoundSpec { metric: "reactivity_rho", min: Some(-0.1), max: Some(0.02), target: -0.005 },
-            MetricBoundSpec { metric: "coolant_flow_rate", min: Some(0.7), max: Some(1.1), target: 1.0 },
-            MetricBoundSpec { metric: "shutdown_margin", min: Some(0.005), max: Some(0.05), target: 0.015 },
+            MetricBoundSpec {
+                metric: "core_temp_c",
+                min: Some(280.0),
+                max: Some(350.0),
+                target: 310.0,
+            },
+            MetricBoundSpec {
+                metric: "reactivity_rho",
+                min: Some(-0.1),
+                max: Some(0.02),
+                target: -0.005,
+            },
+            MetricBoundSpec {
+                metric: "coolant_flow_rate",
+                min: Some(0.7),
+                max: Some(1.1),
+                target: 1.0,
+            },
+            MetricBoundSpec {
+                metric: "shutdown_margin",
+                min: Some(0.005),
+                max: Some(0.05),
+                target: 0.015,
+            },
         ],
         baseline_signals: vec![
             ("core_temp_c", 312.0),
@@ -274,10 +432,30 @@ fn supply_chain_spec() -> BIOISOSpec {
         name: "Global Supply Chain Resilience",
         telos_json: r#"{"target":"minimise lead time variance while maintaining >95% fill rate","metrics":["fill_rate","lead_time_days","inventory_turns","supplier_concentration"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "fill_rate", min: Some(0.80), max: Some(1.0), target: 0.97 },
-            MetricBoundSpec { metric: "lead_time_days", min: Some(1.0), max: Some(120.0), target: 14.0 },
-            MetricBoundSpec { metric: "inventory_turns", min: Some(4.0), max: Some(24.0), target: 12.0 },
-            MetricBoundSpec { metric: "supplier_concentration", min: Some(0.0), max: Some(1.0), target: 0.25 },
+            MetricBoundSpec {
+                metric: "fill_rate",
+                min: Some(0.80),
+                max: Some(1.0),
+                target: 0.97,
+            },
+            MetricBoundSpec {
+                metric: "lead_time_days",
+                min: Some(1.0),
+                max: Some(120.0),
+                target: 14.0,
+            },
+            MetricBoundSpec {
+                metric: "inventory_turns",
+                min: Some(4.0),
+                max: Some(24.0),
+                target: 12.0,
+            },
+            MetricBoundSpec {
+                metric: "supplier_concentration",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.25,
+            },
         ],
         baseline_signals: vec![
             ("fill_rate", 0.97),
@@ -296,10 +474,30 @@ fn water_basin_spec() -> BIOISOSpec {
         name: "Water Basin Allocation",
         telos_json: r#"{"target":"equitable water allocation with >90% aquifer recharge","metrics":["aquifer_level_m","agricultural_allocation","urban_demand","recharge_rate"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "aquifer_level_m", min: Some(10.0), max: Some(100.0), target: 60.0 },
-            MetricBoundSpec { metric: "agricultural_allocation", min: Some(0.0), max: Some(1.0), target: 0.70 },
-            MetricBoundSpec { metric: "urban_demand", min: Some(0.0), max: Some(1.0), target: 0.20 },
-            MetricBoundSpec { metric: "recharge_rate", min: Some(0.0), max: Some(1.0), target: 0.90 },
+            MetricBoundSpec {
+                metric: "aquifer_level_m",
+                min: Some(10.0),
+                max: Some(100.0),
+                target: 60.0,
+            },
+            MetricBoundSpec {
+                metric: "agricultural_allocation",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.70,
+            },
+            MetricBoundSpec {
+                metric: "urban_demand",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.20,
+            },
+            MetricBoundSpec {
+                metric: "recharge_rate",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.90,
+            },
         ],
         baseline_signals: vec![
             ("aquifer_level_m", 65.0),
@@ -318,10 +516,30 @@ fn urban_heat_spec() -> BIOISOSpec {
         name: "Urban Heat Island Mitigation",
         telos_json: r#"{"target":"reduce urban-rural temperature differential below 2°C","metrics":["urban_rural_temp_delta_c","green_cover_fraction","albedo","impervious_surface_fraction"]}"#,
         bounds: vec![
-            MetricBoundSpec { metric: "urban_rural_temp_delta_c", min: Some(0.0), max: Some(8.0), target: 2.0 },
-            MetricBoundSpec { metric: "green_cover_fraction", min: Some(0.0), max: Some(1.0), target: 0.35 },
-            MetricBoundSpec { metric: "albedo", min: Some(0.10), max: Some(0.70), target: 0.30 },
-            MetricBoundSpec { metric: "impervious_surface_fraction", min: Some(0.0), max: Some(1.0), target: 0.40 },
+            MetricBoundSpec {
+                metric: "urban_rural_temp_delta_c",
+                min: Some(0.0),
+                max: Some(8.0),
+                target: 2.0,
+            },
+            MetricBoundSpec {
+                metric: "green_cover_fraction",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.35,
+            },
+            MetricBoundSpec {
+                metric: "albedo",
+                min: Some(0.10),
+                max: Some(0.70),
+                target: 0.30,
+            },
+            MetricBoundSpec {
+                metric: "impervious_surface_fraction",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.40,
+            },
         ],
         baseline_signals: vec![
             ("urban_rural_temp_delta_c", 4.5),
@@ -330,7 +548,9 @@ fn urban_heat_spec() -> BIOISOSpec {
             ("impervious_surface_fraction", 0.65),
         ],
         retro_start_year: 1990,
-        academic_baseline_label: Some("Urban Heat Island effect meta-analysis — Nature Cities 2021"),
+        academic_baseline_label: Some(
+            "Urban Heat Island effect meta-analysis — Nature Cities 2021",
+        ),
     }
 }
 
@@ -352,7 +572,9 @@ pub struct BIOISORunner {
 impl BIOISORunner {
     /// Create a runner with all 11 built-in domain specs.
     pub fn new() -> Self {
-        Self { specs: all_domain_specs() }
+        Self {
+            specs: all_domain_specs(),
+        }
     }
 
     /// Create a runner with a custom set of specs (e.g. a subset or extended list).
@@ -413,7 +635,10 @@ impl BIOISORunner {
                     },
                 },
             };
-            runtime.polycephalum.registry.add_for_entity(spec.entity_id, rule);
+            runtime
+                .polycephalum
+                .registry
+                .add_for_entity(spec.entity_id, rule);
         }
 
         // Inject baseline signals.
@@ -533,7 +758,7 @@ pub struct RetroScenario {
 }
 
 /// Validation result for a single scenario replay.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RetroResult {
     pub entity_id: String,
     pub academic_label: String,
@@ -643,14 +868,9 @@ impl RetroValidator {
     }
 
     /// Run multiple scenarios and return all results, sorted by score descending.
-    pub fn run_all(
-        runtime: &mut Runtime,
-        scenarios: &[RetroScenario],
-    ) -> Vec<RetroResult> {
-        let mut results: Vec<RetroResult> = scenarios
-            .iter()
-            .map(|s| Self::run(runtime, s))
-            .collect();
+    pub fn run_all(runtime: &mut Runtime, scenarios: &[RetroScenario]) -> Vec<RetroResult> {
+        let mut results: Vec<RetroResult> =
+            scenarios.iter().map(|s| Self::run(runtime, s)).collect();
         results.sort_by(|a, b| {
             b.overall_score
                 .partial_cmp(&a.overall_score)
@@ -706,7 +926,10 @@ mod tests {
         let spec = climate_spec();
         runner.spawn_domain(&mut rt, &spec).unwrap();
         let bounds = rt.store.telos_bounds_for_entity("climate").unwrap();
-        assert!(!bounds.is_empty(), "climate entity should have telos bounds");
+        assert!(
+            !bounds.is_empty(),
+            "climate entity should have telos bounds"
+        );
         assert!(bounds.iter().any(|b| b.metric == "co2_ppm"));
     }
 
@@ -731,16 +954,22 @@ mod tests {
             entity_id: "flash_crash",
             academic_label: "Test scenario",
             signal_steps: vec![
-                (1000, vec![
-                    ("order_book_depth", 0.3),
-                    ("bid_ask_spread_bps", 45.0),
-                    ("volatility_index", 0.9),
-                ]),
-                (2000, vec![
-                    ("order_book_depth", 0.5),
-                    ("bid_ask_spread_bps", 10.0),
-                    ("volatility_index", 0.5),
-                ]),
+                (
+                    1000,
+                    vec![
+                        ("order_book_depth", 0.3),
+                        ("bid_ask_spread_bps", 45.0),
+                        ("volatility_index", 0.9),
+                    ],
+                ),
+                (
+                    2000,
+                    vec![
+                        ("order_book_depth", 0.5),
+                        ("bid_ask_spread_bps", 10.0),
+                        ("volatility_index", 0.5),
+                    ],
+                ),
             ],
             academic_outcome: vec![
                 ("order_book_depth", 0.7),
@@ -794,12 +1023,15 @@ mod tests {
         let scenario = RetroScenario {
             entity_id: "climate",
             academic_label: "perfect",
-            signal_steps: vec![(1000, vec![
-                ("co2_ppm", 350.0),
-                ("temp_anomaly_c", 0.0),
-                ("renewable_share", 0.8),
-                ("emissions_gt_co2e", 0.0),
-            ])],
+            signal_steps: vec![(
+                1000,
+                vec![
+                    ("co2_ppm", 350.0),
+                    ("temp_anomaly_c", 0.0),
+                    ("renewable_share", 0.8),
+                    ("emissions_gt_co2e", 0.0),
+                ],
+            )],
             academic_outcome: vec![
                 ("co2_ppm", 350.0),
                 ("temp_anomaly_c", 0.0),
@@ -811,7 +1043,8 @@ mod tests {
         let result = RetroValidator::run(&mut rt, &scenario);
         assert!(
             (result.overall_score - 1.0).abs() < 1e-9,
-            "perfect replay should score 1.0, got {}", result.overall_score
+            "perfect replay should score 1.0, got {}",
+            result.overall_score
         );
     }
 

@@ -12,8 +12,10 @@
 //! When no `target` is set but both `min` and `max` exist, the target is inferred
 //! as the midpoint. When no bound applies the score is `0.0` (no evidence of drift).
 
+use std::collections::{HashMap, VecDeque};
+
 use crate::runtime::{
-    signal::{EntityId, MetricName, Signal, Timestamp, now_ms},
+    signal::{now_ms, EntityId, MetricName, Signal, Timestamp},
     store::{SignalStore, TelosBound},
 };
 use rusqlite::Result as SqlResult;
@@ -31,6 +33,14 @@ pub struct DriftEvent {
     pub score: f64,
     /// Unix-ms timestamp when the event was computed.
     pub ts: Timestamp,
+    /// Entity-level D_static: L2-normalised mean of all per-bound scores.
+    /// `None` when computed from a single-metric `evaluate()` call; populated
+    /// by `evaluate_all()` / `evaluate_entity_aggregate()`.
+    pub entity_aggregate_score: Option<f64>,
+    /// D_velocity: change in entity aggregate score since the previous tick.
+    /// Positive → drifting away from telos; negative → recovering.
+    /// Zero on the first observation or when history is unavailable.
+    pub velocity: f64,
 }
 
 /// Severity level derived from the drift score and configured thresholds.
@@ -52,7 +62,13 @@ pub struct DriftEngine {
     pub warning_threshold: f64,
     /// Severity changes to `Critical` at this score. Default: `0.7`.
     pub critical_threshold: f64,
+    /// Rolling entity-aggregate score history (entity_id → last N aggregate scores).
+    /// Used to compute D_velocity.  Capped at `VELOCITY_WINDOW * 2` entries.
+    aggregate_history: HashMap<String, VecDeque<f64>>,
 }
+
+/// Number of ticks kept for velocity calculation.
+const VELOCITY_WINDOW: usize = 5;
 
 impl DriftEngine {
     /// Create a drift engine with sensible defaults.
@@ -61,6 +77,7 @@ impl DriftEngine {
             emission_threshold: 0.3,
             warning_threshold: 0.3,
             critical_threshold: 0.7,
+            aggregate_history: HashMap::new(),
         }
     }
 
@@ -72,11 +89,7 @@ impl DriftEngine {
     ///
     /// # Errors
     /// Propagates SQLite errors from the store.
-    pub fn evaluate(
-        &self,
-        signal: &Signal,
-        store: &SignalStore,
-    ) -> SqlResult<Option<DriftEvent>> {
+    pub fn evaluate(&self, signal: &Signal, store: &SignalStore) -> SqlResult<Option<DriftEvent>> {
         let bounds = store.telos_bounds_for_entity(&signal.entity_id)?;
         let score = self.compute_score(signal, &bounds);
 
@@ -90,6 +103,8 @@ impl DriftEngine {
             triggering_metric: signal.metric.clone(),
             score,
             ts,
+            entity_aggregate_score: None,
+            velocity: 0.0,
         };
 
         store.record_drift_event(
@@ -132,26 +147,70 @@ impl DriftEngine {
         }
     }
 
+    /// Compute the entity-level D_static aggregate and D_velocity, then annotate
+    /// every event in `events` (already filtered for `entity_id`) with these values.
+    ///
+    /// D_static = L2-norm of all per-bound scores: `sqrt(mean(score_i²))`.
+    /// D_velocity = current aggregate − previous aggregate (positive = worse).
+    ///
+    /// Updates the internal aggregate history so velocity is available next call.
+    pub fn evaluate_entity_aggregate(&mut self, entity_id: &str, events: &mut [DriftEvent]) {
+        if events.is_empty() {
+            return;
+        }
+
+        // D_static: RMS of all per-metric scores for this entity.
+        let sum_sq: f64 = events.iter().map(|e| e.score * e.score).sum();
+        let aggregate = (sum_sq / events.len() as f64).sqrt();
+
+        // D_velocity: delta vs previous aggregate.
+        let history = self
+            .aggregate_history
+            .entry(entity_id.to_string())
+            .or_default();
+        let velocity = if let Some(&prev) = history.back() {
+            aggregate - prev
+        } else {
+            0.0
+        };
+
+        // Maintain rolling window.
+        history.push_back(aggregate);
+        while history.len() > VELOCITY_WINDOW * 2 {
+            history.pop_front();
+        }
+
+        // Annotate all events for this entity.
+        for event in events.iter_mut() {
+            event.entity_aggregate_score = Some(aggregate);
+            event.velocity = velocity;
+        }
+    }
+
     /// Evaluate all recent signals for every entity against their telos bounds.
     ///
     /// Returns all drift events that exceeded the emission threshold.
+    /// Events are annotated with `entity_aggregate_score` and `velocity`.
     /// Used by the orchestration loop (R7) for batch processing.
     pub fn evaluate_all(
-        &self,
+        &mut self,
         entity_ids: &[EntityId],
         store: &SignalStore,
         lookback: usize,
     ) -> SqlResult<Vec<DriftEvent>> {
-        let mut events = Vec::new();
+        let mut all_events = Vec::new();
         for id in entity_ids {
             let signals = store.signals_for_entity(id, lookback)?;
+            let mut entity_events: Vec<DriftEvent> = Vec::new();
             for signal in &signals {
                 if let Some(event) = self.evaluate(signal, store)? {
-                    events.push(event);
+                    entity_events.push(event);
                 }
             }
+            self.evaluate_entity_aggregate(id, &mut entity_events);
+            all_events.extend(entity_events);
         }
-        Ok(events)
+        Ok(all_events)
     }
 }
 
@@ -215,8 +274,24 @@ mod tests {
         }
     }
 
+    fn make_event(entity_id: &str, metric: &str, score: f64) -> DriftEvent {
+        DriftEvent {
+            entity_id: entity_id.into(),
+            triggering_metric: metric.into(),
+            score,
+            ts: 1_000_000,
+            entity_aggregate_score: None,
+            velocity: 0.0,
+        }
+    }
+
     fn bound_with_target(metric: &str, min: f64, max: f64, target: f64) -> TelosBound {
-        TelosBound { metric: metric.into(), min: Some(min), max: Some(max), target: Some(target) }
+        TelosBound {
+            metric: metric.into(),
+            min: Some(min),
+            max: Some(max),
+            target: Some(target),
+        }
     }
 
     // ── Unit: score_against_bound ─────────────────────────────────────────────
@@ -246,7 +321,12 @@ mod tests {
 
     #[test]
     fn score_is_zero_when_no_bounds() {
-        let bound = TelosBound { metric: "x".into(), min: None, max: None, target: None };
+        let bound = TelosBound {
+            metric: "x".into(),
+            min: None,
+            max: None,
+            target: None,
+        };
         assert_eq!(score_against_bound(99.0, &bound), 0.0);
     }
 
@@ -295,8 +375,12 @@ mod tests {
     #[test]
     fn evaluate_emits_event_when_score_above_threshold() {
         let store = mem_store();
-        store.register_entity("e1", "ClimateModel", "{}", 0).unwrap();
-        store.set_telos_bounds("e1", "temp", Some(0.0), Some(4.0), Some(2.0)).unwrap();
+        store
+            .register_entity("e1", "ClimateModel", "{}", 0)
+            .unwrap();
+        store
+            .set_telos_bounds("e1", "temp", Some(0.0), Some(4.0), Some(2.0))
+            .unwrap();
 
         let signal = make_signal("e1", "temp", 3.5); // deviation = 1.5/2.0 = 0.75 → emits
         let engine = DriftEngine::new();
@@ -311,7 +395,9 @@ mod tests {
     fn evaluate_returns_none_when_score_below_threshold() {
         let store = mem_store();
         store.register_entity("e2", "EpiModel", "{}", 0).unwrap();
-        store.set_telos_bounds("e2", "reproduction_rate", Some(0.0), Some(2.0), Some(1.0)).unwrap();
+        store
+            .set_telos_bounds("e2", "reproduction_rate", Some(0.0), Some(2.0), Some(1.0))
+            .unwrap();
 
         let signal = make_signal("e2", "reproduction_rate", 1.1); // deviation = 0.1/1.0 = 0.1 < 0.3
         let engine = DriftEngine::new();
@@ -323,7 +409,9 @@ mod tests {
     fn evaluate_persists_drift_event_in_store() {
         let store = mem_store();
         store.register_entity("e3", "SoilModel", "{}", 0).unwrap();
-        store.set_telos_bounds("e3", "carbon_stock", Some(0.0), Some(100.0), Some(50.0)).unwrap();
+        store
+            .set_telos_bounds("e3", "carbon_stock", Some(0.0), Some(100.0), Some(50.0))
+            .unwrap();
 
         let signal = make_signal("e3", "carbon_stock", 90.0); // deviation = 40/50 = 0.8
         let engine = DriftEngine::new();
@@ -337,8 +425,12 @@ mod tests {
     #[test]
     fn evaluate_escalates_entity_state_on_critical_score() {
         let store = mem_store();
-        store.register_entity("e4", "PandemicModel", "{}", 0).unwrap();
-        store.set_telos_bounds("e4", "cases", Some(0.0), Some(1000.0), Some(0.0)).unwrap();
+        store
+            .register_entity("e4", "PandemicModel", "{}", 0)
+            .unwrap();
+        store
+            .set_telos_bounds("e4", "cases", Some(0.0), Some(1000.0), Some(0.0))
+            .unwrap();
 
         // value = 900 → deviation = 900/1000 = 0.9 → Critical → "diverging"
         let signal = make_signal("e4", "cases", 900.0);
@@ -356,5 +448,76 @@ mod tests {
         let signal = make_signal("e5", "unknown_metric", 999.0);
         let score = engine.compute_score(&signal, &[]);
         assert_eq!(score, 0.0);
+    }
+
+    // ── Unit: evaluate_entity_aggregate ──────────────────────────────────────
+
+    #[test]
+    fn entity_aggregate_is_rms_of_per_metric_scores() {
+        let mut engine = DriftEngine::new();
+        // Two events with scores 0.6 and 0.8 → RMS = sqrt((0.36+0.64)/2) = sqrt(0.5) ≈ 0.7071
+        let mut events = vec![make_event("e6", "temp", 0.6), make_event("e6", "co2", 0.8)];
+        engine.evaluate_entity_aggregate("e6", &mut events);
+        let agg = events[0].entity_aggregate_score.unwrap();
+        assert!(
+            (agg - (0.5f64).sqrt()).abs() < 1e-9,
+            "expected {}, got {agg}",
+            (0.5f64).sqrt()
+        );
+        assert_eq!(
+            events[1].entity_aggregate_score.unwrap(),
+            agg,
+            "all events share aggregate"
+        );
+    }
+
+    #[test]
+    fn velocity_is_zero_on_first_observation() {
+        let mut engine = DriftEngine::new();
+        let mut events = vec![make_event("e7", "x", 0.5)];
+        engine.evaluate_entity_aggregate("e7", &mut events);
+        assert_eq!(events[0].velocity, 0.0);
+    }
+
+    #[test]
+    fn velocity_positive_when_aggregate_increases() {
+        let mut engine = DriftEngine::new();
+
+        // First observation: aggregate = 0.5
+        let mut ev1 = vec![make_event("e8", "x", 0.5)];
+        engine.evaluate_entity_aggregate("e8", &mut ev1);
+        assert_eq!(ev1[0].velocity, 0.0);
+
+        // Second observation: aggregate = 0.8 → velocity = 0.3
+        let mut ev2 = vec![make_event("e8", "x", 0.8)];
+        engine.evaluate_entity_aggregate("e8", &mut ev2);
+        assert!(
+            (ev2[0].velocity - 0.3).abs() < 1e-9,
+            "velocity={}",
+            ev2[0].velocity
+        );
+    }
+
+    #[test]
+    fn velocity_negative_when_aggregate_decreases() {
+        let mut engine = DriftEngine::new();
+        let mut ev1 = vec![make_event("e9", "x", 0.9)];
+        engine.evaluate_entity_aggregate("e9", &mut ev1);
+
+        let mut ev2 = vec![make_event("e9", "x", 0.4)];
+        engine.evaluate_entity_aggregate("e9", &mut ev2);
+        assert!(
+            ev2[0].velocity < 0.0,
+            "expected negative velocity, got {}",
+            ev2[0].velocity
+        );
+    }
+
+    #[test]
+    fn evaluate_entity_aggregate_noop_on_empty_slice() {
+        let mut engine = DriftEngine::new();
+        let mut events: Vec<DriftEvent> = vec![];
+        // Must not panic
+        engine.evaluate_entity_aggregate("e10", &mut events);
     }
 }

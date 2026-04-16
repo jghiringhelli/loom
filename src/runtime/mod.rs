@@ -43,7 +43,9 @@ pub use bioiso_runner::{
     RetroValidator,
 };
 pub use brain::{CostGuard, MammalBrain};
-pub use circadian::{Circadian, CircadianAction, CircadianVerdict, KalmanFilter, Schedule, WallTime};
+pub use circadian::{
+    Circadian, CircadianAction, CircadianVerdict, KalmanFilter, Schedule, WallTime,
+};
 pub use colony::{ColonyPeer, GossipMessage, Mycelium, PeerStatus, PheromoneTrail};
 pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
@@ -146,8 +148,14 @@ impl Runtime {
         let entity_id: EntityId = id.into();
         let entity_name: String = name.into();
         let born_at = now_ms();
-        self.store.register_entity(&entity_id, &entity_name, telos_json, born_at)?;
-        self.supervisor.spawn(entity_id.clone(), entity_name, telomere_limit, on_exhaustion);
+        self.store
+            .register_entity(&entity_id, &entity_name, telos_json, born_at)?;
+        self.supervisor.spawn(
+            entity_id.clone(),
+            entity_name,
+            telomere_limit,
+            on_exhaustion,
+        );
         self.membrane.register_entity(&entity_id);
         self.membrane.register_genome(&entity_id, telos_json);
         Ok(())
@@ -201,24 +209,21 @@ impl Runtime {
     /// Evaluate a signal for telos drift and return a [`DriftEvent`] if threshold exceeded.
     ///
     /// This is the primary integration point for R2 from the orchestration loop.
-    pub fn evaluate_drift(
-        &self,
-        signal: &Signal,
-    ) -> Result<Option<DriftEvent>, rusqlite::Error> {
+    pub fn evaluate_drift(&self, signal: &Signal) -> Result<Option<DriftEvent>, rusqlite::Error> {
         self.drift_engine.evaluate(signal, &self.store)
     }
 
     /// Evaluate all recent signals for every entity and return emitted drift events.
+    ///
+    /// Events are annotated with `entity_aggregate_score` (D_static) and `velocity`
+    /// (D_velocity) — see [`DriftEngine::evaluate_entity_aggregate`].
     pub fn evaluate_all_drift(
-        &self,
+        &mut self,
         lookback: usize,
     ) -> Result<Vec<DriftEvent>, rusqlite::Error> {
-        let entity_ids: Vec<EntityId> = self
-            .entities()?
-            .into_iter()
-            .map(|e| e.id)
-            .collect();
-        self.drift_engine.evaluate_all(&entity_ids, &self.store, lookback)
+        let entity_ids: Vec<EntityId> = self.entities()?.into_iter().map(|e| e.id).collect();
+        self.drift_engine
+            .evaluate_all(&entity_ids, &self.store, lookback)
     }
 
     /// Return all registered entity records.
@@ -235,7 +240,8 @@ impl Runtime {
         max: Option<f64>,
         target: Option<f64>,
     ) -> Result<(), rusqlite::Error> {
-        self.store.set_telos_bounds(entity_id, metric, min, max, target)
+        self.store
+            .set_telos_bounds(entity_id, metric, min, max, target)
     }
 
     /// Run Tier 1 (Polycephalum) against a drift event and return proposals.
@@ -360,9 +366,7 @@ mod tests {
         let mut rt = Runtime::new(":memory:").unwrap();
         rt.spawn_entity("e1", "Foo", "{}", Some(2), Some("halt".into()))
             .unwrap();
-        rt.supervisor
-            .record_division("e1", &rt.store)
-            .unwrap();
+        rt.supervisor.record_division("e1", &rt.store).unwrap();
         let result = rt.supervisor.record_division("e1", &rt.store);
         assert!(result.is_err());
         assert_eq!(

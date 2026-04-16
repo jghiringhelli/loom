@@ -253,6 +253,11 @@ enum RuntimeCommands {
         /// Write per-tick JSON-lines to this file (optional).
         #[arg(long, default_value = "")]
         log_path: String,
+
+        /// Maximum total living entities (branching suppressed above this cap).
+        /// Overrides the `MAX_ENTITY_COUNT` environment variable.
+        #[arg(long, default_value_t = 50)]
+        max_entities: usize,
     },
 }
 
@@ -570,7 +575,11 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             }
         }
 
-        RuntimeCommands::Rollback { db, entity, checkpoint } => {
+        RuntimeCommands::Rollback {
+            db,
+            entity,
+            checkpoint,
+        } => {
             let store = match loom::runtime::SignalStore::new(&db) {
                 Ok(s) => s,
                 Err(e) => {
@@ -656,7 +665,10 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             let specs = loom::runtime::all_domain_specs();
 
             let to_seed: Vec<_> = if let Some(ref id) = only {
-                specs.iter().filter(|s| s.entity_id == id.as_str()).collect()
+                specs
+                    .iter()
+                    .filter(|s| s.entity_id == id.as_str())
+                    .collect()
             } else {
                 specs.iter().collect()
             };
@@ -675,8 +687,12 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             let mut skipped = 0usize;
             for spec in &to_seed {
                 // Check if already registered — idempotent.
-                let already = runtime.store.all_entities().unwrap_or_default()
-                    .iter().any(|e| e.id == spec.entity_id);
+                let already = runtime
+                    .store
+                    .all_entities()
+                    .unwrap_or_default()
+                    .iter()
+                    .any(|e| e.id == spec.entity_id);
                 if already {
                     println!("  skip  {} (already registered)", spec.entity_id);
                     skipped += 1;
@@ -710,9 +726,10 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             max_branches,
             domains,
             log_path,
+            max_entities,
         } => {
-            use loom::runtime::{BIOISORunner, Runtime, all_domain_specs};
             use loom::runtime::experiment::{ExperimentConfig, ExperimentDriver};
+            use loom::runtime::{all_domain_specs, BIOISORunner, Runtime};
 
             let mut runtime = match Runtime::new(&db) {
                 Ok(r) => r,
@@ -741,8 +758,18 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             let entity_filter: Vec<String> = if domains.is_empty() {
                 Vec::new()
             } else {
-                domains.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+                domains
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
             };
+
+            // MAX_ENTITY_COUNT env var overrides the CLI default (CLI wins if explicitly set).
+            let effective_max_entities = std::env::var("MAX_ENTITY_COUNT")
+                .ok()
+                .and_then(|v| v.parse::<usize>().ok())
+                .unwrap_or(max_entities);
 
             let config = ExperimentConfig {
                 total_ticks: ticks,
@@ -757,6 +784,7 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 run_meiosis: std::env::var("GITHUB_TOKEN").is_ok()
                     && std::env::var("GITHUB_REPO").is_ok(),
                 meiosis_generation: 1,
+                max_entity_count: effective_max_entities,
             };
 
             eprintln!(
@@ -788,7 +816,10 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             if !summary.branch_decisions.is_empty() {
                 println!("\nBranch decisions:");
                 for b in &summary.branch_decisions {
-                    println!("  tick {:>4}: {} → {} ({})", b.tick, b.parent_id, b.child_id, b.trigger_reason);
+                    println!(
+                        "  tick {:>4}: {} → {} ({})",
+                        b.tick, b.parent_id, b.child_id, b.trigger_reason
+                    );
                 }
             }
 
@@ -796,6 +827,19 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             for tier in ["1", "2", "3"] {
                 let count = summary.tier_activations.get(tier).copied().unwrap_or(0);
                 println!("  Tier {tier}: {count}");
+            }
+
+            println!("\nColony telos alignment (retro score ≥ 0.7 = mandate met):");
+            println!("  Mean score: {:.3}", summary.retro_mean_score);
+            for s in &summary.retro_stats {
+                println!(
+                    "  {:<22} score={:.3}  drift_mean={:.3}  within={}/{}",
+                    s.entity_id,
+                    s.overall_score,
+                    s.mean_drift,
+                    s.ticks_within_tolerance,
+                    s.ticks_tracked,
+                );
             }
 
             // Write JSON summary to stdout

@@ -42,7 +42,7 @@ use crate::runtime::{
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
     signal::now_ms,
     signals_sim::SignalSimulator,
-    Runtime,
+    RetroResult, Runtime,
 };
 
 // ── ExperimentConfig ──────────────────────────────────────────────────────────
@@ -86,6 +86,11 @@ pub struct ExperimentConfig {
 
     /// Generation number for meiosis — passed to `MeiosisConfig::generation`.
     pub meiosis_generation: u32,
+
+    /// Maximum total living entities across all branches.
+    /// Branching is suppressed once this limit is reached.
+    /// Default: 50. Set via `MAX_ENTITY_COUNT` env var.
+    pub max_entity_count: usize,
 }
 
 impl Default for ExperimentConfig {
@@ -102,6 +107,7 @@ impl Default for ExperimentConfig {
             log_path: String::new(),
             run_meiosis: false,
             meiosis_generation: 1,
+            max_entity_count: 50,
         }
     }
 }
@@ -142,6 +148,34 @@ pub struct BranchDecision {
 
 // ── ExperimentSummary ─────────────────────────────────────────────────────────
 
+/// Colony telos — the declared intent for the 3-entity BIOISO colony.
+///
+/// **Formal definition**: the colony succeeds when every seeded entity maintains
+/// D_static < 0.3 for ≥20 consecutive ticks. `retro_mean_score` approximates
+/// this: score = `mean over entities of (ticks_within_tolerance / total_ticks)`.
+/// A score ≥ 0.7 indicates the colony is fulfilling its evolutionary mandate.
+pub const COLONY_TELOS: &str =
+    "Autonomously discover interventions that drive each domain entity to sustained \
+     telos-alignment (D_static < 0.3) — demonstrating that self-evolving BIOISOs can \
+     navigate high-dimensional NP-hard parameter spaces faster than manual optimisation.";
+
+/// Per-entity telos-alignment stats accumulated during the run.
+/// Used to compute retroactive performance scores without a separate signal replay.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityRetroStats {
+    pub entity_id: String,
+    /// Total ticks on which a drift event was observed for this entity.
+    pub ticks_tracked: usize,
+    /// Ticks where the entity aggregate D_static was below the tolerance threshold.
+    pub ticks_within_tolerance: usize,
+    /// Running sum of D_static scores (used for mean).
+    pub sum_drift: f64,
+    /// Mean D_static over all observed ticks.
+    pub mean_drift: f64,
+    /// `ticks_within_tolerance / ticks_tracked` — the primary colony progress metric.
+    pub overall_score: f64,
+}
+
 /// Final summary produced after the experiment completes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExperimentSummary {
@@ -161,6 +195,124 @@ pub struct ExperimentSummary {
     pub promoted_records: Vec<PromotedRecord>,
     /// Meiosis report produced at end of run (when `run_meiosis = true`).
     pub meiosis_report: Option<MeiosisReport>,
+    /// Per-entity retro alignment stats (colony telos progress).
+    pub retro_stats: Vec<EntityRetroStats>,
+    /// Mean overall_score across all tracked entities.
+    /// ≥ 0.7 = colony is meeting its telos mandate.
+    pub retro_mean_score: f64,
+    /// Legacy RetroResult records for compatibility with RetroValidator API.
+    pub retro_results: Vec<RetroResult>,
+}
+
+// ── RetroScorer ───────────────────────────────────────────────────────────────
+
+/// Tracks per-entity telos-alignment throughout the experiment.
+///
+/// Called every tick with the D_static aggregate score for each entity.
+/// At run end, `results()` returns a scored `EntityRetroStats` per entity.
+struct RetroScorer {
+    /// D_static tolerance threshold: scores below this count as "within tolerance".
+    tolerance: f64,
+    /// entity_id → (ticks_tracked, ticks_within_tolerance, sum_drift)
+    stats: HashMap<String, (usize, usize, f64)>,
+}
+
+impl RetroScorer {
+    fn new(tolerance: f64) -> Self {
+        Self {
+            tolerance,
+            stats: HashMap::new(),
+        }
+    }
+
+    /// Record one D_static observation for an entity.
+    fn record(&mut self, entity_id: &str, d_static: f64) {
+        let entry = self
+            .stats
+            .entry(entity_id.to_string())
+            .or_insert((0, 0, 0.0));
+        entry.0 += 1;
+        if d_static < self.tolerance {
+            entry.1 += 1;
+        }
+        entry.2 += d_static;
+    }
+
+    /// Produce final `EntityRetroStats` for every tracked entity.
+    fn results(&self) -> Vec<EntityRetroStats> {
+        let mut out: Vec<EntityRetroStats> = self
+            .stats
+            .iter()
+            .map(|(id, &(tracked, within, sum))| {
+                let mean_drift = if tracked > 0 {
+                    sum / tracked as f64
+                } else {
+                    0.0
+                };
+                let overall_score = if tracked > 0 {
+                    within as f64 / tracked as f64
+                } else {
+                    0.0
+                };
+                EntityRetroStats {
+                    entity_id: id.clone(),
+                    ticks_tracked: tracked,
+                    ticks_within_tolerance: within,
+                    sum_drift: sum,
+                    mean_drift,
+                    overall_score,
+                }
+            })
+            .collect();
+        out.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
+        out
+    }
+
+    fn mean_score(&self) -> f64 {
+        let scores: Vec<f64> = self
+            .stats
+            .values()
+            .map(|&(tracked, within, _)| {
+                if tracked > 0 {
+                    within as f64 / tracked as f64
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        if scores.is_empty() {
+            0.0
+        } else {
+            scores.iter().sum::<f64>() / scores.len() as f64
+        }
+    }
+
+    /// Build `RetroResult` records compatible with the RetroValidator API.
+    fn retro_results(&self) -> Vec<RetroResult> {
+        self.results()
+            .into_iter()
+            .map(|s| {
+                let mut metric_gap = HashMap::new();
+                metric_gap.insert("d_static_mean".to_string(), s.mean_drift);
+                RetroResult {
+                    entity_id: s.entity_id.clone(),
+                    academic_label: "colony_telos_alignment".to_string(),
+                    ticks_replayed: s.ticks_tracked,
+                    final_drift: s.mean_drift,
+                    metric_gap,
+                    overall_score: s.overall_score,
+                    summary: format!(
+                        "entity={} score={:.3} mean_drift={:.3} ticks_within={}/{}",
+                        s.entity_id,
+                        s.overall_score,
+                        s.mean_drift,
+                        s.ticks_within_tolerance,
+                        s.ticks_tracked,
+                    ),
+                }
+            })
+            .collect()
+    }
 }
 
 // ── BranchingEngine ───────────────────────────────────────────────────────────
@@ -170,9 +322,13 @@ pub struct ExperimentSummary {
 /// A branch is triggered when a parent entity has accumulated `threshold`
 /// stable mutations.  The child inherits the parent's epigenome and telos
 /// bounds (evolved copies, not exact clones).
+///
+/// `max_entity_count` caps total living entities to bound LLM cost.
 pub struct BranchingEngine {
     threshold: u32,
     max_branches: u32,
+    /// Hard cap on total living entities — prevents unbounded colony growth.
+    max_entity_count: usize,
     /// parent_id → stable mutation count since last branch
     stable_counts: HashMap<String, u32>,
     /// parent_id → number of children spawned
@@ -183,9 +339,15 @@ pub struct BranchingEngine {
 impl BranchingEngine {
     /// Create a new branching engine.
     pub fn new(threshold: u32, max_branches: u32) -> Self {
+        Self::with_max_entities(threshold, max_branches, 50)
+    }
+
+    /// Create with an explicit entity cap.
+    pub fn with_max_entities(threshold: u32, max_branches: u32, max_entity_count: usize) -> Self {
         Self {
             threshold,
             max_branches,
+            max_entity_count,
             stable_counts: HashMap::new(),
             branch_counts: HashMap::new(),
             decisions: Vec::new(),
@@ -200,11 +362,7 @@ impl BranchingEngine {
     /// Evaluate all entities for branching opportunity.
     ///
     /// Returns the IDs of newly created child entities.
-    pub fn evaluate_and_branch(
-        &mut self,
-        runtime: &mut Runtime,
-        tick: u64,
-    ) -> Vec<String> {
+    pub fn evaluate_and_branch(&mut self, runtime: &mut Runtime, tick: u64) -> Vec<String> {
         // Collect candidates before mutating runtime
         let candidates: Vec<(String, u32)> = runtime
             .supervisor
@@ -223,6 +381,16 @@ impl BranchingEngine {
 
         let mut branched = Vec::new();
         for (parent_id, stable_count) in candidates {
+            // Guard: do not exceed the global entity cap.
+            let living_now = runtime.supervisor.living_entity_ids().len();
+            if living_now >= self.max_entity_count {
+                eprintln!(
+                    "[branch] entity cap reached ({living_now}/{}) — skipping spawn of {parent_id} child",
+                    self.max_entity_count
+                );
+                continue;
+            }
+
             let child_id = format!("{parent_id}_b{tick}");
             let child_name = format!("{parent_id} Branch (tick {tick})");
 
@@ -341,6 +509,9 @@ pub struct ExperimentDriver {
     /// Shortens when drift exceeds tolerance (exploration allowed below window).
     /// Near-senescent entities are prioritised as meiosis donors.
     telomere_tracker: TelomereTracker,
+    /// Per-entity retro scorer — accumulates D_static observations each tick.
+    /// Produces colony telos alignment score at run end.
+    retro_scorer: RetroScorer,
 }
 
 impl ExperimentDriver {
@@ -354,11 +525,14 @@ impl ExperimentDriver {
         let simulator = if config.entity_filter.is_empty() {
             SignalSimulator::new(config.rng_seed)
         } else {
-            SignalSimulator::new(config.rng_seed)
-                .with_filter(config.entity_filter.clone())
+            SignalSimulator::new(config.rng_seed).with_filter(config.entity_filter.clone())
         };
 
-        let brancher = BranchingEngine::new(config.branch_threshold, config.max_branches_per_entity);
+        let brancher = BranchingEngine::with_max_entities(
+            config.branch_threshold,
+            config.max_branches_per_entity,
+            config.max_entity_count,
+        );
         let log = ExperimentLog::new(&config.log_path);
 
         Self {
@@ -371,13 +545,18 @@ impl ExperimentDriver {
             // Initial telomere length of 500: enough slack for ~100 high-drift
             // events before senescence triggers meiosis replacement.
             telomere_tracker: TelomereTracker::new(500),
+            // Tolerance 0.3: matches the DriftEngine emission_threshold.
+            retro_scorer: RetroScorer::new(0.3),
         }
     }
 
     /// Run the experiment for the configured number of ticks.
     ///
     /// Blocks until complete or `stop_requested` is set.
-    pub fn run(&mut self, stop_requested: Option<&std::sync::atomic::AtomicBool>) -> ExperimentSummary {
+    pub fn run(
+        &mut self,
+        stop_requested: Option<&std::sync::atomic::AtomicBool>,
+    ) -> ExperimentSummary {
         use std::sync::atomic::Ordering;
 
         let mut totals = ExperimentTotals::default();
@@ -455,11 +634,22 @@ impl ExperimentDriver {
             // ── 4. Collect metrics ────────────────────────────────────────────
             let drift_scores = self.collect_drift_scores(&tick_result);
 
-            // Record drift into the telomere tracker.
-            // The telos reference is the entity_id itself (stored once on first
-            // observation — the tracker uses only the drift_score for decisions).
-            // Near-senescent entities are flagged and prioritised as meiosis donors.
+            // Record drift into the telomere tracker and retro scorer.
+            // Use D_static aggregate when available (first event per entity carries it
+            // after evaluate_entity_aggregate is called in evaluate_all_drift).
+            // Fall back to per-metric score for backward compatibility.
+            let mut seen_entities: HashMap<String, f64> = HashMap::new();
             for event in &tick_result.drift_events {
+                // Collect the best aggregate score per entity (deduplicate same-entity events).
+                let d_static = event.entity_aggregate_score.unwrap_or(event.score);
+                seen_entities
+                    .entry(event.entity_id.clone())
+                    .and_modify(|v| {
+                        // Keep the value from the first event (they're identical per entity).
+                        let _ = v;
+                    })
+                    .or_insert(d_static);
+
                 let senescent = self.telomere_tracker.record_drift(
                     &event.entity_id,
                     &event.entity_id, // telos label — resolved properly at meiosis time
@@ -472,6 +662,10 @@ impl ExperimentDriver {
                         event.entity_id
                     );
                 }
+            }
+            // Feed D_static aggregates into the retro scorer.
+            for (eid, d_static) in &seen_entities {
+                self.retro_scorer.record(eid, *d_static);
             }
 
             let epigenome_core = self.collect_epigenome_sizes();
@@ -502,9 +696,7 @@ impl ExperimentDriver {
             self.log.record(metrics.clone());
 
             // ── 5. Progress summary ───────────────────────────────────────────
-            if self.config.summary_interval > 0
-                && tick % self.config.summary_interval == 0
-            {
+            if self.config.summary_interval > 0 && tick % self.config.summary_interval == 0 {
                 self.print_summary(tick, &metrics, &totals);
             }
 
@@ -632,6 +824,26 @@ impl ExperimentDriver {
             None
         };
 
+        // Colony telos alignment scores.
+        let retro_stats = self.retro_scorer.results();
+        let retro_mean_score = self.retro_scorer.mean_score();
+        let retro_results = self.retro_scorer.retro_results();
+
+        eprintln!(
+            "[colony-telos] retro_mean_score={:.3} (≥0.7 = mandate met) — {}",
+            retro_mean_score, COLONY_TELOS
+        );
+        for s in &retro_stats {
+            eprintln!(
+                "[colony-telos] {} score={:.3} mean_drift={:.3} within={}/{}",
+                s.entity_id,
+                s.overall_score,
+                s.mean_drift,
+                s.ticks_within_tolerance,
+                s.ticks_tracked,
+            );
+        }
+
         ExperimentSummary {
             total_ticks: self.config.total_ticks,
             total_signals_injected: totals.signals_injected,
@@ -647,6 +859,9 @@ impl ExperimentDriver {
             convergence_tick,
             promoted_records: self.promoted_records.clone(),
             meiosis_report,
+            retro_stats,
+            retro_mean_score,
+            retro_results,
         }
     }
 }

@@ -211,7 +211,10 @@ impl Polycephalum {
 
     /// Create an engine pre-loaded with the given registry.
     pub fn with_registry(registry: RuleRegistry) -> Self {
-        Self { registry, max_proposals: 3 }
+        Self {
+            registry,
+            max_proposals: 3,
+        }
     }
 
     /// Evaluate a drift event and return ranked mutation proposals.
@@ -299,13 +302,13 @@ impl Polycephalum {
                 entity_id: event.entity_id.clone(),
                 reason: reason.clone(),
             }),
-            RuleAction::RollbackToCheckpoint { reason } => checkpoint_id.map(|id| {
-                MutationProposal::EntityRollback {
+            RuleAction::RollbackToCheckpoint { reason } => {
+                checkpoint_id.map(|id| MutationProposal::EntityRollback {
                     entity_id: event.entity_id.clone(),
                     checkpoint_id: id,
                     reason: reason.clone(),
-                }
-            }),
+                })
+            }
         }
     }
 
@@ -321,12 +324,8 @@ impl Polycephalum {
         match action {
             RuleAction::AdjustParam { param, delta } => {
                 let current = current_values.get(param).copied().unwrap_or(0.0);
-                let computed = delta.evaluate_with_sampler(
-                    event.score,
-                    current,
-                    sampler,
-                    relative_telomere,
-                );
+                let computed =
+                    delta.evaluate_with_sampler(event.score, current, sampler, relative_telomere);
                 Some(MutationProposal::ParameterAdjust {
                     entity_id: event.entity_id.clone(),
                     param: param.clone(),
@@ -341,13 +340,13 @@ impl Polycephalum {
                 entity_id: event.entity_id.clone(),
                 reason: reason.clone(),
             }),
-            RuleAction::RollbackToCheckpoint { reason } => checkpoint_id.map(|id| {
-                MutationProposal::EntityRollback {
+            RuleAction::RollbackToCheckpoint { reason } => {
+                checkpoint_id.map(|id| MutationProposal::EntityRollback {
                     entity_id: event.entity_id.clone(),
                     checkpoint_id: id,
                     reason: reason.clone(),
-                }
-            }),
+                })
+            }
         }
     }
 }
@@ -385,6 +384,8 @@ mod tests {
             triggering_metric: metric.into(),
             score,
             ts: 1_000_000,
+            entity_aggregate_score: None,
+            velocity: 0.0,
         }
     }
 
@@ -408,10 +409,9 @@ mod tests {
     #[test]
     fn engine_produces_parameter_adjust_when_rule_matches() {
         let mut engine = Polycephalum::new();
-        engine.registry.add_for_entity(
-            "climate_1",
-            adjust_rule("temperature", "albedo", -0.01, 10),
-        );
+        engine
+            .registry
+            .add_for_entity("climate_1", adjust_rule("temperature", "albedo", -0.01, 10));
 
         let event = make_event("climate_1", "temperature", 0.75);
         let proposals = engine.evaluate(&event, DriftSeverity::Critical, None);
@@ -438,7 +438,9 @@ mod tests {
         let mut engine = Polycephalum::new();
         engine.max_proposals = 2;
         for i in 0..5 {
-            engine.registry.add_global(adjust_rule("temp", &format!("p{i}"), 0.01 * i as f64, i));
+            engine
+                .registry
+                .add_global(adjust_rule("temp", &format!("p{i}"), 0.01 * i as f64, i));
         }
         let event = make_event("any_entity", "temp", 0.8);
         let proposals = engine.evaluate(&event, DriftSeverity::Critical, None);
@@ -506,7 +508,10 @@ mod tests {
         assert_eq!(with_cp.len(), 1);
         assert!(matches!(
             with_cp[0],
-            MutationProposal::EntityRollback { checkpoint_id: 42, .. }
+            MutationProposal::EntityRollback {
+                checkpoint_id: 42,
+                ..
+            }
         ));
     }
 
@@ -580,11 +585,19 @@ mod tests {
         );
         assert_eq!(proposals.len(), 1);
         match &proposals[0] {
-            MutationProposal::ParameterAdjust { param, delta, reason, .. } => {
+            MutationProposal::ParameterAdjust {
+                param,
+                delta,
+                reason,
+                ..
+            } => {
                 assert_eq!(param, "co2_ppm");
                 // Should be negative (current=420 > target=350)
                 assert!(*delta < 0.0, "expected negative delta, got {delta}");
-                assert!(reason.contains("sampled"), "expected 'sampled' tag in reason");
+                assert!(
+                    reason.contains("sampled"),
+                    "expected 'sampled' tag in reason"
+                );
             }
             other => panic!("unexpected proposal: {other:?}"),
         }
@@ -592,8 +605,14 @@ mod tests {
 
     #[test]
     fn sampled_delta_evaluate_fallback_is_nonzero_on_drift() {
-        let spec = DeltaSpec::Sampled { target: 100.0, bounds: (0.0, 200.0) };
+        let spec = DeltaSpec::Sampled {
+            target: 100.0,
+            bounds: (0.0, 200.0),
+        };
         let fallback = spec.evaluate(0.8);
-        assert!(fallback != 0.0, "guidance fallback should be nonzero when drifted");
+        assert!(
+            fallback != 0.0,
+            "guidance fallback should be nonzero when drifted"
+        );
     }
 }

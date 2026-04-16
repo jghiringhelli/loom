@@ -102,8 +102,7 @@ impl AnthropicClient {
         let api_key = std::env::var("CLAUDE_API_KEY").ok()?;
         let base_url = std::env::var("CLAUDE_BASE_URL")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
-        let model = std::env::var("CLAUDE_MODEL")
-            .unwrap_or_else(|_| "claude-sonnet-4-5".into());
+        let model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| "claude-sonnet-4-5".into());
         Some(Self::new(base_url, api_key, model, 60))
     }
 }
@@ -114,7 +113,10 @@ impl ClaudeClient for AnthropicClient {
         let body = ClaudeRequest {
             model: &self.model,
             max_tokens: 2048,
-            messages: vec![ClaudeMessage { role: "user", content: user }],
+            messages: vec![ClaudeMessage {
+                role: "user",
+                content: user,
+            }],
         };
         let resp = self
             .client
@@ -179,7 +181,9 @@ pub fn build_user_prompt(
     store: &SignalStore,
     recent_n: usize,
 ) -> String {
-    let signals = store.signals_for_entity(entity_id, recent_n).unwrap_or_default();
+    let signals = store
+        .signals_for_entity(entity_id, recent_n)
+        .unwrap_or_default();
     let bounds = store.telos_bounds_for_entity(entity_id).unwrap_or_default();
 
     let mut prompt = String::new();
@@ -229,7 +233,10 @@ pub struct CostGuard {
 impl CostGuard {
     /// Create a guard with the given hourly call limit.
     pub fn new(max_calls_per_hour: usize) -> Self {
-        Self { max_calls_per_hour, call_log: Vec::new() }
+        Self {
+            max_calls_per_hour,
+            call_log: Vec::new(),
+        }
     }
 
     /// Create a guard using `BIOISO_MAX_TIER3_CALLS_PER_HOUR` env var, default 5.
@@ -288,10 +295,7 @@ impl MammalBrain {
     }
 
     /// Create a Mammal Brain with a custom (mock) client. Used in tests.
-    pub fn with_client(
-        client: Box<dyn ClaudeClient>,
-        max_calls_per_hour: usize,
-    ) -> Self {
+    pub fn with_client(client: Box<dyn ClaudeClient>, max_calls_per_hour: usize) -> Self {
         Self {
             client,
             cost_guard: CostGuard::new(max_calls_per_hour),
@@ -312,13 +316,7 @@ impl MammalBrain {
         }
 
         let system = build_system_prompt();
-        let user = build_user_prompt(
-            &event.entity_id,
-            genome,
-            event,
-            store,
-            self.corpus_lookback,
-        );
+        let user = build_user_prompt(&event.entity_id, genome, event, store, self.corpus_lookback);
 
         match self.client.complete(&system, &user) {
             Ok(text) => {
@@ -347,6 +345,8 @@ mod tests {
             triggering_metric: "carbon_stock".into(),
             score,
             ts: 2_000_000,
+            entity_aggregate_score: None,
+            velocity: 0.0,
         }
     }
 
@@ -362,7 +362,9 @@ mod tests {
 
     fn brain_with_response(resp: &str, limit: usize) -> MammalBrain {
         MammalBrain::with_client(
-            Box::new(MockClaudeClient { response: resp.into() }),
+            Box::new(MockClaudeClient {
+                response: resp.into(),
+            }),
             limit,
         )
     }
@@ -412,7 +414,10 @@ mod tests {
         let event = make_event("soil", 0.9);
         let proposals = brain.evaluate(&event, &store, None);
         assert_eq!(proposals.len(), 1);
-        assert!(matches!(proposals[0], MutationProposal::ParameterAdjust { .. }));
+        assert!(matches!(
+            proposals[0],
+            MutationProposal::ParameterAdjust { .. }
+        ));
     }
 
     #[test]
