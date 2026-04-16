@@ -1,0 +1,161 @@
+-- examples/tier2/knapsack_genetic.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 2 — Meta-heuristic: Genetic Algorithm for 0/1 Knapsack.
+--
+-- 0/1 Knapsack is NP-hard (even weakly NP-hard, admitting
+-- pseudo-polynomial DP). The Genetic Algorithm (Holland, 1975)
+-- maintains a population of candidate solutions (bitstrings),
+-- evolves them via selection, crossover, and mutation operators.
+--
+-- Unlike SA, GA maintains *population diversity* — multiple
+-- candidate solutions explored simultaneously. This makes GA
+-- more effective on multimodal landscapes where SA can get trapped.
+-- Both are Tier 2: the architecture (population, operators) is fixed.
+--
+-- Compile:  loom compile examples/tier2/knapsack_genetic.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module KnapsackGenetic
+describe: "0/1 Knapsack solver via Genetic Algorithm with tournament selection and single-point crossover"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Item =
+  id:    Int
+  value: Float<usd>
+  weight: Float<kg>
+end
+
+type Solution =
+  included:     [Bool]    -- bitstring: included[i] = true means item i is packed
+  total_value:  Float<usd>
+  total_weight: Float<kg>
+  is_feasible:  Bool      -- total_weight <= capacity
+end
+
+type GAConfig =
+  population_size:    Int
+  max_generations:    Int
+  mutation_rate:      Float   -- probability of flipping each bit
+  crossover_rate:     Float   -- probability of crossover vs. cloning
+  tournament_size:    Int
+  elitism_count:      Int     -- top k individuals survive unchanged
+end
+
+type GAResult =
+  best_solution:    Solution
+  best_generation:  Int
+  generations_run:  Int
+  convergence_gap:  Float     -- fraction of population sharing best fitness
+end
+
+-- ── Genetic operators ──────────────────────────────────────────────
+
+-- Fitness: total value if feasible, penalised if overweight.
+fn fitness :: Solution -> Float<kg> -> Float
+  require: capacity > 0.0
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Tournament selection: randomly sample k individuals, return the fittest.
+fn tournament_select :: [Solution] -> Int -> Float<kg> -> Solution
+  require: population.len() >= tournament_size
+  require: tournament_size >= 2
+  Solution
+end
+
+-- Single-point crossover: split two parent bitstrings at a random locus.
+fn crossover :: Solution -> Solution -> (Solution, Solution)
+  require: parent_a.included.len() == parent_b.included.len()
+  ensure:  result.0.included.len() == parent_a.included.len()
+  ensure:  result.1.included.len() == parent_a.included.len()
+  (Solution, Solution)
+end
+
+-- Bit-flip mutation: flip each bit with probability mutation_rate.
+fn mutate :: Solution -> Float -> Solution
+  require: mutation_rate >= 0.0 && mutation_rate <= 1.0
+  ensure:  result.included.len() == sol.included.len()
+  Solution
+end
+
+-- Repair operator: greedily remove heaviest items until feasible.
+fn repair :: Solution -> [Item] -> Float<kg> -> Solution
+  require: capacity > 0.0
+  ensure:  result.is_feasible
+  Solution
+end
+
+-- ── Core GA solver ─────────────────────────────────────────────────
+
+fn solve_ga :: [Item] -> Float<kg> -> GAConfig -> Effect<[IO], GAResult>
+  require: items.len() > 0
+  require: capacity > 0.0
+  require: config.population_size >= 2
+  require: config.max_generations > 0
+  require: config.mutation_rate >= 0.0 && config.mutation_rate <= 1.0
+  require: config.crossover_rate >= 0.0 && config.crossover_rate <= 1.0
+  require: config.elitism_count < config.population_size
+  ensure:  result.best_solution.is_feasible
+  ensure:  result.best_solution.total_weight <= capacity
+  GAResult
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+
+being KnapsackSolver
+describe: "0/1 Knapsack Solver — Tier 2 meta-heuristic via Genetic Algorithm"
+
+matter:
+  items:       [Item]
+  capacity:    Float<kg>
+  population:  [Solution]
+  generation:  Int
+end
+
+function:
+  fn solve :: [Item] -> Float<kg> -> Effect<[IO], GAResult>
+    require: items.len() > 0
+    require: capacity > 0.0
+    ensure:  result.best_solution.is_feasible
+  end
+end
+
+evolve: genetic
+  population_size: 100
+  mutation_rate:   0.02
+  crossover_rate:  0.85
+  constraint:      E[best_fitness] is non_decreasing
+end
+
+telos: "maximise total packed value subject to weight capacity constraint"
+end
+
+end -- being KnapsackSolver
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test empty_solution_is_feasible ::
+  let items = [Item { id: 0, value: 10.0, weight: 5.0 }] in
+  let sol = Solution {
+    included: [false], total_value: 0.0, total_weight: 0.0, is_feasible: true
+  } in
+  fitness(sol, 10.0) >= 0.0
+
+test crossover_preserves_length ::
+  let a = Solution { included: [true, false, true], total_value: 0.0, total_weight: 0.0, is_feasible: true } in
+  let b = Solution { included: [false, true, false], total_value: 0.0, total_weight: 0.0, is_feasible: true } in
+  let (c1, c2) = crossover(a, b) in
+  c1.included.len() == 3 && c2.included.len() == 3
+
+test repair_produces_feasible_solution ::
+  let items = [
+    Item { id: 0, value: 5.0,  weight: 8.0 },
+    Item { id: 1, value: 10.0, weight: 3.0 }
+  ] in
+  let sol = Solution {
+    included: [true, true], total_value: 15.0, total_weight: 11.0, is_feasible: false
+  } in
+  let fixed = repair(sol, items, 10.0) in
+  fixed.is_feasible

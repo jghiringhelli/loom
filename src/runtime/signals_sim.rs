@@ -1,5 +1,5 @@
-//! Signal simulator — generates realistic domain-specific telemetry for all 20
-//! BIOISO entities.
+//! Signal simulator — generates realistic domain-specific telemetry for all 7
+//! curated BIOISO-class entities.
 //!
 //! Each domain expert spec defines four metrics with:
 //! - **Baseline**: starting value at tick 0
@@ -121,770 +121,272 @@ struct DomainSpec {
 
 fn all_domain_specs() -> Vec<DomainSpec> {
     vec![
-        // ── Climate Change Mitigation ──────────────────────────────────────────
+        // ── 1. Antimicrobial Resistance Coevolution ───────────────────────────────────
+        // Calibrated against WHO AMR report; resistance prevalence rising ~0.4%/yr
         DomainSpec {
-            entity_id: "climate",
+            entity_id: "amr_coevolution",
             metrics: vec![
-                MetricSpec {
-                    name: "co2_ppm",
-                    baseline: 420.0,
-                    trend_per_tick: 0.08, // ~2.5 ppm/yr compressed to 500 ticks
-                    noise_amplitude: 0.4,
-                    crises: vec![
-                        Crisis::new(80, 110, 6.0),  // El Niño CO₂ spike
-                        Crisis::new(280, 320, 4.0), // Industrial surge
-                    ],
-                },
-                MetricSpec {
-                    name: "temp_anomaly_c",
-                    baseline: 1.22,
-                    trend_per_tick: 0.003,
-                    noise_amplitude: 0.05,
-                    crises: vec![
-                        Crisis::new(150, 180, 0.25), // Warm year event
-                        Crisis::new(400, 430, 0.35), // Record anomaly
-                    ],
-                },
-                MetricSpec {
-                    name: "sea_level_mm",
-                    baseline: 100.0,
-                    trend_per_tick: 0.36, // ~3.6 mm/yr
-                    noise_amplitude: 1.5,
-                    crises: vec![Crisis::new(300, 360, 12.0)], // Ice sheet calving event
-                },
-                MetricSpec {
-                    name: "extreme_events_idx",
-                    baseline: 1.0,
-                    trend_per_tick: 0.006,
-                    noise_amplitude: 0.08,
-                    crises: vec![Crisis::new(90, 130, 0.6)],
-                },
-            ],
-        },
-        // ── Epidemic Response ──────────────────────────────────────────────────
-        DomainSpec {
-            entity_id: "epidemics",
-            metrics: vec![
-                MetricSpec {
-                    name: "Rt",
-                    baseline: 2.5,
-                    trend_per_tick: -0.012, // Intervention brings it down
-                    noise_amplitude: 0.15,
-                    crises: vec![
-                        Crisis::new(40, 60, 1.8),   // Policy relaxation surge
-                        Crisis::new(200, 240, 2.2), // New variant emergence
-                        Crisis::new(380, 410, 1.5), // Seasonal wave
-                    ],
-                },
-                MetricSpec {
-                    name: "icu_occupancy_pct",
-                    baseline: 0.82,
-                    trend_per_tick: -0.003,
-                    noise_amplitude: 0.04,
-                    crises: vec![Crisis::new(50, 75, 0.35), Crisis::new(210, 250, 0.40)],
-                },
-                MetricSpec {
-                    name: "daily_cases_per_100k",
-                    baseline: 45.0,
-                    trend_per_tick: -0.18,
-                    noise_amplitude: 3.0,
-                    crises: vec![
-                        Crisis::new(45, 70, 120.0),
-                        Crisis::new(205, 245, 90.0),
-                        Crisis::new(375, 405, 65.0),
-                    ],
-                },
-                MetricSpec {
-                    name: "vax_coverage_pct",
-                    baseline: 0.35,
-                    trend_per_tick: 0.0012,
-                    noise_amplitude: 0.005,
-                    crises: vec![],
-                },
-            ],
-        },
-        // ── Antibiotic Resistance (AMR) ────────────────────────────────────────
-        DomainSpec {
-            entity_id: "antibiotic_res",
-            metrics: vec![
-                MetricSpec {
-                    name: "amr_deaths_per_yr_k",
-                    baseline: 700.0,
-                    trend_per_tick: 0.5,
-                    noise_amplitude: 8.0,
-                    crises: vec![
-                        Crisis::new(120, 150, 80.0), // New resistance strain
-                        Crisis::new(350, 380, 60.0),
-                    ],
-                },
                 MetricSpec {
                     name: "resistance_prevalence_pct",
                     baseline: 0.28,
                     trend_per_tick: 0.0004,
                     noise_amplitude: 0.01,
-                    crises: vec![Crisis::new(120, 155, 0.08)],
+                    crises: vec![
+                        Crisis::new(120, 155, 0.08), // Novel resistance strain emergence
+                        Crisis::new(350, 380, 0.06),
+                    ],
                 },
                 MetricSpec {
-                    name: "new_antibiotic_pipeline",
+                    name: "effective_drug_count",
                     baseline: 8.0,
-                    trend_per_tick: -0.004, // Pipeline drying up
+                    trend_per_tick: -0.004,
                     noise_amplitude: 0.3,
-                    crises: vec![],
+                    crises: vec![Crisis::new(122, 158, -2.5)],
                 },
                 MetricSpec {
-                    name: "antibiotic_consumption_ddd",
-                    baseline: 21.0,
-                    trend_per_tick: 0.01,
-                    noise_amplitude: 0.5,
-                    crises: vec![Crisis::new(45, 65, 4.0)],
-                },
-            ],
-        },
-        // ── Power Grid Stability ───────────────────────────────────────────────
-        DomainSpec {
-            entity_id: "grid_stability",
-            metrics: vec![
-                MetricSpec {
-                    name: "frequency_hz",
-                    baseline: 60.0,
-                    trend_per_tick: 0.0,
-                    noise_amplitude: 0.04,
-                    crises: vec![
-                        Crisis::new(70, 85, 0.6),   // Renewable intermittency spike
-                        Crisis::new(200, 210, 0.8), // Grid fault
-                        Crisis::new(440, 455, 0.5),
-                    ],
-                },
-                MetricSpec {
-                    name: "load_mw",
-                    baseline: 45000.0,
-                    trend_per_tick: 8.0, // Growing demand
-                    noise_amplitude: 500.0,
-                    crises: vec![
-                        Crisis::new(65, 90, 8000.0), // Peak demand event
-                        Crisis::new(195, 215, 6000.0),
-                    ],
-                },
-                MetricSpec {
-                    name: "renewable_fraction",
-                    baseline: 0.28,
-                    trend_per_tick: 0.0005,
-                    noise_amplitude: 0.04, // High variance from wind/solar
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "cascading_risk_idx",
-                    baseline: 0.12,
-                    trend_per_tick: 0.0001,
-                    noise_amplitude: 0.02,
-                    crises: vec![Crisis::new(68, 88, 0.45), Crisis::new(197, 213, 0.55)],
-                },
-            ],
-        },
-        // ── Soil Organic Carbon ────────────────────────────────────────────────
-        DomainSpec {
-            entity_id: "soil_carbon",
-            metrics: vec![
-                MetricSpec {
-                    name: "soc_change_per_mille",
-                    baseline: -1.2,        // Declining
-                    trend_per_tick: 0.006, // Slowly recovering with interventions
-                    noise_amplitude: 0.15,
-                    crises: vec![
-                        Crisis::new(100, 140, -1.8), // Drought-driven loss
-                        Crisis::new(300, 340, -1.2),
-                    ],
-                },
-                MetricSpec {
-                    name: "soil_moisture_pct",
-                    baseline: 0.32,
-                    trend_per_tick: -0.0002,
-                    noise_amplitude: 0.03,
-                    crises: vec![Crisis::new(95, 145, -0.12)],
-                },
-                MetricSpec {
-                    name: "cover_crop_adoption_pct",
-                    baseline: 0.18,
-                    trend_per_tick: 0.0006,
-                    noise_amplitude: 0.01,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "erosion_rate_t_ha_yr",
-                    baseline: 12.0,
-                    trend_per_tick: -0.01,
-                    noise_amplitude: 0.8,
-                    crises: vec![Crisis::new(98, 148, 8.0)],
-                },
-            ],
-        },
-        // ── ICU Sepsis Protocol ────────────────────────────────────────────────
-        DomainSpec {
-            entity_id: "sepsis",
-            metrics: vec![
-                MetricSpec {
-                    name: "mortality_28d_pct",
-                    baseline: 0.27,
-                    trend_per_tick: -0.0002,
+                    name: "treatment_success_rate",
+                    baseline: 0.71,
+                    trend_per_tick: -0.0003,
                     noise_amplitude: 0.015,
-                    crises: vec![
-                        Crisis::new(60, 90, 0.08), // Outbreak + staff shortage
-                        Crisis::new(280, 310, 0.06),
-                    ],
+                    crises: vec![Crisis::new(118, 160, -0.12), Crisis::new(348, 382, -0.08)],
                 },
                 MetricSpec {
-                    name: "time_to_antibiotics_hr",
-                    baseline: 3.2,
-                    trend_per_tick: -0.002,
-                    noise_amplitude: 0.2,
-                    crises: vec![Crisis::new(62, 92, 2.5)],
-                },
-                MetricSpec {
-                    name: "bundle_compliance_pct",
-                    baseline: 0.72,
-                    trend_per_tick: 0.0004,
-                    noise_amplitude: 0.02,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "organ_failure_score",
-                    baseline: 6.5,
-                    trend_per_tick: -0.003,
-                    noise_amplitude: 0.4,
-                    crises: vec![Crisis::new(58, 94, 3.5)],
+                    name: "novel_resistance_rate",
+                    baseline: 0.12,
+                    trend_per_tick: 0.0002,
+                    noise_amplitude: 0.01,
+                    crises: vec![Crisis::new(120, 156, 0.15)],
                 },
             ],
         },
-        // ── HFT Flash Crash Prevention ─────────────────────────────────────────
+        // ── 2. HFT Flash Crash Defense ────────────────────────────────────────────────
+        // Calibrated against CFTC/SEC 2010 report; HFT arms race dynamics
         DomainSpec {
             entity_id: "flash_crash",
             metrics: vec![
                 MetricSpec {
-                    name: "order_book_depth_m",
-                    baseline: 85.0,
-                    trend_per_tick: -0.02,
-                    noise_amplitude: 3.0,
+                    name: "order_book_depth",
+                    baseline: 0.9,
+                    trend_per_tick: -0.00005,
+                    noise_amplitude: 0.03,
                     crises: vec![
-                        Crisis::new(55, 65, -50.0), // Flash crash event
-                        Crisis::new(320, 328, -40.0),
-                        Crisis::new(460, 468, -30.0),
+                        Crisis::new(55, 65, -0.50), // Flash crash event
+                        Crisis::new(320, 328, -0.40),
+                        Crisis::new(460, 468, -0.30),
                     ],
                 },
                 MetricSpec {
                     name: "bid_ask_spread_bps",
-                    baseline: 2.5,
+                    baseline: 0.5,
                     trend_per_tick: 0.002,
-                    noise_amplitude: 0.3,
+                    noise_amplitude: 0.08,
                     crises: vec![Crisis::new(53, 67, 12.0), Crisis::new(318, 330, 9.0)],
                 },
                 MetricSpec {
-                    name: "hft_cancellation_ratio",
-                    baseline: 0.92,
-                    trend_per_tick: 0.0001,
+                    name: "volatility_index",
+                    baseline: 0.15,
+                    trend_per_tick: 0.00002,
                     noise_amplitude: 0.02,
-                    crises: vec![Crisis::new(52, 68, 0.06)],
+                    crises: vec![Crisis::new(50, 70, 0.55), Crisis::new(316, 332, 0.40)],
                 },
                 MetricSpec {
-                    name: "volatility_vix",
-                    baseline: 18.0,
-                    trend_per_tick: 0.02,
-                    noise_amplitude: 1.5,
-                    crises: vec![Crisis::new(50, 70, 35.0), Crisis::new(316, 332, 25.0)],
-                },
-            ],
-        },
-        // ── Nuclear Reactor Safety ─────────────────────────────────────────────
-        DomainSpec {
-            entity_id: "nuclear_safety",
-            metrics: vec![
-                MetricSpec {
-                    name: "safety_margin_pct",
-                    baseline: 0.85,
-                    trend_per_tick: -0.0003, // Aging degradation
-                    noise_amplitude: 0.008,
-                    crises: vec![
-                        Crisis::new(180, 210, -0.18), // Equipment anomaly
-                        Crisis::new(420, 445, -0.12),
-                    ],
-                },
-                MetricSpec {
-                    name: "coolant_temp_c",
-                    baseline: 285.0,
-                    trend_per_tick: 0.02,
-                    noise_amplitude: 0.8,
-                    crises: vec![Crisis::new(182, 212, 18.0), Crisis::new(422, 447, 12.0)],
-                },
-                MetricSpec {
-                    name: "neutron_flux_normalized",
-                    baseline: 1.0,
-                    trend_per_tick: 0.0002,
-                    noise_amplitude: 0.02,
-                    crises: vec![Crisis::new(185, 208, 0.15)],
-                },
-                MetricSpec {
-                    name: "maintenance_backlog_hrs",
-                    baseline: 120.0,
-                    trend_per_tick: 0.4,
-                    noise_amplitude: 5.0,
-                    crises: vec![],
-                },
-            ],
-        },
-        // ── Global Supply Chain Resilience ─────────────────────────────────────
-        DomainSpec {
-            entity_id: "supply_chain",
-            metrics: vec![
-                MetricSpec {
-                    name: "fill_rate_pct",
-                    baseline: 0.97,
-                    trend_per_tick: -0.0002,
+                    name: "cancellation_rate",
+                    baseline: 0.25,
+                    trend_per_tick: 0.00008,
                     noise_amplitude: 0.015,
-                    crises: vec![
-                        Crisis::new(30, 80, -0.25),   // Port disruption
-                        Crisis::new(240, 290, -0.18), // Geopolitical shock
-                        Crisis::new(400, 430, -0.12),
-                    ],
-                },
-                MetricSpec {
-                    name: "lead_time_days",
-                    baseline: 14.0,
-                    trend_per_tick: 0.01,
-                    noise_amplitude: 1.2,
-                    crises: vec![Crisis::new(32, 82, 22.0), Crisis::new(242, 292, 16.0)],
-                },
-                MetricSpec {
-                    name: "inventory_turnover",
-                    baseline: 8.5,
-                    trend_per_tick: -0.004,
-                    noise_amplitude: 0.3,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "supplier_concentration_hhi",
-                    baseline: 0.22,
-                    trend_per_tick: 0.0001,
-                    noise_amplitude: 0.01,
-                    crises: vec![Crisis::new(235, 295, 0.08)],
+                    crises: vec![Crisis::new(52, 68, 0.35)],
                 },
             ],
         },
-        // ── Water Basin Allocation ─────────────────────────────────────────────
+        // ── 3. Adaptive JIT Compiler Optimization ─────────────────────────────────────
+        // Hot path distribution shifts as programs evolve at runtime
         DomainSpec {
-            entity_id: "water_basin",
+            entity_id: "adaptive_jit",
             metrics: vec![
                 MetricSpec {
-                    name: "aquifer_recharge_pct",
-                    baseline: 0.88,
-                    trend_per_tick: -0.0004,
+                    name: "hotpath_coverage_pct",
+                    baseline: 0.62,
+                    trend_per_tick: 0.0004,
                     noise_amplitude: 0.025,
                     crises: vec![
-                        Crisis::new(110, 165, -0.20), // Multi-year drought
-                        Crisis::new(360, 400, -0.15),
+                        Crisis::new(80, 110, -0.18), // Hot path restructure event
+                        Crisis::new(290, 320, -0.14),
                     ],
                 },
                 MetricSpec {
-                    name: "allocation_efficiency_pct",
-                    baseline: 0.71,
+                    name: "generated_code_speedup",
+                    baseline: 3.5,
+                    trend_per_tick: 0.006,
+                    noise_amplitude: 0.3,
+                    crises: vec![Crisis::new(82, 112, -1.2), Crisis::new(292, 322, -0.9)],
+                },
+                MetricSpec {
+                    name: "compilation_overhead_ms",
+                    baseline: 80.0,
+                    trend_per_tick: -0.02,
+                    noise_amplitude: 4.0,
+                    crises: vec![Crisis::new(78, 114, 60.0)], // Pass recompilation storm
+                },
+                MetricSpec {
+                    name: "cache_hit_rate",
+                    baseline: 0.74,
                     trend_per_tick: 0.0003,
                     noise_amplitude: 0.02,
-                    crises: vec![],
+                    crises: vec![Crisis::new(80, 112, -0.22)],
+                },
+            ],
+        },
+        // ── 4. Protein Drug Resistance ────────────────────────────────────────────────
+        // Target protein mutations (HIV protease, BCR-ABL, EGFR) shift binding landscape
+        DomainSpec {
+            entity_id: "protein_drug_resistance",
+            metrics: vec![
+                MetricSpec {
+                    name: "binding_affinity_kcal_mol",
+                    baseline: -6.2,
+                    trend_per_tick: 0.006, // Affinity worsening as target mutates
+                    noise_amplitude: 0.2,
+                    crises: vec![
+                        Crisis::new(100, 135, 1.8), // Resistance mutation acquisition
+                        Crisis::new(310, 345, 1.4),
+                    ],
                 },
                 MetricSpec {
-                    name: "groundwater_depth_m",
-                    baseline: 45.0,
-                    trend_per_tick: 0.08, // Sinking water table
-                    noise_amplitude: 0.8,
-                    crises: vec![Crisis::new(112, 168, 6.0)],
+                    name: "admet_score",
+                    baseline: 0.48,
+                    trend_per_tick: -0.0001,
+                    noise_amplitude: 0.025,
+                    crises: vec![Crisis::new(98, 138, -0.12)],
                 },
                 MetricSpec {
-                    name: "conflict_index",
-                    baseline: 0.15,
+                    name: "resistance_mutation_count",
+                    baseline: 8.0,
+                    trend_per_tick: 0.012,
+                    noise_amplitude: 0.5,
+                    crises: vec![Crisis::new(102, 132, 5.0), Crisis::new(312, 342, 3.5)],
+                },
+                MetricSpec {
+                    name: "active_lead_count",
+                    baseline: 3.0,
+                    trend_per_tick: -0.002,
+                    noise_amplitude: 0.2,
+                    crises: vec![Crisis::new(96, 140, -1.5)],
+                },
+            ],
+        },
+        // ── 5. ICS/SCADA Zero-Day Defense ─────────────────────────────────────────────
+        // Novel attack classes appear suddenly; detection logic must be synthesised
+        DomainSpec {
+            entity_id: "ics_zero_day",
+            metrics: vec![
+                MetricSpec {
+                    name: "detection_rate_pct",
+                    baseline: 0.72,
+                    trend_per_tick: 0.0003,
+                    noise_amplitude: 0.02,
+                    crises: vec![
+                        Crisis::new(60, 95, -0.30), // Novel attack class appears
+                        Crisis::new(280, 315, -0.22),
+                        Crisis::new(430, 460, -0.18),
+                    ],
+                },
+                MetricSpec {
+                    name: "false_positive_rate",
+                    baseline: 0.08,
+                    trend_per_tick: -0.00008,
+                    noise_amplitude: 0.008,
+                    crises: vec![Crisis::new(58, 98, 0.12)],
+                },
+                MetricSpec {
+                    name: "novel_attack_coverage",
+                    baseline: 0.12,
+                    trend_per_tick: 0.0006,
+                    noise_amplitude: 0.015,
+                    crises: vec![Crisis::new(62, 92, -0.08), Crisis::new(282, 312, -0.06)],
+                },
+                MetricSpec {
+                    name: "response_latency_ms",
+                    baseline: 850.0,
+                    trend_per_tick: -0.3,
+                    noise_amplitude: 30.0,
+                    crises: vec![Crisis::new(56, 100, 1200.0)],
+                },
+            ],
+        },
+        // ── 6. Quantum Error Mitigation ────────────────────────────────────────────────
+        // Hardware recalibration events shift noise models; decomposition must adapt
+        DomainSpec {
+            entity_id: "quantum_error_mitigation",
+            metrics: vec![
+                MetricSpec {
+                    name: "logical_error_rate",
+                    baseline: 0.012,
+                    trend_per_tick: -0.000004,
+                    noise_amplitude: 0.0008,
+                    crises: vec![
+                        Crisis::new(90, 115, 0.008), // Hardware drift / recalibration
+                        Crisis::new(300, 325, 0.006),
+                        Crisis::new(440, 465, 0.005),
+                    ],
+                },
+                MetricSpec {
+                    name: "circuit_depth",
+                    baseline: 280.0,
+                    trend_per_tick: -0.12,
+                    noise_amplitude: 8.0,
+                    crises: vec![Crisis::new(88, 118, 80.0)],
+                },
+                MetricSpec {
+                    name: "t_gate_count",
+                    baseline: 145.0,
+                    trend_per_tick: -0.06,
+                    noise_amplitude: 5.0,
+                    crises: vec![Crisis::new(86, 120, 40.0)],
+                },
+                MetricSpec {
+                    name: "qubit_fidelity",
+                    baseline: 0.991,
+                    trend_per_tick: 0.00002,
+                    noise_amplitude: 0.001,
+                    crises: vec![Crisis::new(92, 116, -0.006), Crisis::new(302, 326, -0.004)],
+                },
+            ],
+        },
+        // ── 7. Climate Intervention Sequencing ────────────────────────────────────────
+        // System coupling coefficients shift after each deployed intervention
+        DomainSpec {
+            entity_id: "climate_intervention",
+            metrics: vec![
+                MetricSpec {
+                    name: "intervention_efficacy",
+                    baseline: 0.28,
+                    trend_per_tick: 0.0004,
+                    noise_amplitude: 0.025,
+                    crises: vec![
+                        Crisis::new(110, 150, -0.15), // Prior intervention side-effects
+                        Crisis::new(330, 370, -0.10),
+                    ],
+                },
+                MetricSpec {
+                    name: "tipping_point_risk",
+                    baseline: 0.42,
+                    trend_per_tick: 0.0003,
+                    noise_amplitude: 0.02,
+                    crises: vec![Crisis::new(108, 154, 0.18), Crisis::new(328, 374, 0.12)],
+                },
+                MetricSpec {
+                    name: "co2_trajectory_delta",
+                    baseline: 2.5,
+                    trend_per_tick: -0.004,
+                    noise_amplitude: 0.3,
+                    crises: vec![Crisis::new(112, 148, 4.0)],
+                },
+                MetricSpec {
+                    name: "system_resilience",
+                    baseline: 0.51,
                     trend_per_tick: 0.0002,
                     noise_amplitude: 0.02,
-                    crises: vec![Crisis::new(115, 170, 0.35)],
-                },
-            ],
-        },
-        // ── Urban Heat Island Mitigation ───────────────────────────────────────
-        DomainSpec {
-            entity_id: "urban_heat",
-            metrics: vec![
-                MetricSpec {
-                    name: "urban_rural_delta_c",
-                    baseline: 2.8,
-                    trend_per_tick: 0.003,
-                    noise_amplitude: 0.08,
-                    crises: vec![
-                        Crisis::new(160, 200, 1.2), // Extreme heat summer
-                        Crisis::new(385, 420, 0.9),
-                    ],
-                },
-                MetricSpec {
-                    name: "green_cover_pct",
-                    baseline: 0.18,
-                    trend_per_tick: -0.0001, // Urban sprawl
-                    noise_amplitude: 0.008,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "albedo_idx",
-                    baseline: 0.15,
-                    trend_per_tick: 0.0001,
-                    noise_amplitude: 0.005,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "heat_mortality_per_100k",
-                    baseline: 1.8,
-                    trend_per_tick: 0.003,
-                    noise_amplitude: 0.15,
-                    crises: vec![Crisis::new(162, 202, 3.5), Crisis::new(387, 422, 2.8)],
-                },
-            ],
-        },
-        // ── Ocean Acidification ────────────────────────────────────────────────
-        // Calibrated against IPCC SROCC; surface pH ~8.05 today, declining ~0.002/decade
-        DomainSpec {
-            entity_id: "ocean_acidification",
-            metrics: vec![
-                MetricSpec {
-                    name: "ocean_ph",
-                    baseline: 8.05,
-                    trend_per_tick: -0.00004, // ~0.002 pH/decade over 500 ticks
-                    noise_amplitude: 0.004,
-                    crises: vec![
-                        Crisis::new(200, 240, -0.08), // El Niño upwelling pulse
-                        Crisis::new(390, 420, -0.05), // Industrial emissions surge
-                    ],
-                },
-                MetricSpec {
-                    name: "aragonite_saturation",
-                    baseline: 2.1,
-                    trend_per_tick: -0.00008,
-                    noise_amplitude: 0.03,
-                    crises: vec![Crisis::new(200, 240, -0.4), Crisis::new(390, 420, -0.25)],
-                },
-                MetricSpec {
-                    name: "coral_cover_fraction",
-                    baseline: 0.28,
-                    trend_per_tick: -0.0002,
-                    noise_amplitude: 0.008,
-                    crises: vec![
-                        Crisis::new(100, 140, -0.12), // Mass bleaching event
-                        Crisis::new(310, 350, -0.08),
-                    ],
-                },
-                MetricSpec {
-                    name: "dissolved_co2_umol",
-                    baseline: 420.0,
-                    trend_per_tick: 0.08,
-                    noise_amplitude: 4.0,
-                    crises: vec![Crisis::new(280, 320, 30.0)],
-                },
-            ],
-        },
-        // ── Neurodegeneration (Alzheimer's) ───────────────────────────────────
-        // Calibrated against ADNI longitudinal data; ~6M US patients
-        DomainSpec {
-            entity_id: "neurodegeneration",
-            metrics: vec![
-                MetricSpec {
-                    name: "mmse_score",
-                    baseline: 24.0, // Mild cognitive impairment threshold ~24/30
-                    trend_per_tick: -0.008, // ~3 pts/yr decline in MCI→AD
-                    noise_amplitude: 0.4,
-                    crises: vec![
-                        Crisis::new(150, 180, -2.5), // Rapid progression episode
-                        Crisis::new(380, 410, -1.8),
-                    ],
-                },
-                MetricSpec {
-                    name: "amyloid_burden_centiloid",
-                    baseline: 45.0, // Centiloid units; >25 = positive
-                    trend_per_tick: 0.12,
-                    noise_amplitude: 2.0,
-                    crises: vec![Crisis::new(148, 182, 18.0)],
-                },
-                MetricSpec {
-                    name: "tau_csf_pg_ml",
-                    baseline: 280.0, // Elevated p-tau181 (>217 pg/mL is positive)
-                    trend_per_tick: 0.6,
-                    noise_amplitude: 15.0,
-                    crises: vec![Crisis::new(152, 185, 120.0)],
-                },
-                MetricSpec {
-                    name: "caregiver_burden_zarit",
-                    baseline: 28.0, // Zarit Burden Interview (0–88; >24 = moderate)
-                    trend_per_tick: 0.04,
-                    noise_amplitude: 1.5,
-                    crises: vec![Crisis::new(155, 188, 12.0), Crisis::new(382, 412, 8.0)],
-                },
-            ],
-        },
-        // ── Wildfire Management ────────────────────────────────────────────────
-        // Calibrated against NIFC historical data and IPCC AR6 Chapter 12
-        DomainSpec {
-            entity_id: "wildfire_management",
-            metrics: vec![
-                MetricSpec {
-                    name: "fire_weather_index",
-                    baseline: 18.0,
-                    trend_per_tick: 0.012,
-                    noise_amplitude: 1.5,
-                    crises: vec![
-                        Crisis::new(130, 175, 35.0), // Peak fire season
-                        Crisis::new(340, 380, 28.0),
-                        Crisis::new(460, 490, 20.0),
-                    ],
-                },
-                MetricSpec {
-                    name: "area_burned_kha",
-                    baseline: 2.0,
-                    trend_per_tick: 0.004,
-                    noise_amplitude: 0.8,
-                    crises: vec![Crisis::new(132, 178, 15.0), Crisis::new(342, 382, 10.0)],
-                },
-                MetricSpec {
-                    name: "suppression_cost_m_usd",
-                    baseline: 85.0,
-                    trend_per_tick: 0.1,
-                    noise_amplitude: 6.0,
-                    crises: vec![Crisis::new(133, 180, 250.0), Crisis::new(343, 385, 180.0)],
-                },
-                MetricSpec {
-                    name: "detection_to_response_hr",
-                    baseline: 1.4,
-                    trend_per_tick: -0.001, // Improving detection tech
-                    noise_amplitude: 0.1,
-                    crises: vec![Crisis::new(135, 177, 0.8)], // Multi-fire overload
-                },
-            ],
-        },
-        // ── Global Food Security ───────────────────────────────────────────────
-        // Calibrated against FAO SOFI 2023; ~733M undernourished globally
-        DomainSpec {
-            entity_id: "food_security",
-            metrics: vec![
-                MetricSpec {
-                    name: "undernourished_pct",
-                    baseline: 0.091, // 9.1% global prevalence
-                    trend_per_tick: 0.00008,
-                    noise_amplitude: 0.003,
-                    crises: vec![
-                        Crisis::new(50, 90, 0.025),   // Conflict-driven famine
-                        Crisis::new(260, 300, 0.018), // Drought crop failure
-                    ],
-                },
-                MetricSpec {
-                    name: "cereal_yield_t_ha",
-                    baseline: 3.9,
-                    trend_per_tick: 0.0008,
-                    noise_amplitude: 0.08,
-                    crises: vec![Crisis::new(255, 305, -0.6), Crisis::new(420, 455, -0.4)],
-                },
-                MetricSpec {
-                    name: "food_price_index",
-                    baseline: 118.0, // FAO FPI base; ~118 in 2023
-                    trend_per_tick: 0.04,
-                    noise_amplitude: 2.5,
-                    crises: vec![Crisis::new(48, 92, 45.0), Crisis::new(258, 302, 30.0)],
-                },
-                MetricSpec {
-                    name: "import_dependency_pct",
-                    baseline: 0.28,
-                    trend_per_tick: 0.00005,
-                    noise_amplitude: 0.01,
-                    crises: vec![Crisis::new(52, 88, 0.08)],
-                },
-            ],
-        },
-        // ── Glacier Retreat ────────────────────────────────────────────────────
-        // Calibrated against WGMS reference glaciers and IPCC AR6; ~267 Gt/yr loss
-        DomainSpec {
-            entity_id: "glacier_retreat",
-            metrics: vec![
-                MetricSpec {
-                    name: "mass_balance_gt_yr",
-                    baseline: -267.0,     // Negative = net loss
-                    trend_per_tick: -0.2, // Accelerating loss
-                    noise_amplitude: 12.0,
-                    crises: vec![
-                        Crisis::new(170, 210, -80.0), // Anomalous melt year
-                        Crisis::new(400, 435, -60.0),
-                    ],
-                },
-                MetricSpec {
-                    name: "equilibrium_line_altitude_m",
-                    baseline: 3200.0,
-                    trend_per_tick: 0.5, // ELA rising ~5m/yr
-                    noise_amplitude: 15.0,
-                    crises: vec![Crisis::new(172, 212, 120.0)],
-                },
-                MetricSpec {
-                    name: "runoff_contribution_mm",
-                    baseline: 1.2,
-                    trend_per_tick: 0.002,
-                    noise_amplitude: 0.08,
-                    crises: vec![Crisis::new(175, 215, 0.9)],
-                },
-                MetricSpec {
-                    name: "glacier_area_km2_loss_pct",
-                    baseline: 0.006, // ~0.6% area loss per year
-                    trend_per_tick: 0.000004,
-                    noise_amplitude: 0.0005,
-                    crises: vec![Crisis::new(173, 213, 0.004)],
-                },
-            ],
-        },
-        // ── Sovereign Debt Sustainability ──────────────────────────────────────
-        // Calibrated against IMF Fiscal Monitor 2023; median EM debt ~65% GDP
-        DomainSpec {
-            entity_id: "sovereign_debt",
-            metrics: vec![
-                MetricSpec {
-                    name: "debt_to_gdp_pct",
-                    baseline: 0.65,
-                    trend_per_tick: 0.0003,
-                    noise_amplitude: 0.008,
-                    crises: vec![
-                        Crisis::new(60, 100, 0.12),  // Recession spike
-                        Crisis::new(290, 330, 0.09), // External shock
-                    ],
-                },
-                MetricSpec {
-                    name: "interest_to_revenue_pct",
-                    baseline: 0.11,
-                    trend_per_tick: 0.00008,
-                    noise_amplitude: 0.004,
-                    crises: vec![Crisis::new(58, 102, 0.06), Crisis::new(288, 332, 0.04)],
-                },
-                MetricSpec {
-                    name: "sovereign_cds_bps",
-                    baseline: 180.0,
-                    trend_per_tick: 0.06,
-                    noise_amplitude: 12.0,
-                    crises: vec![Crisis::new(55, 105, 280.0), Crisis::new(285, 335, 200.0)],
-                },
-                MetricSpec {
-                    name: "current_account_pct_gdp",
-                    baseline: -0.035, // Moderate deficit
-                    trend_per_tick: -0.00004,
-                    noise_amplitude: 0.005,
-                    crises: vec![Crisis::new(62, 98, -0.04)],
-                },
-            ],
-        },
-        // ── Biodiversity Collapse ──────────────────────────────────────────────
-        // Calibrated against WWF Living Planet Index and IPBES 2019 report
-        DomainSpec {
-            entity_id: "biodiversity_collapse",
-            metrics: vec![
-                MetricSpec {
-                    name: "living_planet_index",
-                    baseline: 0.68, // LPI = 1.0 in 1970; ~0.68 by 2020
-                    trend_per_tick: -0.0003,
-                    noise_amplitude: 0.008,
-                    crises: vec![
-                        Crisis::new(80, 130, -0.06), // Deforestation pulse
-                        Crisis::new(330, 370, -0.04),
-                    ],
-                },
-                MetricSpec {
-                    name: "extinction_rate_per_myr",
-                    baseline: 100.0, // ~100-1000× background rate
-                    trend_per_tick: 0.08,
-                    noise_amplitude: 4.0,
-                    crises: vec![Crisis::new(82, 132, 80.0), Crisis::new(332, 372, 55.0)],
-                },
-                MetricSpec {
-                    name: "protected_area_pct",
-                    baseline: 0.165, // Kunming-Montreal target: 30%
-                    trend_per_tick: 0.00008,
-                    noise_amplitude: 0.003,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "habitat_fragmentation_idx",
-                    baseline: 0.52,
-                    trend_per_tick: 0.0001,
-                    noise_amplitude: 0.015,
-                    crises: vec![Crisis::new(85, 128, 0.08)],
-                },
-            ],
-        },
-        // ── Mental Health Burden ───────────────────────────────────────────────
-        // Calibrated against WHO Atlas 2022 and GBD 2019 mental disorders estimates
-        DomainSpec {
-            entity_id: "mental_health_burden",
-            metrics: vec![
-                MetricSpec {
-                    name: "treatment_gap_pct",
-                    baseline: 0.76, // 76% of people with MH conditions receive no treatment
-                    trend_per_tick: -0.0002,
-                    noise_amplitude: 0.01,
-                    crises: vec![
-                        Crisis::new(30, 70, 0.06), // Mass-trauma event (conflict, disaster)
-                        Crisis::new(250, 290, 0.04),
-                    ],
-                },
-                MetricSpec {
-                    name: "daly_per_100k",
-                    baseline: 1580.0, // GBD 2019: ~1580 DALYs/100k from mental disorders
-                    trend_per_tick: 0.4,
-                    noise_amplitude: 20.0,
-                    crises: vec![Crisis::new(28, 72, 180.0), Crisis::new(248, 292, 120.0)],
-                },
-                MetricSpec {
-                    name: "psychiatrist_per_100k",
-                    baseline: 1.2, // Global median; LMICs often <0.1
-                    trend_per_tick: 0.0004,
-                    noise_amplitude: 0.04,
-                    crises: vec![],
-                },
-                MetricSpec {
-                    name: "youth_prevalence_pct",
-                    baseline: 0.134, // ~13.4% of 10-19 yr-olds
-                    trend_per_tick: 0.00008,
-                    noise_amplitude: 0.004,
-                    crises: vec![Crisis::new(32, 68, 0.04), Crisis::new(252, 288, 0.025)],
-                },
-            ],
-        },
-        // ── Urban Flooding ─────────────────────────────────────────────────────
-        // Calibrated against IPCC AR6 Chapter 11 and Sendai Framework targets
-        DomainSpec {
-            entity_id: "urban_flooding",
-            metrics: vec![
-                MetricSpec {
-                    name: "annual_flood_losses_bn_usd",
-                    baseline: 82.0, // IPCC AR6: ~$82B avg annual losses
-                    trend_per_tick: 0.12,
-                    noise_amplitude: 8.0,
-                    crises: vec![
-                        Crisis::new(90, 130, 150.0), // 1-in-100-yr flood event
-                        Crisis::new(380, 415, 110.0),
-                    ],
-                },
-                MetricSpec {
-                    name: "exposed_pop_pct",
-                    baseline: 0.19,          // ~19% urban population in flood zones
-                    trend_per_tick: 0.00008, // Urban expansion into floodplains
-                    noise_amplitude: 0.005,
-                    crises: vec![Crisis::new(92, 132, 0.04)],
-                },
-                MetricSpec {
-                    name: "drainage_capacity_mm_hr",
-                    baseline: 35.0, // Design capacity; aging infrastructure
-                    trend_per_tick: -0.01,
-                    noise_amplitude: 0.8,
-                    crises: vec![Crisis::new(88, 134, -12.0)], // Infrastructure failure
-                },
-                MetricSpec {
-                    name: "early_warning_lead_hr",
-                    baseline: 6.5,
-                    trend_per_tick: 0.008, // Improving forecast skill
-                    noise_amplitude: 0.4,
-                    crises: vec![Crisis::new(91, 129, -3.0)], // Flash flood (no lead time)
+                    crises: vec![Crisis::new(106, 156, -0.12), Crisis::new(326, 376, -0.08)],
                 },
             ],
         },
@@ -893,7 +395,7 @@ fn all_domain_specs() -> Vec<DomainSpec> {
 
 // ── SignalSimulator ────────────────────────────────────────────────────────────
 
-/// Generates realistic domain-specific signals for all 20 BIOISO entities.
+/// Generates realistic domain-specific signals for all 7 curated BIOISO-class entities.
 ///
 /// The simulator is deterministic given a seed. Call [`tick`] once per
 /// orchestrator tick to get the signals to inject into the signal store.
@@ -965,11 +467,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simulator_produces_signals_for_all_20_entities() {
+    fn simulator_produces_signals_for_all_7_entities() {
         let mut sim = SignalSimulator::new(42);
         let signals = sim.tick(0, 1_000_000);
-        // 20 entities × 4 metrics each
-        assert_eq!(signals.len(), 80);
+        // 7 BIOISO-class entities × 4 metrics each
+        assert_eq!(signals.len(), 28);
     }
 
     #[test]
@@ -988,56 +490,56 @@ mod tests {
 
     #[test]
     fn crisis_windows_produce_elevated_values() {
-        let mut sim = SignalSimulator::new(0);
-        // Climate CO₂ crisis at ticks 80-110 — expect elevated co2_ppm
-        let normal = sim.tick(0, 1_000);
-        let mut sim2 = SignalSimulator::new(0);
-        // Tick through to crisis zone (must preserve rng state — use same seed for comparison)
+        // AMR novel resistance crisis at ticks 120-155 — expect elevated resistance_prevalence
+        let normal = SignalSimulator::new(0).tick(0, 1_000);
         let crisis = {
             let mut s = SignalSimulator::new(0);
-            // advance rng to tick 90 by calling tick 0..89
-            for t in 0..90u64 {
+            for t in 0..130u64 {
                 s.tick(t, t * 1000);
             }
-            s.tick(90, 90_000)
+            s.tick(130, 130_000)
         };
-        let normal_co2 = normal
+        let normal_val = normal
             .iter()
-            .find(|s| s.entity_id == "climate" && s.metric == "co2_ppm")
+            .find(|s| s.entity_id == "amr_coevolution" && s.metric == "resistance_prevalence_pct")
             .unwrap()
             .value;
-        let crisis_co2 = crisis
+        let crisis_val = crisis
             .iter()
-            .find(|s| s.entity_id == "climate" && s.metric == "co2_ppm")
+            .find(|s| s.entity_id == "amr_coevolution" && s.metric == "resistance_prevalence_pct")
             .unwrap()
             .value;
-        // Crisis co2 should be higher: baseline + trend(90) + crisis_spike >> baseline at tick 0
+        // Crisis resistance prevalence should be higher than baseline
         assert!(
-            crisis_co2 > normal_co2 + 5.0,
-            "crisis={crisis_co2:.2} normal={normal_co2:.2}"
+            crisis_val > normal_val,
+            "crisis={crisis_val:.4} should exceed normal={normal_val:.4}"
         );
     }
 
     #[test]
     fn filter_restricts_to_subset() {
-        let mut sim =
-            SignalSimulator::new(1).with_filter(vec!["climate".to_string(), "sepsis".to_string()]);
+        let mut sim = SignalSimulator::new(1).with_filter(vec![
+            "amr_coevolution".to_string(),
+            "flash_crash".to_string(),
+        ]);
         let signals = sim.tick(0, 1_000);
         assert_eq!(signals.len(), 8); // 2 entities × 4 metrics
         assert!(signals
             .iter()
-            .all(|s| s.entity_id == "climate" || s.entity_id == "sepsis"));
+            .all(|s| s.entity_id == "amr_coevolution" || s.entity_id == "flash_crash"));
     }
 
     #[test]
     fn trend_increases_over_time() {
         let mut sim = SignalSimulator::new(7);
-        // Co2 must trend up: tick 0 vs tick 400 (average over noise)
+        // AMR resistance prevalence must trend up over time
         let early: f64 = (0..5u64)
             .map(|t| {
                 sim.tick(t, t * 1000)
                     .into_iter()
-                    .find(|s| s.entity_id == "climate" && s.metric == "co2_ppm")
+                    .find(|s| {
+                        s.entity_id == "amr_coevolution" && s.metric == "resistance_prevalence_pct"
+                    })
                     .unwrap()
                     .value
             })
@@ -1047,18 +549,23 @@ mod tests {
         let mut sim2 = SignalSimulator::new(7);
         for t in 0..400u64 {
             sim2.tick(t, t * 1000);
-        } // advance
+        }
         let late: f64 = (400..405u64)
             .map(|t| {
                 sim2.tick(t, t * 1000)
                     .into_iter()
-                    .find(|s| s.entity_id == "climate" && s.metric == "co2_ppm")
+                    .find(|s| {
+                        s.entity_id == "amr_coevolution" && s.metric == "resistance_prevalence_pct"
+                    })
                     .unwrap()
                     .value
             })
             .sum::<f64>()
             / 5.0;
 
-        assert!(late > early + 20.0, "late={late:.2} early={early:.2}");
+        assert!(
+            late > early,
+            "late={late:.4} should exceed early={early:.4}"
+        );
     }
 }

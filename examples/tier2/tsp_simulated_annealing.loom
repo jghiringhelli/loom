@@ -1,0 +1,160 @@
+-- examples/tier2/tsp_simulated_annealing.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 2 — Meta-heuristic: Simulated Annealing for the Travelling
+-- Salesman Problem.
+--
+-- TSP is NP-hard. Simulated Annealing (Kirkpatrick et al., 1983)
+-- is the canonical meta-heuristic: a stochastic local search that
+-- accepts uphill moves with probability exp(-Δ/T), where T decays
+-- geometrically. The 2-opt neighbourhood operator swaps two edges
+-- in the tour.
+--
+-- Key distinction from Tier 1: the strategy *adapts* (temperature
+-- schedule controls exploration vs. exploitation), but the
+-- architecture is fixed — the neighbourhood operator, acceptance
+-- criterion, and cooling schedule are all pre-specified.
+--
+-- The `evolve: simulated_annealing` block is the tier boundary.
+-- Adding it to a Tier 1 `being:` promotes it to Tier 2.
+--
+-- Compile:  loom compile examples/tier2/tsp_simulated_annealing.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module TSPSimulatedAnnealing
+describe: "Travelling Salesman Problem solver via Simulated Annealing with 2-opt neighbourhood"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type City =
+  id: Int
+  x:  Float<km>
+  y:  Float<km>
+end
+
+type Tour =
+  cities:       [City]
+  total_length: Float<km>
+end
+
+type SAConfig =
+  initial_temperature: Float
+  cooling_rate:        Float   -- in (0.0, 1.0)
+  min_temperature:     Float
+  iterations_per_temp: Int
+end
+
+type SAResult =
+  best_tour:        Tour
+  iterations:       Int
+  improvements:     Int
+  final_temperature: Float
+end
+
+-- ── Neighbourhood and evaluation ───────────────────────────────────
+
+-- Euclidean distance between two cities.
+fn distance :: City -> City -> Float<km>
+  require: true
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Total tour length: sum of consecutive city distances (including return).
+fn tour_length :: [City] -> Float<km>
+  require: cities.len() >= 2
+  ensure:  result > 0.0
+  Float
+end
+
+-- 2-opt swap: reverse the sub-tour between indices i and j.
+-- Delta in tour length can be computed in O(1) using edge differences.
+fn two_opt_swap :: Tour -> Int -> Int -> Tour
+  require: i >= 0 && j < tour.cities.len() && i < j
+  ensure:  result.cities.len() == tour.cities.len()
+  Tour
+end
+
+-- Acceptance probability: 1.0 if improvement, exp(-delta/T) otherwise.
+fn acceptance_probability :: Float -> Float -> Float
+  require: temperature > 0.0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- ── Core SA solver ─────────────────────────────────────────────────
+
+fn solve_sa :: [City] -> SAConfig -> Effect<[IO], SAResult>
+  require: cities.len() >= 3
+  require: config.cooling_rate > 0.0 && config.cooling_rate < 1.0
+  require: config.initial_temperature > config.min_temperature
+  require: config.iterations_per_temp > 0
+  ensure:  result.best_tour.cities.len() == cities.len()
+  ensure:  result.best_tour.total_length > 0.0
+  SAResult
+end
+
+-- Nearest-neighbour construction heuristic for initial tour.
+fn nearest_neighbour_tour :: [City] -> Tour
+  require: cities.len() >= 2
+  ensure:  result.cities.len() == cities.len()
+  Tour
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 2: telos + evolve: simulated_annealing.
+-- The convergence constraint is machine-readable: expected tour
+-- length must be non-increasing over the run.
+
+being TSPSolver
+describe: "TSP Solver — Tier 2 meta-heuristic via Simulated Annealing with 2-opt"
+
+matter:
+  cities:      [City]
+  best_tour:   Tour
+  temperature: Float
+  iteration:   Int
+end
+
+function:
+  fn solve :: [City] -> Effect<[IO], SAResult>
+    require: cities.len() >= 3
+    ensure:  result.best_tour.total_length > 0.0
+  end
+end
+
+evolve: simulated_annealing
+  temperature:  1000.0
+  cooling_rate: 0.995
+  constraint:   E[tour_length] is non_increasing
+end
+
+telos: "minimise total tour distance across all cities within a bounded number of iterations"
+end
+
+end -- being TSPSolver
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test nearest_neighbour_covers_all_cities ::
+  let cities = [
+    City { id: 0, x: 0.0, y: 0.0 },
+    City { id: 1, x: 1.0, y: 0.0 },
+    City { id: 2, x: 1.0, y: 1.0 },
+    City { id: 3, x: 0.0, y: 1.0 }
+  ] in
+  let tour = nearest_neighbour_tour(cities) in
+  tour.cities.len() == 4
+
+test two_opt_preserves_city_count ::
+  let cities = [
+    City { id: 0, x: 0.0, y: 0.0 },
+    City { id: 1, x: 2.0, y: 0.0 },
+    City { id: 2, x: 1.0, y: 1.0 }
+  ] in
+  let tour = Tour { cities: cities, total_length: 0.0 } in
+  let swapped = two_opt_swap(tour, 0, 2) in
+  swapped.cities.len() == 3
+
+test acceptance_probability_is_one_for_improvement ::
+  -- negative delta (improvement) should always be accepted
+  acceptance_probability(-5.0, 100.0) == 1.0

@@ -1,0 +1,125 @@
+-- examples/tier1/greedy_job_scheduler.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 1 — Heuristic: Shortest Processing Time (SPT) job dispatch.
+--
+-- SPT is optimal for minimising total completion time on a single
+-- machine (Smith, 1956). It is a fixed decision rule — no search,
+-- no adaptation, no feedback from outcomes to strategy.
+--
+-- This is the baseline of the Loom optimization taxonomy. A `being:`
+-- with only `telos:` and `function:` is a Tier 1 entity. The same
+-- primitive, with `evolve:` added, becomes Tier 2.
+--
+-- Compile:  loom compile examples/tier1/greedy_job_scheduler.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module GreedyJobScheduler
+describe: "Single-machine job scheduling via Shortest Processing Time dispatch rule"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Job =
+  id:              Int
+  processing_time: Float<seconds>
+  weight:          Float        -- priority weight for weighted completion
+end
+
+type ScheduledJob =
+  job:             Job
+  start_time:      Float<seconds>
+  completion_time: Float<seconds>
+end
+
+type Schedule =
+  jobs:                    [ScheduledJob]
+  makespan:                Float<seconds>
+  total_completion_time:   Float<seconds>
+  weighted_completion_time: Float<seconds>
+end
+
+-- ── Core scheduling function ────────────────────────────────────────
+
+-- SPT rule: sort by processing time ascending, schedule sequentially.
+-- Optimal for minimising total (weighted) completion time (Smith, 1956).
+fn schedule_spt :: [Job] -> Schedule
+  require: jobs.len() > 0
+  require: jobs.all(|j| j.processing_time > 0.0)
+  ensure:  result.jobs.len() == jobs.len()
+  ensure:  result.makespan >= 0.0
+  ensure:  result.total_completion_time >= result.makespan
+  Schedule
+end
+
+-- Earliest Deadline First: sort by deadline ascending.
+-- Optimal for minimising maximum lateness (Horn, 1972).
+fn schedule_edd :: [Job] -> Schedule
+  require: jobs.len() > 0
+  ensure:  result.jobs.len() == jobs.len()
+  Schedule
+end
+
+-- Longest Processing Time: for parallel machine load balancing.
+fn schedule_lpt :: [Job] -> Schedule
+  require: jobs.len() > 0
+  ensure:  result.jobs.len() == jobs.len()
+  Schedule
+end
+
+-- ── Evaluation ─────────────────────────────────────────────────────
+
+fn makespan :: Schedule -> Float<seconds>
+  require: sched.jobs.len() > 0
+  ensure:  result >= 0.0
+  Float
+end
+
+fn total_completion_time :: Schedule -> Float<seconds>
+  require: sched.jobs.len() > 0
+  ensure:  result >= 0.0
+  Float
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 1: telos + function only. No evolve:, no plasticity:, no
+-- telomere:. This is a deterministic, non-adaptive entity.
+
+being SPTScheduler
+describe: "Shortest Processing Time scheduler — Tier 1 heuristic baseline"
+
+matter:
+  job_queue:   [Job]
+  clock:       Float<seconds>
+end
+
+function:
+  fn dispatch :: [Job] -> Schedule
+    require: jobs.len() > 0
+    ensure:  result.makespan >= 0.0
+  end
+end
+
+telos: "minimise total completion time via shortest-processing-time dispatch"
+end
+
+end -- being SPTScheduler
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test spt_orders_by_processing_time ::
+  let jobs = [
+    Job { id: 1, processing_time: 3.0, weight: 1.0 },
+    Job { id: 2, processing_time: 1.0, weight: 1.0 },
+    Job { id: 3, processing_time: 2.0, weight: 1.0 }
+  ] in
+  let sched = schedule_spt(jobs) in
+  -- First scheduled job should be the shortest (id: 2)
+  sched.jobs[0].job.id == 2
+
+test total_completion_time_is_sum_of_completions ::
+  let jobs = [
+    Job { id: 1, processing_time: 2.0, weight: 1.0 },
+    Job { id: 2, processing_time: 3.0, weight: 1.0 }
+  ] in
+  let sched = schedule_spt(jobs) in
+  -- SPT: job1 completes at 2, job2 completes at 5 → total = 7
+  sched.total_completion_time == 7.0

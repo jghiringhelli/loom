@@ -1,0 +1,122 @@
+-- examples/tier1/ffd_bin_packer.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 1 — Heuristic: First Fit Decreasing (FFD) bin packing.
+--
+-- Bin packing is NP-hard; FFD is a 11/9 OPT + 6/9 approximation
+-- (Johnson & Garey, 1985). It is a construction heuristic — items
+-- are sorted descending by size, then placed in the first bin with
+-- sufficient remaining capacity. No backtracking, no search.
+--
+-- FFD illustrates the power ceiling of Tier 1: provably near-optimal
+-- on many instances, yet fundamentally unable to improve its own
+-- strategy when faced with adversarial item distributions.
+--
+-- Compile:  loom compile examples/tier1/ffd_bin_packer.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module FFDBinPacker
+describe: "First Fit Decreasing bin packing — Tier 1 heuristic with 11/9 OPT approximation"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Item =
+  id:   Int
+  size: Float   -- fraction of bin capacity in (0.0, 1.0]
+end
+
+type Bin =
+  id:        Int
+  items:     [Item]
+  used:      Float  -- sum of item sizes
+  remaining: Float  -- 1.0 - used
+end
+
+type PackingResult =
+  bins:          [Bin]
+  bin_count:     Int
+  total_waste:   Float
+  utilisation:   Float  -- average fill fraction
+end
+
+-- ── Core algorithm ─────────────────────────────────────────────────
+
+-- First Fit Decreasing: sort items descending, place each in the
+-- first bin with sufficient remaining capacity. Open a new bin if none.
+fn pack_ffd :: [Item] -> Float -> PackingResult
+  require: items.len() > 0
+  require: capacity > 0.0
+  require: items.all(|i| i.size > 0.0 && i.size <= capacity)
+  ensure:  result.bin_count >= 1
+  ensure:  result.utilisation >= 0.0 && result.utilisation <= 1.0
+  ensure:  result.total_waste >= 0.0
+  PackingResult
+end
+
+-- First Fit (not decreasing) — weaker approximation for comparison.
+fn pack_ff :: [Item] -> Float -> PackingResult
+  require: items.len() > 0
+  require: capacity > 0.0
+  ensure:  result.bin_count >= 1
+  PackingResult
+end
+
+-- Best Fit Decreasing — alternative construction heuristic.
+fn pack_bfd :: [Item] -> Float -> PackingResult
+  require: items.len() > 0
+  require: capacity > 0.0
+  ensure:  result.bin_count >= 1
+  PackingResult
+end
+
+-- Lower bound: ceil(sum of item sizes / bin capacity).
+fn lower_bound :: [Item] -> Float -> Int
+  require: items.len() > 0
+  require: capacity > 0.0
+  ensure:  result >= 1
+  Int
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+
+being FFDPacker
+describe: "First Fit Decreasing bin packer — Tier 1 heuristic, 11/9 OPT approximation guarantee"
+
+matter:
+  bin_capacity: Float
+  items:        [Item]
+end
+
+function:
+  fn pack :: [Item] -> PackingResult
+    require: items.len() > 0
+    ensure:  result.bin_count >= lower_bound(items, bin_capacity)
+  end
+end
+
+telos: "minimise number of bins used to pack all items within capacity constraints"
+end
+
+end -- being FFDPacker
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test ffd_sorts_descending_before_packing ::
+  let items = [
+    Item { id: 1, size: 0.2 },
+    Item { id: 2, size: 0.8 },
+    Item { id: 3, size: 0.5 }
+  ] in
+  let result = pack_ffd(items, 1.0) in
+  -- Item 2 (0.8) must be placed first → fits alone in bin 1
+  -- Item 3 (0.5) goes to bin 2, item 1 (0.2) fits in bin 2
+  result.bin_count == 2
+
+test utilisation_is_bounded ::
+  let items = [Item { id: 1, size: 0.5 }, Item { id: 2, size: 0.5 }] in
+  let result = pack_ffd(items, 1.0) in
+  result.utilisation >= 0.0 && result.utilisation <= 1.0
+
+test single_item_requires_one_bin ::
+  let items = [Item { id: 1, size: 0.3 }] in
+  let result = pack_ffd(items, 1.0) in
+  result.bin_count == 1

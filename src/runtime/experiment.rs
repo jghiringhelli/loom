@@ -14,7 +14,7 @@
 //! │  ExperimentDriver.run_ticks(N)                      │
 //! │                                                     │
 //! │  for each tick:                                     │
-//! │    1. SignalSimulator → inject 44 signals           │
+//! │    1. SignalSimulator → inject 28 signals           │
 //! │    2. Orchestrator.run_once() → drift + mutations   │
 //! │    3. BranchingEngine.evaluate() → spawn children  │
 //! │    4. ExperimentLog.record_tick()                   │
@@ -1074,8 +1074,8 @@ mod tests {
         };
         let mut driver = ExperimentDriver::new(rt, config);
         let summary = driver.run(None);
-        // 5 ticks × 80 signals (20 entities × 4 metrics)
-        assert_eq!(summary.total_signals_injected, 5 * 80);
+        // 5 ticks × 28 signals (7 BIOISO-class entities × 4 metrics)
+        assert_eq!(summary.total_signals_injected, 5 * 28);
     }
 
     #[test]
@@ -1083,14 +1083,18 @@ mod tests {
         let mut rt = make_seeded_runtime();
         let mut brancher = BranchingEngine::new(2, 1);
 
-        // Record 2 promotions on climate
-        brancher.record_promotion("climate");
-        brancher.record_promotion("climate");
+        // Record 2 promotions on amr_coevolution
+        brancher.record_promotion("amr_coevolution");
+        brancher.record_promotion("amr_coevolution");
 
         // Should branch
         let branched = brancher.evaluate_and_branch(&mut rt, 100);
         assert_eq!(branched.len(), 1);
-        assert!(branched[0].starts_with("climate_b"), "got: {}", branched[0]);
+        assert!(
+            branched[0].starts_with("amr_coevolution_b"),
+            "got: {}",
+            branched[0]
+        );
         assert_eq!(brancher.decisions.len(), 1);
         assert_eq!(brancher.decisions[0].stable_mutations_on_parent, 2);
     }
@@ -1100,11 +1104,11 @@ mod tests {
         let mut rt = make_seeded_runtime();
         let mut brancher = BranchingEngine::new(1, 1); // max 1 branch
 
-        brancher.record_promotion("epidemics");
+        brancher.record_promotion("flash_crash");
         brancher.evaluate_and_branch(&mut rt, 50);
 
         // Second attempt — should not branch (limit reached)
-        brancher.record_promotion("epidemics");
+        brancher.record_promotion("flash_crash");
         let second = brancher.evaluate_and_branch(&mut rt, 100);
         assert!(second.is_empty(), "should not exceed max_branches");
     }
@@ -1137,6 +1141,6 @@ mod tests {
         let mut driver = ExperimentDriver::new(rt, config);
         driver.run(None);
         assert_eq!(driver.log.ticks.len(), 3);
-        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 80));
+        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 28));
     }
 }

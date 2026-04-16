@@ -1,0 +1,155 @@
+-- examples/tier2/vrp_particle_swarm.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 2 — Meta-heuristic: Particle Swarm Optimization for the
+-- Capacitated Vehicle Routing Problem.
+--
+-- CVRP is NP-hard: assign customers to vehicles and order their
+-- visits to minimise total travel distance subject to each vehicle's
+-- capacity constraint. PSO (Kennedy & Eberhart, 1995) maintains a
+-- swarm of candidate solutions; each particle moves toward its
+-- personal best and the global best, with inertia controlling the
+-- balance between exploration and exploitation.
+--
+-- PSO is Tier 2: the swarm topology, velocity update equations,
+-- and inertia weight schedule are all fixed at design time.
+-- The algorithm cannot discover that a different *type* of move
+-- (e.g., inter-route transfer vs. intra-route 2-opt) would help.
+-- That requires Tier 3 (hyper-heuristic) or above.
+--
+-- Compile:  loom compile examples/tier2/vrp_particle_swarm.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module VRPParticleSwarm
+describe: "Capacitated Vehicle Routing Problem solver via Particle Swarm Optimization"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Customer =
+  id:      Int
+  x:       Float<km>
+  y:       Float<km>
+  demand:  Float<kg>
+end
+
+type Vehicle =
+  id:       Int
+  capacity: Float<kg>
+end
+
+type Route =
+  vehicle:       Vehicle
+  customers:     [Customer]
+  total_distance: Float<km>
+  total_load:    Float<kg>
+end
+
+type VRPSolution =
+  routes:         [Route]
+  total_distance: Float<km>
+  is_feasible:    Bool    -- all capacities satisfied
+end
+
+type PSOConfig =
+  swarm_size:    Int
+  max_iterations: Int
+  inertia:       Float   -- w in (0.4, 0.9) — controls momentum
+  cognitive:     Float   -- c1: pull toward personal best
+  social:        Float   -- c2: pull toward global best
+end
+
+type PSOResult =
+  best_solution:    VRPSolution
+  best_iteration:   Int
+  iterations_run:   Int
+end
+
+-- ── VRP operators ──────────────────────────────────────────────────
+
+-- Build an initial solution via Clarke-Wright savings algorithm.
+fn clarke_wright_init :: [Customer] -> [Vehicle] -> VRPSolution
+  require: customers.len() > 0
+  require: vehicles.len() > 0
+  ensure:  result.routes.len() <= vehicles.len()
+  VRPSolution
+end
+
+-- Or-opt move: relocate a single customer to a different position in
+-- the same or a different route.
+fn or_opt_move :: VRPSolution -> Int -> Int -> VRPSolution
+  ensure:  result.routes.len() == sol.routes.len()
+  VRPSolution
+end
+
+-- 2-opt* inter-route improvement.
+fn two_opt_star :: VRPSolution -> VRPSolution
+  ensure:  result.routes.len() == sol.routes.len()
+  VRPSolution
+end
+
+-- Particle velocity update (continuous relaxation in permutation space).
+fn update_velocity :: VRPSolution -> VRPSolution -> VRPSolution -> PSOConfig -> VRPSolution
+  VRPSolution
+end
+
+-- ── Core PSO solver ─────────────────────────────────────────────────
+
+fn solve_pso :: [Customer] -> [Vehicle] -> PSOConfig -> Effect<[IO], PSOResult>
+  require: customers.len() >= 1
+  require: vehicles.len() >= 1
+  require: config.swarm_size >= 2
+  require: config.max_iterations > 0
+  require: config.inertia > 0.0 && config.inertia < 1.0
+  ensure:  result.best_solution.is_feasible
+  PSOResult
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+
+being VRPSolver
+describe: "CVRP Solver — Tier 2 meta-heuristic via Particle Swarm Optimization"
+
+matter:
+  customers: [Customer]
+  vehicles:  [Vehicle]
+  swarm:     [VRPSolution]
+  best:      VRPSolution
+  iteration: Int
+end
+
+function:
+  fn solve :: [Customer] -> [Vehicle] -> Effect<[IO], PSOResult>
+    require: customers.len() >= 1
+    require: vehicles.len() >= 1
+    ensure:  result.best_solution.is_feasible
+  end
+end
+
+evolve: particle_swarm
+  swarm_size: 50
+  inertia:    0.72
+  cognitive:  1.49
+  social:     1.49
+  constraint: E[total_distance] is non_increasing
+end
+
+telos: "minimise total vehicle travel distance while satisfying all customer demands within vehicle capacities"
+end
+
+end -- being VRPSolver
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test clarke_wright_assigns_all_customers ::
+  let customers = [
+    Customer { id: 0, x: 1.0, y: 0.0, demand: 2.0 },
+    Customer { id: 1, x: 0.0, y: 1.0, demand: 3.0 }
+  ] in
+  let vehicles = [Vehicle { id: 0, capacity: 10.0 }] in
+  let sol = clarke_wright_init(customers, vehicles) in
+  sol.routes.len() >= 1
+
+test feasible_solution_respects_capacity ::
+  let customers = [Customer { id: 0, x: 1.0, y: 0.0, demand: 2.0 }] in
+  let vehicles  = [Vehicle  { id: 0, capacity: 5.0  }] in
+  let sol = clarke_wright_init(customers, vehicles) in
+  sol.is_feasible

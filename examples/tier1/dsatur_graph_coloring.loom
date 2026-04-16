@@ -1,0 +1,134 @@
+-- examples/tier1/dsatur_graph_coloring.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 1 — Heuristic: DSATUR graph coloring.
+--
+-- Graph coloring is NP-hard. DSATUR (Brélaz, 1979) is a greedy
+-- construction heuristic that selects the next vertex to color by
+-- maximum *saturation* — the number of distinct colors in its
+-- neighborhood. It achieves optimal coloring on many practical graph
+-- classes (bipartite, perfect, sparse random) without backtracking.
+--
+-- DSATUR exemplifies the Tier 1 ceiling: it can solve many instances
+-- to optimality purely by greedy selection order, but has no
+-- mechanism to recover from a bad early choice. It cannot search.
+--
+-- Compile:  loom compile examples/tier1/dsatur_graph_coloring.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module DSATURColoring
+describe: "DSATUR graph coloring — Tier 1 heuristic with provable optimality on perfect graphs"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Vertex =
+  id:          Int
+  neighbors:   [Int]   -- ids of adjacent vertices
+  color:       Int     -- 0 = uncolored
+  saturation:  Int     -- distinct colors in neighborhood
+end
+
+type Graph =
+  vertices: [Vertex]
+  edges:    [(Int, Int)]
+end
+
+type Coloring =
+  assignments: [(Int, Int)]   -- (vertex_id, color)
+  num_colors:  Int
+  is_valid:    Bool
+end
+
+-- ── Core algorithm ─────────────────────────────────────────────────
+
+-- DSATUR: iteratively select the uncolored vertex with highest
+-- saturation (ties broken by degree), assign the smallest valid color.
+fn color_dsatur :: Graph -> Coloring
+  require: graph.vertices.len() > 0
+  ensure:  result.assignments.len() == graph.vertices.len()
+  ensure:  result.num_colors >= 1
+  ensure:  result.is_valid  -- no two adjacent vertices share a color
+  Coloring
+end
+
+-- Greedy coloring with a fixed vertex ordering (for comparison).
+fn color_greedy :: Graph -> Coloring
+  require: graph.vertices.len() > 0
+  ensure:  result.assignments.len() == graph.vertices.len()
+  ensure:  result.is_valid
+  Coloring
+end
+
+-- Chromatic number lower bound: size of the largest clique found
+-- by a greedy clique search (not exact, but fast).
+fn clique_lower_bound :: Graph -> Int
+  require: graph.vertices.len() > 0
+  ensure:  result >= 1
+  Int
+end
+
+-- Verify that a coloring is proper (no adjacent vertices share a color).
+fn verify_coloring :: Graph -> Coloring -> Bool
+  Bool
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+
+being DSATURColorer
+describe: "DSATUR graph colorer — Tier 1 heuristic, optimal on bipartite and perfect graphs"
+
+matter:
+  graph: Graph
+end
+
+function:
+  fn color :: Graph -> Coloring
+    require: graph.vertices.len() > 0
+    ensure:  verify_coloring(graph, result)
+    ensure:  result.num_colors >= clique_lower_bound(graph)
+  end
+end
+
+telos: "produce a valid graph coloring using the minimum number of colors discoverable by saturation-based greedy selection"
+end
+
+end -- being DSATURColorer
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test bipartite_graph_colors_with_two ::
+  -- A path graph P4: 0-1-2-3 is bipartite, χ = 2
+  let g = Graph {
+    vertices: [
+      Vertex { id: 0, neighbors: [1],    color: 0, saturation: 0 },
+      Vertex { id: 1, neighbors: [0, 2], color: 0, saturation: 0 },
+      Vertex { id: 2, neighbors: [1, 3], color: 0, saturation: 0 },
+      Vertex { id: 3, neighbors: [2],    color: 0, saturation: 0 }
+    ],
+    edges: [(0,1), (1,2), (2,3)]
+  } in
+  let c = color_dsatur(g) in
+  c.num_colors == 2 && c.is_valid
+
+test triangle_requires_three_colors ::
+  -- K3 has χ = 3
+  let g = Graph {
+    vertices: [
+      Vertex { id: 0, neighbors: [1, 2], color: 0, saturation: 0 },
+      Vertex { id: 1, neighbors: [0, 2], color: 0, saturation: 0 },
+      Vertex { id: 2, neighbors: [0, 1], color: 0, saturation: 0 }
+    ],
+    edges: [(0,1), (0,2), (1,2)]
+  } in
+  let c = color_dsatur(g) in
+  c.num_colors == 3 && c.is_valid
+
+test coloring_is_valid ::
+  let g = Graph {
+    vertices: [
+      Vertex { id: 0, neighbors: [1], color: 0, saturation: 0 },
+      Vertex { id: 1, neighbors: [0], color: 0, saturation: 0 }
+    ],
+    edges: [(0,1)]
+  } in
+  let c = color_dsatur(g) in
+  verify_coloring(g, c)
