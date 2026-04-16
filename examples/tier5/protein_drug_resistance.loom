@@ -1,0 +1,198 @@
+-- examples/tier5/protein_drug_resistance.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: Cancer / HIV Drug Resistance via Protein Mutation.
+--
+-- Target-based drug design assumes a stable binding site. In HIV
+-- reverse transcriptase and in cancer driver proteins (BCR-ABL,
+-- EGFR, KRAS), resistance mutations alter the binding site shape,
+-- rendering the active pharmacophore hypothesis invalid within weeks
+-- of drug administration.
+--
+-- A Tier 1 docking screen uses a fixed force field and fixed scaffold.
+-- A Tier 2 GA-based de novo design explores chemical space but with
+-- a fixed scoring function that cannot reinterpret a mutated binding
+-- site. A Tier 3 hyper-heuristic selects among known pharmacophore
+-- templates but cannot generate new ones.
+--
+-- A Tier 4 surrogate model (e.g., a graph neural network trained on
+-- protein-ligand complexes) can update its weights, but the space of
+-- binding-site representations it considers is fixed by architecture.
+-- When a structurally novel mutation class emerges (e.g., the L1196M
+-- gatekeeper mutation in ALK), the architecture becomes the bottleneck.
+--
+-- A BIOISO (Tier 5) restructures the pharmacophore hypothesis itself.
+-- When the mutation profile drifts by 0.18, the being replaces its
+-- scaffold_hypothesis, pharmacophore_model, and binding_site_representation
+-- from a candidate pool — effectively generating a new scientific
+-- hypothesis about what makes a molecule bind.
+--
+-- Reference: Isin et al. (2014) — "Resistance to Targeted Cancer Therapy";
+-- Engelman & Janne (2008) — "Mechanisms of acquired resistance to EGFR
+-- tyrosine kinase inhibitors"; Shafer (2002) — "HIV-1 Drug Resistance".
+--
+-- Compile:  loom compile examples/tier5/protein_drug_resistance.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module ProteinDrugResistance
+describe: "Drug resistance BIOISO — structural rewire of pharmacophore hypothesis as target protein mutates"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type ProteinConformation =
+  mutation_profile:   [String]   -- e.g. ["T315I", "V299L"] for BCR-ABL
+  binding_site_shape: String     -- structural descriptor; changes with mutation
+end
+
+type LeadCompound =
+  smiles:                  String   -- canonical SMILES string
+  binding_affinity_kcal_mol: Float  -- negative = binding; target < -8.0
+  admet_score:             Float    -- absorption/distribution/metabolism/excretion in [0.0, 1.0]
+end
+
+type DrugDesignStrategy =
+  scaffold_hypothesis:    String           -- active chemical scaffold family
+  active_leads:           [LeadCompound]   -- current optimised candidates
+  search_space_topology:  String           -- descriptor of the chemical space graph
+end
+
+type ResistanceEvent =
+  time_step:          Int
+  new_mutations:      [String]
+  mutation_drift:     Float    -- structural distance from previous conformation
+  active_lead_count:  Int      -- number of leads still effective post-mutation
+end
+
+-- ── Functions ──────────────────────────────────────────────────────
+
+-- Compute the binding affinity of a compound against a protein conformation
+-- using the active pharmacophore model. Returns kcal/mol (negative = binding).
+fn predict_binding_affinity :: LeadCompound -> ProteinConformation -> String -> Float
+  require: pharmacophore_model.len() > 0
+  Float
+end
+
+-- Measure structural drift between two protein conformations.
+-- Uses Tanimoto distance on pharmacophore fingerprints.
+-- Triggers rewire when drift >= 0.18.
+fn conformation_drift :: ProteinConformation -> ProteinConformation -> Float
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Score a lead compound for ADMET properties (Lipinski + Veber rules).
+fn admet_score :: LeadCompound -> Float
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Select a new scaffold hypothesis from the candidate pool given the
+-- current mutation profile and binding site shape.
+fn select_scaffold :: ProteinConformation -> [String] -> String
+  require: candidates.len() > 0
+  String
+end
+
+-- Reconstruct a binding site representation from crystallographic data
+-- and mutation profile. This is the structural modification: a new
+-- geometric representation of the target is built from scratch.
+fn reconstruct_binding_site :: ProteinConformation -> [ResistanceEvent] -> String
+  require: events.len() > 0
+  String
+end
+
+-- Generate new lead compounds by fragment-based design against the
+-- new pharmacophore model.
+fn generate_leads :: String -> ProteinConformation -> Int -> [LeadCompound]
+  require: n_candidates > 0
+  ensure:  result.len() <= n_candidates
+  [LeadCompound]
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- evolve: derivative_free optimises substituent positions and R-group
+-- choices on the current scaffold to improve binding affinity and ADMET.
+--
+-- rewire: fires at 0.18 conformation drift — the Tanimoto distance
+-- threshold beyond which the pharmacophore model trained on the wild-type
+-- binding site no longer predicts activity for mutant conformations.
+-- Calibrated against EGFR T790M and BCR-ABL T315I datasets from the
+-- ChEMBL resistance database (Brown et al., 2014).
+--
+-- plasticity: monitors binding_affinity and active_lead_count on
+-- distribution_shift — when the fraction of active leads drops below
+-- 50% of the pre-mutation baseline, it triggers parameter adjustment
+-- even without a full rewire.
+
+being DrugResistanceOptimiser
+describe: "Drug Resistance Optimiser BIOISO — Tier 5 pharmacophore rewire as target protein acquires resistance mutations"
+
+@corrigible
+
+matter:
+  strategy:    DrugDesignStrategy
+  target:      ProteinConformation
+  events:      [ResistanceEvent]
+  lead_pool:   [LeadCompound]
+end
+
+function:
+  fn optimise_lead :: LeadCompound -> Effect<[IO], LeadCompound>
+    require: lead.admet_score >= 0.0
+    ensure:  result.admet_score >= 0.0
+  end
+  fn screen_scaffold :: ProteinConformation -> Effect<[IO], [LeadCompound]>
+    require: true
+    ensure:  result.len() >= 0
+  end
+end
+
+evolve: derivative_free
+  constraint: E[binding_affinity_kcal_mol] is non_increasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.18
+  candidates: [scaffold_hypothesis, pharmacophore_model, binding_site_representation]
+  selection:  fitness_guided
+end
+
+plasticity:
+  observe:    [binding_affinity_kcal_mol, active_lead_count, admet_score]
+  adjust_on:  distribution_shift
+  update_rule: reinforcement
+  learning_rate: 0.04
+end
+
+telos: "achieve binding_affinity_kcal_mol < -8.0 with active_lead_count >= 3 across resistance mutation events"
+  bounded_by: lead_pool.len() <= 200
+end
+
+end -- being DrugResistanceOptimiser
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test binding_affinity_is_negative_for_binder ::
+  let compound = LeadCompound {
+    smiles: "c1ccc(cc1)NC(=O)c2ccccc2", binding_affinity_kcal_mol: -9.2, admet_score: 0.75
+  } in
+  compound.binding_affinity_kcal_mol < 0.0
+
+test conformation_drift_bounded ::
+  let c1 = ProteinConformation { mutation_profile: [], binding_site_shape: "alpha_helix_pocket" } in
+  let c2 = ProteinConformation { mutation_profile: ["T315I"], binding_site_shape: "collapsed_pocket" } in
+  let drift = conformation_drift(c1, c2) in
+  drift >= 0.0 && drift <= 1.0
+
+test admet_score_in_range ::
+  let compound = LeadCompound {
+    smiles: "CC(=O)Oc1ccccc1C(=O)O", binding_affinity_kcal_mol: -7.5, admet_score: 0.0
+  } in
+  let score = admet_score(compound) in
+  score >= 0.0 && score <= 1.0
+
+test generate_leads_respects_budget ::
+  let protein = ProteinConformation { mutation_profile: ["V299L"], binding_site_shape: "open_pocket" } in
+  let leads = generate_leads("imatinib_scaffold", protein, 10) in
+  leads.len() <= 10

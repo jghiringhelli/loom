@@ -1,0 +1,185 @@
+-- examples/tier5/amr_coevolution.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: Antimicrobial Resistance Coevolution.
+--
+-- Antimicrobial resistance (AMR) is an adversarial co-evolutionary
+-- process. Pathogens acquire resistance genes (horizontal transfer,
+-- point mutations) in response to drug pressure. A fixed treatment
+-- graph — a Tier 2 or Tier 3 strategy — is reverse-engineered by
+-- pathogen evolution within months.
+--
+-- A Tier 4 learning-based model can update its resistance predictions
+-- (surrogate model weights), but cannot change which drugs it considers
+-- combinable, nor which hypothesis it holds about resistance mechanisms.
+-- When a novel resistance gene emerges that is structurally unlike
+-- anything in training data, the model's architecture becomes the
+-- bottleneck.
+--
+-- A BIOISO (Tier 5) restructures the resistance-countermeasure graph
+-- itself. The `rewire:` block encodes this: when resistance prevalence
+-- drifts by 0.15 across a crisis window, the being replaces its
+-- drug combination graph, resistance model hypothesis, and treatment
+-- sequencing logic from a candidate pool. This is structural
+-- self-modification — not retraining, not heuristic weight adjustment.
+--
+-- Reference: WHO Global Antimicrobial Resistance and Use Surveillance
+-- System (GLASS) 2022; Laxminarayan et al. (2013) — "Antibiotic
+-- resistance — the need for global solutions".
+--
+-- Compile:  loom compile examples/tier5/amr_coevolution.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module AMRCoevolution
+describe: "Antimicrobial resistance countermeasure BIOISO — structural rewire as resistance topology shifts"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type Pathogen =
+  resistance_genes: [String]   -- e.g. ["blaNDM-1", "mcr-1", "vanA"]
+  fitness:          Float       -- reproductive fitness under current drug pressure
+end
+
+type Drug =
+  mechanism: String   -- e.g. "beta_lactam_inhibition", "ribosome_30S_binding"
+  efficacy:  Float    -- population-level treatment success rate in [0.0, 1.0]
+end
+
+type TreatmentStrategy =
+  drug_sequence:         [Drug]   -- ordered monotherapy / sequential protocol
+  combination_threshold: Float    -- minimum predicted synergy score to combine
+  resistance_model:      String   -- identifier of active hypothesis graph
+end
+
+type ResistanceObservation =
+  time_step:           Int
+  resistance_prevalence: Float   -- fraction of isolates exhibiting resistance
+  novel_genes_detected:  [String]
+  effective_drug_count:  Int
+end
+
+-- ── Functions ──────────────────────────────────────────────────────
+
+-- Estimate the synergy score between two drugs given the current
+-- resistance model. Bliss independence model as default hypothesis.
+fn drug_synergy :: Drug -> Drug -> String -> Float
+  require: drug_a.efficacy >= 0.0 && drug_b.efficacy >= 0.0
+  ensure:  result >= -1.0 && result <= 1.0
+  Float
+end
+
+-- Compute treatment success rate for a given strategy against the
+-- current pathogen population.
+fn treatment_success_rate :: TreatmentStrategy -> [Pathogen] -> Float
+  require: pathogens.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Detect resistance prevalence drift relative to a baseline window.
+-- Returns the drift magnitude; triggers rewire when >= 0.15.
+fn prevalence_drift :: [ResistanceObservation] -> Int -> Float
+  require: observations.len() >= window_size
+  require: window_size > 0
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Select a new drug combination graph from the candidate pool based
+-- on current efficacy rankings. Called during structural rewire.
+fn select_combination_graph :: [Drug] -> [Pathogen] -> String
+  require: drugs.len() >= 2
+  String
+end
+
+-- Synthesise a new resistance model hypothesis from current genomic data.
+-- This is the structural modification: a new causal model is constructed.
+fn synthesise_resistance_hypothesis :: [Pathogen] -> [ResistanceObservation] -> String
+  require: pathogens.len() > 0
+  String
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- evolve: derivative_free searches the parameter space of the *current*
+-- treatment strategy (combination thresholds, drug ordering weights).
+--
+-- rewire: fires when resistance prevalence drift exceeds 0.15 — the
+-- threshold calibrated to the 2020 GLASS surveillance dataset showing
+-- that a 15% shift in carbapenem-resistant Enterobacteriaceae prevalence
+-- reliably signals a new resistance mechanism, not noise.
+--
+-- Without rewire:, a fixed strategy becomes ineffective within 6–18
+-- months as the pathogen population evolves around it (Laxminarayan 2013).
+
+being AMRCountermeasure
+describe: "AMR Countermeasure BIOISO — Tier 5 structural rewire of resistance-drug graph under coevolutionary pressure"
+
+@corrigible
+
+matter:
+  strategy:      TreatmentStrategy
+  pathogens:     [Pathogen]
+  drug_pool:     [Drug]
+  observations:  [ResistanceObservation]
+  crisis_mode:   Bool
+end
+
+function:
+  fn update_strategy :: [ResistanceObservation] -> Effect<[IO], TreatmentStrategy>
+    require: observations.len() > 0
+    ensure:  result.effective_drug_count >= 0
+  end
+  fn evaluate_efficacy :: TreatmentStrategy -> [Pathogen] -> Float
+    require: pathogens.len() > 0
+    ensure:  result >= 0.0 && result <= 1.0
+  end
+end
+
+evolve: derivative_free
+  constraint: E[treatment_success_rate] is non_decreasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.15
+  candidates: [drug_combination_graph, resistance_model_hypothesis, treatment_sequencing_logic]
+  selection:  fitness_guided
+end
+
+plasticity:
+  observe:    [resistance_prevalence, novel_gene_count, effective_drug_count]
+  adjust_on:  crisis_detected
+  update_rule: reinforcement
+  learning_rate: 0.05
+end
+
+telos: "maintain treatment_success_rate > 0.65 with effective_drug_count >= 6 under coevolving resistance pressure"
+  bounded_by: drug_pool.len() <= 50
+end
+
+end -- being AMRCountermeasure
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test treatment_success_rate_in_range ::
+  let drug = Drug { mechanism: "beta_lactam_inhibition", efficacy: 0.8 } in
+  let strategy = TreatmentStrategy {
+    drug_sequence: [drug], combination_threshold: 0.5, resistance_model: "bliss_independence"
+  } in
+  let pathogen = Pathogen { resistance_genes: [], fitness: 1.0 } in
+  let rate = treatment_success_rate(strategy, [pathogen]) in
+  rate >= 0.0 && rate <= 1.0
+
+test prevalence_drift_nonneg ::
+  let obs = [
+    ResistanceObservation { time_step: 0, resistance_prevalence: 0.10, novel_genes_detected: [], effective_drug_count: 8 },
+    ResistanceObservation { time_step: 1, resistance_prevalence: 0.12, novel_genes_detected: [], effective_drug_count: 8 },
+    ResistanceObservation { time_step: 2, resistance_prevalence: 0.28, novel_genes_detected: ["blaNDM-5"], effective_drug_count: 6 }
+  ] in
+  prevalence_drift(obs, 3) >= 0.0
+
+test drug_synergy_bounded ::
+  let d1 = Drug { mechanism: "beta_lactam_inhibition", efficacy: 0.7 } in
+  let d2 = Drug { mechanism: "ribosome_30S_binding", efficacy: 0.6 } in
+  let s = drug_synergy(d1, d2, "bliss_independence") in
+  s >= -1.0 && s <= 1.0

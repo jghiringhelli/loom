@@ -1,0 +1,229 @@
+-- examples/tier5/climate_intervention.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: Earth System Intervention Sequencing.
+--
+-- Proposed climate interventions — stratospheric aerosol injection (SAI),
+-- marine cloud brightening (MCB), direct air capture (DAC), ocean iron
+-- fertilisation (OIF) — affect multiple coupled Earth-system subsystems
+-- (atmosphere, ocean, cryosphere, biosphere). Critically, each
+-- intervention changes the *causal structure* of the system: SAI
+-- alters monsoon teleconnections, changing which subsystem coupling
+-- coefficients are dominant in subsequent time steps.
+--
+-- A fixed intervention sequence (Tier 1) is designed for one assumed
+-- causal graph and fails when that graph changes after the first
+-- deployment. A Tier 2 meta-heuristic optimises the sequence but cannot
+-- restructure the causal model it uses for prediction. A Tier 3
+-- hyper-heuristic selects among a portfolio of pre-specified sequences
+-- but cannot construct new ones.
+--
+-- A Tier 4 learning-based model can update the coefficients of its
+-- Earth-system emulator, but the set of causal linkages it models is
+-- fixed by training data distribution — and each novel intervention
+-- combination represents an out-of-distribution causal shift.
+--
+-- A BIOISO (Tier 5) rewires the causal_graph_structure, intervention
+-- sequencing logic, and subsystem_coupling_model before each subsequent
+-- deployment. The 0.20 drift trigger reflects the threshold identified
+-- in Bony et al. (2015) beyond which the dominant feedback mechanisms
+-- in the climate system shift regime, invalidating any fixed causal graph.
+--
+-- The extreme telos values (efficacy > 0.40, tipping_point_risk < 0.30)
+-- reflect the difficulty of the problem: current models cannot guarantee
+-- intervention efficacy at all without co-evolution of the intervention
+-- strategy with the system response.
+--
+-- Reference: Bony et al. (2015) — "Clouds, Circulation and Climate
+-- Sensitivity"; Lawrence et al. (2018) — "Evaluating Climate
+-- Geoengineering Proposals in the Context of the Paris Agreement
+-- Temperature Goals"; IPCC AR6 WGI Ch. 4.
+--
+-- Compile:  loom compile examples/tier5/climate_intervention.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module ClimateIntervention
+describe: "Earth system intervention BIOISO — causal graph rewire before each deployment as interventions restructure subsystem coupling"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type ClimateSubsystem =
+  name:                 String    -- e.g. "stratosphere", "AMOC", "permafrost", "ITCZ"
+  state:                Float     -- normalised state variable in [-1.0, 1.0]
+  coupling_coefficients: [Float]  -- influence weights to other subsystems
+end
+
+type Intervention =
+  type:        String    -- e.g. "SAI", "MCB", "DAC", "OIF"
+  efficacy:    Float     -- expected temperature effect in [0.0, 1.0]
+  side_effects: [String] -- e.g. ["monsoon_weakening", "ozone_depletion"]
+end
+
+type InterventionSequence =
+  subsystems:       [ClimateSubsystem]
+  planned_sequence: [Intervention]
+  causal_graph:     String   -- serialised causal graph descriptor
+end
+
+type SystemObservation =
+  time_step:            Int
+  subsystem_states:     [Float]    -- current state of each subsystem
+  coupling_drift:       Float      -- L2 shift in coupling_coefficients matrix
+  tipping_point_risk:   Float      -- estimated probability of irreversible regime shift
+  intervention_efficacy: Float     -- fraction of target temperature reduction achieved
+end
+
+-- ── Functions ──────────────────────────────────────────────────────
+
+-- Simulate one time step of the Earth system under a given intervention,
+-- updating subsystem states via the coupling coefficient model.
+fn simulate_step :: [ClimateSubsystem] -> Intervention -> String -> [ClimateSubsystem]
+  require: subsystems.len() > 0
+  require: causal_graph.len() > 0
+  ensure:  result.len() == subsystems.len()
+  [ClimateSubsystem]
+end
+
+-- Measure coupling drift: L2 norm of change in coupling_coefficients
+-- between the pre-intervention and post-intervention state.
+-- Triggers rewire when >= 0.20.
+fn coupling_drift :: [ClimateSubsystem] -> [ClimateSubsystem] -> Float
+  require: pre.len() == post.len()
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Estimate the tipping point risk given the current subsystem state
+-- vector. Uses bifurcation distance metrics (Dakos et al., 2012).
+fn tipping_point_risk :: [ClimateSubsystem] -> Float
+  require: subsystems.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Reconstruct the causal graph from current subsystem observations.
+-- Applies Granger causality inference to the state time series.
+fn reconstruct_causal_graph :: [SystemObservation] -> String
+  require: observations.len() >= 5
+  String
+end
+
+-- Select a new intervention sequencing logic from the candidate pool,
+-- guided by the reconstructed causal graph and current tipping risk.
+fn select_sequencing_logic :: String -> [Intervention] -> Float -> [Intervention]
+  require: available_interventions.len() > 0
+  require: tipping_risk >= 0.0 && tipping_risk <= 1.0
+  ensure:  result.len() <= available_interventions.len()
+  [Intervention]
+end
+
+-- Fit a new subsystem coupling model from post-intervention observations.
+-- Returns updated coupling_coefficients for each subsystem pair.
+fn fit_coupling_model :: [SystemObservation] -> [ClimateSubsystem] -> [ClimateSubsystem]
+  require: observations.len() >= 3
+  require: subsystems.len() > 0
+  ensure:  result.len() == subsystems.len()
+  [ClimateSubsystem]
+end
+
+-- Compute net intervention efficacy: fraction of target cooling achieved
+-- relative to the pre-industrial baseline.
+fn compute_efficacy :: [SystemObservation] -> Float
+  require: observations.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- evolve: derivative_free tunes intervention dosing (e.g., aerosol
+-- injection rate, iron fertilisation volume) within the current
+-- causal model's feasible region.
+--
+-- rewire: fires at 0.20 coupling drift — beyond which the causal graph
+-- that was used to plan the current sequence no longer accurately
+-- represents the Earth system's actual coupling structure post-intervention.
+-- At this point, the intervention sequencing logic must be reconstructed
+-- from new observations before the next deployment can be planned safely.
+--
+-- plasticity: monitors intervention_efficacy and tipping_point_risk on
+-- crisis_detected — when tipping_point_risk exceeds 0.25, immediate
+-- parameter adjustment is applied even without a full rewire, to
+-- reduce dosing of side-effect-heavy interventions.
+
+being ClimateInterventionOptimiser
+describe: "Climate Intervention Optimiser BIOISO — Tier 5 causal graph rewire before each deployment as subsystem coupling shifts"
+
+@corrigible
+
+matter:
+  sequence:      InterventionSequence
+  observations:  [SystemObservation]
+  candidate_interventions: [Intervention]
+  crisis_mode:   Bool
+end
+
+function:
+  fn plan_next_deployment :: [SystemObservation] -> Effect<[IO], Intervention>
+    require: observations.len() >= 3
+    ensure:  result.efficacy >= 0.0
+  end
+  fn evaluate_state :: [SystemObservation] -> Effect<[IO], Float>
+    require: observations.len() > 0
+    ensure:  result >= 0.0 && result <= 1.0
+  end
+end
+
+evolve: derivative_free
+  constraint: E[intervention_efficacy] is non_decreasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.20
+  candidates: [causal_graph_structure, intervention_sequencing_logic, subsystem_coupling_model]
+  selection:  fitness_guided
+end
+
+plasticity:
+  observe:    [intervention_efficacy, tipping_point_risk, coupling_drift_metric]
+  adjust_on:  crisis_detected
+  update_rule: reinforcement
+  learning_rate: 0.03
+end
+
+telos: "maintain intervention_efficacy > 0.40 with tipping_point_risk < 0.30 across multi-intervention Earth system sequences"
+  bounded_by: planned_sequence.len() <= 20
+end
+
+end -- being ClimateInterventionOptimiser
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test simulate_step_preserves_subsystem_count ::
+  let sub = ClimateSubsystem { name: "stratosphere", state: 0.1, coupling_coefficients: [0.2, 0.3] } in
+  let intervention = Intervention { type: "SAI", efficacy: 0.5, side_effects: ["monsoon_weakening"] } in
+  let result = simulate_step([sub], intervention, "baseline_graph") in
+  result.len() == 1
+
+test coupling_drift_nonneg ::
+  let s1 = [ClimateSubsystem { name: "AMOC", state: 0.8, coupling_coefficients: [0.5, 0.1] }] in
+  let s2 = [ClimateSubsystem { name: "AMOC", state: 0.6, coupling_coefficients: [0.2, 0.4] }] in
+  coupling_drift(s1, s2) >= 0.0
+
+test tipping_point_risk_bounded ::
+  let subsystems = [
+    ClimateSubsystem { name: "permafrost", state: -0.3, coupling_coefficients: [0.4, 0.2] },
+    ClimateSubsystem { name: "ITCZ", state: 0.5, coupling_coefficients: [0.1, 0.6] }
+  ] in
+  let risk = tipping_point_risk(subsystems) in
+  risk >= 0.0 && risk <= 1.0
+
+test compute_efficacy_bounded ::
+  let obs = [
+    SystemObservation {
+      time_step: 0, subsystem_states: [0.1, -0.2],
+      coupling_drift: 0.05, tipping_point_risk: 0.15, intervention_efficacy: 0.45
+    }
+  ] in
+  let eff = compute_efficacy(obs) in
+  eff >= 0.0 && eff <= 1.0

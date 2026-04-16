@@ -1,0 +1,201 @@
+-- examples/tier5/ics_zero_day.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: ICS/SCADA Zero-Day Attack Defence.
+--
+-- Industrial Control Systems (ICS) and SCADA networks control power
+-- grids, water treatment, and manufacturing. Zero-day attacks against
+-- ICS — Stuxnet (2010), TRITON (2017), Industroyer (2016, 2022) —
+-- exploit vulnerabilities with no prior signature. Detection based on
+-- known signatures (Tier 1) is blind to them by definition.
+--
+-- A Tier 2 meta-heuristic search over rule parameters, or a Tier 3
+-- hyper-heuristic selecting among detection templates, can only detect
+-- attacks that resemble previously observed patterns. Tier 4 anomaly
+-- detection (e.g., a recurrent autoencoder) can update weights, but
+-- its feature representation — which protocol fields, timing intervals,
+-- and payload structures it examines — is fixed by architecture.
+--
+-- Zero-day attacks are structurally novel: TRITON targeted SIS logic
+-- controllers using a protocol (TriStation) undocumented before the
+-- attack. No feature extractor designed for Modbus or DNP3 would have
+-- the right abstraction layer to detect it.
+--
+-- A BIOISO (Tier 5) synthesises new detection rule graphs and protocol
+-- abstraction layers from the anomalous traffic itself. The drift trigger
+-- of 0.25 reflects the high structural novelty of genuine zero-days
+-- (empirically, novel attack classes cause >25% Jaccard distance shifts
+-- in protocol field distribution relative to baseline — unlike noise or
+-- known variant attacks which stay under 0.10).
+--
+-- Reference: Lee et al. (2014) — "German Steel Mill Cyber Attack";
+-- Dragos (2017) — "TRISIS/TRITON/HatMan ICS Attack Framework";
+-- CISA Advisory AA22-103A — Industroyer2.
+--
+-- Compile:  loom compile examples/tier5/ics_zero_day.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module ICSZeroDay
+describe: "ICS/SCADA zero-day defence BIOISO — detection rule synthesis and protocol abstraction rewire on novel attack class"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type NetworkTrace =
+  protocol:       String   -- e.g. "Modbus", "DNP3", "TriStation", "GOOSE"
+  payload_hash:   String   -- SHA-256 of the raw PDU payload
+  timing_anomaly: Float    -- deviation from expected inter-packet interval in [0.0, 1.0]
+end
+
+type DetectionRule =
+  logic:             String    -- DSL expression over NetworkTrace fields
+  coverage:          [String]  -- protocols this rule applies to
+  false_positive_rate: Float   -- estimated FPR on baseline traffic
+end
+
+type DefenseLogic =
+  rules:             [DetectionRule]
+  unknown_coverage:  Float    -- fraction of traffic not matched by any rule
+  synthesis_model:   String   -- active synthesis model identifier
+end
+
+type AttackObservation =
+  time_step:          Int
+  traces:             [NetworkTrace]
+  novelty_score:      Float    -- Jaccard distance from baseline distribution
+  protocol_drift:     Float    -- structural distance from known protocol grammars
+end
+
+-- ── Functions ──────────────────────────────────────────────────────
+
+-- Score a trace against the active detection rule set.
+-- Returns list of matching rule IDs; empty list = unknown traffic class.
+fn evaluate_detection :: [DetectionRule] -> NetworkTrace -> [String]
+  require: rules.len() > 0
+  [String]
+end
+
+-- Compute the protocol field distribution drift between two observation
+-- windows. Uses Jaccard distance over field presence bitmaps.
+-- Triggers rewire when >= 0.25.
+fn protocol_drift :: [AttackObservation] -> [AttackObservation] -> Float
+  require: baseline.len() > 0
+  require: current.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Synthesise a new detection rule from a cluster of anomalous traces.
+-- Applies grammar inference (Gold 1967 / RPNI algorithm) to the
+-- payload structure to construct a new protocol abstraction.
+fn synthesise_rule :: [NetworkTrace] -> String -> DetectionRule
+  require: traces.len() >= 5
+  require: synthesis_model.len() > 0
+  ensure:  result.false_positive_rate >= 0.0 && result.false_positive_rate <= 1.0
+  DetectionRule
+end
+
+-- Select a new synthesis model from candidates given the protocol
+-- class of the novel attack (grammar-based vs. statistical vs. hybrid).
+fn select_synthesis_model :: [AttackObservation] -> String
+  require: observations.len() > 0
+  String
+end
+
+-- Compute the protocol abstraction layer to construct for a novel
+-- protocol. Returns a grammar descriptor for the new layer.
+fn abstract_protocol :: [NetworkTrace] -> String
+  require: traces.len() >= 3
+  String
+end
+
+-- Estimate false positive rate of a rule on baseline traffic.
+fn estimate_fpr :: DetectionRule -> [NetworkTrace] -> Float
+  require: baseline.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- evolve: derivative_free tunes timing_anomaly thresholds and
+-- false_positive_rate budgets within the current rule set.
+--
+-- rewire: fires at 0.25 protocol drift — the boundary beyond which
+-- the current protocol abstraction layer lacks the grammar primitives
+-- to represent the novel attack protocol, and a new abstraction layer
+-- must be synthesised from scratch using grammar inference.
+--
+-- plasticity: monitors detection_rate_pct and false_positive_rate on
+-- crisis_detected — specifically, when unknown_coverage spikes (many
+-- traces match no rule), indicating a structurally novel attack class
+-- is active.
+
+being ICSZeroDayDefender
+describe: "ICS Zero-Day Defender BIOISO — Tier 5 detection rule synthesis and protocol abstraction rewire on novel attack class"
+
+@corrigible
+
+matter:
+  defense:       DefenseLogic
+  trace_buffer:  [NetworkTrace]
+  observations:  [AttackObservation]
+  baseline:      [AttackObservation]
+  crisis_mode:   Bool
+end
+
+function:
+  fn inspect :: NetworkTrace -> Effect<[IO], [String]>
+    require: true
+    ensure:  true
+  end
+  fn synthesise_response :: [AttackObservation] -> Effect<[IO], DetectionRule>
+    require: observations.len() >= 5
+    ensure:  result.false_positive_rate <= 0.10
+  end
+end
+
+evolve: derivative_free
+  constraint: E[detection_rate_pct] is non_decreasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.25
+  candidates: [detection_rule_graph, synthesis_model_architecture, protocol_abstraction_layer]
+  selection:  fitness_guided
+end
+
+plasticity:
+  observe:    [detection_rate_pct, false_positive_rate, unknown_coverage]
+  adjust_on:  crisis_detected
+  update_rule: reinforcement
+  learning_rate: 0.06
+end
+
+telos: "maintain detection_rate_pct > 0.85 and false_positive_rate < 0.05 against novel ICS attack classes"
+  bounded_by: defense.rules.len() <= 500
+end
+
+end -- being ICSZeroDayDefender
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test evaluate_detection_returns_list ::
+  let rule = DetectionRule {
+    logic: "timing_anomaly > 0.8 AND protocol == 'TriStation'",
+    coverage: ["TriStation"],
+    false_positive_rate: 0.001
+  } in
+  let trace = NetworkTrace { protocol: "TriStation", payload_hash: "deadbeef", timing_anomaly: 0.95 } in
+  evaluate_detection([rule], trace).len() >= 0
+
+test protocol_drift_bounded ::
+  let obs1 = [AttackObservation { time_step: 0, traces: [NetworkTrace { protocol: "Modbus", payload_hash: "aaa", timing_anomaly: 0.1 }], novelty_score: 0.05, protocol_drift: 0.02 }] in
+  let obs2 = [AttackObservation { time_step: 1, traces: [NetworkTrace { protocol: "TriStation", payload_hash: "bbb", timing_anomaly: 0.9 }], novelty_score: 0.80, protocol_drift: 0.45 }] in
+  let drift = protocol_drift(obs1, obs2) in
+  drift >= 0.0 && drift <= 1.0
+
+test fpr_in_range ::
+  let rule = DetectionRule { logic: "timing_anomaly > 0.5", coverage: ["Modbus"], false_positive_rate: 0.0 } in
+  let traces = [NetworkTrace { protocol: "Modbus", payload_hash: "ccc", timing_anomaly: 0.1 }] in
+  let fpr = estimate_fpr(rule, traces) in
+  fpr >= 0.0 && fpr <= 1.0

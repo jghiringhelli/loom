@@ -1,0 +1,189 @@
+-- examples/tier5/flash_crash.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: HFT Flash Crash Defence.
+--
+-- The 2010 Flash Crash erased $1 trillion in market capitalisation in
+-- 36 minutes before a partial recovery. The root cause was a cascade
+-- of HFT order-cancellation feedback loops that none of the fixed
+-- circuit breakers in place at the time were designed to detect.
+--
+-- A fixed circuit-breaker ruleset (Tier 1) is gamed within hours once
+-- HFT strategies reverse-engineer its thresholds through probe orders.
+-- A Tier 2 meta-heuristic tuning the thresholds is neutralised as
+-- soon as the HFT opponent models the tuning signal. A Tier 3
+-- hyper-heuristic that selects among a fixed portfolio of detection
+-- rules can be defeated by adversarial order patterns that exploit
+-- the selection mechanism itself.
+--
+-- Tier 4 would let the detection model update its weights — but the
+-- detection *topology* (which features feed which rules, which rule
+-- triggers which response) remains fixed. An adversary with market
+-- impact can manipulate feature distributions to create blind spots
+-- in the learned model.
+--
+-- Tier 5 rewires the circuit breaker topology itself. When the HFT
+-- drift signal exceeds 0.20 (calibrated to post-2010 CFTC analysis
+-- showing a 20% volatility regime shift as the reliable precursor
+-- to adversarial gaming), the being replaces its circuit_breaker_topology,
+-- detection_model_architecture, and response_rule_graph from candidates.
+--
+-- Reference: Kirilenko et al. (2017) — "The Flash Crash: High-Frequency
+-- Trading in an Electronic Market"; CFTC-SEC Joint Report (2010).
+--
+-- Compile:  loom compile examples/tier5/flash_crash.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module FlashCrash
+describe: "HFT flash crash defence BIOISO — structural rewire of circuit-breaker topology as adversarial strategies evolve"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type OrderBookSnapshot =
+  depth:               Float    -- aggregate bid+ask volume normalised to [0.0, 1.0]
+  bid_ask_spread_bps:  Float    -- spread in basis points
+  cancellation_rate:   Float    -- fraction of orders cancelled within 1ms
+end
+
+type CircuitBreakerRule =
+  condition: String   -- e.g. "spread_bps > 50 AND cancellation_rate > 0.90"
+  threshold: Float    -- numeric trigger level
+  action:    String   -- e.g. "pause_5s", "widen_band_200bps", "halt_stock"
+end
+
+type DefenseStrategy =
+  rules:            [CircuitBreakerRule]
+  detection_model:  String   -- active model identifier
+  response_latency_us: Float -- microseconds from trigger to action
+end
+
+type MarketEvent =
+  timestamp_ns:    Int
+  snapshot:        OrderBookSnapshot
+  volatility_index: Float    -- realised volatility over last 100ms window
+  hft_probe_score:  Float    -- estimated probability of adversarial probing
+end
+
+-- ── Functions ──────────────────────────────────────────────────────
+
+-- Evaluate whether the current rule set fires on an order book snapshot.
+fn evaluate_rules :: [CircuitBreakerRule] -> OrderBookSnapshot -> [String]
+  require: rules.len() > 0
+  [String]
+end
+
+-- Compute the realised volatility regime drift between two event windows.
+-- Returns the drift magnitude; triggers rewire when >= 0.20.
+fn volatility_drift :: [MarketEvent] -> Int -> Float
+  require: events.len() >= window_size
+  require: window_size > 0
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Estimate the probability that current order flow represents adversarial
+-- probing of circuit breaker thresholds. Based on Kirilenko et al. model.
+fn probe_detection_score :: [MarketEvent] -> Float
+  require: events.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
+  Float
+end
+
+-- Select a new circuit breaker topology from the candidate pool,
+-- guided by recent market regime and probe score.
+fn select_topology :: [MarketEvent] -> [CircuitBreakerRule] -> [CircuitBreakerRule]
+  require: events.len() > 0
+  require: candidates.len() > 0
+  ensure:  result.len() > 0
+  [CircuitBreakerRule]
+end
+
+-- Synthesise a new detection model architecture from recent event stream.
+-- Architecture selection includes: LSTM-based, isolation forest, CUSUM.
+fn synthesise_detection_model :: [MarketEvent] -> String
+  require: events.len() >= 10
+  String
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- evolve: derivative_free tunes threshold values within the current
+-- circuit breaker topology (e.g., the 50 bps spread trigger).
+--
+-- rewire: fires at 0.20 volatility drift — the regime boundary identified
+-- in the CFTC-SEC 2010 report beyond which the existing rule topology
+-- was predictably defeated. Candidates include three structural axes:
+-- the topology graph, detection model architecture, and response graph.
+--
+-- plasticity: monitors order_book_depth, volatility_index, and
+-- hft_probe_score on a trend_reversal signal — specifically the moment
+-- when the probe score reverses downward after a spike, indicating the
+-- adversary has identified the current rule structure.
+
+being FlashCrashDefender
+describe: "Flash Crash Defender BIOISO — Tier 5 structural rewire of circuit-breaker topology under adversarial HFT pressure"
+
+@corrigible
+
+matter:
+  strategy:     DefenseStrategy
+  event_buffer: [MarketEvent]
+  probe_score:  Float
+  crisis_mode:  Bool
+end
+
+function:
+  fn assess :: OrderBookSnapshot -> Effect<[IO], [String]>
+    require: true
+    ensure:  true
+  end
+  fn respond :: [String] -> Effect<[IO@irreversible], Unit]
+    require: actions.len() > 0
+  end
+end
+
+evolve: derivative_free
+  constraint: E[order_book_depth] is non_decreasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.20
+  candidates: [circuit_breaker_topology, detection_model_architecture, response_rule_graph]
+  selection:  fitness_guided
+end
+
+plasticity:
+  observe:    [order_book_depth, volatility_index, hft_probe_score]
+  adjust_on:  trend_reversal
+  update_rule: reinforcement
+  learning_rate: 0.03
+end
+
+telos: "maintain order_book_depth > 0.6 and volatility_index < 0.35 under adversarial HFT order flow"
+  bounded_by: response_latency_us <= 500.0
+end
+
+end -- being FlashCrashDefender
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test evaluate_rules_returns_list ::
+  let rule = CircuitBreakerRule {
+    condition: "spread_bps > 50", threshold: 50.0, action: "pause_5s"
+  } in
+  let snap = OrderBookSnapshot { depth: 0.4, bid_ask_spread_bps: 80.0, cancellation_rate: 0.5 } in
+  evaluate_rules([rule], snap).len() >= 0
+
+test volatility_drift_nonneg ::
+  let events = [
+    MarketEvent { timestamp_ns: 0, snapshot: OrderBookSnapshot { depth: 0.9, bid_ask_spread_bps: 10.0, cancellation_rate: 0.1 }, volatility_index: 0.05, hft_probe_score: 0.02 },
+    MarketEvent { timestamp_ns: 1, snapshot: OrderBookSnapshot { depth: 0.5, bid_ask_spread_bps: 80.0, cancellation_rate: 0.95 }, volatility_index: 0.40, hft_probe_score: 0.85 }
+  ] in
+  volatility_drift(events, 2) >= 0.0
+
+test probe_detection_score_bounded ::
+  let events = [
+    MarketEvent { timestamp_ns: 0, snapshot: OrderBookSnapshot { depth: 0.8, bid_ask_spread_bps: 12.0, cancellation_rate: 0.05 }, volatility_index: 0.08, hft_probe_score: 0.0 }
+  ] in
+  let score = probe_detection_score(events) in
+  score >= 0.0 && score <= 1.0

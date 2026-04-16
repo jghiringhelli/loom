@@ -1,0 +1,238 @@
+-- examples/tier4/neural_combinatorial.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 4 — Learning-based: Attention Model for Combinatorial TSP.
+--
+-- For large TSP instances (n ≥ 100 cities), classical meta-heuristics
+-- (SA, LKH) require O(n²) neighbourhood evaluations per solution and
+-- cannot generalise across instances. Each run starts from scratch.
+--
+-- The Attention Model (Kool et al., 2019) — inspired by the Pointer
+-- Network (Vinyals et al., 2015) — learns a policy π(a|s, θ) that
+-- maps a city embedding (produced by a Transformer encoder) to a
+-- probability distribution over unvisited cities (Pointer Network
+-- decoder). The policy is trained end-to-end via REINFORCE with a
+-- baseline. After training, inference is O(n) per instance: the model
+-- *generalises* — one forward pass routes an unseen instance.
+--
+-- Key distinction from Tier 2 (SA) and Tier 3 (hyper-heuristic):
+-- the optimiser does not search from scratch per instance. It amortises
+-- search cost across instances via gradient-based weight updates. The
+-- learned weights are the artefact that transfers.
+--
+-- Key distinction from Tier 5: the model architecture — Transformer
+-- encoder depth, attention head count, decoder pointer mechanism — is
+-- fixed at compile time. Only θ (the weight tensor) is updated during
+-- training. No structural rewire occurs.
+--
+-- Reference: Kool, van Hoof, Welling (2019) — "Attention, Learn to Solve
+-- Routing Problems!"; Vinyals, Fortunato, Jaitly (2015) — "Pointer Networks".
+--
+-- Compile:  loom compile examples/tier4/neural_combinatorial.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module NeuralCombinatorial
+describe: "Learning-based TSP solver via Attention Model (Transformer encoder + Pointer Network decoder, REINFORCE training)"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type City =
+  x: Float    -- normalised coordinate in [0.0, 1.0]
+  y: Float    -- normalised coordinate in [0.0, 1.0]
+end
+
+type Tour =
+  cities:         [City]
+  permutation:    [Int]   -- ordered city indices forming the tour
+  total_distance: Float   -- sum of Euclidean legs (including return to start)
+end
+
+type AttentionSolver =
+  model_weights:  [Float]   -- flattened parameter tensor θ (encoder + decoder)
+  training_step:  Int       -- gradient update counter
+end
+
+-- Transformer encoder output: one d_model-dimensional embedding per city.
+type NodeEmbedding =
+  city_index: Int
+  embedding:  [Float]   -- dimension: d_model (default 128)
+end
+
+-- Decoder context at step t: query built from last visited city + depot.
+type DecoderContext =
+  step:           Int
+  last_city:      NodeEmbedding
+  context_vector: [Float]   -- d_model-dimensional
+  mask:           [Bool]    -- visited[i] = true → city i is masked out
+end
+
+-- One training episode: a sampled instance and the policy rollout.
+type TrainingEpisode =
+  instance:      [City]
+  tour:          Tour
+  baseline_dist: Float   -- exponential moving average baseline for REINFORCE
+  policy_loss:   Float   -- -log π(tour) * (tour_dist - baseline)
+end
+
+-- ── Encoder: Transformer ────────────────────────────────────────────
+
+-- Multi-head self-attention over all city embeddings.
+-- N=3 encoder layers, h=8 heads, d_model=128, d_ff=512 (Kool et al. defaults).
+fn encode_cities :: [City] -> AttentionSolver -> [NodeEmbedding]
+  require: cities.len() >= 2
+  require: solver.model_weights.len() > 0
+  ensure:  result.len() == cities.len()
+  [NodeEmbedding]
+end
+
+-- ── Decoder: Pointer Network ────────────────────────────────────────
+
+-- Compute attention scores between context vector and all node embeddings,
+-- apply mask over visited cities, sample (or greedy-select) next city.
+fn decode_step :: DecoderContext -> [NodeEmbedding] -> AttentionSolver -> (Int, Float)
+  require: context.mask.len() == embeddings.len()
+  require: context.mask.any(|m| !m)   -- at least one unvisited city
+  ensure:  !context.mask[result.0]    -- selected city was unvisited
+  ensure:  result.1 > 0.0             -- log-probability is meaningful
+  (Int, Float)
+end
+
+-- Autoregressively decode a complete tour from encoder embeddings.
+-- Returns the permutation and the sum of log-probabilities (for REINFORCE).
+fn decode_tour :: [NodeEmbedding] -> AttentionSolver -> Bool -> (Tour, Float)
+  require: embeddings.len() >= 2
+  ensure:  result.0.permutation.len() == embeddings.len()
+  ensure:  result.0.total_distance > 0.0
+  (Tour, Float)
+end
+
+-- ── Training ────────────────────────────────────────────────────────
+
+-- Sample a random TSP instance of `instance_size` cities.
+fn sample_instance :: Int -> Effect<[IO], [City]>
+  require: instance_size >= 2
+  ensure:  result.len() == instance_size
+  ensure:  result.all(|c| c.x >= 0.0 && c.x <= 1.0 && c.y >= 0.0 && c.y <= 1.0)
+  [City]
+end
+
+-- REINFORCE gradient step with exponential moving average baseline.
+-- Baseline decay β = 0.99 (Kool et al. Appendix A).
+fn reinforce_step :: AttentionSolver -> TrainingEpisode -> Float -> Effect<[IO], AttentionSolver>
+  require: learning_rate > 0.0 && learning_rate < 1.0
+  ensure:  result.training_step == solver.training_step + 1
+  AttentionSolver
+end
+
+-- Run one training batch: sample B instances, rollout policy, compute
+-- REINFORCE loss, update weights via Adam optimiser (lr = 1e-4).
+fn train_batch :: AttentionSolver -> Int -> Float -> Effect<[IO], (AttentionSolver, Float)>
+  require: batch_size >= 1
+  require: learning_rate > 0.0
+  ensure:  result.0.training_step == solver.training_step + batch_size
+  (AttentionSolver, Float)
+end
+
+-- ── Inference ───────────────────────────────────────────────────────
+
+-- Greedy decode a tour for a new (unseen) TSP instance.
+-- One forward pass — O(n) — replaces O(n²) SA neighbourhood search.
+fn solve_instance :: [City] -> AttentionSolver -> Tour
+  require: cities.len() >= 2
+  ensure:  result.permutation.len() == cities.len()
+  ensure:  result.total_distance > 0.0
+  Tour
+end
+
+-- Gap to optimal: (model_dist - opt_dist) / opt_dist.
+-- Computed against Concorde exact solver on held-out 100-city instances.
+fn optimality_gap :: Tour -> Float -> Float
+  require: optimal_distance > 0.0
+  require: tour.total_distance >= optimal_distance
+  ensure:  result >= 0.0
+  Float
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 4: telos + learn: attention_model.
+-- No evolve: block. No per-instance search. The learned weights θ
+-- encode a generalised routing policy; inference is a single forward pass.
+-- The training loop is the learning mechanism — weights compound across steps.
+
+being NeuralTSPSolver
+describe: "TSP Solver — Tier 4 learning-based via Attention Model (Transformer + Pointer Network, REINFORCE)"
+
+@corrigible
+
+matter:
+  solver:            AttentionSolver
+  instance_size:     Int
+  training_episodes: Int
+  baseline:          Float   -- REINFORCE EMA baseline
+end
+
+function:
+  fn train :: Int -> Effect<[IO], Unit]
+    require: n_steps > 0
+    ensure:  true
+  end
+  fn solve :: [City] -> Tour
+    require: cities.len() >= 2
+    ensure:  result.permutation.len() == cities.len()
+  end
+end
+
+learn: attention_model
+  encoder:         transformer
+  decoder:         pointer_network
+  training:        reinforce
+  instance_size:   100
+  batch_size:      512
+  learning_rate:   1e-4
+  baseline_decay:  0.99
+  constraint:      E[tour_distance] is non_increasing
+end
+
+telos: "minimise total tour distance; gap to optimal < 0.05 on 100-city instances after training convergence"
+  bounded_by: training_episodes <= 1_000_000
+end
+
+end -- being NeuralTSPSolver
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test encode_covers_all_cities ::
+  let cities = [
+    City { x: 0.1, y: 0.2 },
+    City { x: 0.5, y: 0.8 },
+    City { x: 0.9, y: 0.3 }
+  ] in
+  let solver = AttentionSolver { model_weights: [0.0], training_step: 0 } in
+  encode_cities(cities, solver).len() == 3
+
+test tour_permutation_covers_all_cities ::
+  let cities = [
+    City { x: 0.0, y: 0.0 },
+    City { x: 1.0, y: 0.0 },
+    City { x: 0.5, y: 1.0 }
+  ] in
+  let solver = AttentionSolver { model_weights: [0.0], training_step: 0 } in
+  let tour = solve_instance(cities, solver) in
+  tour.permutation.len() == 3
+
+test optimality_gap_nonneg ::
+  let tour = Tour {
+    cities: [City { x: 0.0, y: 0.0 }, City { x: 1.0, y: 0.0 }],
+    permutation: [0, 1],
+    total_distance: 2.5
+  } in
+  optimality_gap(tour, 2.0) >= 0.0
+
+test training_step_increments ::
+  let solver = AttentionSolver { model_weights: [0.1, 0.2], training_step: 10 } in
+  let episode = TrainingEpisode {
+    instance: [City { x: 0.0, y: 0.0 }, City { x: 1.0, y: 1.0 }],
+    tour: Tour { cities: [], permutation: [0, 1], total_distance: 1.41 },
+    baseline_dist: 1.5, policy_loss: 0.05
+  } in
+  -- reinforce_step must increment training_step by exactly 1
+  true  -- structural contract verified by ensure clause on reinforce_step

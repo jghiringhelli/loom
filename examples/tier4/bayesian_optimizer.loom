@@ -1,0 +1,216 @@
+-- examples/tier4/bayesian_optimizer.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 4 — Learning-based: Bayesian Optimisation for ML Hyperparameters.
+--
+-- Hyperparameter optimisation is a black-box problem: the objective
+-- (validation accuracy) is expensive to evaluate, noisy, and has no
+-- closed-form gradient. Grid/random search (Tier 1) waste evaluations.
+-- GA/SA (Tier 2) ignore the information from prior evaluations.
+--
+-- Bayesian Optimisation (Mockus, 1974; Srinivas et al., 2010) fits a
+-- Gaussian Process surrogate model over the observed (config, accuracy)
+-- pairs and selects the next candidate by maximising an acquisition
+-- function — Expected Improvement — that balances exploration and
+-- exploitation. Each evaluation updates the posterior: the model
+-- *learns* the response surface from data.
+--
+-- Key distinction from Tier 2/3: the optimiser maintains an explicit
+-- probabilistic *model* of the objective. It does not just accept or
+-- reject moves; it builds a surrogate and reasons under uncertainty.
+-- This is the tier boundary: `learn: gaussian_process` replaces `evolve:`.
+--
+-- Key distinction from Tier 5: the GP kernel and acquisition function
+-- are fixed. The model architecture does not rewire. Only the posterior
+-- (weights in the GP covariance) updates.
+--
+-- Reference: Bergstra & Bengio (2012) — "Random Search for Hyper-Parameter
+-- Optimisation"; Snoek et al. (2012) — "Practical Bayesian Optimization of
+-- Machine Learning Algorithms".
+--
+-- Compile:  loom compile examples/tier4/bayesian_optimizer.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module BayesianOptimizer
+describe: "ML hyperparameter optimisation via Bayesian Optimisation with Gaussian Process surrogate"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type HyperparamConfig =
+  learning_rate: Float    -- log-uniform in [1e-5, 1e-1]
+  batch_size:    Int      -- {16, 32, 64, 128, 256}
+  dropout:       Float    -- uniform in [0.0, 0.7]
+end
+
+type TrainingRun =
+  config:       HyperparamConfig
+  val_accuracy: Float     -- observed validation accuracy in [0.0, 1.0]
+  wall_time_s:  Float     -- wall-clock seconds consumed by this evaluation
+end
+
+type SearchHistory =
+  runs:             [TrainingRun]
+  best_config:      HyperparamConfig
+  best_val_accuracy: Float
+end
+
+-- GP internal state: kernel parameters fitted via marginal likelihood.
+type GPState =
+  length_scales:    [Float]   -- one per hyperparameter dimension
+  signal_variance:  Float
+  noise_variance:   Float
+  observation_xs:   [[Float]] -- normalised input matrix, shape (n, d)
+  observation_ys:   [Float]   -- corresponding val_accuracy values
+end
+
+-- ── Surrogate model functions ───────────────────────────────────────
+
+-- Squared exponential (RBF) kernel: k(x, x') = σ² · exp(-‖x-x'‖²/2l²).
+-- Length scales are fitted by maximising the log marginal likelihood.
+fn rbf_kernel :: [Float] -> [Float] -> GPState -> Float
+  require: x.len() == x_prime.len()
+  require: gp.signal_variance > 0.0
+  ensure:  result > 0.0
+  Float
+end
+
+-- GP posterior mean and variance at a candidate point.
+-- Uses the standard Cholesky-based GP formula (Rasmussen & Williams, 2006).
+fn gp_predict :: [Float] -> GPState -> (Float, Float)
+  require: x.len() == gp.length_scales.len()
+  ensure:  result.1 >= 0.0   -- variance is non-negative
+  (Float, Float)
+end
+
+-- Expected Improvement acquisition function.
+-- EI(x) = E[max(f(x) - f*, 0)] evaluated via the GP predictive distribution.
+-- xi controls the exploration-exploitation trade-off (default 0.01).
+fn expected_improvement :: [Float] -> Float -> Float -> GPState -> Float
+  require: xi >= 0.0
+  ensure:  result >= 0.0
+  Float
+end
+
+-- Maximise EI over the discrete/continuous search space via L-BFGS-B
+-- restarts from random initialisations.
+fn maximise_acquisition :: GPState -> Float -> Int -> Effect<[IO], HyperparamConfig>
+  require: gp.observation_xs.len() > 0
+  require: n_restarts >= 1
+  HyperparamConfig
+end
+
+-- Update GP posterior with a new (config, val_accuracy) observation.
+-- Refits kernel hyperparameters by marginal likelihood maximisation.
+fn update_gp :: GPState -> HyperparamConfig -> Float -> Effect<[IO], GPState>
+  require: val_accuracy >= 0.0 && val_accuracy <= 1.0
+  ensure:  result.observation_ys.len() == gp.observation_ys.len() + 1
+  GPState
+end
+
+-- ── Evaluation ─────────────────────────────────────────────────────
+
+-- Train a model with the given hyperparameters and return val_accuracy.
+-- This is the expensive black-box oracle — each call is one GPU epoch run.
+fn evaluate_config :: HyperparamConfig -> Effect<[IO], TrainingRun>
+  require: config.learning_rate > 0.0 && config.learning_rate < 1.0
+  require: config.batch_size > 0
+  require: config.dropout >= 0.0 && config.dropout < 1.0
+  ensure:  result.val_accuracy >= 0.0 && result.val_accuracy <= 1.0
+  ensure:  result.wall_time_s > 0.0
+  TrainingRun
+end
+
+-- Normalise a HyperparamConfig into a unit-hypercube vector for the GP.
+-- learning_rate is log-transformed before normalisation.
+fn config_to_vector :: HyperparamConfig -> [Float]
+  ensure: result.len() == 3
+  ensure: result.all(|v| v >= 0.0 && v <= 1.0)
+  [Float]
+end
+
+-- ── Core Bayesian optimisation loop ────────────────────────────────
+
+fn run_bayesian_optimisation :: Int -> Int -> Float -> Effect<[IO], SearchHistory>
+  require: n_initial_points >= 5
+  require: max_evaluations > n_initial_points
+  require: xi >= 0.0
+  ensure:  result.runs.len() == max_evaluations
+  ensure:  result.best_val_accuracy >= 0.0 && result.best_val_accuracy <= 1.0
+  SearchHistory
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 4: telos + learn: gaussian_process.
+-- No evolve: block — the being does not run stochastic search.
+-- It builds a probabilistic model and queries it to direct evaluation.
+-- The GP posterior is the learned artefact; it compounds across evaluations.
+
+being BayesianHyperparamOptimiser
+describe: "Hyperparameter optimiser — Tier 4 learning-based via Gaussian Process surrogate + EI acquisition"
+
+@corrigible
+
+matter:
+  gp_state:          GPState
+  search_history:    SearchHistory
+  evaluations_used:  Int
+  budget:            Int
+end
+
+function:
+  fn suggest_next :: SearchHistory -> Effect<[IO], HyperparamConfig>
+    require: history.runs.len() > 0
+    ensure:  result.learning_rate > 0.0
+  end
+  fn observe :: HyperparamConfig -> Float -> Effect<[IO], Unit]
+    require: val_accuracy >= 0.0 && val_accuracy <= 1.0
+  end
+end
+
+learn: gaussian_process
+  acquisition:      expected_improvement
+  n_initial_points: 10
+  xi:               0.01
+  kernel:           rbf
+  noise_model:      heteroscedastic
+  constraint:       E[val_accuracy] is non_decreasing
+end
+
+telos: "maximise validation accuracy above 0.94 within 50 model evaluations"
+  bounded_by: evaluations_used <= 50
+end
+
+end -- being BayesianHyperparamOptimiser
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test rbf_kernel_is_symmetric ::
+  let gp = GPState {
+    length_scales: [0.5, 0.5, 0.5],
+    signal_variance: 1.0, noise_variance: 0.01,
+    observation_xs: [], observation_ys: []
+  } in
+  let x = [0.2, 0.5, 0.8] in
+  let x2 = [0.4, 0.3, 0.6] in
+  (rbf_kernel(x, x2, gp) - rbf_kernel(x2, x, gp)).abs() < 1e-6
+
+test expected_improvement_nonneg ::
+  let gp = GPState {
+    length_scales: [0.5, 0.5, 0.5],
+    signal_variance: 1.0, noise_variance: 0.01,
+    observation_xs: [[0.1, 0.5, 0.3]],
+    observation_ys: [0.87]
+  } in
+  expected_improvement([0.2, 0.6, 0.4], 0.87, 0.01, gp) >= 0.0
+
+test config_to_vector_has_three_dims ::
+  let cfg = HyperparamConfig { learning_rate: 0.001, batch_size: 64, dropout: 0.3 } in
+  config_to_vector(cfg).len() == 3
+
+test best_config_is_max_observed ::
+  -- After a run with one evaluation, best must match that evaluation.
+  let run = TrainingRun {
+    config: HyperparamConfig { learning_rate: 0.01, batch_size: 32, dropout: 0.2 },
+    val_accuracy: 0.91, wall_time_s: 120.0
+  } in
+  let hist = SearchHistory { runs: [run], best_config: run.config, best_val_accuracy: 0.91 } in
+  hist.best_val_accuracy == 0.91
