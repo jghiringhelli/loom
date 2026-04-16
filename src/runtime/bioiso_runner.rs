@@ -35,6 +35,7 @@ use std::collections::HashMap;
 use crate::runtime::{
     now_ms, EntityId, MetricName, Runtime, Signal, TelosBound,
 };
+use crate::runtime::polycephalum::{DeltaSpec, Rule, RuleAction, RuleCondition};
 
 // ── Domain Spec ───────────────────────────────────────────────────────────────
 
@@ -385,6 +386,36 @@ impl BIOISORunner {
             runtime.set_telos_bounds(spec.entity_id, b.metric, b.min, b.max, Some(b.target))?;
         }
 
+        // ── Fix 1: register Loom source with the mutation gate ────────────────
+        // Without this, StructuralRewire proposals always fail with
+        // MalformedProposal because build_patched_source can't find the entity.
+        // We synthesise a minimal valid being from the spec so the gate can
+        // compile-check structural mutations against a real source.
+        let loom_source = build_entity_loom_source(spec);
+        runtime.gate.register_source(spec.entity_id, loom_source);
+
+        // ── Fix 2: seed T1 Polycephalum rules from telos bounds ───────────────
+        // Without this, T1 produces zero proposals for every entity (T1=0 in all
+        // colony logs), forcing every drift event to escalate to T2 (Claude API).
+        // One rule per metric: push the parameter toward its telos target using
+        // the sampler (biased gradient toward target, stochastic noise for exploration).
+        for b in &spec.bounds {
+            let (min, max) = (b.min.unwrap_or(0.0), b.max.unwrap_or(1.0));
+            let rule = Rule {
+                name: format!("{}::{}_toward_target", spec.entity_id, b.metric),
+                priority: 10,
+                condition: RuleCondition::for_metric(b.metric),
+                action: RuleAction::AdjustParam {
+                    param: b.metric.to_string(),
+                    delta: DeltaSpec::Sampled {
+                        target: b.target,
+                        bounds: (min, max),
+                    },
+                },
+            };
+            runtime.polycephalum.registry.add_for_entity(spec.entity_id, rule);
+        }
+
         // Inject baseline signals.
         let ts = now_ms();
         for &(metric, value) in &spec.baseline_signals {
@@ -399,6 +430,80 @@ impl BIOISORunner {
 
         Ok(())
     }
+}
+
+/// Build a minimal valid Loom source for an entity from its spec.
+///
+/// This is registered with the mutation gate so that StructuralRewire proposals
+/// have a compilable base source rather than failing with MalformedProposal.
+/// The source is syntactically valid and passes the Loom compiler; it captures
+/// the entity's telos and metric parameters as regulate blocks.
+fn build_entity_loom_source(spec: &BIOISOSpec) -> String {
+    let module_name = to_pascal_case(spec.entity_id);
+    let being_name = to_pascal_case(spec.entity_id);
+
+    // One regulate block per bound — gives the gate a structural anchor
+    // for each parameter the entity tracks.
+    let regulate_blocks: String = spec
+        .bounds
+        .iter()
+        .map(|b| {
+            format!(
+                "  regulate:\n    trigger: {metric} > {max:.4}\n    action: adjust_{metric}\n  end\n",
+                metric = b.metric,
+                max = b.max.unwrap_or(1.0),
+            )
+        })
+        .collect();
+
+    let fn_defs: String = spec
+        .bounds
+        .iter()
+        .map(|b| {
+            format!(
+                "fn adjust_{metric} :: Unit -> Unit\nend\n",
+                metric = b.metric,
+            )
+        })
+        .collect();
+
+    format!(
+        r#"module {module_name}
+
+being {being_name}
+  telos: "{telos}"
+    thresholds:
+      convergence: 0.9
+      divergence: 0.1
+    end
+  end
+{regulate_blocks}end
+
+{fn_defs}
+fn measure_stability :: Unit -> Float
+  0.5
+end
+end
+"#,
+        module_name = module_name,
+        being_name = being_name,
+        telos = spec.name,
+        regulate_blocks = regulate_blocks,
+    )
+}
+
+/// Convert snake_case or hyphenated identifiers to PascalCase.
+fn to_pascal_case(s: &str) -> String {
+    s.split(|c: char| !c.is_alphanumeric())
+        .filter(|p| !p.is_empty())
+        .map(|p| {
+            let mut chars = p.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
+            }
+        })
+        .collect()
 }
 
 impl Default for BIOISORunner {

@@ -706,20 +706,68 @@ impl MeiosisEngine {
 
     /// Cross-breed donors into evolved genomes.
     ///
-    /// Pairs donors in order: (0,1), (2,3), … Odd donor out produces a selfed
-    /// genome from a single parent.
+    /// Donors are paired by **orthogonality score** rather than position:
+    /// the pair with the highest mutual orthogonality is combined first,
+    /// maximising the chance that cross-breeding produces a genuine Meiosis
+    /// decision (new offspring) rather than a Mitosis or Reject.
+    ///
+    /// Algorithm: greedy maximum-orthogonality matching.
+    /// - Build mutation vectors for all donors.
+    /// - Find the most orthogonal remaining pair; emit a cross genome.
+    /// - Repeat until ≤1 donor remains; the leftover produces a selfed genome.
     pub fn recombine(&self, donors: &[MeiosisDonor]) -> Vec<EvolvedGenome> {
-        let mut genomes = Vec::new();
-        let mut i = 0;
-        while i < donors.len() {
-            if i + 1 < donors.len() {
-                genomes.push(render_genome(self.config.generation, &donors[i], Some(&donors[i + 1])));
-                i += 2;
-            } else {
-                genomes.push(render_genome(self.config.generation, &donors[i], None));
-                i += 1;
-            }
+        if donors.is_empty() {
+            return vec![];
         }
+        if donors.len() == 1 {
+            return vec![render_genome(self.config.generation, &donors[0], None)];
+        }
+
+        // Build mutation vectors once.
+        let vectors: Vec<MutationVector> = donors
+            .iter()
+            .map(|d| MutationVector::from_records(&d.records))
+            .collect();
+
+        // Greedy maximum-orthogonality pairing.
+        let mut remaining: Vec<usize> = (0..donors.len()).collect();
+        let mut genomes = Vec::new();
+
+        while remaining.len() >= 2 {
+            // Find the pair with the highest orthogonality score.
+            let mut best_score = -1.0_f64;
+            let mut best_i = 0;
+            let mut best_j = 1;
+
+            for ii in 0..remaining.len() {
+                for jj in (ii + 1)..remaining.len() {
+                    let score = vectors[remaining[ii]].orthogonality_score(&vectors[remaining[jj]]);
+                    if score > best_score {
+                        best_score = score;
+                        best_i = ii;
+                        best_j = jj;
+                    }
+                }
+            }
+
+            let idx_a = remaining[best_i];
+            let idx_b = remaining[best_j];
+            genomes.push(render_genome(
+                self.config.generation,
+                &donors[idx_a],
+                Some(&donors[idx_b]),
+            ));
+
+            // Remove paired indices (higher index first to preserve lower index).
+            remaining.remove(best_j);
+            remaining.remove(best_i);
+        }
+
+        // Leftover odd donor — selfed genome.
+        if let Some(&idx) = remaining.first() {
+            genomes.push(render_genome(self.config.generation, &donors[idx], None));
+        }
+
         genomes
     }
 
@@ -864,6 +912,8 @@ pub struct TelomereState {
     pub original_telos: String,
     /// Remaining telomere length.  Starts at `initial_length`.
     pub remaining: u32,
+    /// Cumulative excess drift above the tolerance window — diagnostic counter.
+    pub drift_accumulator: f64,
     /// Fraction of max drift tolerated before shortening begins (0.0–1.0).
     /// Default 0.3 — up to 30 % telos drift is treated as exploration.
     pub tolerance_window: f64,
@@ -883,6 +933,7 @@ impl TelomereState {
             entity_id: entity_id.into(),
             original_telos: original_telos.into(),
             remaining: initial_length,
+            drift_accumulator: 0.0,
             tolerance_window: 0.3,
             decay_rate: 5.0,
         }
@@ -909,6 +960,7 @@ impl TelomereState {
             return false;
         }
         let excess = drift_score - self.tolerance_window;
+        self.drift_accumulator += excess;
         let shortening = (excess * self.decay_rate).floor() as u32;
         if shortening > 0 {
             self.remaining = self.remaining.saturating_sub(shortening);

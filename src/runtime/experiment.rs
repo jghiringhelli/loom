@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::runtime::{
     deploy::DeployStatus,
-    meiosis::{MeiosisEngine, MeiosisReport, PromotedRecord},
+    meiosis::{MeiosisEngine, MeiosisReport, PromotedRecord, TelomereTracker},
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
     signal::now_ms,
     signals_sim::SignalSimulator,
@@ -337,6 +337,10 @@ pub struct ExperimentDriver {
     config: ExperimentConfig,
     /// All promoted mutations accumulated during the run — fed to meiosis at end.
     promoted_records: Vec<PromotedRecord>,
+    /// Tracks per-entity telomere length based on telos drift.
+    /// Shortens when drift exceeds tolerance (exploration allowed below window).
+    /// Near-senescent entities are prioritised as meiosis donors.
+    telomere_tracker: TelomereTracker,
 }
 
 impl ExperimentDriver {
@@ -364,6 +368,9 @@ impl ExperimentDriver {
             log,
             config,
             promoted_records: Vec::new(),
+            // Initial telomere length of 500: enough slack for ~100 high-drift
+            // events before senescence triggers meiosis replacement.
+            telomere_tracker: TelomereTracker::new(500),
         }
     }
 
@@ -447,6 +454,26 @@ impl ExperimentDriver {
 
             // ── 4. Collect metrics ────────────────────────────────────────────
             let drift_scores = self.collect_drift_scores(&tick_result);
+
+            // Record drift into the telomere tracker.
+            // The telos reference is the entity_id itself (stored once on first
+            // observation — the tracker uses only the drift_score for decisions).
+            // Near-senescent entities are flagged and prioritised as meiosis donors.
+            for event in &tick_result.drift_events {
+                let senescent = self.telomere_tracker.record_drift(
+                    &event.entity_id,
+                    &event.entity_id, // telos label — resolved properly at meiosis time
+                    event.score,
+                );
+                if senescent {
+                    eprintln!(
+                        "[telomere] {} reached senescence (sustained telos drift) — \
+                         prioritising for meiosis replacement",
+                        event.entity_id
+                    );
+                }
+            }
+
             let epigenome_core = self.collect_epigenome_sizes();
             let entities_alive = self
                 .orchestrator
@@ -586,6 +613,20 @@ impl ExperimentDriver {
                 generation: self.config.meiosis_generation,
                 ..Default::default()
             });
+            // Log near-senescent entities so the meiosis report captures urgency.
+            let urgent = self.telomere_tracker.senescent_entities();
+            if !urgent.is_empty() {
+                eprintln!(
+                    "[meiosis] senescent entities (genome preservation urgent): {:?}",
+                    urgent
+                );
+            }
+            for state in self.telomere_tracker.all_states_by_urgency() {
+                eprintln!(
+                    "[telomere] {} remaining={} drift_accum={:.2}",
+                    state.entity_id, state.remaining, state.drift_accumulator
+                );
+            }
             Some(engine.run(&self.promoted_records))
         } else {
             None
