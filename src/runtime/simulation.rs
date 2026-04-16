@@ -86,7 +86,12 @@ impl EffectVector {
         if self.deltas.len() != other.deltas.len() {
             return None;
         }
-        let dot: f64 = self.deltas.iter().zip(&other.deltas).map(|(a, b)| a * b).sum();
+        let dot: f64 = self
+            .deltas
+            .iter()
+            .zip(&other.deltas)
+            .map(|(a, b)| a * b)
+            .sum();
         let mag_a: f64 = self.deltas.iter().map(|x| x * x).sum::<f64>().sqrt();
         let mag_b: f64 = other.deltas.iter().map(|x| x * x).sum::<f64>().sqrt();
         if mag_a < 1e-12 || mag_b < 1e-12 {
@@ -146,11 +151,13 @@ pub struct SimulationConfig {
 
 impl SimulationConfig {
     /// Create a config from telos bounds and historical baseline.
-    pub fn new(
-        telos: HashMap<String, (f64, f64, f64)>,
-        baseline: HashMap<String, f64>,
-    ) -> Self {
-        Self { telos, baseline, noise_fraction: 0.05, ticks: DEFAULT_SIMULATION_TICKS }
+    pub fn new(telos: HashMap<String, (f64, f64, f64)>, baseline: HashMap<String, f64>) -> Self {
+        Self {
+            telos,
+            baseline,
+            noise_fraction: 0.05,
+            ticks: DEFAULT_SIMULATION_TICKS,
+        }
     }
 }
 
@@ -176,7 +183,9 @@ pub struct DigitalTwin {
 impl DigitalTwin {
     /// Create a new digital twin with a default 80% survival threshold.
     pub fn new() -> Self {
-        Self { survival_threshold: 0.80 }
+        Self {
+            survival_threshold: 0.80,
+        }
     }
 
     /// Simulate a mutation proposal against the given config.
@@ -317,7 +326,12 @@ impl MeioticPool {
         let id = proposal_id.into();
         self.candidates.insert(
             id.clone(),
-            PooledMutation { proposal_id: id, param_deltas, effect: None, entered_at: now },
+            PooledMutation {
+                proposal_id: id,
+                param_deltas,
+                effect: None,
+                entered_at: now,
+            },
         );
     }
 
@@ -342,7 +356,13 @@ impl MeioticPool {
             .iter()
             .map(|(metric, (min, max, target))| {
                 let current = current_values.get(metric).copied().unwrap_or(*target);
-                let delta = sampler.sample(current, *target, (*min, *max), drift_score, relative_telomere);
+                let delta = sampler.sample(
+                    current,
+                    *target,
+                    (*min, *max),
+                    drift_score,
+                    relative_telomere,
+                );
                 (metric.clone(), delta)
             })
             .collect();
@@ -416,7 +436,11 @@ impl MeioticPool {
         let passing: Vec<String> = self
             .candidates
             .values()
-            .filter(|c| c.effect.as_ref().is_some_and(|e| e.survival_score >= self.twin.survival_threshold))
+            .filter(|c| {
+                c.effect
+                    .as_ref()
+                    .is_some_and(|e| e.survival_score >= self.twin.survival_threshold)
+            })
             .map(|c| c.proposal_id.clone())
             .collect();
 
@@ -468,7 +492,13 @@ impl MeioticPool {
                     // Keep whichever has higher survival score.
                     let group_best_score = group
                         .iter()
-                        .filter_map(|m| self.candidates.get(m)?.effect.as_ref().map(|e| e.survival_score))
+                        .filter_map(|m| {
+                            self.candidates
+                                .get(m)?
+                                .effect
+                                .as_ref()
+                                .map(|e| e.survival_score)
+                        })
                         .fold(f64::NEG_INFINITY, f64::max);
                     let other_score = self
                         .candidates
@@ -497,7 +527,11 @@ impl MeioticPool {
             }
         }
 
-        RecombinationPlan { offspring_groups, separate_lineages, redundant }
+        RecombinationPlan {
+            offspring_groups,
+            separate_lineages,
+            redundant,
+        }
     }
 
     /// Remove a candidate from the pool.
@@ -540,7 +574,10 @@ pub struct SimulationStage {
 
 impl SimulationStage {
     pub fn new() -> Self {
-        Self { twin: DigitalTwin::new(), pool: MeioticPool::new() }
+        Self {
+            twin: DigitalTwin::new(),
+            pool: MeioticPool::new(),
+        }
     }
 }
 
@@ -767,7 +804,11 @@ mod tests {
             },
         );
         let plan = pool.build_recombination_plan();
-        assert_eq!(plan.offspring_groups.len(), 1, "should combine into one offspring");
+        assert_eq!(
+            plan.offspring_groups.len(),
+            1,
+            "should combine into one offspring"
+        );
         let group = &plan.offspring_groups[0];
         assert!(group.contains(&"a".to_string()));
         assert!(group.contains(&"b".to_string()));
@@ -808,9 +849,8 @@ mod tests {
         );
         let plan = pool.build_recombination_plan();
         // One is in an offspring group, the other in separate_lineages.
-        let total_placed =
-            plan.offspring_groups.iter().map(|g| g.len()).sum::<usize>()
-                + plan.separate_lineages.len();
+        let total_placed = plan.offspring_groups.iter().map(|g| g.len()).sum::<usize>()
+            + plan.separate_lineages.len();
         assert_eq!(total_placed, 2, "both mutations must be placed");
     }
 
@@ -852,13 +892,15 @@ mod tests {
 
         let mut pool = MeioticPool::new();
         let telos: HashMap<String, (f64, f64, f64)> = [
-            ("cpu".to_string(), (0.0, 1.0, 0.3)),     // target 0.3, current 0.8 → should be negative
+            ("cpu".to_string(), (0.0, 1.0, 0.3)), // target 0.3, current 0.8 → should be negative
             ("latency".to_string(), (0.0, 200.0, 50.0)), // target 50, current 120 → should be negative
-        ].into_iter().collect();
-        let current: HashMap<String, f64> = [
-            ("cpu".to_string(), 0.8),
-            ("latency".to_string(), 120.0),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
+        let current: HashMap<String, f64> =
+            [("cpu".to_string(), 0.8), ("latency".to_string(), 120.0)]
+                .into_iter()
+                .collect();
 
         let mut sampler = MutationSampler::with_seed(7);
         let id = pool.add_sampled_candidate("s1", &telos, &current, 0.75, &mut sampler, 0.9, 0);
@@ -868,6 +910,9 @@ mod tests {
         assert!(candidate.param_deltas.len() == 2);
         // Guidance force dominates for high drift — cpu delta should be negative (toward 0.3 from 0.8)
         let cpu_delta = candidate.param_deltas["cpu"];
-        assert!(cpu_delta < 0.0, "expected negative cpu delta, got {cpu_delta}");
+        assert!(
+            cpu_delta < 0.0,
+            "expected negative cpu delta, got {cpu_delta}"
+        );
     }
 }

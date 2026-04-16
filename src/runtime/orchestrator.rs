@@ -170,16 +170,20 @@ impl Orchestrator {
         }
 
         // ── E axis: periodic epigenome distillation ────────────────────────────
-        let distillation_ran =
-            self.tick_count % self.config.epigenome_distil_interval as u64 == 0;
+        let distillation_ran = self.tick_count % self.config.epigenome_distil_interval as u64 == 0;
         if distillation_ran {
-            self.runtime.epigenome.distil_working_to_core(3, "orchestrator", now_ts);
-            self.runtime.epigenome.distil_high_drift_to_core(0.7, "orchestrator", now_ts);
+            self.runtime
+                .epigenome
+                .distil_working_to_core(3, "orchestrator", now_ts);
+            self.runtime
+                .epigenome
+                .distil_high_drift_to_core(0.7, "orchestrator", now_ts);
         }
 
         // ── Evaluate drift ─────────────────────────────────────────────────────
-        let drift_events =
-            self.runtime.evaluate_all_drift(self.config.drift_lookback)?;
+        let drift_events = self
+            .runtime
+            .evaluate_all_drift(self.config.drift_lookback)?;
 
         // ── E security: absorb membrane events for all active entities ─────────
         let entity_ids: Vec<String> = self
@@ -191,14 +195,15 @@ impl Orchestrator {
         let mut security_absorbed = 0usize;
         for eid in &entity_ids {
             let before = self.runtime.epigenome.core_entries(eid).len();
-            self.runtime.epigenome.absorb_security_events(
-                eid,
-                &self.runtime.store,
-                50,
-                now_ts,
-            );
-            security_absorbed +=
-                self.runtime.epigenome.core_entries(eid).len().saturating_sub(before);
+            self.runtime
+                .epigenome
+                .absorb_security_events(eid, &self.runtime.store, 50, now_ts);
+            security_absorbed += self
+                .runtime
+                .epigenome
+                .core_entries(eid)
+                .len()
+                .saturating_sub(before);
         }
 
         if drift_events.is_empty() {
@@ -266,7 +271,9 @@ impl Orchestrator {
             // Deposit pheromone on the strategy trail when a mutation is promoted.
             if promoted {
                 let strategy_key = proposal_strategy_key(proposal);
-                self.runtime.mycelium.deposit_pheromone(strategy_key, 0.2, now_ts);
+                self.runtime
+                    .mycelium
+                    .deposit_pheromone(strategy_key, 0.2, now_ts);
             }
             deploy_outcomes.push(outcome);
         }
@@ -372,7 +379,7 @@ fn proposal_strategy_key(proposal: &MutationProposal) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::polycephalum::{RuleCondition, RuleRegistry, RuleAction, DeltaSpec, Rule};
+    use crate::runtime::polycephalum::{DeltaSpec, Rule, RuleAction, RuleCondition, RuleRegistry};
 
     fn default_orchestrator() -> Orchestrator {
         let rt = Runtime::new(":memory:").unwrap();
@@ -417,7 +424,12 @@ mod tests {
         let rule = Rule {
             name: "boost_carbon".into(),
             priority: 10,
-            condition: RuleCondition { metric: "carbon_stock".into(), min_score: 0.3, max_score: 1.01, min_severity: crate::runtime::DriftSeverity::Healthy },
+            condition: RuleCondition {
+                metric: "carbon_stock".into(),
+                min_score: 0.3,
+                max_score: 1.01,
+                min_severity: crate::runtime::DriftSeverity::Healthy,
+            },
             action: RuleAction::AdjustParam {
                 param: "carbon_input".into(),
                 delta: DeltaSpec::Fixed(5.0),
@@ -428,7 +440,9 @@ mod tests {
         orch.runtime.polycephalum = crate::runtime::Polycephalum::with_registry(registry);
 
         // Emit a drifted signal.
-        orch.runtime.emit_metric("forest", "carbon_stock", 5.0).unwrap();
+        orch.runtime
+            .emit_metric("forest", "carbon_stock", 5.0)
+            .unwrap();
 
         let result = orch.run_once().unwrap();
         // Drift should have been detected.
@@ -508,7 +522,10 @@ mod tests {
 
         let result = orch.run_once().unwrap();
         // Drift is detected, but the circadian gate suppresses mutations.
-        assert_eq!(result.circadian_suppressed, 1, "expected 1 suppressed event");
+        assert_eq!(
+            result.circadian_suppressed, 1,
+            "expected 1 suppressed event"
+        );
         assert!(result.proposals.is_empty(), "no proposals when suppressed");
     }
 
@@ -562,11 +579,20 @@ mod tests {
         orch.runtime.mycelium.receive_gossip(msg, 1_000);
 
         let result = orch.run_once().unwrap();
-        assert_eq!(result.gossip_absorbed, 1, "expected 1 gossip message absorbed");
+        assert_eq!(
+            result.gossip_absorbed, 1,
+            "expected 1 gossip message absorbed"
+        );
         // Epigenome should now have a Relational Core entry from the peer.
         let entries = orch.runtime.epigenome.core_entries("remote_peer");
-        assert!(!entries.is_empty(), "expected relational memory from gossip");
-        assert!(entries[0].content.contains("gossip@"), "content should have gossip tag");
+        assert!(
+            !entries.is_empty(),
+            "expected relational memory from gossip"
+        );
+        assert!(
+            entries[0].content.contains("gossip@"),
+            "content should have gossip tag"
+        );
     }
 
     #[test]
@@ -602,7 +628,10 @@ mod tests {
 
         // Pheromone trail for "adjust:load_shedding" may exist if promotion succeeded.
         // We assert the method doesn't panic and returns a value in [0, 1].
-        let strength = orch.runtime.mycelium.pheromone_strength("adjust:load_shedding");
+        let strength = orch
+            .runtime
+            .mycelium
+            .pheromone_strength("adjust:load_shedding");
         assert!(strength >= 0.0 && strength <= 1.0);
     }
 }

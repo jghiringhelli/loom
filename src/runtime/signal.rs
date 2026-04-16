@@ -27,11 +27,7 @@ pub struct Signal {
 
 impl Signal {
     /// Create a new signal with the current wall-clock timestamp.
-    pub fn new(
-        entity_id: impl Into<EntityId>,
-        metric: impl Into<MetricName>,
-        value: f64,
-    ) -> Self {
+    pub fn new(entity_id: impl Into<EntityId>, metric: impl Into<MetricName>, value: f64) -> Self {
         Self {
             entity_id: entity_id.into(),
             metric: metric.into(),

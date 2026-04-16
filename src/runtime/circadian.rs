@@ -187,7 +187,13 @@ impl WallTime {
         let (year, month, day) = days_to_ymd(days);
         let _ = year;
 
-        Self { minute, hour, day_of_month: day, month, day_of_week }
+        Self {
+            minute,
+            hour,
+            day_of_month: day,
+            month,
+            day_of_week,
+        }
     }
 }
 
@@ -390,12 +396,7 @@ impl Circadian {
     ///
     /// Returns `true` when the signal is within the noise band and should be suppressed.
     /// Updates the Kalman filter for the `(entity_id, metric)` pair.
-    pub fn is_noise_signal(
-        &mut self,
-        entity_id: &str,
-        metric: &str,
-        value: f64,
-    ) -> bool {
+    pub fn is_noise_signal(&mut self, entity_id: &str, metric: &str, value: f64) -> bool {
         let filter = self
             .kalman
             .entry((entity_id.to_string(), metric.to_string()))
@@ -433,7 +434,13 @@ mod tests {
     use super::*;
 
     fn wall(min: u32, hour: u32, dom: u32, month: u32, dow: u32) -> WallTime {
-        WallTime { minute: min, hour, day_of_month: dom, month, day_of_week: dow }
+        WallTime {
+            minute: min,
+            hour,
+            day_of_month: dom,
+            month,
+            day_of_week: dow,
+        }
     }
 
     // ── Schedule parsing ──────────────────────────────────────────────────────
@@ -525,21 +532,37 @@ mod tests {
     #[test]
     fn no_gates_always_allows() {
         let c = Circadian::new();
-        assert_eq!(c.evaluate("e1", &wall(0, 3, 1, 1, 0)), CircadianVerdict::Allow);
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 3, 1, 1, 0)),
+            CircadianVerdict::Allow
+        );
     }
 
     #[test]
     fn suppress_gate_matches_midnight_hour() {
         let mut c = Circadian::new();
-        c.add_gate("quiet", "* 0-5 * * *", CircadianAction::Suppress, None).unwrap();
-        assert_eq!(c.evaluate("e1", &wall(30, 3, 1, 1, 0)), CircadianVerdict::Suppress);
-        assert_eq!(c.evaluate("e1", &wall(0, 9, 1, 1, 0)), CircadianVerdict::Allow);
+        c.add_gate("quiet", "* 0-5 * * *", CircadianAction::Suppress, None)
+            .unwrap();
+        assert_eq!(
+            c.evaluate("e1", &wall(30, 3, 1, 1, 0)),
+            CircadianVerdict::Suppress
+        );
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 9, 1, 1, 0)),
+            CircadianVerdict::Allow
+        );
     }
 
     #[test]
     fn defer_mutations_gate_during_peak_hours() {
         let mut c = Circadian::new();
-        c.add_gate("peak", "* 9-17 * * 1-5", CircadianAction::DeferMutations, None).unwrap();
+        c.add_gate(
+            "peak",
+            "* 9-17 * * 1-5",
+            CircadianAction::DeferMutations,
+            None,
+        )
+        .unwrap();
         assert_eq!(
             c.evaluate("e1", &wall(0, 12, 10, 6, 3)),
             CircadianVerdict::DeferMutations
@@ -560,25 +583,43 @@ mod tests {
             Some("e2".to_string()),
         )
         .unwrap();
-        assert_eq!(c.evaluate("e1", &wall(0, 0, 1, 1, 0)), CircadianVerdict::Allow);
-        assert_eq!(c.evaluate("e2", &wall(0, 0, 1, 1, 0)), CircadianVerdict::Suppress);
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 0, 1, 1, 0)),
+            CircadianVerdict::Allow
+        );
+        assert_eq!(
+            c.evaluate("e2", &wall(0, 0, 1, 1, 0)),
+            CircadianVerdict::Suppress
+        );
     }
 
     #[test]
     fn first_matching_gate_wins() {
         let mut c = Circadian::new();
-        c.add_gate("allow", "* * * * *", CircadianAction::Allow, None).unwrap();
-        c.add_gate("suppress", "* * * * *", CircadianAction::Suppress, None).unwrap();
-        assert_eq!(c.evaluate("e1", &wall(0, 0, 1, 1, 0)), CircadianVerdict::Allow);
+        c.add_gate("allow", "* * * * *", CircadianAction::Allow, None)
+            .unwrap();
+        c.add_gate("suppress", "* * * * *", CircadianAction::Suppress, None)
+            .unwrap();
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 0, 1, 1, 0)),
+            CircadianVerdict::Allow
+        );
     }
 
     #[test]
     fn remove_gate_stops_matching() {
         let mut c = Circadian::new();
-        c.add_gate("block", "* * * * *", CircadianAction::Suppress, None).unwrap();
-        assert_eq!(c.evaluate("e1", &wall(0, 0, 1, 1, 0)), CircadianVerdict::Suppress);
+        c.add_gate("block", "* * * * *", CircadianAction::Suppress, None)
+            .unwrap();
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 0, 1, 1, 0)),
+            CircadianVerdict::Suppress
+        );
         assert!(c.remove_gate("block"));
-        assert_eq!(c.evaluate("e1", &wall(0, 0, 1, 1, 0)), CircadianVerdict::Allow);
+        assert_eq!(
+            c.evaluate("e1", &wall(0, 0, 1, 1, 0)),
+            CircadianVerdict::Allow
+        );
     }
 
     // ── Kalman SNR gate ───────────────────────────────────────────────────────

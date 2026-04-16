@@ -156,7 +156,8 @@ impl WorkingSummary {
 
     /// Standard deviation. `None` when variance is `None` or negative (float rounding).
     pub fn std_dev(&self) -> Option<f64> {
-        self.variance().and_then(|v| if v >= 0.0 { Some(v.sqrt()) } else { None })
+        self.variance()
+            .and_then(|v| if v >= 0.0 { Some(v.sqrt()) } else { None })
     }
 
     /// Number of observations currently in the window.
@@ -275,7 +276,8 @@ impl Epigenome {
 
     /// Return the Working summary for a metric on an entity, if it exists.
     pub fn working_summary(&self, entity_id: &str, metric: &str) -> Option<&WorkingSummary> {
-        self.working.get(&(entity_id.to_string(), metric.to_string()))
+        self.working
+            .get(&(entity_id.to_string(), metric.to_string()))
     }
 
     // ── Core tier ─────────────────────────────────────────────────────────────
@@ -377,15 +379,19 @@ impl Epigenome {
             .map(|bucket| {
                 bucket
                     .iter()
-                    .filter(|e| matches!(
-                        e.memory_type,
-                        MemoryType::Semantic | MemoryType::Procedural | MemoryType::Declarative
-                    ))
-                    .map(|e| (
-                        format!("[inherited:{}] {}", parent_id, e.content),
-                        e.memory_type.clone(),
-                        e.source.clone(),
-                    ))
+                    .filter(|e| {
+                        matches!(
+                            e.memory_type,
+                            MemoryType::Semantic | MemoryType::Procedural | MemoryType::Declarative
+                        )
+                    })
+                    .map(|e| {
+                        (
+                            format!("[inherited:{}] {}", parent_id, e.content),
+                            e.memory_type.clone(),
+                            e.source.clone(),
+                        )
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -460,7 +466,8 @@ impl Epigenome {
         match self.buffer.get(entity_id) {
             None => vec![],
             Some(bucket) => {
-                let mut seen: std::collections::HashSet<MetricName> = std::collections::HashSet::new();
+                let mut seen: std::collections::HashSet<MetricName> =
+                    std::collections::HashSet::new();
                 for e in bucket {
                     seen.insert(e.metric.clone());
                 }
@@ -505,8 +512,20 @@ impl Epigenome {
                 let mean = summary.mean()?;
                 let std_dev = summary.std_dev().unwrap_or(0.0);
                 let min = summary.window.iter().cloned().fold(f64::INFINITY, f64::min);
-                let max = summary.window.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-                Some((entity_id.clone(), metric.clone(), mean, std_dev, min, max, summary.len()))
+                let max = summary
+                    .window
+                    .iter()
+                    .cloned()
+                    .fold(f64::NEG_INFINITY, f64::max);
+                Some((
+                    entity_id.clone(),
+                    metric.clone(),
+                    mean,
+                    std_dev,
+                    min,
+                    max,
+                    summary.len(),
+                ))
             })
             .collect();
 
@@ -593,7 +612,9 @@ fn parse_param_value(content: &str) -> Option<(String, f64)> {
     // Accept "param=foo value=1.23" with optional [inherited:...] prefix.
     let param_start = content.find("param=")?;
     let after_param = &content[param_start + 6..];
-    let param_end = after_param.find(|c: char| c == ' ' || c == '\t').unwrap_or(after_param.len());
+    let param_end = after_param
+        .find(|c: char| c == ' ' || c == '\t')
+        .unwrap_or(after_param.len());
     let param_name = after_param[..param_end].to_string();
 
     let value_start = content.find("value=")?;
@@ -671,7 +692,10 @@ mod tests {
             s.push(v, 0);
         }
         let mean = s.mean().unwrap();
-        assert!((mean - 20.0).abs() < 1e-9, "mean should be 20.0, got {mean}");
+        assert!(
+            (mean - 20.0).abs() < 1e-9,
+            "mean should be 20.0, got {mean}"
+        );
         let sd = s.std_dev().unwrap();
         // population std dev of {10,20,30}: variance = ((10-20)²+(20-20)²+(30-20)²)/3 = 200/3
         let expected_sd = (200.0_f64 / 3.0).sqrt();
@@ -713,8 +737,20 @@ mod tests {
     #[test]
     fn core_write_and_retrieve_entries() {
         let mut ep = epigenome();
-        ep.write_core("e1", "latency stays below 100ms", MemoryType::Semantic, "ganglion", 1_000);
-        ep.write_core("e1", "reduce batch size on OOM", MemoryType::Procedural, "cortex", 2_000);
+        ep.write_core(
+            "e1",
+            "latency stays below 100ms",
+            MemoryType::Semantic,
+            "ganglion",
+            1_000,
+        );
+        ep.write_core(
+            "e1",
+            "reduce batch size on OOM",
+            MemoryType::Procedural,
+            "cortex",
+            2_000,
+        );
         let entries = ep.core_entries("e1");
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].memory_type, MemoryType::Semantic);
@@ -725,7 +761,13 @@ mod tests {
     fn core_evicts_oldest_when_at_capacity() {
         let mut ep = Epigenome::with_config(BUFFER_TTL_MS, WORKING_WINDOW_SIZE);
         for i in 0..CORE_MAX_ENTRIES + 1 {
-            ep.write_core("e1", format!("entry {i}"), MemoryType::Episodic, "test", i as u64);
+            ep.write_core(
+                "e1",
+                format!("entry {i}"),
+                MemoryType::Episodic,
+                "test",
+                i as u64,
+            );
         }
         let entries = ep.core_entries("e1");
         assert_eq!(entries.len(), CORE_MAX_ENTRIES);
@@ -753,12 +795,16 @@ mod tests {
     fn absorb_security_events_writes_procedural_core_entries() {
         let mut ep = epigenome();
         let s = store();
-        s.write_security_event("e1", "rate_limit_exceeded", "too many signals", 1_000).unwrap();
-        s.write_security_event("e1", "unregistered_source", "foreign entity", 2_000).unwrap();
+        s.write_security_event("e1", "rate_limit_exceeded", "too many signals", 1_000)
+            .unwrap();
+        s.write_security_event("e1", "unregistered_source", "foreign entity", 2_000)
+            .unwrap();
         ep.absorb_security_events("e1", &s, 10, 3_000);
         let entries = ep.core_entries("e1");
         assert_eq!(entries.len(), 2);
-        assert!(entries.iter().all(|e| e.memory_type == MemoryType::Procedural));
+        assert!(entries
+            .iter()
+            .all(|e| e.memory_type == MemoryType::Procedural));
         assert!(entries.iter().all(|e| e.source == "membrane"));
     }
 
@@ -866,20 +912,56 @@ mod tests {
     fn inherit_from_copies_semantic_procedural_declarative_not_episodic() {
         let mut ep = epigenome();
         let now = 1_000_u64;
-        ep.write_core("parent", "semantic knowledge".to_string(), MemoryType::Semantic, "src", now);
-        ep.write_core("parent", "procedural rule".to_string(), MemoryType::Procedural, "src", now);
-        ep.write_core("parent", "param=k value=3.14".to_string(), MemoryType::Declarative, "src", now);
-        ep.write_core("parent", "event at t=0".to_string(), MemoryType::Episodic, "src", now);
-        ep.write_core("parent", "correlation xy".to_string(), MemoryType::Relational, "src", now);
+        ep.write_core(
+            "parent",
+            "semantic knowledge".to_string(),
+            MemoryType::Semantic,
+            "src",
+            now,
+        );
+        ep.write_core(
+            "parent",
+            "procedural rule".to_string(),
+            MemoryType::Procedural,
+            "src",
+            now,
+        );
+        ep.write_core(
+            "parent",
+            "param=k value=3.14".to_string(),
+            MemoryType::Declarative,
+            "src",
+            now,
+        );
+        ep.write_core(
+            "parent",
+            "event at t=0".to_string(),
+            MemoryType::Episodic,
+            "src",
+            now,
+        );
+        ep.write_core(
+            "parent",
+            "correlation xy".to_string(),
+            MemoryType::Relational,
+            "src",
+            now,
+        );
 
         let copied = ep.inherit_from("parent", "child", 2_000);
         assert_eq!(copied, 3, "should copy Semantic + Procedural + Declarative");
         let child_entries = ep.core_entries("child");
         assert_eq!(child_entries.len(), 3);
-        assert!(child_entries.iter().all(|e| e.content.contains("[inherited:parent]")));
+        assert!(child_entries
+            .iter()
+            .all(|e| e.content.contains("[inherited:parent]")));
         // Episodic and Relational must NOT be present.
-        assert!(child_entries.iter().all(|e| e.memory_type != MemoryType::Episodic));
-        assert!(child_entries.iter().all(|e| e.memory_type != MemoryType::Relational));
+        assert!(child_entries
+            .iter()
+            .all(|e| e.memory_type != MemoryType::Episodic));
+        assert!(child_entries
+            .iter()
+            .all(|e| e.memory_type != MemoryType::Relational));
     }
 
     #[test]
@@ -908,7 +990,10 @@ mod tests {
         ep.inherit_from("parent", "child", 2_000);
         // Child's warm-start should surface the inherited value.
         let params = ep.warm_start_params("child");
-        assert!(params.contains_key("learning_rate"), "child should inherit param baseline");
+        assert!(
+            params.contains_key("learning_rate"),
+            "child should inherit param baseline"
+        );
         assert!((params["learning_rate"] - 0.005).abs() < 1e-9);
     }
 

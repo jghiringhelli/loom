@@ -117,9 +117,9 @@ impl SignalStore {
 
     /// Return all registered entity records.
     pub fn all_entities(&self) -> SqlResult<Vec<EntityRecord>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, name, telos_json, born_at, state FROM entities",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name, telos_json, born_at, state FROM entities")?;
         let rows = stmt.query_map([], |row| {
             Ok(EntityRecord {
                 id: row.get(0)?,
@@ -138,7 +138,12 @@ impl SignalStore {
     pub fn write_signal(&self, signal: &Signal) -> SqlResult<()> {
         self.conn.execute(
             "INSERT INTO signals (entity_id, metric, value, ts) VALUES (?1, ?2, ?3, ?4)",
-            params![signal.entity_id, signal.metric, signal.value, signal.timestamp as i64],
+            params![
+                signal.entity_id,
+                signal.metric,
+                signal.value,
+                signal.timestamp as i64
+            ],
         )?;
         Ok(())
     }
@@ -183,9 +188,9 @@ impl SignalStore {
 
     /// Return all telos bounds registered for an entity.
     pub fn telos_bounds_for_entity(&self, entity_id: &str) -> SqlResult<Vec<TelosBound>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT metric, min, max, target FROM telos_bounds WHERE entity_id = ?1",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT metric, min, max, target FROM telos_bounds WHERE entity_id = ?1")?;
         let rows = stmt.query_map(params![entity_id], |row| {
             Ok(TelosBound {
                 metric: row.get(0)?,
@@ -258,7 +263,12 @@ impl SignalStore {
     // ── Checkpoints ───────────────────────────────────────────────────────────
 
     /// Snapshot an entity's state. Returns the new checkpoint id.
-    pub fn create_checkpoint(&self, entity_id: &str, state_json: &str, ts: Timestamp) -> SqlResult<i64> {
+    pub fn create_checkpoint(
+        &self,
+        entity_id: &str,
+        state_json: &str,
+        ts: Timestamp,
+    ) -> SqlResult<i64> {
         self.conn.execute(
             "INSERT INTO checkpoints (entity_id, state_json, ts) VALUES (?1, ?2, ?3)",
             params![entity_id, state_json, ts as i64],
@@ -268,7 +278,8 @@ impl SignalStore {
 
     /// Retrieve a checkpoint's state JSON by id.
     pub fn get_checkpoint(&self, checkpoint_id: i64) -> SqlResult<Option<String>> {
-        let mut stmt = self.conn
+        let mut stmt = self
+            .conn
             .prepare("SELECT state_json FROM checkpoints WHERE id = ?1")?;
         let mut rows = stmt.query_map(params![checkpoint_id], |row| row.get(0))?;
         match rows.next() {
@@ -368,7 +379,8 @@ mod tests {
     #[test]
     fn register_entity_and_list() {
         let s = mem();
-        s.register_entity("e1", "ClimateModel", r#"{"target":1.5}"#, 0).unwrap();
+        s.register_entity("e1", "ClimateModel", r#"{"target":1.5}"#, 0)
+            .unwrap();
         let entities = s.all_entities().unwrap();
         assert_eq!(entities.len(), 1);
         assert_eq!(entities[0].id, "e1");
@@ -400,9 +412,12 @@ mod tests {
     fn signals_ordered_newest_first() {
         let s = mem();
         s.register_entity("e1", "Foo", "{}", 0).unwrap();
-        s.write_signal(&Signal::with_timestamp("e1", "m", 1.0, 100)).unwrap();
-        s.write_signal(&Signal::with_timestamp("e1", "m", 2.0, 200)).unwrap();
-        s.write_signal(&Signal::with_timestamp("e1", "m", 3.0, 300)).unwrap();
+        s.write_signal(&Signal::with_timestamp("e1", "m", 1.0, 100))
+            .unwrap();
+        s.write_signal(&Signal::with_timestamp("e1", "m", 2.0, 200))
+            .unwrap();
+        s.write_signal(&Signal::with_timestamp("e1", "m", 3.0, 300))
+            .unwrap();
         let sigs = s.signals_for_entity("e1", 10).unwrap();
         assert_eq!(sigs[0].timestamp, 300); // newest first
         assert_eq!(sigs[2].timestamp, 100);
@@ -412,7 +427,8 @@ mod tests {
     fn telos_bounds_set_and_retrieve() {
         let s = mem();
         s.register_entity("e1", "Foo", "{}", 0).unwrap();
-        s.set_telos_bounds("e1", "temperature", Some(0.0), Some(2.0), Some(1.5)).unwrap();
+        s.set_telos_bounds("e1", "temperature", Some(0.0), Some(2.0), Some(1.5))
+            .unwrap();
         let bounds = s.telos_bounds_for_entity("e1").unwrap();
         assert_eq!(bounds.len(), 1);
         assert_eq!(bounds[0].metric, "temperature");
@@ -425,7 +441,8 @@ mod tests {
     fn drift_event_round_trip() {
         let s = mem();
         s.register_entity("e1", "Foo", "{}", 0).unwrap();
-        s.record_drift_event("e1", 0.82, 1_000, Some("temperature")).unwrap();
+        s.record_drift_event("e1", 0.82, 1_000, Some("temperature"))
+            .unwrap();
         let score = s.latest_drift_score("e1").unwrap();
         assert!((score.unwrap() - 0.82).abs() < 1e-9);
     }

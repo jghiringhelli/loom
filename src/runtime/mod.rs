@@ -37,6 +37,7 @@ pub mod signals_sim;
 pub mod simulation;
 pub mod store;
 pub mod supervisor;
+pub mod telomere_audit;
 
 pub use bioiso_runner::{
     all_domain_specs, BIOISORunner, BIOISOSpec, MetricBoundSpec, RetroResult, RetroScenario,

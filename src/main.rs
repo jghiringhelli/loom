@@ -258,6 +258,14 @@ enum RuntimeCommands {
         /// Overrides the `MAX_ENTITY_COUNT` environment variable.
         #[arg(long, default_value_t = 50)]
         max_entities: usize,
+
+        /// Write telomere audit events as JSONL to this file (optional).
+        #[arg(long, default_value = "")]
+        telomere_log: String,
+
+        /// Write experiment manifest (bioiso.toml) to this path (optional).
+        #[arg(long, default_value = "")]
+        manifest_path: String,
     },
 }
 
@@ -727,6 +735,8 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             domains,
             log_path,
             max_entities,
+            telomere_log,
+            manifest_path,
         } => {
             use loom::runtime::experiment::{ExperimentConfig, ExperimentDriver};
             use loom::runtime::{all_domain_specs, BIOISORunner, Runtime};
@@ -785,6 +795,8 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                     && std::env::var("GITHUB_REPO").is_ok(),
                 meiosis_generation: 1,
                 max_entity_count: effective_max_entities,
+                telomere_log_path: telomere_log.clone(),
+                manifest_path: manifest_path.clone(),
             };
 
             eprintln!(
@@ -793,6 +805,12 @@ fn handle_runtime(subcommand: RuntimeCommands) {
             );
             if !log_path.is_empty() {
                 eprintln!("experiment: writing JSON-lines to `{log_path}`");
+            }
+            if !telomere_log.is_empty() {
+                eprintln!("experiment: telomere audit log → `{telomere_log}`");
+            }
+            if !manifest_path.is_empty() {
+                eprintln!("experiment: project manifest → `{manifest_path}`");
             }
 
             let mut driver = ExperimentDriver::new(runtime, config);

@@ -28,6 +28,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::runtime::mutation::MutationProposal;
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Compute an 8-hex-char content hash of `(proposal_json, tick)`.
+///
+/// Uses the standard library's `DefaultHasher` — fast, no external dependency.
+/// Not cryptographic; intended only for lineage graph identity.
+pub fn hash_genome(proposal: &MutationProposal, tick: u64) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hasher;
+    let json = serde_json::to_string(proposal).unwrap_or_default();
+    let input = format!("{json}{tick}");
+    let mut h = DefaultHasher::new();
+    h.write(input.as_bytes());
+    format!("{:08x}", h.finish() & 0xffff_ffff)
+}
+
 // ── Promoted record ───────────────────────────────────────────────────────────
 
 /// A single mutation that was promoted during an experiment run.
@@ -39,6 +55,28 @@ pub struct PromotedRecord {
     pub entity_id: String,
     /// The promoted proposal.
     pub proposal: MutationProposal,
+    /// Short content hash of this record (8 hex chars).
+    /// Computed from the serialised proposal + tick.  Used to build the genome
+    /// lineage graph without storing full proposal text in edges.
+    pub genome_hash: String,
+}
+
+/// A directed edge in the genome lineage graph.
+///
+/// Records the ancestry of every meiosis/mitosis event:
+/// which donor genomes recombined and what offspring they produced.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LineageEdge {
+    /// Short hash of the primary donor genome.
+    pub parent_a_hash: String,
+    /// Short hash of the secondary donor genome (None for selfed/mitotic genomes).
+    pub parent_b_hash: Option<String>,
+    /// Filename slug of the offspring genome (e.g. `climate_x_supply_chain`).
+    pub child_genome_slug: String,
+    /// Experiment tick at which this recombination occurred.
+    pub tick: u64,
+    /// EvolutionJudge decision for this offspring.
+    pub decision: Option<EvolutionDecision>,
 }
 
 // ── Donor selection ───────────────────────────────────────────────────────────
@@ -174,15 +212,25 @@ fn render_genome(
     parent_b: Option<&MeiosisDonor>,
 ) -> EvolvedGenome {
     let slug = match parent_b {
-        Some(b) => format!("{}_x_{}", sanitize_ident(&parent_a.entity_id), sanitize_ident(&b.entity_id)),
+        Some(b) => format!(
+            "{}_x_{}",
+            sanitize_ident(&parent_a.entity_id),
+            sanitize_ident(&b.entity_id)
+        ),
         None => format!("{}_evolved", sanitize_ident(&parent_a.entity_id)),
     };
     let module_name = to_pascal_case(&slug);
     let being_name = format!("{}Gen{}", to_pascal_case(&parent_a.entity_id), generation);
 
     let parent_comment = match parent_b {
-        Some(b) => format!("{} × {} (generation {})", parent_a.entity_id, b.entity_id, generation),
-        None => format!("{} self-evolved (generation {})", parent_a.entity_id, generation),
+        Some(b) => format!(
+            "{} × {} (generation {})",
+            parent_a.entity_id, b.entity_id, generation
+        ),
+        None => format!(
+            "{} self-evolved (generation {})",
+            parent_a.entity_id, generation
+        ),
     };
 
     // Collect mutations from both parents
@@ -199,7 +247,12 @@ fn render_genome(
 
     for record in &all_records {
         match &record.proposal {
-            MutationProposal::ParameterAdjust { param, delta, reason, .. } => {
+            MutationProposal::ParameterAdjust {
+                param,
+                delta,
+                reason,
+                ..
+            } => {
                 let fn_name = format!("adjust_{}", sanitize_ident(param));
                 let threshold = if *delta > 0.0 {
                     format!("{param} < {:.4}", delta.abs() * 10.0)
@@ -217,7 +270,12 @@ fn render_genome(
                 }
                 mutations_incorporated += 1;
             }
-            MutationProposal::StructuralRewire { signal_name, reason, to_id, .. } => {
+            MutationProposal::StructuralRewire {
+                signal_name,
+                reason,
+                to_id,
+                ..
+            } => {
                 epigenetic_blocks.push_str(&format!(
                     "\n  epigenetic:\n    signal: {signal_name}\n    modifies: adaptation_rate\n    reverts_when: stress < 0.3\n    duration: 10.ticks\n  end\n"
                 ));
@@ -289,7 +347,15 @@ end
     );
 
     let filename = format!("genomes/evolved/gen{generation}/{slug}.loom");
-    EvolvedGenome { generation, parent_a: parent_a.entity_id.clone(), parent_b: parent_b.map(|b| b.entity_id.clone()), filename, source, mutations_incorporated, decision: None }
+    EvolvedGenome {
+        generation,
+        parent_a: parent_a.entity_id.clone(),
+        parent_b: parent_b.map(|b| b.entity_id.clone()),
+        filename,
+        source,
+        mutations_incorporated,
+        decision: None,
+    }
 }
 
 fn to_pascal_case(s: &str) -> String {
@@ -307,7 +373,9 @@ fn to_pascal_case(s: &str) -> String {
 
 /// Replace non-alphanumeric characters with underscores.
 fn sanitize_ident(s: &str) -> String {
-    s.chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect()
+    s.chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect()
 }
 
 // ── Evolution judge ───────────────────────────────────────────────────────────
@@ -356,7 +424,11 @@ impl EvolutionJudge {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .ok()?;
-        Some(Self { api_key, model, client })
+        Some(Self {
+            api_key,
+            model,
+            client,
+        })
     }
 
     /// Evaluate a candidate genome against its donors.
@@ -364,7 +436,10 @@ impl EvolutionJudge {
     /// Returns `Reject` with an error note on any network or parse failure.
     pub fn evaluate(&self, genome: &EvolvedGenome, donors: &[&MeiosisDonor]) -> EvolutionVerdict {
         self.call_claude(genome, donors).unwrap_or_else(|e| {
-            eprintln!("[EvolutionJudge] evaluation failed for {}: {e}", genome.filename);
+            eprintln!(
+                "[EvolutionJudge] evaluation failed for {}: {e}",
+                genome.filename
+            );
             EvolutionVerdict {
                 decision: EvolutionDecision::Reject,
                 reasoning: format!("evaluation error: {e}"),
@@ -394,7 +469,10 @@ impl EvolutionJudge {
             .send()
             .map_err(|e| e.to_string())?;
         let json: serde_json::Value = resp.json().map_err(|e| e.to_string())?;
-        let text = json["content"][0]["text"].as_str().unwrap_or("").to_string();
+        let text = json["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
         Self::parse_verdict(&text)
     }
 
@@ -427,7 +505,9 @@ impl EvolutionJudge {
                     .iter()
                     .map(|r| match &r.proposal {
                         crate::runtime::mutation::MutationProposal::ParameterAdjust {
-                            param, delta, ..
+                            param,
+                            delta,
+                            ..
                         } => format!("param:{param}({delta:+.3})"),
                         crate::runtime::mutation::MutationProposal::StructuralRewire {
                             signal_name,
@@ -508,7 +588,12 @@ REASONING: <one sentence>"#,
             }
         }
 
-        Ok(EvolutionVerdict { decision, reasoning, orthogonality_score: orthogonality, fitness_delta })
+        Ok(EvolutionVerdict {
+            decision,
+            reasoning,
+            orthogonality_score: orthogonality,
+            fitness_delta,
+        })
     }
 }
 
@@ -554,13 +639,18 @@ impl GitHubPublisher {
     pub fn from_env() -> Option<Self> {
         let token = std::env::var("GITHUB_TOKEN").ok()?;
         let repo = std::env::var("GITHUB_REPO").ok()?;
-        let branch = std::env::var("GITHUB_GENOMES_BRANCH")
-            .unwrap_or_else(|_| "genomes/evolved".into());
+        let branch =
+            std::env::var("GITHUB_GENOMES_BRANCH").unwrap_or_else(|_| "genomes/evolved".into());
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .ok()?;
-        Some(Self { token, repo, branch, client })
+        Some(Self {
+            token,
+            repo,
+            branch,
+            client,
+        })
     }
 
     /// Push a single genome file to GitHub.
@@ -595,9 +685,11 @@ impl GitHubPublisher {
             .json(&body)
             .send()
         {
-            Ok(r) if r.status().is_success() => {
-                PublishResult { filename: genome.filename.clone(), success: true, error: None }
-            }
+            Ok(r) if r.status().is_success() => PublishResult {
+                filename: genome.filename.clone(),
+                success: true,
+                error: None,
+            },
             Ok(r) => {
                 let status = r.status();
                 let text = r.text().unwrap_or_default();
@@ -648,7 +740,11 @@ pub struct MeiosisConfig {
 
 impl Default for MeiosisConfig {
     fn default() -> Self {
-        Self { min_promotions_to_qualify: 1, top_donors: 6, generation: 1 }
+        Self {
+            min_promotions_to_qualify: 1,
+            top_donors: 6,
+            generation: 1,
+        }
     }
 }
 
@@ -675,6 +771,9 @@ pub struct MeiosisReport {
     pub publish_results: Vec<PublishResult>,
     /// Judge verdicts keyed by genome filename.
     pub verdicts: Vec<(String, EvolutionVerdict)>,
+    /// Directed lineage graph edges — ancestry of every genome.
+    /// Each edge records which two parent hashes produced which offspring slug.
+    pub lineage_edges: Vec<LineageEdge>,
 }
 
 impl MeiosisEngine {
@@ -692,7 +791,10 @@ impl MeiosisEngine {
     pub fn select_donors(&self, promoted: &[PromotedRecord]) -> Vec<MeiosisDonor> {
         let mut by_entity: HashMap<String, Vec<PromotedRecord>> = HashMap::new();
         for r in promoted {
-            by_entity.entry(r.entity_id.clone()).or_default().push(r.clone());
+            by_entity
+                .entry(r.entity_id.clone())
+                .or_default()
+                .push(r.clone());
         }
         let mut donors: Vec<MeiosisDonor> = by_entity
             .into_iter()
@@ -804,7 +906,10 @@ impl MeiosisEngine {
         }
 
         for (genome_idx, mut genome) in raw_genomes.drain(..).enumerate() {
-            let pair = donor_pairs.get(genome_idx).map(|v| v.as_slice()).unwrap_or(&[]);
+            let pair = donor_pairs
+                .get(genome_idx)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
 
             let verdict = match &judge {
                 Some(j) => {
@@ -838,8 +943,16 @@ impl MeiosisEngine {
                 }
                 EvolutionDecision::Mitosis => {
                     // Self-update: rename with mitosis_ prefix so evolve.yml can route it
-                    let base = genome.filename.rsplit('/').next().unwrap_or(&genome.filename);
-                    let dir = genome.filename.rsplit_once('/').map(|(d, _)| d).unwrap_or("genomes/evolved");
+                    let base = genome
+                        .filename
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or(&genome.filename);
+                    let dir = genome
+                        .filename
+                        .rsplit_once('/')
+                        .map(|(d, _)| d)
+                        .unwrap_or("genomes/evolved");
                     genome.filename = format!("{dir}/mitosis_{base}");
                     genome.decision = Some(EvolutionDecision::Mitosis);
                     verdicts.push((genome.filename.clone(), verdict));
@@ -881,13 +994,50 @@ impl MeiosisEngine {
             }
         }
 
+        // Build lineage edges: each accepted genome records its parent hashes.
+        let lineage_edges: Vec<LineageEdge> = accepted_genomes
+            .iter()
+            .enumerate()
+            .map(|(idx, genome)| {
+                // Primary donor hash = hash of their most recent promoted record.
+                let parent_a_hash = donors
+                    .get(idx * 2)
+                    .and_then(|d| d.records.last())
+                    .map(|r| r.genome_hash.clone())
+                    .unwrap_or_else(|| format!("donor_a_{idx}"));
+                let parent_b_hash = donors
+                    .get(idx * 2 + 1)
+                    .and_then(|d| d.records.last())
+                    .map(|r| r.genome_hash.clone());
+                let slug = genome
+                    .filename
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(&genome.filename)
+                    .trim_end_matches(".loom")
+                    .to_string();
+                LineageEdge {
+                    parent_a_hash,
+                    parent_b_hash,
+                    child_genome_slug: slug,
+                    tick: 0, // experiment tick not available here; set by caller
+                    decision: genome.decision.clone(),
+                }
+            })
+            .collect();
+
         MeiosisReport {
             donors_selected: donors.len(),
-            genomes_rendered: accepted_genomes.len() + verdicts.iter().filter(|(_, v)| v.decision == EvolutionDecision::Reject).count(),
+            genomes_rendered: accepted_genomes.len()
+                + verdicts
+                    .iter()
+                    .filter(|(_, v)| v.decision == EvolutionDecision::Reject)
+                    .count(),
             genomes_accepted: accepted_genomes.len(),
             genomes_published: published,
             publish_results: results,
             verdicts,
+            lineage_edges,
         }
     }
 }
@@ -986,7 +1136,10 @@ pub struct TelomereTracker {
 impl TelomereTracker {
     /// Create a tracker with a given default initial length.
     pub fn new(initial_length: u32) -> Self {
-        Self { states: HashMap::new(), initial_length }
+        Self {
+            states: HashMap::new(),
+            initial_length,
+        }
     }
 
     /// Record a drift event for an entity, registering it if unseen.
@@ -994,9 +1147,10 @@ impl TelomereTracker {
     /// Returns `true` when the entity has reached senescence after this event.
     pub fn record_drift(&mut self, entity_id: &str, telos: &str, drift_score: f64) -> bool {
         let initial = self.initial_length;
-        let state = self.states.entry(entity_id.to_string()).or_insert_with(|| {
-            TelomereState::new(entity_id, telos, initial)
-        });
+        let state = self
+            .states
+            .entry(entity_id.to_string())
+            .or_insert_with(|| TelomereState::new(entity_id, telos, initial));
         state.record_drift(drift_score);
         state.is_senescent()
     }
@@ -1037,28 +1191,34 @@ mod tests {
     use crate::runtime::mutation::MutationProposal;
 
     fn param_record(entity_id: &str, param: &str, delta: f64, tick: u64) -> PromotedRecord {
+        let proposal = MutationProposal::ParameterAdjust {
+            entity_id: entity_id.into(),
+            param: param.into(),
+            delta,
+            reason: format!("test delta {delta}"),
+        };
+        let genome_hash = hash_genome(&proposal, tick);
         PromotedRecord {
             tick,
             entity_id: entity_id.into(),
-            proposal: MutationProposal::ParameterAdjust {
-                entity_id: entity_id.into(),
-                param: param.into(),
-                delta,
-                reason: format!("test delta {delta}"),
-            },
+            proposal,
+            genome_hash,
         }
     }
 
     fn rewire_record(entity_id: &str, signal: &str, tick: u64) -> PromotedRecord {
+        let proposal = MutationProposal::StructuralRewire {
+            from_id: entity_id.into(),
+            to_id: "target".into(),
+            signal_name: signal.into(),
+            reason: "test rewire".into(),
+        };
+        let genome_hash = hash_genome(&proposal, tick);
         PromotedRecord {
             tick,
             entity_id: entity_id.into(),
-            proposal: MutationProposal::StructuralRewire {
-                from_id: entity_id.into(),
-                to_id: "target".into(),
-                signal_name: signal.into(),
-                reason: "test rewire".into(),
-            },
+            proposal,
+            genome_hash,
         }
     }
 
@@ -1237,7 +1397,10 @@ mod tests {
         ];
         let va = MutationVector::from_records(&records);
         let cos = va.cosine_similarity(&va);
-        assert!((cos - 1.0).abs() < 1e-9, "identical vectors should have cosine=1.0, got {cos}");
+        assert!(
+            (cos - 1.0).abs() < 1e-9,
+            "identical vectors should have cosine=1.0, got {cos}"
+        );
     }
 
     #[test]
@@ -1247,7 +1410,10 @@ mod tests {
         let va = MutationVector::from_records(&ra);
         let vb = MutationVector::from_records(&rb);
         let cos = va.cosine_similarity(&vb);
-        assert!(cos.abs() < 1e-9, "disjoint param spaces should have cosine≈0, got {cos}");
+        assert!(
+            cos.abs() < 1e-9,
+            "disjoint param spaces should have cosine≈0, got {cos}"
+        );
     }
 
     #[test]
@@ -1257,7 +1423,10 @@ mod tests {
         let va = MutationVector::from_records(&ra);
         let vb = MutationVector::from_records(&rb);
         let cos = va.cosine_similarity(&vb);
-        assert!(cos < -0.99, "opposite deltas on same param should have cosine≈-1, got {cos}");
+        assert!(
+            cos < -0.99,
+            "opposite deltas on same param should have cosine≈-1, got {cos}"
+        );
     }
 
     #[test]
@@ -1267,7 +1436,10 @@ mod tests {
         let va = MutationVector::from_records(&ra);
         let vb = MutationVector::from_records(&rb);
         let orth = va.orthogonality_score(&vb);
-        assert!((orth - 1.0).abs() < 1e-9, "orthogonal vectors → score=1.0, got {orth}");
+        assert!(
+            (orth - 1.0).abs() < 1e-9,
+            "orthogonal vectors → score=1.0, got {orth}"
+        );
     }
 
     #[test]

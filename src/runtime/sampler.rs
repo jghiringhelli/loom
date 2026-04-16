@@ -41,9 +41,9 @@
 //!
 //! See [`ADR-0011`](../../docs/adrs/ADR-0011-ceks-runtime-architecture.md) §Sampler.
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -98,7 +98,13 @@ struct Xorshift64 {
 impl Xorshift64 {
     fn new(seed: u64) -> Self {
         // Seed must be non-zero.
-        Self { state: if seed == 0 { 0xDEAD_BEEF_CAFE_1337 } else { seed } }
+        Self {
+            state: if seed == 0 {
+                0xDEAD_BEEF_CAFE_1337
+            } else {
+                seed
+            },
+        }
     }
 
     fn next_u64(&mut self) -> u64 {
@@ -153,7 +159,11 @@ pub struct AcceptanceTracker {
 
 impl AcceptanceTracker {
     pub fn new(capacity: usize) -> Self {
-        Self { window: VecDeque::with_capacity(capacity), capacity, accepted: 0 }
+        Self {
+            window: VecDeque::with_capacity(capacity),
+            capacity,
+            accepted: 0,
+        }
     }
 
     /// Record a simulation result.
@@ -388,7 +398,8 @@ mod tests {
         let mut rng = Xorshift64::new(5678);
         let samples: Vec<f64> = (0..10_000).map(|_| rng.next_normal()).collect();
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-        let variance = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
+        let variance =
+            samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
         let sd = variance.sqrt();
         assert!((sd - 1.0).abs() < 0.05, "std dev {sd:.4} too far from 1");
     }
@@ -413,7 +424,10 @@ mod tests {
         let s = sampler();
         // current=0.8, target=0.3, bounds=(0,1) → direction negative
         let g = s.guidance_force(0.8, 0.3, (0.0, 1.0), 1.0);
-        assert!(g < 0.0, "guidance should be negative (need to decrease), got {g}");
+        assert!(
+            g < 0.0,
+            "guidance should be negative (need to decrease), got {g}"
+        );
     }
 
     #[test]
@@ -428,7 +442,10 @@ mod tests {
         let s = sampler();
         let g_low = s.guidance_force(0.8, 0.3, (0.0, 1.0), 0.1);
         let g_high = s.guidance_force(0.8, 0.3, (0.0, 1.0), 0.9);
-        assert!(g_high.abs() > g_low.abs(), "higher drift should produce stronger guidance");
+        assert!(
+            g_high.abs() > g_low.abs(),
+            "higher drift should produce stronger guidance"
+        );
     }
 
     // ── Temperature ───────────────────────────────────────────────────────────
@@ -445,7 +462,10 @@ mod tests {
     fn senescent_entity_temperature_does_not_reach_zero() {
         let s = sampler();
         let t = s.effective_temperature(0.0);
-        assert!(t > 0.0, "temperature must stay positive for exploration: {t}");
+        assert!(
+            t > 0.0,
+            "temperature must stay positive for exploration: {t}"
+        );
     }
 
     // ── Delta sampling ────────────────────────────────────────────────────────
@@ -467,12 +487,15 @@ mod tests {
     fn sample_with_high_drift_biases_toward_target() {
         let mut s = MutationSampler::with_seed(7);
         s.mode = SamplingMode::Gaussian; // deterministic for this test
-        // current=0.9, target=0.2 → guidance is strongly negative
+                                         // current=0.9, target=0.2 → guidance is strongly negative
         let deltas: Vec<f64> = (0..100)
             .map(|_| s.sample(0.9, 0.2, (0.0, 1.0), 0.95, 0.8))
             .collect();
         let mean_delta = deltas.iter().sum::<f64>() / deltas.len() as f64;
-        assert!(mean_delta < 0.0, "mean delta should be negative (toward target=0.2): {mean_delta}");
+        assert!(
+            mean_delta < 0.0,
+            "mean delta should be negative (toward target=0.2): {mean_delta}"
+        );
     }
 
     #[test]
@@ -494,8 +517,12 @@ mod tests {
     #[test]
     fn acceptance_rate_reflects_passed_fraction() {
         let mut t = AcceptanceTracker::new(10);
-        for _ in 0..8 { t.record(true); }
-        for _ in 0..2 { t.record(false); }
+        for _ in 0..8 {
+            t.record(true);
+        }
+        for _ in 0..2 {
+            t.record(false);
+        }
         assert!((t.rate().unwrap() - 0.8).abs() < 1e-9);
     }
 
@@ -512,7 +539,7 @@ mod tests {
         t.record(true);
         t.record(true);
         t.record(false); // evicts first true
-        // window is now [true, true, false] → 2/3
+                         // window is now [true, true, false] → 2/3
         assert!((t.rate().unwrap() - 2.0 / 3.0).abs() < 1e-9);
     }
 
@@ -554,12 +581,24 @@ mod tests {
     fn sigma_multiplier_bounded_above_and_below() {
         let mut s = MutationSampler::with_seed(3);
         s.mode = SamplingMode::Adaptive;
-        for _ in 0..1_000 { s.record_outcome(true); }
-        assert!(s.sigma_multiplier <= 4.0, "upper bound violated: {}", s.sigma_multiplier);
+        for _ in 0..1_000 {
+            s.record_outcome(true);
+        }
+        assert!(
+            s.sigma_multiplier <= 4.0,
+            "upper bound violated: {}",
+            s.sigma_multiplier
+        );
         let mut s2 = MutationSampler::with_seed(4);
         s2.mode = SamplingMode::Adaptive;
-        for _ in 0..1_000 { s2.record_outcome(false); }
-        assert!(s2.sigma_multiplier >= 0.1, "lower bound violated: {}", s2.sigma_multiplier);
+        for _ in 0..1_000 {
+            s2.record_outcome(false);
+        }
+        assert!(
+            s2.sigma_multiplier >= 0.1,
+            "lower bound violated: {}",
+            s2.sigma_multiplier
+        );
     }
 
     // ── For entity seeding ────────────────────────────────────────────────────
@@ -570,7 +609,10 @@ mod tests {
         let mut b = MutationSampler::for_entity("entity_beta");
         let da = a.sample(0.5, 0.3, (0.0, 1.0), 0.5, 0.5);
         let db = b.sample(0.5, 0.3, (0.0, 1.0), 0.5, 0.5);
-        assert_ne!(da, db, "different entity ids should produce different deltas");
+        assert_ne!(
+            da, db,
+            "different entity ids should produce different deltas"
+        );
     }
 
     #[test]

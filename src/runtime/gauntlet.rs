@@ -25,9 +25,7 @@
 
 use std::collections::HashMap;
 
-use crate::runtime::{
-    now_ms, EntityId, MetricName, Runtime, Signal, TelosBound,
-};
+use crate::runtime::{now_ms, EntityId, MetricName, Runtime, Signal, TelosBound};
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -364,7 +362,11 @@ fn measure_drift_from_values(
         counted += 1;
     }
 
-    if counted == 0 { 0.0 } else { total_drift / counted as f64 }
+    if counted == 0 {
+        0.0
+    } else {
+        total_drift / counted as f64
+    }
 }
 
 /// Compute a 0–1 drift score for `value` against a single bound.
@@ -451,7 +453,11 @@ mod tests {
         };
         let gauntlet = SurvivalGauntlet::new(config);
         let result = gauntlet.run(&mut rt, entity_id);
-        assert!(result.passed, "lenient gauntlet should pass: {}", result.summary);
+        assert!(
+            result.passed,
+            "lenient gauntlet should pass: {}",
+            result.summary
+        );
     }
 
     #[test]

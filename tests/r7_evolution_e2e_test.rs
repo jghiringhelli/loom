@@ -43,7 +43,10 @@ fn end_to_end_drift_detected_tier1_proposes_gate_validates() {
     rt.emit_metric("forest", "carbon_stock", 5.0).unwrap();
 
     // 4. Build the orchestrator and run one tick.
-    let config = OrchestratorConfig { drift_lookback: 5, ..OrchestratorConfig::default() };
+    let config = OrchestratorConfig {
+        drift_lookback: 5,
+        ..OrchestratorConfig::default()
+    };
     let mut orch = Orchestrator::new(rt, config);
     let result = orch.run_once().unwrap();
 
@@ -54,7 +57,11 @@ fn end_to_end_drift_detected_tier1_proposes_gate_validates() {
     );
     let event = &result.drift_events[0];
     assert_eq!(event.entity_id, "forest");
-    assert!(event.score > 0.5, "drift score should be high, got {}", event.score);
+    assert!(
+        event.score > 0.5,
+        "drift score should be high, got {}",
+        event.score
+    );
 
     // 6. Assert: Tier 1 fired.
     assert_eq!(result.tier_used, Some(1), "expected Tier 1 to fire");
@@ -77,7 +84,10 @@ fn orchestrator_no_drift_no_proposals() {
     let mut orch = Orchestrator::new(rt, OrchestratorConfig::default());
     let result = orch.run_once().unwrap();
 
-    assert!(result.drift_events.is_empty(), "no drift expected for on-target signal");
+    assert!(
+        result.drift_events.is_empty(),
+        "no drift expected for on-target signal"
+    );
     assert!(result.proposals.is_empty());
     assert!(result.tier_used.is_none());
 }

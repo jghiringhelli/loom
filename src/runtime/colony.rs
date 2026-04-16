@@ -153,7 +153,11 @@ pub struct MetabolicLoad {
 
 impl MetabolicLoad {
     fn new() -> Self {
-        Self { signals_per_tick: 0.0, last_sample_ms: 0, tick_count: 0 }
+        Self {
+            signals_per_tick: 0.0,
+            last_sample_ms: 0,
+            tick_count: 0,
+        }
     }
 
     /// Record a signal observation.
@@ -166,8 +170,8 @@ impl MetabolicLoad {
     /// Uses exponential moving average with `alpha = 0.2`.
     pub fn tick(&mut self, now: Timestamp) {
         const ALPHA: f64 = 0.2;
-        self.signals_per_tick = ALPHA * self.tick_count as f64
-            + (1.0 - ALPHA) * self.signals_per_tick;
+        self.signals_per_tick =
+            ALPHA * self.tick_count as f64 + (1.0 - ALPHA) * self.signals_per_tick;
         self.tick_count = 0;
         self.last_sample_ms = now;
     }
@@ -218,7 +222,9 @@ impl Mycelium {
     /// No-op if `peer_id` is already registered.
     pub fn add_peer(&mut self, peer_id: impl Into<String>, base_url: impl Into<String>) {
         let id = peer_id.into();
-        self.peers.entry(id.clone()).or_insert_with(|| ColonyPeer::new(id, base_url));
+        self.peers
+            .entry(id.clone())
+            .or_insert_with(|| ColonyPeer::new(id, base_url));
     }
 
     /// Remove a peer by id. Returns `true` if it existed.
@@ -279,11 +285,7 @@ impl Mycelium {
         let mut deliveries = Vec::new();
         for peer in self.peers.values_mut() {
             if peer.status == PeerStatus::Online {
-                deliveries.push((
-                    peer.peer_id.clone(),
-                    peer.base_url.clone(),
-                    msg.clone(),
-                ));
+                deliveries.push((peer.peer_id.clone(), peer.base_url.clone(), msg.clone()));
             } else {
                 peer.enqueue_offline(msg.clone());
             }
@@ -323,12 +325,15 @@ impl Mycelium {
         now: Timestamp,
     ) {
         let key = strategy_key.into();
-        let trail = self.trails.entry(key.clone()).or_insert_with(|| PheromoneTrail {
-            strategy_key: key,
-            strength: 0.0,
-            last_deposit_ms: now,
-            deposit_count: 0,
-        });
+        let trail = self
+            .trails
+            .entry(key.clone())
+            .or_insert_with(|| PheromoneTrail {
+                strategy_key: key,
+                strength: 0.0,
+                last_deposit_ms: now,
+                deposit_count: 0,
+            });
         trail.strength = (trail.strength + amount).min(MAX_PHEROMONE);
         trail.last_deposit_ms = now;
         trail.deposit_count += 1;
@@ -443,11 +448,14 @@ mod tests {
         let mut m = mycelium();
         m.add_peer("p1", "http://localhost");
         m.peer_went_offline("p1");
-        m.peers.get_mut("p1").unwrap().enqueue_offline(GossipMessage {
-            sender_id: "self".into(),
-            core_snapshot: "{}".into(),
-            ts: 100,
-        });
+        m.peers
+            .get_mut("p1")
+            .unwrap()
+            .enqueue_offline(GossipMessage {
+                sender_id: "self".into(),
+                core_snapshot: "{}".into(),
+                ts: 100,
+            });
         let flushed = m.peer_came_online("p1", 200);
         assert_eq!(flushed.len(), 1);
         assert_eq!(m.peers.get("p1").unwrap().offline_queue.len(), 0);
@@ -480,7 +488,11 @@ mod tests {
         let mut m = mycelium();
         m.add_peer("sender", "http://sender");
         m.receive_gossip(
-            GossipMessage { sender_id: "sender".into(), core_snapshot: "data".into(), ts: 10 },
+            GossipMessage {
+                sender_id: "sender".into(),
+                core_snapshot: "data".into(),
+                ts: 10,
+            },
             10,
         );
         let drained = m.drain_inbound();
@@ -494,7 +506,11 @@ mod tests {
         m.add_peer("p1", "http://p1");
         m.peer_went_offline("p1");
         m.receive_gossip(
-            GossipMessage { sender_id: "p1".into(), core_snapshot: "{}".into(), ts: 50 },
+            GossipMessage {
+                sender_id: "p1".into(),
+                core_snapshot: "{}".into(),
+                ts: 50,
+            },
             50,
         );
         assert_eq!(m.peer_status("p1"), Some(&PeerStatus::Online));

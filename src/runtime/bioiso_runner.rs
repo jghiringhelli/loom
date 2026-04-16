@@ -70,12 +70,13 @@ pub struct MetricBoundSpec {
 
 // ── Pre-configured Entities ───────────────────────────────────────────────────
 
-/// Return all built-in domain specs (core 7 + 4 extended).
+/// Return all 20 built-in domain specs (original 11 + 9 extended complex domains).
 ///
 /// Each spec encodes domain expert knowledge about the healthy operating range
 /// of each metric.  Values are normalised where possible (0.0–1.0 = min–max).
 pub fn all_domain_specs() -> Vec<BIOISOSpec> {
     vec![
+        // ── Original 11 ──────────────────────────────────────────────────────
         climate_spec(),
         epidemics_spec(),
         antibiotic_resistance_spec(),
@@ -87,6 +88,16 @@ pub fn all_domain_specs() -> Vec<BIOISOSpec> {
         supply_chain_spec(),
         water_basin_spec(),
         urban_heat_spec(),
+        // ── Extended 9 — complex NP-hard domains ─────────────────────────────
+        ocean_acidification_spec(),
+        neurodegeneration_spec(),
+        wildfire_management_spec(),
+        food_security_spec(),
+        glacier_retreat_spec(),
+        sovereign_debt_spec(),
+        biodiversity_collapse_spec(),
+        mental_health_burden_spec(),
+        urban_flooding_spec(),
     ]
 }
 
@@ -554,6 +565,394 @@ fn urban_heat_spec() -> BIOISOSpec {
     }
 }
 
+// ── Extended domain specs (9 new complex NP-hard domains) ────────────────────
+
+fn ocean_acidification_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "ocean_acidification",
+        name: "Ocean Acidification & Coral Ecosystem",
+        telos_json: r#"{"target":"maintain ocean pH above 8.0 and aragonite saturation above 2.0","metrics":["ocean_ph","aragonite_saturation","coral_cover_fraction","dissolved_co2_umol"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "ocean_ph",
+                min: Some(7.8),
+                max: Some(8.3),
+                target: 8.1,
+            },
+            MetricBoundSpec {
+                metric: "aragonite_saturation",
+                min: Some(1.0),
+                max: Some(4.5),
+                target: 3.0,
+            },
+            MetricBoundSpec {
+                metric: "coral_cover_fraction",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.50,
+            },
+            MetricBoundSpec {
+                metric: "dissolved_co2_umol",
+                min: Some(200.0),
+                max: Some(600.0),
+                target: 280.0,
+            },
+        ],
+        baseline_signals: vec![
+            ("ocean_ph", 8.05),
+            ("aragonite_saturation", 2.1),
+            ("coral_cover_fraction", 0.28),
+            ("dissolved_co2_umol", 420.0),
+        ],
+        retro_start_year: 1990,
+        academic_baseline_label: Some("IPCC SROCC — Ocean and Cryosphere in a Changing Climate"),
+    }
+}
+
+fn neurodegeneration_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "neurodegeneration",
+        name: "Alzheimer's Neurodegeneration Progression",
+        telos_json: r#"{"target":"halt amyloid accumulation and preserve cognitive function","metrics":["amyloid_burden_suvr","tau_braak_stage","synaptic_density_index","cognitive_composite"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "amyloid_burden_suvr",
+                min: Some(1.0),
+                max: Some(3.0),
+                target: 1.1,
+            },
+            MetricBoundSpec {
+                metric: "tau_braak_stage",
+                min: Some(0.0),
+                max: Some(6.0),
+                target: 1.0,
+            },
+            MetricBoundSpec {
+                metric: "synaptic_density_index",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.80,
+            },
+            MetricBoundSpec {
+                metric: "cognitive_composite",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.85,
+            },
+        ],
+        baseline_signals: vec![
+            ("amyloid_burden_suvr", 1.8),
+            ("tau_braak_stage", 3.0),
+            ("synaptic_density_index", 0.55),
+            ("cognitive_composite", 0.62),
+        ],
+        retro_start_year: 2004,
+        academic_baseline_label: Some("Alzheimer's Disease Neuroimaging Initiative (ADNI)"),
+    }
+}
+
+fn wildfire_management_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "wildfire_management",
+        name: "Wildfire Risk Management",
+        telos_json: r#"{"target":"reduce annual burned area below 1.5 Mha and maintain suppression success above 85%","metrics":["fuel_load_kg_m2","fire_weather_index","area_burned_mha_yr","suppression_success_rate"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "fuel_load_kg_m2",
+                min: Some(0.0),
+                max: Some(2.5),
+                target: 0.3,
+            },
+            MetricBoundSpec {
+                metric: "fire_weather_index",
+                min: Some(0.0),
+                max: Some(100.0),
+                target: 15.0,
+            },
+            MetricBoundSpec {
+                metric: "area_burned_mha_yr",
+                min: Some(0.0),
+                max: Some(12.0),
+                target: 1.5,
+            },
+            MetricBoundSpec {
+                metric: "suppression_success_rate",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.85,
+            },
+        ],
+        baseline_signals: vec![
+            ("fuel_load_kg_m2", 1.1),
+            ("fire_weather_index", 38.0),
+            ("area_burned_mha_yr", 4.3),
+            ("suppression_success_rate", 0.71),
+        ],
+        retro_start_year: 2000,
+        academic_baseline_label: Some("IPCC AR6 Ch12 — Wildfire risk; NIFC annual reports"),
+    }
+}
+
+fn food_security_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "food_security",
+        name: "Global Food Security",
+        telos_json: r#"{"target":"reduce undernourishment below 5% and close yield gap to 20%","metrics":["undernourished_pct","food_price_volatility","yield_gap_fraction","post_harvest_loss_pct"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "undernourished_pct",
+                min: Some(0.0),
+                max: Some(0.40),
+                target: 0.05,
+            },
+            MetricBoundSpec {
+                metric: "food_price_volatility",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.15,
+            },
+            MetricBoundSpec {
+                metric: "yield_gap_fraction",
+                min: Some(0.0),
+                max: Some(0.80),
+                target: 0.20,
+            },
+            MetricBoundSpec {
+                metric: "post_harvest_loss_pct",
+                min: Some(0.0),
+                max: Some(0.50),
+                target: 0.08,
+            },
+        ],
+        baseline_signals: vec![
+            ("undernourished_pct", 0.115),
+            ("food_price_volatility", 0.38),
+            ("yield_gap_fraction", 0.52),
+            ("post_harvest_loss_pct", 0.14),
+        ],
+        retro_start_year: 2000,
+        academic_baseline_label: Some(
+            "FAO — State of Food Security and Nutrition in the World 2023",
+        ),
+    }
+}
+
+fn glacier_retreat_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "glacier_retreat",
+        name: "Glacier Mass Balance & Sea Level",
+        telos_json: r#"{"target":"halt net glacier mass loss and limit sea level contribution below 5 mm/yr","metrics":["mass_balance_gt_yr","slr_contribution_mm_yr","surface_albedo","meltwater_runoff_km3_yr"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "mass_balance_gt_yr",
+                min: Some(-700.0),
+                max: Some(50.0),
+                target: 0.0,
+            },
+            MetricBoundSpec {
+                metric: "slr_contribution_mm_yr",
+                min: Some(0.0),
+                max: Some(15.0),
+                target: 2.0,
+            },
+            MetricBoundSpec {
+                metric: "surface_albedo",
+                min: Some(0.30),
+                max: Some(0.90),
+                target: 0.75,
+            },
+            MetricBoundSpec {
+                metric: "meltwater_runoff_km3_yr",
+                min: Some(0.0),
+                max: Some(2500.0),
+                target: 350.0,
+            },
+        ],
+        baseline_signals: vec![
+            ("mass_balance_gt_yr", -280.0),
+            ("slr_contribution_mm_yr", 1.8),
+            ("surface_albedo", 0.62),
+            ("meltwater_runoff_km3_yr", 780.0),
+        ],
+        retro_start_year: 1990,
+        academic_baseline_label: Some("World Glacier Monitoring Service (WGMS); IPCC AR6 Ch2"),
+    }
+}
+
+fn sovereign_debt_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "sovereign_debt",
+        name: "Sovereign Debt Sustainability",
+        telos_json: r#"{"target":"stabilise debt-to-GDP below 90% with primary balance surplus","metrics":["debt_to_gdp_pct","real_interest_rate_pct","primary_balance_pct_gdp","cds_spread_bps"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "debt_to_gdp_pct",
+                min: Some(0.0),
+                max: Some(250.0),
+                target: 60.0,
+            },
+            MetricBoundSpec {
+                metric: "real_interest_rate_pct",
+                min: Some(-5.0),
+                max: Some(15.0),
+                target: 1.5,
+            },
+            MetricBoundSpec {
+                metric: "primary_balance_pct_gdp",
+                min: Some(-10.0),
+                max: Some(5.0),
+                target: 0.5,
+            },
+            MetricBoundSpec {
+                metric: "cds_spread_bps",
+                min: Some(0.0),
+                max: Some(1000.0),
+                target: 50.0,
+            },
+        ],
+        baseline_signals: vec![
+            ("debt_to_gdp_pct", 97.0),
+            ("real_interest_rate_pct", 3.2),
+            ("primary_balance_pct_gdp", -2.1),
+            ("cds_spread_bps", 180.0),
+        ],
+        retro_start_year: 2000,
+        academic_baseline_label: Some(
+            "IMF Fiscal Monitor; Reinhart & Rogoff (2010) debt thresholds",
+        ),
+    }
+}
+
+fn biodiversity_collapse_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "biodiversity_collapse",
+        name: "Biodiversity Loss & Ecosystem Collapse",
+        telos_json: r#"{"target":"halt Living Planet Index decline and reduce extinction rate to background level","metrics":["living_planet_index","extinction_rate_per_myr","habitat_connectivity","protected_area_fraction"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "living_planet_index",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.80,
+            },
+            MetricBoundSpec {
+                metric: "extinction_rate_per_myr",
+                min: Some(0.1),
+                max: Some(1000.0),
+                target: 10.0,
+            },
+            MetricBoundSpec {
+                metric: "habitat_connectivity",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.60,
+            },
+            MetricBoundSpec {
+                metric: "protected_area_fraction",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.30,
+            },
+        ],
+        baseline_signals: vec![
+            ("living_planet_index", 0.32),
+            ("extinction_rate_per_myr", 100.0),
+            ("habitat_connectivity", 0.31),
+            ("protected_area_fraction", 0.17),
+        ],
+        retro_start_year: 1990,
+        academic_baseline_label: Some(
+            "WWF Living Planet Report 2022; IPBES Global Assessment 2019",
+        ),
+    }
+}
+
+fn mental_health_burden_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "mental_health_burden",
+        name: "Global Mental Health Burden",
+        telos_json: r#"{"target":"reduce treatment gap below 30% and lower suicide rate below 8 per 100k","metrics":["prevalence_pct","treatment_gap_pct","suicide_rate_per_100k","dalys_per_100k"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "prevalence_pct",
+                min: Some(0.0),
+                max: Some(0.50),
+                target: 0.10,
+            },
+            MetricBoundSpec {
+                metric: "treatment_gap_pct",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.30,
+            },
+            MetricBoundSpec {
+                metric: "suicide_rate_per_100k",
+                min: Some(0.0),
+                max: Some(40.0),
+                target: 8.0,
+            },
+            MetricBoundSpec {
+                metric: "dalys_per_100k",
+                min: Some(0.0),
+                max: Some(5000.0),
+                target: 1500.0,
+            },
+        ],
+        baseline_signals: vec![
+            ("prevalence_pct", 0.14),
+            ("treatment_gap_pct", 0.73),
+            ("suicide_rate_per_100k", 10.6),
+            ("dalys_per_100k", 1990.0),
+        ],
+        retro_start_year: 2000,
+        academic_baseline_label: Some("WHO World Mental Health Atlas 2022; GBD Study 2019"),
+    }
+}
+
+fn urban_flooding_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "urban_flooding",
+        name: "Urban Flood Risk Management",
+        telos_json: r#"{"target":"reduce annual flood losses below 0.3% GDP and achieve 85% early warning coverage","metrics":["flood_loss_gdp_pct","impervious_cover_pct","drain_utilization","early_warning_coverage"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "flood_loss_gdp_pct",
+                min: Some(0.0),
+                max: Some(0.05),
+                target: 0.003,
+            },
+            MetricBoundSpec {
+                metric: "impervious_cover_pct",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.35,
+            },
+            MetricBoundSpec {
+                metric: "drain_utilization",
+                min: Some(0.0),
+                max: Some(1.5),
+                target: 0.60,
+            },
+            MetricBoundSpec {
+                metric: "early_warning_coverage",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.85,
+            },
+        ],
+        baseline_signals: vec![
+            ("flood_loss_gdp_pct", 0.012),
+            ("impervious_cover_pct", 0.58),
+            ("drain_utilization", 0.92),
+            ("early_warning_coverage", 0.41),
+        ],
+        retro_start_year: 2000,
+        academic_baseline_label: Some(
+            "IPCC AR6 Urban systems; UNDRR Sendai Framework 2030 targets",
+        ),
+    }
+}
+
 // ── BIOISO Runner ─────────────────────────────────────────────────────────────
 
 /// Runner that registers pre-configured BIOISO domain entities in a [`Runtime`].
@@ -570,7 +969,7 @@ pub struct BIOISORunner {
 }
 
 impl BIOISORunner {
-    /// Create a runner with all 11 built-in domain specs.
+    /// Create a runner with all 20 built-in domain specs.
     pub fn new() -> Self {
         Self {
             specs: all_domain_specs(),
@@ -888,9 +1287,9 @@ mod tests {
     use crate::runtime::Runtime;
 
     #[test]
-    fn all_domain_specs_returns_eleven_specs() {
+    fn all_domain_specs_returns_twenty_specs() {
         let specs = all_domain_specs();
-        assert_eq!(specs.len(), 11);
+        assert_eq!(specs.len(), 20);
     }
 
     #[test]
@@ -914,9 +1313,9 @@ mod tests {
         let mut rt = Runtime::new(":memory:").unwrap();
         let runner = BIOISORunner::new();
         let count = runner.spawn_all(&mut rt).unwrap();
-        assert_eq!(count, 11);
+        assert_eq!(count, 20);
         let entities = rt.entities().unwrap();
-        assert_eq!(entities.len(), 11);
+        assert_eq!(entities.len(), 20);
     }
 
     #[test]

@@ -151,11 +151,7 @@ impl EntitySupervisor {
     /// Record a division for `entity_id`, syncing state to the store.
     ///
     /// Returns `Err` if the telomere is exhausted (entity transitions to Senescent).
-    pub fn record_division(
-        &mut self,
-        entity_id: &str,
-        store: &SignalStore,
-    ) -> Result<(), String> {
+    pub fn record_division(&mut self, entity_id: &str, store: &SignalStore) -> Result<(), String> {
         let instance = self
             .entities
             .get_mut(entity_id)
@@ -166,12 +162,7 @@ impl EntitySupervisor {
     }
 
     /// Transition an entity to a new lifecycle state, persisting to the store.
-    pub fn transition(
-        &mut self,
-        entity_id: &str,
-        new_state: EntityState,
-        store: &SignalStore,
-    ) {
+    pub fn transition(&mut self, entity_id: &str, new_state: EntityState, store: &SignalStore) {
         if let Some(instance) = self.entities.get_mut(entity_id) {
             instance.state = new_state;
             let _ = store.set_entity_state(entity_id, instance.state.as_str());

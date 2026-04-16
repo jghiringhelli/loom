@@ -102,9 +102,10 @@ impl RuntimeEmitter {
         match &being.telos {
             None => "{}".into(),
             Some(t) => {
-                let mut fields = vec![
-                    format!("\"description\":\"{}\"", escape_json(&t.description)),
-                ];
+                let mut fields = vec![format!(
+                    "\"description\":\"{}\"",
+                    escape_json(&t.description)
+                )];
                 if let Some(m) = &t.metric {
                     fields.push(format!("\"metric\":\"{}\"", escape_json(m)));
                 }
@@ -158,7 +159,7 @@ fn escape_json(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{Module, Span, TelosDef, TelosThresholds, TelomereBlock};
+    use crate::ast::{Module, Span, TelomereBlock, TelosDef, TelosThresholds};
 
     fn make_being(name: &str) -> BeingDef {
         BeingDef {

@@ -125,7 +125,12 @@ struct TokenBucket {
 
 impl TokenBucket {
     fn new(capacity: u32, refill_per_ms: f64, now: Timestamp) -> Self {
-        Self { capacity, tokens: capacity as f64, last_refill_ms: now, refill_per_ms }
+        Self {
+            capacity,
+            tokens: capacity as f64,
+            last_refill_ms: now,
+            refill_per_ms,
+        }
     }
 
     /// Consume one token. Returns `true` if the request is allowed.
@@ -187,7 +192,8 @@ impl Membrane {
     ///
     /// Used to detect tampering in mutation proposals (genome hash lineage check).
     pub fn register_genome(&mut self, entity_id: impl Into<EntityId>, genome_source: &str) {
-        self.genome_registry.insert(entity_id.into(), sha256_hex(genome_source));
+        self.genome_registry
+            .insert(entity_id.into(), sha256_hex(genome_source));
     }
 
     /// Return `Some(true)` if the genome matches the registered hash,
@@ -262,7 +268,9 @@ impl Membrane {
 
     /// Returns `true` if the entity is within an active quarantine window.
     pub fn is_quarantined(&self, entity_id: &str) -> bool {
-        self.quarantine.get(entity_id).is_some_and(|s| now_ms() < s.until_ms)
+        self.quarantine
+            .get(entity_id)
+            .is_some_and(|s| now_ms() < s.until_ms)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -315,7 +323,11 @@ impl Membrane {
             .rate_limiters
             .entry(src.to_string())
             .or_insert_with(|| {
-                TokenBucket::new(self.config.rate_capacity, self.config.rate_refill_per_ms, now)
+                TokenBucket::new(
+                    self.config.rate_capacity,
+                    self.config.rate_refill_per_ms,
+                    now,
+                )
             })
             .try_consume(now);
 
@@ -379,15 +391,17 @@ impl Membrane {
 
         self.quarantine.insert(
             entity_id.to_string(),
-            QuarantineState { window_index: next_index, until_ms, category: category.clone() },
+            QuarantineState {
+                window_index: next_index,
+                until_ms,
+                category: category.clone(),
+            },
         );
 
         QuarantineEntry {
             entity_id: entity_id.to_string(),
             category,
-            description: format!(
-                "quarantine window {next_index} active for {window_ms}ms"
-            ),
+            description: format!("quarantine window {next_index} active for {window_ms}ms"),
             window_index: next_index,
             until_ms,
         }
@@ -434,7 +448,10 @@ mod tests {
         let s = store();
         let mut m = membrane();
         m.register_entity("e1");
-        assert_eq!(m.evaluate(&Signal::new("e1", "temperature", 1.5), &s), MembraneVerdict::Admit);
+        assert_eq!(
+            m.evaluate(&Signal::new("e1", "temperature", 1.5), &s),
+            MembraneVerdict::Admit
+        );
     }
 
     #[test]
@@ -468,7 +485,10 @@ mod tests {
         assert_eq!(m.evaluate(&sig, &s), MembraneVerdict::Admit);
         assert_eq!(m.evaluate(&sig, &s), MembraneVerdict::Admit);
         // Bucket now empty — third call quarantines.
-        assert!(matches!(m.evaluate(&sig, &s), MembraneVerdict::Quarantine(_)));
+        assert!(matches!(
+            m.evaluate(&sig, &s),
+            MembraneVerdict::Quarantine(_)
+        ));
     }
 
     #[test]
@@ -499,11 +519,11 @@ mod tests {
         let sig = Signal::new("e1", "cpu", 0.5);
         m.evaluate(&sig, &s); // consumes only token
         m.evaluate(&sig, &s); // quarantine window 0
-        // Manually expire the quarantine so the next violation advances the window.
+                              // Manually expire the quarantine so the next violation advances the window.
         m.quarantine.get_mut("e1").unwrap().until_ms = 0;
         m.evaluate(&sig, &s); // probe passes (expired window cleared)
-        // Next rate-limit violation should advance to window 1.
-        // Re-deplete the bucket first (it was refilled by time 0 trick, set tokens = 0).
+                              // Next rate-limit violation should advance to window 1.
+                              // Re-deplete the bucket first (it was refilled by time 0 trick, set tokens = 0).
         m.rate_limiters.get_mut("e1").unwrap().tokens = 0.0;
         let v = m.evaluate(&sig, &s);
         let idx = match v {
@@ -594,7 +614,10 @@ mod tests {
     fn no_genome_registered_admits_any_source() {
         let s = store();
         let mut m = membrane();
-        assert_eq!(m.evaluate_genome("e1", "anything", &s), MembraneVerdict::Admit);
+        assert_eq!(
+            m.evaluate_genome("e1", "anything", &s),
+            MembraneVerdict::Admit
+        );
     }
 
     // ── SHA-256 ───────────────────────────────────────────────────────────────

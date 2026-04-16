@@ -38,10 +38,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::runtime::{
     deploy::DeployStatus,
-    meiosis::{MeiosisEngine, MeiosisReport, PromotedRecord, TelomereTracker},
+    meiosis::{hash_genome, MeiosisEngine, MeiosisReport, PromotedRecord, TelomereTracker},
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
     signal::now_ms,
     signals_sim::SignalSimulator,
+    telomere_audit::TelomereAuditWriter,
     RetroResult, Runtime,
 };
 
@@ -91,6 +92,14 @@ pub struct ExperimentConfig {
     /// Branching is suppressed once this limit is reached.
     /// Default: 50. Set via `MAX_ENTITY_COUNT` env var.
     pub max_entity_count: usize,
+
+    /// Path for the telomere audit JSONL log.  Empty = no file written.
+    /// Each line is a `TelomereAuditEvent` JSON object.
+    pub telomere_log_path: String,
+
+    /// Path for the `bioiso.toml` project manifest written at run end.
+    /// Empty = no manifest written.
+    pub manifest_path: String,
 }
 
 impl Default for ExperimentConfig {
@@ -108,6 +117,8 @@ impl Default for ExperimentConfig {
             run_meiosis: false,
             meiosis_generation: 1,
             max_entity_count: 50,
+            telomere_log_path: String::new(),
+            manifest_path: String::new(),
         }
     }
 }
@@ -202,6 +213,9 @@ pub struct ExperimentSummary {
     pub retro_mean_score: f64,
     /// Legacy RetroResult records for compatibility with RetroValidator API.
     pub retro_results: Vec<RetroResult>,
+    /// Genome lineage graph edges from the meiosis run.
+    /// Each edge records parent hashes → offspring slug + judge decision.
+    pub lineage_edges: Vec<crate::runtime::meiosis::LineageEdge>,
 }
 
 // ── RetroScorer ───────────────────────────────────────────────────────────────
@@ -506,12 +520,11 @@ pub struct ExperimentDriver {
     /// All promoted mutations accumulated during the run — fed to meiosis at end.
     promoted_records: Vec<PromotedRecord>,
     /// Tracks per-entity telomere length based on telos drift.
-    /// Shortens when drift exceeds tolerance (exploration allowed below window).
-    /// Near-senescent entities are prioritised as meiosis donors.
     telomere_tracker: TelomereTracker,
     /// Per-entity retro scorer — accumulates D_static observations each tick.
-    /// Produces colony telos alignment score at run end.
     retro_scorer: RetroScorer,
+    /// Persistent telomere audit log — records every shortening event to JSONL.
+    telomere_audit: TelomereAuditWriter,
 }
 
 impl ExperimentDriver {
@@ -534,6 +547,7 @@ impl ExperimentDriver {
             config.max_entity_count,
         );
         let log = ExperimentLog::new(&config.log_path);
+        let telomere_audit = TelomereAuditWriter::new(&config.telomere_log_path);
 
         Self {
             orchestrator: Orchestrator::new(runtime, orch_config),
@@ -542,11 +556,9 @@ impl ExperimentDriver {
             log,
             config,
             promoted_records: Vec::new(),
-            // Initial telomere length of 500: enough slack for ~100 high-drift
-            // events before senescence triggers meiosis replacement.
             telomere_tracker: TelomereTracker::new(500),
-            // Tolerance 0.3: matches the DriftEngine emission_threshold.
             retro_scorer: RetroScorer::new(0.3),
+            telomere_audit,
         }
     }
 
@@ -611,14 +623,17 @@ impl ExperimentDriver {
                 *totals.tier_activations.entry(tier.to_string()).or_insert(0) += 1;
             }
 
-            // Record promoted mutations for branching + meiosis
+            // Record promoted mutations for branching + meiosis.
+            // genome_hash links this record into the lineage graph.
             for outcome in &tick_result.deploy_outcomes {
                 if outcome.status == DeployStatus::Promoted {
                     self.brancher.record_promotion(&outcome.entity_id);
+                    let genome_hash = hash_genome(&outcome.proposal, tick);
                     self.promoted_records.push(PromotedRecord {
                         tick,
                         entity_id: outcome.entity_id.clone(),
                         proposal: outcome.proposal.clone(),
+                        genome_hash,
                     });
                 }
             }
@@ -640,28 +655,46 @@ impl ExperimentDriver {
             // Fall back to per-metric score for backward compatibility.
             let mut seen_entities: HashMap<String, f64> = HashMap::new();
             for event in &tick_result.drift_events {
-                // Collect the best aggregate score per entity (deduplicate same-entity events).
                 let d_static = event.entity_aggregate_score.unwrap_or(event.score);
                 seen_entities
                     .entry(event.entity_id.clone())
-                    .and_modify(|v| {
-                        // Keep the value from the first event (they're identical per entity).
-                        let _ = v;
-                    })
                     .or_insert(d_static);
 
-                let senescent = self.telomere_tracker.record_drift(
-                    &event.entity_id,
-                    &event.entity_id, // telos label — resolved properly at meiosis time
-                    event.score,
-                );
-                if senescent {
-                    eprintln!(
-                        "[telomere] {} reached senescence (sustained telos drift) — \
-                         prioritising for meiosis replacement",
-                        event.entity_id
+                let was_shortened = {
+                    let prev = self.telomere_tracker.remaining(&event.entity_id);
+                    let senescent = self.telomere_tracker.record_drift(
+                        &event.entity_id,
+                        &event.entity_id,
+                        event.score,
                     );
-                }
+                    let after = self
+                        .telomere_tracker
+                        .remaining(&event.entity_id)
+                        .unwrap_or(0);
+                    let shortened = prev.map(|p| p > after).unwrap_or(false);
+                    if senescent {
+                        eprintln!(
+                            "[telomere] {} reached senescence — prioritising for meiosis",
+                            event.entity_id
+                        );
+                    }
+                    shortened
+                };
+
+                // Telomere audit event.
+                let remaining = self
+                    .telomere_tracker
+                    .remaining(&event.entity_id)
+                    .unwrap_or(0);
+                self.telomere_audit.record(
+                    &event.entity_id,
+                    tick,
+                    event.score,
+                    remaining,
+                    500, // initial_length = TelomereTracker::new(500)
+                    was_shortened,
+                    Some(event.triggering_metric.as_str()),
+                );
             }
             // Feed D_static aggregates into the retro scorer.
             for (eid, d_static) in &seen_entities {
@@ -844,7 +877,13 @@ impl ExperimentDriver {
             );
         }
 
-        ExperimentSummary {
+        // Lineage edges from meiosis report.
+        let lineage_edges = meiosis_report
+            .as_ref()
+            .map(|r| r.lineage_edges.clone())
+            .unwrap_or_default();
+
+        let summary = ExperimentSummary {
             total_ticks: self.config.total_ticks,
             total_signals_injected: totals.signals_injected,
             total_drift_events: totals.drift_events,
@@ -862,8 +901,120 @@ impl ExperimentDriver {
             retro_stats,
             retro_mean_score,
             retro_results,
+            lineage_edges,
+        };
+
+        // Write bioiso.toml project manifest if requested.
+        if !self.config.manifest_path.is_empty() {
+            write_project_manifest(&self.config.manifest_path, &summary, &self.telomere_audit);
         }
+
+        summary
     }
+}
+
+// ── Project manifest writer ───────────────────────────────────────────────────
+
+/// Write a `bioiso.toml` project manifest at the end of an experiment run.
+///
+/// The manifest captures the run's key results in a structured TOML file
+/// suitable for the BIOISO paper's per-project evidence table.
+fn write_project_manifest(path: &str, summary: &ExperimentSummary, audit: &TelomereAuditWriter) {
+    let final_lengths = audit.final_lengths();
+    let decay_counts = audit.decay_counts();
+
+    let mut entity_sections = String::new();
+    for stat in &summary.retro_stats {
+        let final_tel = final_lengths.get(&stat.entity_id).copied().unwrap_or(500);
+        let decays = decay_counts.get(&stat.entity_id).copied().unwrap_or(0);
+        let was_donor = audit.was_meiosis_donor(&stat.entity_id);
+        entity_sections.push_str(&format!(
+            r#"
+[entity.{id}]
+retro_score        = {score:.3}
+mean_drift         = {drift:.3}
+ticks_within_tol   = {within}
+ticks_tracked      = {tracked}
+telomere_final     = {tel}
+telomere_decays    = {decays}
+meiosis_donor      = {donor}
+"#,
+            id = stat.entity_id,
+            score = stat.overall_score,
+            drift = stat.mean_drift,
+            within = stat.ticks_within_tolerance,
+            tracked = stat.ticks_tracked,
+            tel = final_tel,
+            decays = decays,
+            donor = was_donor,
+        ));
+    }
+
+    let convergence_str = match summary.convergence_tick {
+        Some(t) => format!("{t}"),
+        None => "null".to_string(),
+    };
+
+    let meiosis_events = summary
+        .meiosis_report
+        .as_ref()
+        .map(|r| r.genomes_accepted)
+        .unwrap_or(0);
+    let breakthrough = summary.lineage_edges.iter().any(|e| {
+        matches!(
+            e.decision,
+            Some(crate::runtime::meiosis::EvolutionDecision::Meiosis)
+        )
+    });
+
+    let manifest = format!(
+        r#"# bioiso.toml — Project manifest (auto-generated at experiment end)
+# Edit the [project] section; all [result] fields are computed.
+
+[project]
+hypothesis        = "BIOISO autonomously discovers interventions in NP-hard domain space"
+started           = "{started}"
+
+[result]
+total_ticks           = {ticks}
+total_promoted        = {promoted}
+total_branches        = {branches}
+retro_mean_score      = {retro:.3}
+convergence_tick      = {conv}
+meiosis_events        = {meiosis}
+breakthrough_meiosis  = {breakthrough}
+
+[colony_telos]
+definition = "{telos}"
+threshold  = 0.7
+{entity_sections}
+[lineage]
+edges = {edges}
+"#,
+        started = chrono_date(),
+        ticks = summary.total_ticks,
+        promoted = summary.total_promoted,
+        branches = summary.branch_decisions.len(),
+        retro = summary.retro_mean_score,
+        conv = convergence_str,
+        meiosis = meiosis_events,
+        breakthrough = breakthrough,
+        telos = COLONY_TELOS,
+        entity_sections = entity_sections,
+        edges = summary.lineage_edges.len(),
+    );
+
+    match std::fs::write(path, manifest) {
+        Ok(()) => eprintln!("[manifest] written to `{path}`"),
+        Err(e) => eprintln!("[manifest] failed to write `{path}`: {e}"),
+    }
+}
+
+fn chrono_date() -> String {
+    // Simple ISO date without external chrono dependency.
+    // Uses the file system mtime is unavailable; fall back to a static marker.
+    // In production Railway sets SOURCE_DATE_EPOCH or similar — good enough for the paper.
+    std::env::var("EXPERIMENT_DATE").unwrap_or_else(|_| "unknown".to_string())
 }
 
 // ── Internal totals accumulator ───────────────────────────────────────────────
@@ -923,8 +1074,8 @@ mod tests {
         };
         let mut driver = ExperimentDriver::new(rt, config);
         let summary = driver.run(None);
-        // 5 ticks × 44 signals (11 entities × 4 metrics)
-        assert_eq!(summary.total_signals_injected, 5 * 44);
+        // 5 ticks × 80 signals (20 entities × 4 metrics)
+        assert_eq!(summary.total_signals_injected, 5 * 80);
     }
 
     #[test]
@@ -986,6 +1137,6 @@ mod tests {
         let mut driver = ExperimentDriver::new(rt, config);
         driver.run(None);
         assert_eq!(driver.log.ticks.len(), 3);
-        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 44));
+        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 80));
     }
 }

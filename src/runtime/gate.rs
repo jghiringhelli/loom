@@ -103,11 +103,7 @@ impl MutationGate {
     /// Evaluate a proposal: build a patched module, compile it, enforce safety.
     ///
     /// Also persists the verdict to `store` for the audit trail.
-    pub fn evaluate(
-        &self,
-        proposal: &MutationProposal,
-        store: &SignalStore,
-    ) -> GateResult {
+    pub fn evaluate(&self, proposal: &MutationProposal, store: &SignalStore) -> GateResult {
         // Safety check first — fast path, no compilation needed.
         if self.enforce_caution {
             if let Some(verdict) = self.check_safety_annotations(proposal) {
@@ -140,7 +136,10 @@ impl MutationGate {
             },
         };
 
-        let result = GateResult { proposal: proposal.clone(), verdict };
+        let result = GateResult {
+            proposal: proposal.clone(),
+            verdict,
+        };
         self.record(&result, store);
         result
     }
@@ -185,7 +184,12 @@ impl MutationGate {
     /// For structural mutations we rely on the base source being valid.
     fn build_patched_source(&self, proposal: &MutationProposal) -> Result<String, String> {
         match proposal {
-            MutationProposal::ParameterAdjust { entity_id, param, delta, .. } => {
+            MutationProposal::ParameterAdjust {
+                entity_id,
+                param,
+                delta,
+                ..
+            } => {
                 let base = self
                     .entity_sources
                     .get(entity_id.as_str())
@@ -207,8 +211,14 @@ impl MutationGate {
                 }
             }
             MutationProposal::EntityClone { source_id, .. }
-            | MutationProposal::EntityRollback { entity_id: source_id, .. }
-            | MutationProposal::EntityPrune { entity_id: source_id, .. } => {
+            | MutationProposal::EntityRollback {
+                entity_id: source_id,
+                ..
+            }
+            | MutationProposal::EntityPrune {
+                entity_id: source_id,
+                ..
+            } => {
                 let src = self
                     .entity_sources
                     .get(source_id.as_str())
@@ -226,10 +236,7 @@ impl MutationGate {
     }
 
     fn record(&self, result: &GateResult, store: &SignalStore) {
-        let json = result
-            .proposal
-            .to_json()
-            .unwrap_or_else(|_| "{}".into());
+        let json = result.proposal.to_json().unwrap_or_else(|_| "{}".into());
         let errors_str = match &result.verdict {
             GateVerdict::CompilerRejected { errors } => Some(errors.join("; ")),
             GateVerdict::MissingCaution { missing } => Some(format!("missing: {missing}")),
@@ -397,7 +404,9 @@ end
     #[test]
     fn gate_records_verdict_in_store() {
         let store = mem_store();
-        store.register_entity("ClimateModel", "ClimateModel", "{}", 0).unwrap();
+        store
+            .register_entity("ClimateModel", "ClimateModel", "{}", 0)
+            .unwrap();
         let mut gate = MutationGate::new();
         gate.register_source("ClimateModel", VALID_BEING.into());
 
@@ -419,6 +428,9 @@ end
     fn gate_verdict_is_accepted_flag() {
         assert!(GateVerdict::Accepted.is_accepted());
         assert!(!GateVerdict::CompilerRejected { errors: vec![] }.is_accepted());
-        assert!(!GateVerdict::MissingCaution { missing: "@mortal".into() }.is_accepted());
+        assert!(!GateVerdict::MissingCaution {
+            missing: "@mortal".into()
+        }
+        .is_accepted());
     }
 }

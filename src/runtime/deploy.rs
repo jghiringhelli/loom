@@ -14,11 +14,7 @@
 //! audit trail in the signal store — actual in-process parameter patching will
 //! be wired when the runtime supports live entity configuration.
 
-use crate::runtime::{
-    mutation::MutationProposal,
-    signal::now_ms,
-    store::SignalStore,
-};
+use crate::runtime::{mutation::MutationProposal, signal::now_ms, store::SignalStore};
 
 // ── DeployOutcome ─────────────────────────────────────────────────────────────
 
@@ -104,7 +100,9 @@ impl CanaryDeployer {
             let reason = format!(
                 "{{\"auto_rollback\":true,\"checkpoint_id\":{checkpoint_id},\
                  \"pre_score\":{},\"reason\":\"telos_worsened\"}}",
-                pre_score.map(|s| format!("{s:.4}")).unwrap_or("null".into()),
+                pre_score
+                    .map(|s| format!("{s:.4}"))
+                    .unwrap_or("null".into()),
             );
             store
                 .record_mutation(&entity_id, 0u8, &reason, "rollback", None, now_ms())
@@ -183,7 +181,9 @@ impl CanaryDeployer {
         bounds: &[crate::runtime::store::TelosBound],
         store: &SignalStore,
     ) -> Option<f64> {
-        let signals = store.signals_for_entity(entity_id, bounds.len().max(1)).unwrap_or_default();
+        let signals = store
+            .signals_for_entity(entity_id, bounds.len().max(1))
+            .unwrap_or_default();
         if signals.is_empty() {
             return None;
         }
@@ -194,29 +194,35 @@ impl CanaryDeployer {
         for bound in bounds {
             if let Some(target) = bound.target {
                 // Find the most recent signal for this metric.
-                let val = signals.iter().find(|s| s.metric == bound.metric).map(|s| s.value);
+                let val = signals
+                    .iter()
+                    .find(|s| s.metric == bound.metric)
+                    .map(|s| s.value);
                 if let Some(v) = val {
                     let range = (bound.max.unwrap_or(target) - bound.min.unwrap_or(0.0)).abs();
                     let deviation = (v - target).abs();
-                    total += if range > 0.0 { deviation / range } else { deviation };
+                    total += if range > 0.0 {
+                        deviation / range
+                    } else {
+                        deviation
+                    };
                     count += 1;
                 }
             }
         }
 
-        if count == 0 { None } else { Some(total / count as f64) }
+        if count == 0 {
+            None
+        } else {
+            Some(total / count as f64)
+        }
     }
 
     /// Execute an explicit rollback to a saved checkpoint.
     ///
     /// Records the rollback in the audit trail and returns `true` if the
     /// checkpoint existed in the store.
-    pub fn rollback(
-        &self,
-        entity_id: &str,
-        checkpoint_id: i64,
-        store: &SignalStore,
-    ) -> bool {
+    pub fn rollback(&self, entity_id: &str, checkpoint_id: i64, store: &SignalStore) -> bool {
         let ts = now_ms();
         store
             .record_mutation(
@@ -302,7 +308,9 @@ mod tests {
             .unwrap();
         // Emit a signal close to target — no pre-deploy score, deviation <= 0.3.
         use crate::runtime::signal::Signal;
-        store.write_signal(&Signal::new("e1", "temp", 52.0)).unwrap();
+        store
+            .write_signal(&Signal::new("e1", "temp", 52.0))
+            .unwrap();
         let deployer = CanaryDeployer::new();
         let outcome = deployer.deploy(&param_adjust("e1"), &store);
         assert_eq!(outcome.status, DeployStatus::Promoted);
@@ -321,7 +329,9 @@ mod tests {
             .unwrap();
         use crate::runtime::signal::Signal;
         // Write a bad post-deploy signal — far from target (deviation > 0.3 + 0.05 gap).
-        store.write_signal(&Signal::new("e1", "temp", 95.0)).unwrap();
+        store
+            .write_signal(&Signal::new("e1", "temp", 95.0))
+            .unwrap();
         let deployer = CanaryDeployer::new();
         let outcome = deployer.deploy(&param_adjust("e1"), &store);
         assert_eq!(
