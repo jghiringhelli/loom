@@ -105,9 +105,11 @@ pub struct ClaudeGanglionClient {
 
 impl ClaudeGanglionClient {
     /// Create a client from environment variables.  Returns `None` if
-    /// `CLAUDE_API_KEY` is not set.
+    /// neither `CLAUDE_API_KEY` nor `ANTHROPIC_API_KEY` is set.
     pub fn from_env() -> Option<Self> {
-        let api_key = std::env::var("CLAUDE_API_KEY").ok()?;
+        let api_key = std::env::var("CLAUDE_API_KEY")
+            .or_else(|_| std::env::var("ANTHROPIC_API_KEY"))
+            .ok()?;
         let base_url = std::env::var("CLAUDE_BASE_URL")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
         let model = std::env::var("GANGLION_CLAUDE_MODEL")

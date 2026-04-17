@@ -530,9 +530,12 @@ pub struct ExperimentDriver {
 impl ExperimentDriver {
     /// Create a new driver from a runtime and config.
     pub fn new(runtime: Runtime, config: ExperimentConfig) -> Self {
+        // OrchestratorConfig::default() reads T2_MIN_INTERVAL_TICKS and
+        // STRUCTURAL_REWIRE_THRESHOLD from env, so use it as the base and
+        // only override tick_interval from the experiment config.
         let orch_config = OrchestratorConfig {
             tick_interval: std::time::Duration::from_millis(config.tick_interval_ms),
-            ..Default::default()
+            ..OrchestratorConfig::default()
         };
 
         let simulator = if config.entity_filter.is_empty() {

@@ -97,9 +97,11 @@ impl AnthropicClient {
     }
 
     /// Create a client from environment variables.  Returns `None` if
-    /// `CLAUDE_API_KEY` is not set.
+    /// neither `CLAUDE_API_KEY` nor `ANTHROPIC_API_KEY` is set.
     pub fn from_env() -> Option<Self> {
-        let api_key = std::env::var("CLAUDE_API_KEY").ok()?;
+        let api_key = std::env::var("CLAUDE_API_KEY")
+            .or_else(|_| std::env::var("ANTHROPIC_API_KEY"))
+            .ok()?;
         let base_url = std::env::var("CLAUDE_BASE_URL")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
         let model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| "claude-sonnet-4-5".into());
@@ -239,12 +241,12 @@ impl CostGuard {
         }
     }
 
-    /// Create a guard using `BIOISO_MAX_TIER3_CALLS_PER_HOUR` env var, default 5.
+    /// Create a guard using `BIOISO_MAX_TIER3_CALLS_PER_HOUR` env var, default 200.
     pub fn from_env() -> Self {
         let limit = std::env::var("BIOISO_MAX_TIER3_CALLS_PER_HOUR")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(5);
+            .unwrap_or(200);
         Self::new(limit)
     }
 

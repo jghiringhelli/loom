@@ -62,10 +62,29 @@ pub struct OrchestratorConfig {
     /// Configured via the `T2_MIN_INTERVAL_TICKS` environment variable.
     /// Default: 100 (≈ 8 min at a 5 s tick, ~97 % cost reduction vs no guard).
     pub t2_min_interval_ticks: u64,
+
+    /// D_static threshold above which T3 (Brain/Sonnet) is additionally invoked
+    /// even when T2 produced proposals.
+    ///
+    /// For BIOISO domains, Haiku (T2) almost always returns `parameter_adjust`.
+    /// When drift is persistently above this threshold — meaning ParameterAdjust
+    /// is not converging — T3 is called to evaluate whether `structural_rewire`
+    /// is warranted.  Set to `f64::MAX` to disable.
+    ///
+    /// Configured via `STRUCTURAL_REWIRE_THRESHOLD`. Default: 0.35.
+    pub structural_rewire_threshold: f64,
 }
 
 impl Default for OrchestratorConfig {
     fn default() -> Self {
+        let t2_min = std::env::var("T2_MIN_INTERVAL_TICKS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(100u64);
+        let rewire_thresh = std::env::var("STRUCTURAL_REWIRE_THRESHOLD")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0.35f64);
         Self {
             drift_lookback: 20,
             tier1_fail_threshold: 3,
@@ -74,7 +93,8 @@ impl Default for OrchestratorConfig {
             canary_fraction: 0.1,
             canary_monitor_ticks: 3,
             epigenome_distil_interval: 10,
-            t2_min_interval_ticks: 100,
+            t2_min_interval_ticks: t2_min,
+            structural_rewire_threshold: rewire_thresh,
         }
     }
 }
@@ -325,7 +345,7 @@ impl Orchestrator {
             return (vec![], 1);
         }
 
-        // Tier 2 — Ganglion (Ollama).
+        // Tier 2 — Ganglion (Haiku).
         // Record the tick before the call so the cooldown is enforced even if T2 returns empty.
         self.last_t2_tick.insert(eid.clone(), self.tick_count);
         // Split borrow: build corpus string first, then call evaluate.
@@ -336,8 +356,28 @@ impl Orchestrator {
             self.runtime.ganglion.config.corpus_lookback,
         );
         let t2_proposals = self.runtime.ganglion.evaluate_with_corpus(event, &corpus);
+
         if !t2_proposals.is_empty() {
             self.tier2_fail_counts.insert(eid.clone(), 0);
+
+            // ── BIOISO escalation path ────────────────────────────────────────
+            // T2 (Haiku) defaults to parameter_adjust — it rarely proposes
+            // structural_rewire even when structurally required.  When drift
+            // exceeds the rewire threshold, additionally invoke T3 (Sonnet) so
+            // it can recognise whether structural self-modification is needed.
+            // T3 takes precedence if it returns structural proposals.
+            let has_rewire = t2_proposals
+                .iter()
+                .any(|p| matches!(p, MutationProposal::StructuralRewire { .. }));
+            let high_drift = event.score > self.config.structural_rewire_threshold;
+
+            if has_rewire || high_drift {
+                let t3_proposals = self.runtime.evaluate_tier3(event, None);
+                if !t3_proposals.is_empty() {
+                    return (t3_proposals, 3);
+                }
+            }
+
             return (t2_proposals, 2);
         }
 
@@ -348,7 +388,7 @@ impl Orchestrator {
             return (vec![], 2);
         }
 
-        // Tier 3 — Mammal Brain (Claude).
+        // Tier 3 fallback — Mammal Brain (Sonnet) when T2 is consistently silent.
         let t3_proposals = self.runtime.evaluate_tier3(event, None);
         if !t3_proposals.is_empty() {
             self.tier2_fail_counts.insert(eid.clone(), 0);
