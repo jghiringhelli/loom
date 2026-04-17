@@ -40,6 +40,7 @@ use crate::runtime::{
 struct ClaudeRequest<'a> {
     model: &'a str,
     max_tokens: u32,
+    system: &'a str,
     messages: Vec<ClaudeMessage<'a>>,
 }
 
@@ -115,6 +116,7 @@ impl ClaudeClient for AnthropicClient {
         let body = ClaudeRequest {
             model: &self.model,
             max_tokens: 2048,
+            system,
             messages: vec![ClaudeMessage {
                 role: "user",
                 content: user,
@@ -126,7 +128,6 @@ impl ClaudeClient for AnthropicClient {
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .header("content-type", "application/json")
-            .header("x-system", system)
             .json(&body)
             .send()
             .map_err(|e| e.to_string())?;
