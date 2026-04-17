@@ -14,7 +14,7 @@
 //! │  ExperimentDriver.run_ticks(N)                      │
 //! │                                                     │
 //! │  for each tick:                                     │
-//! │    1. SignalSimulator → inject 28 signals           │
+//! │    1. SignalSimulator → inject 36 signals           │
 //! │    2. Orchestrator.run_once() → drift + mutations   │
 //! │    3. BranchingEngine.evaluate() → spawn children  │
 //! │    4. ExperimentLog.record_tick()                   │
@@ -1074,8 +1074,8 @@ mod tests {
         };
         let mut driver = ExperimentDriver::new(rt, config);
         let summary = driver.run(None);
-        // 5 ticks × 28 signals (7 BIOISO-class entities × 4 metrics)
-        assert_eq!(summary.total_signals_injected, 5 * 28);
+        // 5 ticks × 36 signals (9 BIOISO-class entities × 4 metrics)
+        assert_eq!(summary.total_signals_injected, 5 * 36);
     }
 
     #[test]
@@ -1141,6 +1141,6 @@ mod tests {
         let mut driver = ExperimentDriver::new(rt, config);
         driver.run(None);
         assert_eq!(driver.log.ticks.len(), 3);
-        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 28));
+        assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 36));
     }
 }

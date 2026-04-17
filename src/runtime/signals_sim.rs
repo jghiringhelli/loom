@@ -1,4 +1,4 @@
-//! Signal simulator — generates realistic domain-specific telemetry for all 7
+//! Signal simulator — generates realistic domain-specific telemetry for all 9
 //! curated BIOISO-class entities.
 //!
 //! Each domain expert spec defines four metrics with:
@@ -390,12 +390,102 @@ fn all_domain_specs() -> Vec<DomainSpec> {
                 },
             ],
         },
+        // ── 8. Fusion Plasma Control ──────────────────────────────────────────────────
+        // Plasma confinement regimes shift non-stationarily; fixed PID controllers
+        // lose confinement during L-H transitions and disruption precursors.
+        // Calibrated against ITER/JET disruption databases; ELM event frequencies.
+        DomainSpec {
+            entity_id: "fusion_plasma",
+            metrics: vec![
+                MetricSpec {
+                    name: "confinement_quality_h98",
+                    baseline: 0.82,
+                    trend_per_tick: 0.0001,
+                    noise_amplitude: 0.03,
+                    crises: vec![
+                        Crisis::new(70, 85, -0.45), // L-H transition loss
+                        Crisis::new(240, 255, -0.38),
+                        Crisis::new(420, 435, -0.30),
+                    ],
+                },
+                MetricSpec {
+                    name: "disruption_probability",
+                    baseline: 0.04,
+                    trend_per_tick: 0.00002,
+                    noise_amplitude: 0.005,
+                    crises: vec![
+                        Crisis::new(68, 88, 0.55), // Major disruption precursor
+                        Crisis::new(238, 258, 0.42),
+                        Crisis::new(418, 438, 0.35),
+                    ],
+                },
+                MetricSpec {
+                    name: "elm_frequency_hz",
+                    baseline: 12.0,
+                    trend_per_tick: 0.008,
+                    noise_amplitude: 1.2,
+                    crises: vec![Crisis::new(72, 84, 28.0), Crisis::new(242, 253, 22.0)],
+                },
+                MetricSpec {
+                    name: "beta_normalised",
+                    baseline: 1.8,
+                    trend_per_tick: 0.0005,
+                    noise_amplitude: 0.08,
+                    crises: vec![Crisis::new(66, 90, -0.9), Crisis::new(236, 260, -0.7)],
+                },
+            ],
+        },
+        // ── 9. Adaptive Self-Assembly ──────────────────────────────────────────────────
+        // Each assembly step changes which nanostructure configurations are accessible;
+        // the protocol graph must be rewired between deployments.
+        // Calibrated against DNA origami / colloidal self-assembly literature (Rothemund 2006,
+        // Zeravcic et al. 2017). Yield rates and defect statistics from experimental records.
+        DomainSpec {
+            entity_id: "adaptive_self_assembly",
+            metrics: vec![
+                MetricSpec {
+                    name: "assembly_yield_pct",
+                    baseline: 0.58,
+                    trend_per_tick: 0.0003,
+                    noise_amplitude: 0.025,
+                    crises: vec![
+                        Crisis::new(95, 125, -0.22), // Configuration space collapse
+                        Crisis::new(310, 340, -0.18),
+                        Crisis::new(470, 500, -0.14),
+                    ],
+                },
+                MetricSpec {
+                    name: "defect_density_per_um2",
+                    baseline: 3.4,
+                    trend_per_tick: -0.002,
+                    noise_amplitude: 0.25,
+                    crises: vec![Crisis::new(93, 128, 4.8), Crisis::new(308, 343, 3.6)],
+                },
+                MetricSpec {
+                    name: "accessible_configuration_count",
+                    baseline: 14.0,
+                    trend_per_tick: 0.006,
+                    noise_amplitude: 0.8,
+                    crises: vec![
+                        Crisis::new(97, 122, -8.0), // Pathway bifurcation collapse
+                        Crisis::new(312, 337, -6.0),
+                    ],
+                },
+                MetricSpec {
+                    name: "protocol_convergence_rate",
+                    baseline: 0.44,
+                    trend_per_tick: 0.0002,
+                    noise_amplitude: 0.02,
+                    crises: vec![Crisis::new(91, 130, -0.20), Crisis::new(306, 345, -0.15)],
+                },
+            ],
+        },
     ]
 }
 
 // ── SignalSimulator ────────────────────────────────────────────────────────────
 
-/// Generates realistic domain-specific signals for all 7 curated BIOISO-class entities.
+/// Generates realistic domain-specific signals for all 9 curated BIOISO-class entities.
 ///
 /// The simulator is deterministic given a seed. Call [`tick`] once per
 /// orchestrator tick to get the signals to inject into the signal store.
@@ -467,11 +557,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simulator_produces_signals_for_all_7_entities() {
+    fn simulator_produces_signals_for_all_9_entities() {
         let mut sim = SignalSimulator::new(42);
         let signals = sim.tick(0, 1_000_000);
-        // 7 BIOISO-class entities × 4 metrics each
-        assert_eq!(signals.len(), 28);
+        // 9 BIOISO-class entities × 4 metrics each
+        assert_eq!(signals.len(), 36);
     }
 
     #[test]

@@ -16,6 +16,8 @@
 //! | `ics_zero_day`          | ICS/SCADA zero-day defense    | 2010-01-01       | Novel attack classes have unknown structure; ML on known attacks fails by definition |
 //! | `quantum_error_mitigation` | Quantum circuit compilation | 2020-01-01      | Hardware noise model changes per calibration; no fixed decomposition strategy transfers |
 //! | `climate_intervention`  | Earth system intervention seq | 1990-01-01       | Each intervention changes the causal structure; causal graph shifts after every deployment |
+//! | `fusion_plasma`         | Fusion plasma confinement     | 2012-01-01       | L-H transitions and disruption precursors are structurally novel; no fixed control law transfers |
+//! | `adaptive_self_assembly`| Nanostructure self-assembly   | 2015-01-01       | Each assembly step changes accessible configuration space; protocol graph must be rewired |
 //!
 //! # Retrospective Validation
 //!
@@ -65,7 +67,7 @@ pub struct MetricBoundSpec {
 
 // ── Pre-configured Entities ───────────────────────────────────────────────────
 
-/// Return the 7 curated BIOISO-class domain specs.
+/// Return the 9 curated BIOISO-class domain specs.
 ///
 /// Each domain was selected because structural rewiring is load-bearing —
 /// `ParameterAdjust` alone cannot achieve telos convergence under the
@@ -79,6 +81,8 @@ pub fn all_domain_specs() -> Vec<BIOISOSpec> {
         ics_zero_day_spec(),
         quantum_error_mitigation_spec(),
         climate_intervention_spec(),
+        fusion_plasma_spec(),
+        adaptive_self_assembly_spec(),
     ]
 }
 
@@ -412,6 +416,107 @@ fn climate_intervention_spec() -> BIOISOSpec {
     }
 }
 
+// ── 8. Fusion Plasma Control ──────────────────────────────────────────────────
+// Calibrated against ITER disruption database and JET H-mode experiments.
+// Plasma confinement transitions (L-H mode, ELM events, disruption precursors)
+// are structurally non-stationary: the control policy that stabilises one regime
+// fails when the plasma transitions. Fixed PID controllers lose confinement;
+// ML policies trained on one regime do not transfer to novel instability modes.
+// A BIOISO rewires the control law graph when disruption probability spikes,
+// synthesising detection logic for instability classes not seen during training.
+fn fusion_plasma_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "fusion_plasma",
+        name: "Fusion Plasma Control",
+        telos_json: r#"{"target":"maintain plasma confinement across regime transitions by synthesising novel control laws for unseen instability modes","metrics":["confinement_quality_h98","disruption_probability","elm_frequency_hz","beta_normalised"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "confinement_quality_h98",
+                min: Some(0.0),
+                max: Some(2.0),
+                target: 1.05,
+            },
+            MetricBoundSpec {
+                metric: "disruption_probability",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.02,
+            },
+            MetricBoundSpec {
+                metric: "elm_frequency_hz",
+                min: Some(0.0),
+                max: Some(80.0),
+                target: 8.0,
+            },
+            MetricBoundSpec {
+                metric: "beta_normalised",
+                min: Some(0.0),
+                max: Some(4.0),
+                target: 2.2,
+            },
+        ],
+        baseline_signals: vec![
+            ("confinement_quality_h98", 0.82),
+            ("disruption_probability", 0.04),
+            ("elm_frequency_hz", 12.0),
+            ("beta_normalised", 1.8),
+        ],
+        retro_start_year: 2012,
+        academic_baseline_label: Some("ITER disruption database; Kates-Harbeck et al. 2019 FRNN"),
+    }
+}
+
+// ── 9. Adaptive Self-Assembly ──────────────────────────────────────────────────
+// Calibrated against DNA origami and colloidal self-assembly literature:
+// Rothemund (2006) Science; Zeravcic et al. (2017) Rev. Mod. Phys.
+// Each assembly step changes which nanostructure configurations are accessible —
+// the protocol graph must be rewired between deployments. Tier 4 surrogate models
+// optimise yield within the current accessible configuration space but cannot
+// anticipate pathway bifurcations that collapse access to target structures.
+fn adaptive_self_assembly_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "adaptive_self_assembly",
+        name: "Adaptive Self-Assembly",
+        telos_json: r#"{"target":"maximise yield of target nanostructures by rewiring assembly protocol graphs as the accessible configuration space shifts after each deployment","metrics":["assembly_yield_pct","defect_density_per_um2","accessible_configuration_count","protocol_convergence_rate"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "assembly_yield_pct",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.82,
+            },
+            MetricBoundSpec {
+                metric: "defect_density_per_um2",
+                min: Some(0.0),
+                max: Some(20.0),
+                target: 0.8,
+            },
+            MetricBoundSpec {
+                metric: "accessible_configuration_count",
+                min: Some(0.0),
+                max: Some(50.0),
+                target: 25.0,
+            },
+            MetricBoundSpec {
+                metric: "protocol_convergence_rate",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.75,
+            },
+        ],
+        baseline_signals: vec![
+            ("assembly_yield_pct", 0.58),
+            ("defect_density_per_um2", 3.4),
+            ("accessible_configuration_count", 14.0),
+            ("protocol_convergence_rate", 0.44),
+        ],
+        retro_start_year: 2015,
+        academic_baseline_label: Some(
+            "Rothemund 2006; Zeravcic et al. 2017; Yin et al. 2008 DNA brick",
+        ),
+    }
+}
+
 // ── BIOISO Runner ─────────────────────────────────────────────────────────────
 
 /// Runner that registers pre-configured BIOISO domain entities in a [`Runtime`].
@@ -428,7 +533,7 @@ pub struct BIOISORunner {
 }
 
 impl BIOISORunner {
-    /// Create a runner with all 7 curated BIOISO-class domain specs.
+    /// Create a runner with all 9 curated BIOISO-class domain specs.
     pub fn new() -> Self {
         Self {
             specs: all_domain_specs(),
@@ -746,9 +851,9 @@ mod tests {
     use crate::runtime::Runtime;
 
     #[test]
-    fn all_domain_specs_returns_seven_specs() {
+    fn all_domain_specs_returns_nine_specs() {
         let specs = all_domain_specs();
-        assert_eq!(specs.len(), 7);
+        assert_eq!(specs.len(), 9);
     }
 
     #[test]
@@ -772,9 +877,9 @@ mod tests {
         let mut rt = Runtime::new(":memory:").unwrap();
         let runner = BIOISORunner::new();
         let count = runner.spawn_all(&mut rt).unwrap();
-        assert_eq!(count, 7);
+        assert_eq!(count, 9);
         let entities = rt.entities().unwrap();
-        assert_eq!(entities.len(), 7);
+        assert_eq!(entities.len(), 9);
     }
 
     #[test]

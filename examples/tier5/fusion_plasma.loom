@@ -1,0 +1,158 @@
+-- examples/tier5/fusion_plasma.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: Fusion Plasma Confinement Control.
+--
+-- Plasma confinement in tokamaks is governed by magnetohydrodynamic
+-- (MHD) instabilities that transition between regimes discontinuously.
+-- The L-H (low-to-high confinement) transition, Edge-Localised Modes
+-- (ELMs), and disruption precursors are structurally distinct instability
+-- classes — a control law tuned for one regime fails categorically in
+-- another.
+--
+-- Tier 2/3 (SA, GA, hyper-heuristics) can optimise within a known
+-- instability class but cannot detect that the plasma has entered a
+-- new class not present in training data. Tier 4 ML controllers
+-- (FRNN, Kates-Harbeck et al. 2019 Nature) learn disruption precursors
+-- from historical data but are brittle to novel instability modes on
+-- new machines (ITER will have different plasma regimes from JET).
+--
+-- A BIOISO rewires the control law graph when disruption_probability
+-- spikes beyond the drift threshold, synthesising detection logic and
+-- actuation strategies for the new regime from candidate hypotheses.
+-- StructuralRewire is load-bearing: no parameter within the current
+-- control architecture recovers confinement after a regime transition.
+--
+-- Reference: Kates-Harbeck et al. (2019) "Predicting disruptive
+-- instabilities in controlled fusion plasmas" Nature 568;
+-- Degrave et al. (2022) "Magnetic control of tokamak plasmas through
+-- deep reinforcement learning" Nature 602 (Tier 4 upper bound).
+--
+-- Compile:  loom compile examples/tier5/fusion_plasma.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module FusionPlasmaControl
+describe: "Fusion plasma confinement BIOISO — control law graph rewired on regime transition"
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+type PlasmaState =
+  confinement_quality_h98: Float   -- H98(y,2) factor; target > 1.0
+  disruption_probability:  Float   -- [0,1]; < 0.02 is safe
+  elm_frequency_hz:        Float   -- Edge-Localised Mode frequency
+  beta_normalised:         Float   -- normalised plasma pressure βN
+end
+
+type InstabilityMode =
+  name:            String   -- e.g. "type-I ELM", "neoclassical tearing", "VDE"
+  signature:       [Float]  -- characteristic mode numbers / growth rates
+  safe_threshold:  Float    -- disruption probability below which mode is tolerated
+end
+
+type ControlLaw =
+  actuation:  String   -- e.g. "NBI_modulation", "pellet_injection", "ECRH_sweep"
+  gain:       Float
+  phase_deg:  Float
+  valid_for:  [String] -- instability mode names this law handles
+end
+
+type ConfinementStrategy =
+  active_laws:    [ControlLaw]
+  mode_classifier: String   -- identifier of current instability classification model
+  fallback_law:    ControlLaw
+end
+
+-- ── Helper functions ────────────────────────────────────────────────
+
+function classify_regime(state: PlasmaState) -> String:
+  -- Map plasma state to confinement regime label.
+  require: state.beta_normalised >= 0.0
+  ensure:  result in ["L_mode", "H_mode", "ELM_suppressed", "disruption_imminent"]
+  impl: |state|
+    if state.disruption_probability > 0.35 then "disruption_imminent"
+    else if state.elm_frequency_hz > 20.0 then "L_mode"
+    else if state.confinement_quality_h98 > 0.95 then "H_mode"
+    else "ELM_suppressed"
+    end
+end
+
+function apply_control(strategy: ConfinementStrategy, state: PlasmaState) -> PlasmaState:
+  -- Apply the active control laws and return the updated plasma state.
+  require: strategy.active_laws.length > 0
+  ensure:  result.disruption_probability <= state.disruption_probability + 0.05
+  impl: delegate_to_runtime
+end
+
+function drift_score(state: PlasmaState) -> Float:
+  -- D_static: weighted sum of telos deviations.
+  require: true
+  ensure:  result >= 0.0
+  impl: |state|
+    let h98_gap   = (1.05 - state.confinement_quality_h98).max(0.0)
+    let disr_gap  = (state.disruption_probability - 0.02).max(0.0)
+    let elm_gap   = (state.elm_frequency_hz - 8.0).max(0.0) / 8.0
+    let beta_gap  = (2.2 - state.beta_normalised).max(0.0) / 2.2
+    (h98_gap * 0.4 + disr_gap * 0.4 + elm_gap * 0.1 + beta_gap * 0.1)
+end
+
+-- ── BIOISO being ────────────────────────────────────────────────────
+
+being FusionPlasmaController:
+  telos:
+    confinement_quality_h98 >= 1.05   -- ITER Q=10 target
+    disruption_probability  <= 0.02   -- safe operating envelope
+    elm_frequency_hz        <= 8.0    -- ELM suppression target
+    beta_normalised         >= 2.2    -- minimum useful fusion yield
+
+  evolve: derivative_free
+    -- Within the current control law graph, optimise gains and phases
+    -- using derivative-free search (no gradient available from plasma).
+    objective: minimise drift_score(state)
+    budget:    200
+
+  rewire:
+    -- Structural self-modification: replace the control law graph when
+    -- the plasma enters an instability class the current laws cannot handle.
+    -- This is the load-bearing Tier 5 primitive. Without rewire:, the
+    -- system cannot recover confinement after a novel regime transition.
+    trigger:    drift_exceeds 0.18
+    candidates:
+      - control_law_graph        -- which actuation laws are active
+      - mode_classifier_model    -- the instability classification model
+      - fallback_law_structure   -- the emergency law applied on high-disruption
+    selection:  fitness_guided
+    cooldown:   5               -- minimum ticks between rewires (plasma settling time)
+
+  plasticity:
+    observe:   [confinement_quality_h98, disruption_probability, elm_frequency_hz]
+    adjust_on: regime_transition | disruption_precursor | elm_type_change
+    -- Circadian inhibition during inter-shot intervals (no plasma to control).
+    inhibit_between: [inter_shot_start, inter_shot_end]
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+test regime_classifier_maps_high_disruption_correctly:
+  let state = PlasmaState {
+    confinement_quality_h98: 0.5,
+    disruption_probability: 0.40,
+    elm_frequency_hz: 15.0,
+    beta_normalised: 1.2,
+  }
+  assert classify_regime(state) == "disruption_imminent"
+
+test drift_score_zero_at_telos:
+  let ideal = PlasmaState {
+    confinement_quality_h98: 1.10,
+    disruption_probability: 0.01,
+    elm_frequency_hz: 5.0,
+    beta_normalised: 2.3,
+  }
+  assert drift_score(ideal) == 0.0
+
+test drift_score_positive_on_disruption_precursor:
+  let precursor = PlasmaState {
+    confinement_quality_h98: 0.70,
+    disruption_probability: 0.45,
+    elm_frequency_hz: 30.0,
+    beta_normalised: 1.5,
+  }
+  assert drift_score(precursor) > 0.3
