@@ -74,6 +74,21 @@ enum Commands {
         subcommand: RuntimeCommands,
     },
 
+    /// Verify .loom specifications (--tla for TLA+ model checking).
+    ///
+    /// Parses the given `.loom` file, extracts all beings with a `telos:` block,
+    /// and writes a TLA+ spec (`<name>_convergence.tla`) and TLC config
+    /// (`<name>_convergence.cfg`) for each one.  If `tlc` is on PATH it is
+    /// invoked automatically; otherwise the command to run manually is printed.
+    Verify {
+        /// Path to the `.loom` source file.
+        input: PathBuf,
+
+        /// Emit TLA+ specs and attempt TLC model checking.
+        #[arg(long)]
+        tla: bool,
+    },
+
     /// Execute a Loom Protocol Notation (`.lp`) instruction file.
     ///
     /// LPN is a minimal AI-to-AI wire format for orchestrating the Loom
@@ -364,6 +379,120 @@ fn main() {
             }
         }
 
+        Commands::Verify { input, tla } => {
+            if !tla {
+                eprintln!("error: specify a verification mode; currently supported: --tla");
+                process::exit(1);
+            }
+
+            let source = match std::fs::read_to_string(&input) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not read `{}`: {}", input.display(), e);
+                    process::exit(1);
+                }
+            };
+
+            // Compile to Rust so we can inspect the emitted TLA+ consts.
+            // We re-emit the specs ourselves from the parse tree via the public
+            // compile_tla_specs helper — falling back to the generated Rust source
+            // if that helper is not yet wired.  For now we call compile() and
+            // extract the `_TLA_SPEC` / `_TLC_CONFIG` const bodies from the output.
+            let rust_src = match loom::compile(&source) {
+                Ok(s) => s,
+                Err(errors) => {
+                    for err in &errors {
+                        let span = err.span();
+                        eprintln!(
+                            "{}:{}:{}: {}: {}",
+                            input.display(),
+                            span.start,
+                            span.end,
+                            err.kind(),
+                            err,
+                        );
+                    }
+                    process::exit(1);
+                }
+            };
+
+            // Extract (name, spec_body, cfg_body) triples from the Rust source.
+            // Pattern: pub const <NAME>_TLA_SPEC: &str = r#"<body>"#;
+            //          pub const <NAME>_TLC_CONFIG: &str = "<body>";
+            let specs = extract_tla_specs(&rust_src);
+
+            if specs.is_empty() {
+                println!(
+                    "no beings with telos: blocks found in `{}`",
+                    input.display()
+                );
+                return;
+            }
+
+            let out_dir = input
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .to_path_buf();
+
+            // Detect tlc on PATH once.
+            let tlc_available = which_tlc();
+
+            let mut any_fail = false;
+            for (being_name, spec_body, cfg_body) in &specs {
+                let tla_path = out_dir.join(format!("{being_name}_convergence.tla"));
+                let cfg_path = out_dir.join(format!("{being_name}_convergence.cfg"));
+
+                if let Err(e) = std::fs::write(&tla_path, spec_body) {
+                    eprintln!("error: could not write `{}`: {e}", tla_path.display());
+                    any_fail = true;
+                    continue;
+                }
+                if let Err(e) = std::fs::write(&cfg_path, cfg_body) {
+                    eprintln!("error: could not write `{}`: {e}", cfg_path.display());
+                    any_fail = true;
+                    continue;
+                }
+
+                println!(
+                    "wrote `{}` and `{}`",
+                    tla_path.display(),
+                    cfg_path.display()
+                );
+
+                if let Some(ref tlc) = tlc_available {
+                    // Run TLC: tlc <name>_convergence.tla -config <name>_convergence.cfg
+                    let status = std::process::Command::new(tlc)
+                        .arg(tla_path.to_str().unwrap_or_default())
+                        .arg("-config")
+                        .arg(cfg_path.to_str().unwrap_or_default())
+                        .status();
+
+                    match status {
+                        Ok(s) if s.success() => {
+                            println!("  TLC: PASS — {being_name}ConvergenceCheck");
+                        }
+                        Ok(_) => {
+                            eprintln!("  TLC: FAIL — {being_name}ConvergenceCheck");
+                            any_fail = true;
+                        }
+                        Err(e) => {
+                            eprintln!("  TLC: error running `{tlc}`: {e}");
+                            any_fail = true;
+                        }
+                    }
+                } else {
+                    println!(
+                        "  TLA+ specs written. Run: java -cp tla2tools.jar tlc2.TLC {}",
+                        tla_path.display()
+                    );
+                }
+            }
+
+            if any_fail {
+                process::exit(1);
+            }
+        }
+
         Commands::Build { manifest } => {
             let toml_src = match std::fs::read_to_string(&manifest) {
                 Ok(s) => s,
@@ -492,6 +621,107 @@ fn main() {
             }
         }
     }
+}
+
+// ── TLA+ verification helpers ─────────────────────────────────────────────────
+
+/// Check whether `tlc` is available on PATH; returns the command name if found.
+fn which_tlc() -> Option<String> {
+    let output = std::process::Command::new("tlc").arg("--version").output();
+    if output.is_ok() {
+        return Some("tlc".to_string());
+    }
+    None
+}
+
+/// Extract `(being_name, tla_spec, tlc_config)` triples from emitted Rust source.
+///
+/// Looks for the pattern:
+/// ```
+/// pub const <NAME>_TLA_SPEC: &str = r#"<body>"#;
+/// pub const <NAME>_TLC_CONFIG: &str = "<body>";
+/// ```
+fn extract_tla_specs(rust_src: &str) -> Vec<(String, String, String)> {
+    let mut results = Vec::new();
+
+    // Find all _TLA_SPEC consts (raw string literals).
+    let spec_marker = "_TLA_SPEC: &str = r#\"";
+
+    let mut search = rust_src;
+    while let Some(spec_pos) = search.find(spec_marker) {
+        // Extract being name: walk backwards from spec_pos to find "pub const ".
+        let prefix = &search[..spec_pos];
+        let name_start = match prefix.rfind("pub const ") {
+            Some(p) => p + "pub const ".len(),
+            None => {
+                search = &search[spec_pos + spec_marker.len()..];
+                continue;
+            }
+        };
+        let raw_name = &prefix[name_start..]; // e.g. "MYENTITY"
+                                              // The being name is everything before "_TLA_SPEC" but we want the
+                                              // Pascal-case name.  The const is uppercase; recover it by lowercasing.
+                                              // We stored being.name (original case) in the format string so the const
+                                              // starts with the being name uppercased.  We reconstruct it as stored.
+        let being_name_upper = raw_name.trim().to_string();
+        // Convert UPPER_SNAKE to the original identifier stored in the spec body.
+        // The spec body starts with "---- MODULE <Name>ConvergenceCheck ----".
+        // We'll parse it out from the body itself below.
+
+        // Extract the raw-string body.
+        let body_start = spec_pos + spec_marker.len();
+        let remaining = &search[body_start..];
+        let body_end = match remaining.find("\"#;") {
+            Some(p) => p,
+            None => {
+                search = remaining;
+                continue;
+            }
+        };
+        let spec_body = remaining[..body_end].to_string();
+
+        // Derive being_name from the MODULE line.
+        let being_name = spec_body
+            .lines()
+            .find(|l| l.contains("MODULE") && l.contains("ConvergenceCheck"))
+            .and_then(|l| {
+                let idx = l.find("MODULE ")? + "MODULE ".len();
+                let rest = &l[idx..];
+                let end = rest.find("ConvergenceCheck")?;
+                Some(rest[..end].trim().to_string())
+            })
+            .unwrap_or_else(|| {
+                // Fallback: just use lowercased const prefix.
+                being_name_upper
+                    .trim_end_matches("_TLA_SPEC")
+                    .to_lowercase()
+            });
+
+        // Now find the matching _TLC_CONFIG const for this being.
+        let cfg_const = format!(
+            "{}_TLC_CONFIG: &str = \"",
+            being_name_upper.trim_end_matches("_TLA_SPEC")
+        );
+        let cfg_body = if let Some(cfg_pos) = rust_src.find(&cfg_const) {
+            let cfg_body_start = cfg_pos + cfg_const.len();
+            let cfg_remaining = &rust_src[cfg_body_start..];
+            // Config uses a plain string literal terminated by \n";
+            if let Some(cfg_end) = cfg_remaining.find("\";") {
+                cfg_remaining[..cfg_end].replace("\\n", "\n")
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        results.push((being_name, spec_body, cfg_body));
+
+        // Advance search past this spec.
+        search = &search[body_start + body_end + "\"#;".len()..];
+    }
+
+    results
 }
 
 // ── Runtime command handlers ──────────────────────────────────────────────────

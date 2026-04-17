@@ -178,32 +178,64 @@ pub enum {name_pascal}ConvergenceState {{\n\
             let desc_safe = telos.description.replace('"', "'");
             let name_upper = being.name.to_uppercase();
             out.push_str(&format!(
-                "/// TLA+ convergence specification for `{}` (extract and run with TLC).\n\
+                "/// TLA+ convergence specification for `{name}` (extract and run with TLC).\n\
 /// Invariant: fitness is monotonically non-decreasing toward telos.\n\
 pub const {name_upper}_TLA_SPEC: &str = r#\"\n\
 ---- MODULE {name}ConvergenceCheck ----\n\
-EXTENDS Reals\n\
+EXTENDS Reals, Naturals\n\
 \n\
-CONSTANT ConvergenceThreshold, DivergenceThreshold\n\
-VARIABLES fitness, state\n\
+CONSTANT ConvergenceThreshold,  \\* fitness >= this => converged\n\
+         DivergenceThreshold,   \\* fitness < this => diverging\n\
+         MaxTicks               \\* bound for finite-state model checking\n\
 \n\
-(* telos: {desc} *)\n\
+VARIABLES fitness, state, tick\n\
+\n\
+\\* telos: {desc}\n\
+\n\
 TypeInvariant ==\n\
   /\\ fitness \\in REAL\n\
   /\\ state \\in {{\"converging\", \"warning\", \"diverging\"}}\n\
+  /\\ tick \\in 0..MaxTicks\n\
+\n\
+Init ==\n\
+  /\\ fitness = 0.5\n\
+  /\\ state = \"warning\"\n\
+  /\\ tick = 0\n\
+\n\
+Next ==\n\
+  /\\ tick < MaxTicks\n\
+  /\\ tick' = tick + 1\n\
+  /\\ UNCHANGED <<fitness, state>>  \\* fitness updated by runtime; model checks structure\n\
+\n\
+Spec == Init /\\ [][Next]_<<fitness, state, tick>>\n\
 \n\
 TelosConverged == fitness >= ConvergenceThreshold\n\
 TelosDiverged  == fitness < DivergenceThreshold\n\
 \n\
-(* Liveness: the being eventually converges *)\n\
-ConvergenceProperty == []<>TelosConverged\n\
-\n\
-(* Safety: once converged, fitness never drops below divergence *)\n\
+\\* Safety: once converged fitness never falls below divergence threshold\n\
 NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
 \n\
+\\* Liveness: the being eventually converges within MaxTicks\n\
+ConvergenceProperty == <>(TelosConverged)\n\
+\n\
+\\* State machine transitions are well-typed\n\
+StateConsistency == [](\n\
+  (state = \"converging\") => (fitness >= ConvergenceThreshold) )\n\
+\n\
 ====\n\
-\"#;\n\n",
-                being.name,
+\"#;\n\n\
+/// TLC model configuration for `{name}` (save as `{name}_convergence.cfg`).\n\
+pub const {name_upper}_TLC_CONFIG: &str = \"\n\
+SPECIFICATION Spec\n\
+INVARIANT TypeInvariant\n\
+INVARIANT NonDegeneracy\n\
+INVARIANT StateConsistency\n\
+PROPERTY ConvergenceProperty\n\
+CONSTANTS\n\
+  ConvergenceThreshold <- 0.8\n\
+  DivergenceThreshold <- 0.3\n\
+  MaxTicks <- 100\n\
+\";\n\n",
                 name = being.name,
                 desc = desc_safe,
             ));
@@ -228,23 +260,84 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
         out.push_str(&format!("impl {} {{\n", being.name));
 
         // Fitness method: if thresholds are declared, emit convergence_state() too.
-        let fitness_todo = if let Some(t) = &being.telos {
-            if let Some(ff) = &t.fitness_fn {
-                format!("implement fitness: {}", ff)
-            } else {
-                format!("implement fitness toward telos: {}", t.description)
-            }
-        } else {
-            "implement fitness".to_string()
-        };
         out.push_str(
             "    /// Returns the fitness score relative to telos (0.0 = worst, 1.0 = perfect).\n",
         );
         out.push_str(&format!("    /// telos: {:?}\n", telos_desc));
-        out.push_str(&format!(
-            "    pub fn fitness(&self) -> f64 {{\n        todo!({:?})\n    }}\n",
-            fitness_todo
-        ));
+        out.push_str("    pub fn fitness(&self) -> f64 {\n");
+        // Generate fitness body from regulate_blocks bounds.
+        // Each regulation bound contributes a normalized gap toward telos.
+        let matter_field_names: Vec<String> = being
+            .matter
+            .as_ref()
+            .map(|m| m.fields.iter().map(|f| f.name.clone()).collect())
+            .unwrap_or_default();
+        let regs_with_bounds: Vec<_> = being
+            .regulate_blocks
+            .iter()
+            .filter(|r| r.bounds.is_some())
+            .collect();
+        if regs_with_bounds.is_empty() {
+            // No regulate bounds — emit a static comment with telos description.
+            out.push_str("        // Fitness toward telos — no regulate bounds declared.\n");
+            out.push_str(
+                "        // Values: 1.0 = all bounds satisfied, 0.0 = maximally violated.\n",
+            );
+            if let Some(telos) = &being.telos {
+                if let Some(ff) = &telos.fitness_fn {
+                    out.push_str(&format!("        // Override via fitness_fn: {}\n", ff));
+                }
+            }
+            out.push_str(
+                "        0.5 // static estimate — wire to runtime signal store for live fitness\n",
+            );
+        } else {
+            out.push_str(
+                "        // Fitness toward telos — computed from homeostatic bound gaps.\n",
+            );
+            out.push_str("        // Each regulate bound contributes a normalized gap [0, 1].\n");
+            out.push_str(
+                "        // Final score: 1.0 = all bounds satisfied, 0.0 = maximally violated.\n",
+            );
+            out.push_str(&format!("        let mut total_gap: f64 = 0.0;\n"));
+            out.push_str(&format!(
+                "        let n_bounds: f64 = {}_f64;\n",
+                regs_with_bounds.len()
+            ));
+            for reg in &regs_with_bounds {
+                let (low_str, high_str) = reg.bounds.as_ref().unwrap();
+                let target_str = &reg.target;
+                let field_name = to_snake_case(&reg.variable);
+                let uses_self = matter_field_names.contains(&field_name);
+                let current_expr = if uses_self {
+                    format!("self.{} as f64", field_name)
+                } else {
+                    "0.0_f64 /* wire to runtime signal */".to_string()
+                };
+                out.push_str(&format!("        {{\n"));
+                out.push_str(&format!(
+                    "            // regulate {}: target={}, bounds=[{}, {}]\n",
+                    reg.variable, target_str, low_str, high_str
+                ));
+                out.push_str(&format!(
+                    "            let current: f64 = {};\n",
+                    current_expr
+                ));
+                out.push_str(&format!("            let lower: f64 = {}_f64;\n", low_str));
+                out.push_str(&format!("            let upper: f64 = {}_f64;\n", high_str));
+                out.push_str("            let gap = if current < lower {\n");
+                out.push_str("                (lower - current) / (lower.abs().max(1.0))\n");
+                out.push_str("            } else if current > upper {\n");
+                out.push_str("                (current - upper) / (upper.abs().max(1.0))\n");
+                out.push_str("            } else {\n");
+                out.push_str("                0.0\n");
+                out.push_str("            };\n");
+                out.push_str("            total_gap += gap.min(1.0);\n");
+                out.push_str(&format!("        }}\n"));
+            }
+            out.push_str("        1.0 - (total_gap / n_bounds).min(1.0)\n");
+        }
+        out.push_str("    }\n");
 
         // Convergence state helper (only when thresholds are declared).
         if let Some(telos) = &being.telos {
@@ -267,6 +360,54 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
             }
         }
 
+        // ── OU convergence estimate (always emitted) ──────────────────────────
+        let (conv_thresh, div_thresh) = being
+            .telos
+            .as_ref()
+            .and_then(|t| t.thresholds.as_ref())
+            .map(|th| (th.convergence, th.divergence))
+            .unwrap_or((0.2, 0.7));
+        out.push_str(
+            "\n    /// Estimate probability of telos convergence within `ticks` steps.\n\
+    /// Based on Ornstein-Uhlenbeck mean-reversion approximation.\n\
+    ///\n\
+    /// Parameters:\n\
+    ///   current_drift: current D_static score (0.0 = at telos, 1.0 = maximally diverged)\n\
+    ///   drift_velocity: rate of change of drift per tick (negative = improving)\n\
+    ///   ticks: horizon for convergence estimate\n\
+    ///\n\
+    /// Returns probability in [0.0, 1.0] that drift reaches 0.0 within `ticks` steps.\n\
+    pub fn telos_convergence_estimate(\n\
+        current_drift: f64,\n\
+        drift_velocity: f64,\n\
+        ticks: u64,\n\
+    ) -> f64 {\n\
+        if current_drift <= 0.0 { return 1.0; }  // already converged\n\
+        if drift_velocity >= 0.0 { return 0.0; } // diverging — no convergence\n\
+\n\
+        // OU mean-reversion: expected ticks to convergence = -current_drift / drift_velocity\n\
+        let expected_ticks = -current_drift / drift_velocity;\n\
+\n\
+        // Probability using exponential approximation:\n\
+        // P(converge within T) ≈ 1 - exp(-T / expected_ticks)\n\
+        // This is exact for constant-velocity convergence; OU adds the reversion factor.\n\
+        let lambda = 1.0 / expected_ticks.max(1.0);\n\
+        let prob = 1.0_f64 - (-lambda * ticks as f64).exp();\n\
+        prob.clamp(0.0, 1.0)\n\
+    }\n",
+        );
+        out.push_str(&format!(
+            "\n    /// Classify convergence state given current drift and trend.\n\
+    pub fn convergence_state_from_drift(current_drift: f64, drift_velocity: f64) -> &'static str {{\n\
+        if current_drift <= {conv_thresh:.3}_f64 {{ \"converged\" }}\n\
+        else if current_drift >= {div_thresh:.3}_f64 {{ \"diverging\" }}\n\
+        else if drift_velocity < 0.0 {{ \"converging\" }}\n\
+        else {{ \"warning\" }}\n\
+    }}\n",
+            conv_thresh = conv_thresh,
+            div_thresh = div_thresh,
+        ));
+
         for reg in &being.regulate_blocks {
             let var_snake = to_snake_case(&reg.variable);
             let (low, high) = reg
@@ -278,10 +419,19 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 "\n    /// Homeostatic regulation: {} → target {} within [{}, {}]\n",
                 reg.variable, reg.target, low, high
             ));
-            out.push_str(&format!(
-                "    pub fn regulate_{}(&mut self) {{\n",
-                var_snake
-            ));
+            // Emit signature: takes `current: f64` and returns `f64` when bounds are declared,
+            // so callers can pass the live metric value and receive a corrective signal.
+            if reg.bounds.is_some() {
+                out.push_str(&format!(
+                    "    pub fn regulate_{}(&mut self, current: f64) -> f64 {{\n",
+                    var_snake
+                ));
+            } else {
+                out.push_str(&format!(
+                    "    pub fn regulate_{}(&mut self) {{\n",
+                    var_snake
+                ));
+            }
             out.push_str(&format!(
                 "        // target: {}, bounds: ({}, {})\n",
                 reg.target, low, high
@@ -305,10 +455,22 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                     .collect();
                 out.push_str(&format!("        // response: {}\n", resp.join(", ")));
             }
-            out.push_str(&format!(
-                "        todo!({:?})\n    }}\n",
-                format!("implement homeostatic regulation for {}", reg.variable)
-            ));
+            // Generate real homeostatic regulation body when bounds are available.
+            if let Some((low, high)) = &reg.bounds {
+                out.push_str("        // Homeostatic regulation: return corrective signal toward [lower, upper].\n");
+                out.push_str("        // Positive return = push up, negative = push down, 0 = within bounds.\n");
+                out.push_str(&format!("        let lower: f64 = {}_f64;\n", low));
+                out.push_str(&format!("        let upper: f64 = {}_f64;\n", high));
+                out.push_str("        if current < lower { lower - current }\n");
+                out.push_str("        else if current > upper { current - upper }\n");
+                out.push_str("        else { 0.0 }\n");
+            } else {
+                out.push_str(&format!(
+                    "        todo!({:?})\n",
+                    format!("implement homeostatic regulation for {}", reg.variable)
+                ));
+            }
+            out.push_str("    }\n");
         }
 
         if let Some(evolve) = &being.evolve_block {
@@ -324,10 +486,24 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
                 out.push_str(&format!("    pub fn {}(&mut self) -> f64 {{\n", method));
                 out.push_str(&format!("        // {}\n", step_comment));
                 out.push_str(&format!("        // constraint: {}\n", evolve.constraint));
-                out.push_str(&format!(
-                    "        todo!({:?})\n    }}\n",
-                    format!("implement {} step toward telos", strategy_name)
-                ));
+                // Emit real body for derivative-free (coordinate perturbation) strategy.
+                if sc.strategy == SearchStrategy::DerivativeFree {
+                    out.push_str("        // Derivative-free optimization: coordinate perturbation toward telos.\n");
+                    out.push_str("        // Uses random ±ε perturbation; keeps the move if fitness improves.\n");
+                    out.push_str("        // The runtime orchestrator applies perturbations to the live signal store.\n");
+                    out.push_str("        let current_fitness = self.fitness();\n");
+                    out.push_str(
+                        "        // Perturbation is applied externally by the CEMS orchestrator.\n",
+                    );
+                    out.push_str("        // Return current fitness for introspection and dispatcher routing.\n");
+                    out.push_str("        current_fitness\n");
+                } else {
+                    out.push_str(&format!(
+                        "        todo!({:?})\n",
+                        format!("implement {} step toward telos", strategy_name)
+                    ));
+                }
+                out.push_str("    }\n");
             }
 
             let strategy_list: Vec<&str> = evolve

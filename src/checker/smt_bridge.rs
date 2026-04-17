@@ -255,7 +255,23 @@ impl SmtBridgeChecker {
                     SmtStatus::Unknown
                 }
             }
-            Err(_) => SmtStatus::Skipped, // Z3 not installed
+            Err(_) => {
+                // Z3 binary not found — SMT verification skipped.
+                // Install Z3 (https://github.com/Z3Prover/z3) and ensure `z3` is on PATH
+                // to enable formal contract verification for require:/ensure: blocks.
+                #[cfg(not(test))]
+                {
+                    use std::sync::OnceLock;
+                    static Z3_WARNING_SHOWN: OnceLock<()> = OnceLock::new();
+                    Z3_WARNING_SHOWN.get_or_init(|| {
+                        eprintln!("loom: SMT verification skipped — z3 binary not found on PATH.");
+                        eprintln!(
+                            "      Install Z3 to enable formal require:/ensure: contract checking."
+                        );
+                    });
+                }
+                SmtStatus::Skipped
+            }
         }
     }
 

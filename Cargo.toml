@@ -33,7 +33,7 @@ name = "loom"
 path = "src/lib.rs"
 
 [features]
-default = ["core"]
+default = ["core", "smt"]
 core = []
 smt = []
 temporal = []
