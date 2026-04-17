@@ -525,6 +525,10 @@ pub struct ExperimentDriver {
     retro_scorer: RetroScorer,
     /// Persistent telomere audit log — records every shortening event to JSONL.
     telomere_audit: TelomereAuditWriter,
+    /// Entities for which the senescence log line has already been emitted.
+    /// Prevents the "[telomere] X reached senescence" message from flooding
+    /// logs once an entity's telomere is exhausted (fires every drift event).
+    senescence_logged: std::collections::HashSet<String>,
 }
 
 impl ExperimentDriver {
@@ -562,6 +566,7 @@ impl ExperimentDriver {
             telomere_tracker: TelomereTracker::new(500),
             retro_scorer: RetroScorer::new(0.3),
             telomere_audit,
+            senescence_logged: std::collections::HashSet::new(),
         }
     }
 
@@ -675,7 +680,7 @@ impl ExperimentDriver {
                         .remaining(&event.entity_id)
                         .unwrap_or(0);
                     let shortened = prev.map(|p| p > after).unwrap_or(false);
-                    if senescent {
+                    if senescent && self.senescence_logged.insert(event.entity_id.clone()) {
                         eprintln!(
                             "[telomere] {} reached senescence — prioritising for meiosis",
                             event.entity_id

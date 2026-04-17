@@ -1,22 +1,22 @@
-# Warp
+# loom
 
-**Warp** is an AI-native declaration engine that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file.
+**loom** is an AI-native declaration language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file — and runs an autonomous BIOISO colony that continuously optimizes nine real-world NP-hard domains using a three-tier AI synthesis stack.
 
 It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
 
-**800+ tests · 5 emission targets · 119 milestones complete · BIOISO biological layer · LPN AI-to-AI protocol · all examples rustc-verified ✓**
+**314 lib tests · 5 emission targets · 9 BIOISO domains · T1/T2/T3 synthesis tiers · TLA+ formal verification · all examples rustc-verified**
 
 ---
 
-## Why Warp
+## Why loom
 
 Traditional code has three structural problems that compound as AI becomes the primary executor:
 
-1. **Ambiguity** — natural-language intent + code must be reconciled every session. Warp makes intent the source of truth, not comments alongside code.
-2. **Correctness gap** — Rust's type system is powerful but expressing contracts, privacy rules, effect tiers, and lifecycle protocols requires boilerplate that most developers skip. Warp makes them the default, not the exception.
-3. **Knowledge gap** — proven disciplines (refined types, session types, separation logic, information flow) are hard to learn and easy to skip. Warp enforces them structurally; the developer cannot accidentally bypass them.
+1. **Ambiguity** — natural-language intent + code must be reconciled every session. loom makes intent the source of truth, not comments alongside code.
+2. **Correctness gap** — Rust's type system is powerful but expressing contracts, privacy rules, effect tiers, and lifecycle protocols requires boilerplate that most developers skip. loom makes them the default, not the exception.
+3. **Knowledge gap** — proven disciplines (refined types, session types, separation logic, information flow) are hard to learn and easy to skip. loom enforces them structurally; the developer cannot accidentally bypass them.
 
-Warp bridges theory and implementation — a gap that has persisted across the entire history of computer science.
+loom bridges theory and implementation — a gap that has persisted across the entire history of computer science.
 
 ---
 
@@ -35,7 +35,7 @@ Warp bridges theory and implementation — a gap that has persisted across the e
 ## Language features
 
 ### Type system
-```Warp
+```loom
 type Point   = x: Float, y: Float end                          -- product type
 enum Shape   = | Circle of Float | Rect of Float * Float end   -- sum type
 type Email   = String where valid_email end                     -- refined type
@@ -43,17 +43,17 @@ type Pair<A,B> = first: A, second: B end                       -- generics
 ```
 
 ### Functions and contracts
-```Warp
+```loom
 fn transfer :: Float<usd> -> Account -> Effect<[DB], Account>
   require: amount > 0.0
   ensure:  result.balance >= 0.0
   amount
 end
 ```
-Contracts emit as `debug_assert!` in Rust when the body is implemented. They are also the input for Kani formal proofs.
+Contracts emit as `debug_assert!` in Rust. They are also the input for Kani formal proofs.
 
 ### Effect tracking
-```Warp
+```loom
 fn fetch_user  :: Int  -> Effect<[IO, DB], User>
 fn pure_add    :: Int  -> Int -> Int                       -- no effects, pure
 fn send_email  :: User -> Effect<[IO@irreversible], Unit>  -- consequence tier
@@ -72,116 +72,91 @@ fn send_email  :: User -> Effect<[IO@irreversible], Unit>  -- consequence tier
 | Session types | `channel :: !Send.?Ack.End` | Protocol-enforced ordering |
 | Dependent types | `fn nth :: List<A> -> n:Nat -> A where n < list.len` | Length-indexed safety |
 
-### Biological / autonomous agent constructs
+---
 
-Warp supports a class of constructs for autonomous, self-regulating agents:
+## BIOISO — Biological Isomorphic Optimizer
 
-```Warp
-being ScalpingAgent
-  regulate:     drawdown < 0.02
-  telomere:     trades < 5000
-  epigenetic:   if vol_regime = high then ou_sigma *= 1.5
-  autopoietic:  if drawdown > 0.015 then pause 60s
-  @mortal @corrigible @sandboxed
-end
+loom introduces a fifth-tier construct — the **BIOISO** — for systems where parameter adjustment is structurally insufficient and the *control law graph itself* must be rewired:
+
+```loom
+being FusionPlasmaController
+  telos:
+    confinement_quality_h98 >= 1.05   -- ITER Q=10 target
+    disruption_probability  <= 0.02   -- safe operating envelope
+
+  evolve: derivative_free
+    objective: minimise drift_score(state)
+    budget:    200
+
+  rewire:
+    trigger:    drift_exceeds 0.18
+    candidates:
+      - control_law_graph
+      - mode_classifier_model
+    selection:  fitness_guided
+    cooldown:   5
+  end
+
+  plasticity:
+    observe:   [confinement_quality_h98, disruption_probability]
+    adjust_on: regime_transition | disruption_precursor
+  end
 ```
 
-These emit safety checks, kill-switches, and regime-adaptation logic in the generated Rust.
+The `rewire:` block is the load-bearing Tier 5 primitive. When a plasma instability class transitions to a novel regime, no parameter within the current control law recovers confinement — the graph must be structurally replaced. This is the formal distinction between Tier 4 (learning-based optimisation) and Tier 5 (biological isomorphic optimisation).
 
-### Stochastic processes and finance
+### The 5-Tier Optimization Taxonomy
 
-```Warp
-process ScalpSignal = OrnsteinUhlenbeck { theta: 2.0, mu: 0.0, sigma: 0.15 }
-type TailRisk = Float<usd> where distribution = Cauchy { location: 0.0, scale: 0.02 }
+| Tier | Class | Example | Why lower tier fails |
+|------|-------|---------|---------------------|
+| 1 | Heuristics | Hill-climbing, greedy | No landscape model |
+| 2 | Meta-heuristics | Genetic algorithms, SA | Fixed neighbourhood structure |
+| 3 | Hyper-heuristics | Algorithm selection, learning | Fixed algorithm space |
+| 4 | Learning-based | Neural architecture search, Bayesian opt | Stationary fitness assumption |
+| **5** | **BIOISO** | **Fusion plasma, AMR coevolution** | **Non-stationary landscape — fitness surface itself evolves** |
+
+### The 9 BIOISO Colony Domains
+
+The autonomous colony continuously backtests all nine domains using historical data:
+
+| Domain | Why Tier 5 | Key non-stationarity |
+|--------|-----------|---------------------|
+| AMR Coevolution | Resistance mechanisms co-evolve with antibiotics | Fitness landscape = moving target |
+| Flash Crash Dynamics | Market microstructure transitions between regimes | Causal graph shifts at phase boundary |
+| Adaptive JIT Compilation | Workload topology changes with application phase | No fixed cost model |
+| Protein Drug Resistance | Binding site evolves; drug-protein co-evolution | Landscape bifurcates with each mutation |
+| ICS/SCADA Zero-Day Defense | Novel attack vectors not in training data | Adversarial non-stationarity |
+| Quantum Error Mitigation | Decoherence channels shift with hardware drift | Noise topology changes dynamically |
+| Climate Intervention | Earth system tipping points are path-dependent | Topology collapse = irreversible |
+| Fusion Plasma Control | L-H transition / novel instability classes | Regime transition eliminates current law |
+| Adaptive Self-Assembly | Configuration-space bifurcation collapses pathways | Protocol graph topology is path-dependent |
+
+### Three-tier AI synthesis stack
+
+```
+T1 (Polycephalum)  — rule engine, microsecond proposals
+    ↓ escalate on 3 consecutive misses
+T2 (Ganglion/Haiku) — LLM mutation proposals, black-box search
+    ↓ escalate when drift.score > 0.35 (structural rewire warranted)
+T3 (Brain/Sonnet)  — full StructuralRewire evaluation, synthesis of new protocol graphs
 ```
 
-### Module system
-```Warp
-module PaymentService
-describe: "Handles payment processing"
-
-interface Repository
-  fn find :: Int -> Effect<[DB], User>
-  fn save :: User -> Effect<[DB], Unit>
-end
-
-import UserRepository
-implements Repository
-provides: process_payment
-requires: UserRepository
-end
-```
-
-### GS constructs (self-describing, auditable, verifiable)
-```Warp
-describe: "Computes final invoice price with tax"
-@author("billing-team")
-@decision("Use exclusive tax to match EU VAT rules")
-
-invariant non_negative_balance :: balance >= 0.0
-
-test transfer_reduces_balance ::
-  transfer(100.0 : Float<usd>) |> result.balance = initial - 100.0
-end
-```
-
-### OpenAPI REST inference
-
-Warp derives full REST semantics from type signatures — no annotations required:
-
-```Warp
-fn get_order    :: Int   -> Effect<[DB], Order>        -- GET  /orders/{id}
-fn create_order :: Order -> Effect<[DB], Order>        -- POST /orders  (201)
-fn delete_order :: Int   -> Effect<[DB], Unit>         -- DELETE /orders/{id}
-fn list_orders  :: Unit  -> Effect<[DB], List<Order>>  -- GET  /orders
-```
-
-`@idempotent` on POST promotes it to PUT. `@exactly-once` emits `x-retry-policy: never`.
+Running live on Railway: `loom runtime experiment --ticks 50000 --tick-ms 5000`
 
 ---
 
-## LPN — AI-to-AI Protocol
-
-Warp ships a minimal AI-to-AI wire format (`.lp` files) for orchestrating the compiler pipeline:
-
-```lp
-# Tier 1: atomic ops
-EMIT rust PaymentAPI FROM examples/02-payment-api.loom
-CHECK all examples/02-payment-api.loom
-
-# Tier 2: compound ops
-IMPL ScalpingAgent USING [M41,M55,M84-M89] EMIT rust VERIFY compile+types
-
-# Tier 3: named experiments
-ALX n=7 domain=biotech coverage>=0.95 emit=rust verify=compile+run evidence=store
-SCALPER ticks=10000 ou_theta=2.0 ou_sigma=0.15 emit=rust run=backtest
-```
-
-```sh
-Warp lpn experiment.lp
-Warp lpn experiment.lp --format json   # machine-readable output
-```
-
-LPN eliminates prompt ambiguity between AI agents. Each instruction is unambiguous, token-efficient, and fully typed.
-
----
-
-## Verification pipeline
-
-Warp's compiler is multi-level: it writes code you run AND proof artifacts you verify.
+## Formal verification
 
 | Tier | Mechanism | Tool | Status |
 |------|-----------|------|--------|
-| **V1** Runtime contracts | `require:`/`ensure:` → `debug_assert!` | `rustc` | ✅ PROVED |
-| **V2** Formal proofs | Contracts → `#[kani::proof]` harnesses | `cargo kani` | ✅ EMITTED |
-| **V3** Property tests | `forall:` → proptest blocks | `cargo test` | ✅ EMITTED |
-| **V4** Session types | Protocol steps → affine phantom types | `rustc` | ✅ PROVED |
-| **V5** Persistence structs | `store:` → typed Rust structs + traits | `rustc` | ✅ PROVED |
-| **V8** Convergence | `telos:` → `ConvergenceState` + TLA+ spec | TLC | ✅ EMITTED |
-| **V9** Dependent types | `proof:` → Dafny method stubs | `dafny verify` | ✅ EMITTED |
-| **V7** Audit trail | Generated files include claim summary header | — | ✅ PROVED |
+| V1 Runtime contracts | `require:`/`ensure:` → `debug_assert!` | `rustc` | PROVED |
+| V2 Formal proofs | Contracts → `#[kani::proof]` harnesses | `cargo kani` | EMITTED |
+| V3 Property tests | `forall:` → proptest blocks | `cargo test` | EMITTED |
+| V4 Session types | Protocol steps → affine phantom types | `rustc` | PROVED |
+| V8 Convergence | `telos:` → `ConvergenceState` + TLA+ spec + TLC config | `loom verify --tla` | EMITTED |
+| V9 Dependent types | `proof:` → Dafny method stubs | `dafny verify` | EMITTED |
 
-60 claims tracked. 35 PROVED, 19 EMITTED (external tool required), 4 PENDING. See [`experiments/verification/claim_coverage.md`](experiments/verification/claim_coverage.md).
+`loom verify --tla myagent.loom` writes `<being>_convergence.tla` and `<being>_convergence.cfg` and runs TLC if on PATH.
 
 ---
 
@@ -189,7 +164,7 @@ Warp's compiler is multi-level: it writes code you run AND proof artifacts you v
 
 ```sh
 cargo build --release
-# binary at target/release/Warp (or target/release/Warp.exe on Windows)
+# binary: target/release/loom (or loom.exe on Windows)
 ```
 
 Or run directly:
@@ -197,6 +172,7 @@ Or run directly:
 ```sh
 cargo run -- compile examples/01-hello-contracts.loom
 cargo run -- compile examples/02-payment-api.loom --target openapi
+cargo run -- verify examples/tier5/fusion_plasma.loom --tla
 ```
 
 See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
@@ -212,38 +188,9 @@ See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
 | [`examples/03-typestate-lifecycle.loom`](examples/03-typestate-lifecycle.loom) | Typestate protocol, session-typed channel |
 | [`examples/04-finance-gbm.loom`](examples/04-finance-gbm.loom) | GBM, Black-Scholes, VaR, stochastic processes |
 | [`examples/05-autonomous-agent.loom`](examples/05-autonomous-agent.loom) | Biological agent, `regulate:`, `evolve:`, `@mortal @corrigible @sandboxed` |
-
----
-
-## Milestone index (M1–M119)
-
-<details>
-<summary>Click to expand all 119 milestones</summary>
-
-| # | Feature | # | Feature |
-|---|---------|---|---------|
-| M1 | Type inference (Hindley-Milner) | M2 | Pattern exhaustiveness |
-| M3 | WebAssembly back-end | M4 | Language Server Protocol |
-| M5 | Dependency injection | M6 | Standard library mappings |
-| M7 | Generic functions | M8 | Multi-module compilation |
-| M9 | Inline Rust escape hatch | M10 | Numeric coercion (`as`) |
-| M11 | First-class iteration | M12 | `Option`, `Result`, `?` |
-| M13 | `describe:` + audit annotations | M14 | `invariant:` + consequence tiers |
-| M15 | `test:` blocks + `ensure:` | M16 | `import` + `interface`/`implements` |
-| M17 | TypeScript emission | M18 | OpenAPI 3.0 + JSON Schema |
-| M19 | Units of measure | M20 | Privacy labels |
-| M21 | Algebraic properties | M22 | Typestate / lifecycle |
-| M23 | Information flow labels | M24 | Kani formal proof harnesses |
-| M25 | Proptest property generation | M26 | Session type channels |
-| M27–M55 | Struct translation, stores, CRUD, HATEOAS, DAG, Markov, event sourcing, CQRS | |
-| M56–M89 | Biological constructs, stochastic processes, ecosystem blocks, stdlib | |
-| M90 | Finance stdlib | M91 | Quantum stdlib |
-| M92–M116 | Verification pipeline, Dafny, TLA+, audit headers, LPN | |
-| M117 | Telos function + trigger/action regulate | M118 | Entity generic type |
-| M119 | Intent coordinator + governance | BIOISO | Propagate, epigenetic, ecosystem tipping-points |
-
-All 119 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) for detail.
-</details>
+| [`examples/tier5/fusion_plasma.loom`](examples/tier5/fusion_plasma.loom) | Tier 5 BIOISO — fusion plasma confinement control |
+| [`examples/tier5/adaptive_self_assembly.loom`](examples/tier5/adaptive_self_assembly.loom) | Tier 5 BIOISO — nanostructure protocol graph rewiring |
+| [`examples/tier5/amr_coevolution.loom`](examples/tier5/amr_coevolution.loom) | Tier 5 BIOISO — antimicrobial resistance coevolution |
 
 ---
 
@@ -253,10 +200,15 @@ All 119 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) fo
 |----------|---------|
 | [`docs/getting-started.md`](docs/getting-started.md) | 10-minute install → compile → run guide |
 | [`docs/language-spec.md`](docs/language-spec.md) | Complete language reference |
+| [`docs/taxonomy.md`](docs/taxonomy.md) | 5-tier optimization taxonomy and BIOISO ontology |
+| [`docs/bioiso-loom-convergence.md`](docs/bioiso-loom-convergence.md) | BIOISO formal disciplines and compiler enforcement |
+| [`docs/foundations.md`](docs/foundations.md) | Theoretical foundations (type theory, PLN, OU convergence) |
+| [`docs/pln.md`](docs/pln.md) | Probabilistic reasoning and telos convergence estimates |
 | [`docs/lifecycle.md`](docs/lifecycle.md) | Full software lifecycle spec |
-| [`docs/publish/white-paper.md`](docs/publish/white-paper.md) | Academic white paper (arXiv preprint) |
+| [`docs/publish/white-paper.md`](docs/publish/white-paper.md) | Academic white paper |
 | [`docs/roadmap.md`](docs/roadmap.md) | Full milestone roadmap |
 | [`docs/TechSpec.md`](docs/TechSpec.md) | Compiler architecture |
+| [`docs/deploy-railway.md`](docs/deploy-railway.md) | Colony deployment on Railway |
 
 ---
 
@@ -264,17 +216,16 @@ All 119 milestones are ✅ complete. See [`docs/roadmap.md`](docs/roadmap.md) fo
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to submit issues, propose features, and open pull requests.
 
-Warp welcomes contributions in:
+loom welcomes contributions in:
 - New emission targets (LLVM IR, C, Python)
 - Verification pipeline (Prusti, Lean4, Coq)
 - Standard library modules
 - Language examples and tutorials
 - Editor extensions (VS Code, Neovim)
+- New BIOISO domain specs
 
 ---
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-
