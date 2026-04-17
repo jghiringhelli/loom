@@ -104,7 +104,7 @@ impl AnthropicClient {
             .ok()?;
         let base_url = std::env::var("CLAUDE_BASE_URL")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".into());
-        let model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| "claude-sonnet-4-5".into());
+        let model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| "claude-sonnet-4-6".into());
         Some(Self::new(base_url, api_key, model, 60))
     }
 }
@@ -323,9 +323,21 @@ impl MammalBrain {
         match self.client.complete(&system, &user) {
             Ok(text) => {
                 self.cost_guard.record_call();
-                parse_proposals(&text)
+                let proposals = parse_proposals(&text);
+                if proposals.is_empty() {
+                    eprintln!(
+                        "[T3] API call succeeded but yielded no proposals for `{}` \
+                         (response len={})",
+                        event.entity_id,
+                        text.len()
+                    );
+                }
+                proposals
             }
-            Err(_) => vec![],
+            Err(e) => {
+                eprintln!("[T3] API error for `{}`: {e}", event.entity_id);
+                vec![]
+            }
         }
     }
 }
