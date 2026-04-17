@@ -102,6 +102,7 @@ fn checker_rejects_inverted_bounds() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -179,6 +180,7 @@ fn checker_passes_valid_criticality() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

@@ -107,6 +107,7 @@ fn base_being() -> BeingDef {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     }
 }
@@ -279,6 +280,9 @@ fn plasticity_empty_trigger_fails() {
         trigger: "".to_string(),
         modifies: "SynapticWeight".to_string(),
         rule: PlasticityRule::Hebbian,
+        observe: vec![],
+        adjust_on: vec![],
+        inhibit_between: vec![],
         span: Span::synthetic(),
     }];
     let module = make_module_with_being(being);
@@ -304,6 +308,9 @@ fn plasticity_empty_modifies_fails() {
         trigger: "FireSignal".to_string(),
         modifies: "".to_string(),
         rule: PlasticityRule::Hebbian,
+        observe: vec![],
+        adjust_on: vec![],
+        inhibit_between: vec![],
         span: Span::synthetic(),
     }];
     let module = make_module_with_being(being);
@@ -329,6 +336,9 @@ fn rust_emit_plasticity_has_update_fn() {
         trigger: "FireSignal".to_string(),
         modifies: "SynapticWeight".to_string(),
         rule: PlasticityRule::Hebbian,
+        observe: vec![],
+        adjust_on: vec![],
+        inhibit_between: vec![],
         span: Span::synthetic(),
     }];
     let module = make_module_with_being(being);

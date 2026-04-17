@@ -166,6 +166,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut telomere: Option<TelomereBlock> = None;
         let mut crispr_blocks: Vec<CrisprBlock> = Vec::new();
         let mut plasticity_blocks: Vec<PlasticityBlock> = Vec::new();
+        let mut rewire_block: Option<RewireBlock> = None;
         let mut canalization: Option<CanalizationBlock> = None;
         let mut senescence: Option<SenescenceBlock> = None;
         let mut criticality: Option<CriticalityBlock> = None;
@@ -214,6 +215,8 @@ impl<'src> crate::parser::Parser<'src> {
                 crispr_blocks.push(self.parse_being_crispr_section()?);
             } else if self.at(&Token::Plasticity) {
                 plasticity_blocks.push(self.parse_being_plasticity_section()?);
+            } else if self.at(&Token::Rewire) {
+                rewire_block = Some(self.parse_being_rewire_section()?);
             } else if self.at(&Token::Canalize) {
                 canalization = Some(self.parse_canalization_block()?);
             } else if self.at(&Token::Senescence) {
@@ -305,6 +308,7 @@ impl<'src> crate::parser::Parser<'src> {
             autopoietic,
             crispr_blocks,
             plasticity_blocks,
+            rewire_block,
             canalization,
             senescence,
             criticality,
@@ -1066,6 +1070,9 @@ impl<'src> crate::parser::Parser<'src> {
         let mut trigger = String::new();
         let mut modifies = String::new();
         let mut rule = PlasticityRule::Hebbian;
+        let mut observe: Vec<String> = Vec::new();
+        let mut adjust_on: Vec<String> = Vec::new();
+        let mut inhibit_between: Vec<String> = Vec::new();
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Trigger) {
                 self.advance();
@@ -1093,6 +1100,39 @@ impl<'src> crate::parser::Parser<'src> {
                         self.current_span(),
                     )),
                 }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "observe")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.pos += 2; // consume `observe` `:`
+                while matches!(self.tokens.get(self.pos), Some((Token::Minus, _))) {
+                    self.pos += 1; // consume `-`
+                    if let Some((Token::Ident(name), _)) = self.tokens.get(self.pos) {
+                        observe.push(name.clone());
+                        self.pos += 1;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "adjust_on")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.pos += 2; // consume `adjust_on` `:`
+                while matches!(self.tokens.get(self.pos), Some((Token::Minus, _))) {
+                    self.pos += 1; // consume `-`
+                    if let Some((Token::Ident(name), _)) = self.tokens.get(self.pos) {
+                        adjust_on.push(name.clone());
+                        self.pos += 1;
+                    }
+                }
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "inhibit_between")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                self.pos += 2; // consume `inhibit_between` `:`
+                while matches!(self.tokens.get(self.pos), Some((Token::Minus, _))) {
+                    self.pos += 1; // consume `-`
+                    if let Some((Token::Ident(name), _)) = self.tokens.get(self.pos) {
+                        inhibit_between.push(name.clone());
+                        self.pos += 1;
+                    }
+                }
             } else {
                 self.advance();
             }
@@ -1103,6 +1143,80 @@ impl<'src> crate::parser::Parser<'src> {
             trigger,
             modifies,
             rule,
+            observe,
+            adjust_on,
+            inhibit_between,
+            span: Span::merge(&sec_start, &sec_end),
+        })
+    }
+
+    fn parse_being_rewire_section(&mut self) -> Result<RewireBlock, LoomError> {
+        let sec_start = self.current_span();
+        self.advance(); // consume `rewire`
+        self.expect(Token::Colon)?;
+        let mut trigger_threshold = 0.25f64;
+        let mut candidates: Vec<String> = Vec::new();
+        let mut selection = "fitness_guided".to_string();
+        let mut cooldown = 5u64;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            // `trigger: drift_exceeds 0.15`
+            if matches!(self.tokens.get(self.pos), Some((Token::Trigger, _))) {
+                self.advance();
+                self.expect(Token::Colon)?;
+                // skip optional `drift_exceeds` identifier
+                if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "drift_exceeds")
+                {
+                    self.pos += 1;
+                }
+                if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                    trigger_threshold = *f;
+                    self.pos += 1;
+                } else if let Some((Token::IntLit(i), _)) = self.tokens.get(self.pos) {
+                    trigger_threshold = *i as f64;
+                    self.pos += 1;
+                }
+            // `candidates:` followed by a list of `- name` entries
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "candidates")
+            {
+                self.pos += 1;
+                self.expect(Token::Colon)?;
+                while matches!(self.tokens.get(self.pos), Some((Token::Minus, _))) {
+                    self.pos += 1; // consume `-`
+                    if let Some((Token::Ident(name), _)) = self.tokens.get(self.pos) {
+                        candidates.push(name.clone());
+                        self.pos += 1;
+                    }
+                }
+            // `selection: fitness_guided`
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "selection")
+            {
+                self.pos += 1;
+                self.expect(Token::Colon)?;
+                if let Some((Token::Ident(s), _)) = self.tokens.get(self.pos) {
+                    selection = s.clone();
+                    self.pos += 1;
+                }
+            // `cooldown: 5`
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "cooldown")
+            {
+                self.pos += 1;
+                self.expect(Token::Colon)?;
+                if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                    cooldown = *n as u64;
+                    self.pos += 1;
+                }
+            } else {
+                self.advance();
+            }
+        }
+        let sec_end = self.current_span();
+        self.expect(Token::End)?;
+        Ok(RewireBlock {
+            trigger_threshold,
+            candidates,
+            selection,
+            cooldown,
             span: Span::merge(&sec_start, &sec_end),
         })
     }

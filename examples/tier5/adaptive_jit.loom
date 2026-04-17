@@ -158,6 +158,7 @@ end
 
 telos: "maintain hotpath_coverage_pct > 0.80 with compilation_overhead_ms < 60.0 under shifting runtime profiles"
   bounded_by: specialization_depth <= 8
+  modifiable_by: [loom_operator]
 end
 
 end -- being AdaptiveJITCompiler

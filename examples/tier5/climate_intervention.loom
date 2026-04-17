@@ -193,6 +193,7 @@ end
 
 telos: "maintain intervention_efficacy > 0.40 with tipping_point_risk < 0.30 across multi-intervention Earth system sequences"
   bounded_by: planned_sequence.len() <= 20
+  modifiable_by: [loom_operator]
 end
 
 end -- being ClimateInterventionOptimiser

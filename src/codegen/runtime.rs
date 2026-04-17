@@ -197,6 +197,7 @@ mod tests {
             autopoietic: false,
             crispr_blocks: vec![],
             plasticity_blocks: vec![],
+            rewire_block: None,
             canalization: None,
             senescence: None,
             criticality: None,

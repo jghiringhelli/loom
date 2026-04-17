@@ -102,6 +102,7 @@ fn checker_rejects_empty_onset() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -170,6 +171,7 @@ fn checker_passes_valid_senescence() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

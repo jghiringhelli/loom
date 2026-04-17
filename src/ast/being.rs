@@ -293,6 +293,8 @@ pub struct BeingDef {
     pub autopoietic: bool,
     pub crispr_blocks: Vec<CrisprBlock>,
     pub plasticity_blocks: Vec<PlasticityBlock>,
+    /// Tier 5 structural self-modification block (Varela et al. 1974).
+    pub rewire_block: Option<RewireBlock>,
     /// M70: Canalization block (Waddington).
     pub canalization: Option<CanalizationBlock>,
     /// M74: Senescence block (Campisi).
@@ -358,6 +360,33 @@ pub struct PlasticityBlock {
     pub modifies: String,
     /// The learning rule.
     pub rule: PlasticityRule,
+    /// BIOISO-style: metrics to observe for adjustment triggers.
+    pub observe: Vec<String>,
+    /// BIOISO-style: conditions that trigger structural adjustment.
+    pub adjust_on: Vec<String>,
+    /// BIOISO-style: time windows during which rewire is inhibited.
+    pub inhibit_between: Vec<String>,
+    pub span: Span,
+}
+
+/// Structural self-modification block — the load-bearing Tier 5 primitive.
+/// When drift exceeds the trigger threshold, the being's structural topology
+/// (connection graph, hypothesis set, algorithm composition) is replaced from
+/// a candidate pool. Unlike ParameterAdjust (within-structure tuning) and
+/// plasticity (weight modification), rewire replaces the structure itself.
+///
+/// Reference: Loom white paper Section 14.5; Varela et al. (1974) autopoiesis.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RewireBlock {
+    /// D_static threshold that triggers structural rewire evaluation.
+    pub trigger_threshold: f64,
+    /// Candidate structural components eligible for replacement.
+    pub candidates: Vec<String>,
+    /// Selection strategy for choosing among candidates.
+    /// Values: "fitness_guided" | "random" | "pheromone_weighted"
+    pub selection: String,
+    /// Minimum ticks between consecutive rewires (settling time).
+    pub cooldown: u64,
     pub span: Span,
 }
 

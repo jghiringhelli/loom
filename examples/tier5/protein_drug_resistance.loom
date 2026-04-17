@@ -167,6 +167,7 @@ end
 
 telos: "achieve binding_affinity_kcal_mol < -8.0 with active_lead_count >= 3 across resistance mutation events"
   bounded_by: lead_pool.len() <= 200
+  modifiable_by: [loom_operator]
 end
 
 end -- being DrugResistanceOptimiser

@@ -121,12 +121,14 @@ being FusionPlasmaController:
       - fallback_law_structure   -- the emergency law applied on high-disruption
     selection:  fitness_guided
     cooldown:   5               -- minimum ticks between rewires (plasma settling time)
+  end
 
   plasticity:
     observe:   [confinement_quality_h98, disruption_probability, elm_frequency_hz]
     adjust_on: regime_transition | disruption_precursor | elm_type_change
     -- Circadian inhibition during inter-shot intervals (no plasma to control).
     inhibit_between: [inter_shot_start, inter_shot_end]
+  end
 
 -- ── Tests ───────────────────────────────────────────────────────────
 

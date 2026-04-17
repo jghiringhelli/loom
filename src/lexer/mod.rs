@@ -155,6 +155,8 @@ pub enum Token {
     Action,
     #[token("plasticity")]
     Plasticity,
+    #[token("rewire")]
+    Rewire,
     #[token("trigger")]
     Trigger,
     #[token("rule")]

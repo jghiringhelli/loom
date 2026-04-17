@@ -161,6 +161,7 @@ end
 
 telos: "maintain order_book_depth > 0.6 and volatility_index < 0.35 under adversarial HFT order flow"
   bounded_by: response_latency_us <= 500.0
+  modifiable_by: [loom_operator]
 end
 
 end -- being FlashCrashDefender

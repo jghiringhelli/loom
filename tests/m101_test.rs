@@ -85,6 +85,7 @@ fn test_m101_missing_file_is_error() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
 
@@ -166,6 +167,7 @@ fn test_m101_reflects_unknown_symbol_is_warning() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
 

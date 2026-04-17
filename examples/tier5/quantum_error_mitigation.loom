@@ -177,6 +177,7 @@ end
 
 telos: "maintain logical_error_rate < 0.005 and qubit_fidelity > 0.995 across hardware recalibration events"
   bounded_by: ancilla_count <= qubit_count
+  modifiable_by: [loom_operator]
 end
 
 end -- being QuantumErrorMitigator

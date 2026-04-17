@@ -105,6 +105,7 @@ fn checker_rejects_empty_toward() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {
@@ -173,6 +174,7 @@ fn checker_rejects_empty_despite() {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     };
     let module = Module {

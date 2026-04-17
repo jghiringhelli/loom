@@ -427,6 +427,57 @@ NonDegeneracy == [](TelosConverged => ~TelosDiverged)\n\
             ));
         }
 
+        if let Some(rewire) = &being.rewire_block {
+            let candidates_str = rewire
+                .candidates
+                .iter()
+                .map(|c| format!("\"{}\"", c))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let candidates_list = rewire.candidates.join(", ");
+            let selection = &rewire.selection;
+            out.push_str(&format!(
+                "\n    // Structural rewire constants\n    pub const REWIRE_TRIGGER_THRESHOLD: f64 = {};\n",
+                rewire.trigger_threshold
+            ));
+            out.push_str(&format!(
+                "    pub const REWIRE_CANDIDATES: &'static [&'static str] = &[{}];\n",
+                candidates_str
+            ));
+            out.push_str(&format!(
+                "    pub const REWIRE_SELECTION: &'static str = \"{}\";\n",
+                selection
+            ));
+            out.push_str(&format!(
+                "    pub const REWIRE_COOLDOWN_TICKS: u64 = {};\n",
+                rewire.cooldown
+            ));
+            out.push_str("\n    /// Evaluate whether structural self-modification is warranted.\n");
+            out.push_str(
+                "    /// Called by the CEMS orchestrator when drift exceeds REWIRE_TRIGGER_THRESHOLD.\n",
+            );
+            out.push_str(
+                "    /// Returns the selected candidate component name, or None if rewire is not yet due.\n",
+            );
+            out.push_str(
+                "    pub fn evaluate_structural_rewire(&self, drift_score: f64, ticks_since_last_rewire: u64) -> Option<&'static str> {\n",
+            );
+            out.push_str(
+                "        if drift_score < Self::REWIRE_TRIGGER_THRESHOLD { return None; }\n",
+            );
+            out.push_str(
+                "        if ticks_since_last_rewire < Self::REWIRE_COOLDOWN_TICKS { return None; }\n",
+            );
+            out.push_str(&format!(
+                "        // Selection strategy: {}\n        // Candidates: {}\n",
+                selection, candidates_list
+            ));
+            out.push_str(&format!(
+                "        todo!(\"implement {} selection among REWIRE_CANDIDATES\")\n    }}\n",
+                selection
+            ));
+        }
+
         for plasticity in &being.plasticity_blocks {
             let modifies_snake = to_snake_case(&plasticity.modifies);
             let rule_name = match plasticity.rule {

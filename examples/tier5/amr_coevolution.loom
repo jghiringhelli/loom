@@ -155,6 +155,7 @@ end
 
 telos: "maintain treatment_success_rate > 0.65 with effective_drug_count >= 6 under coevolving resistance pressure"
   bounded_by: drug_pool.len() <= 50
+  modifiable_by: [loom_operator]
 end
 
 end -- being AMRCountermeasure

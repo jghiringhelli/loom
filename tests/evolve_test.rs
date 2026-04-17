@@ -72,6 +72,7 @@ fn make_being_with_evolve(evolve: EvolveBlock) -> BeingDef {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     }
 }

@@ -79,6 +79,7 @@ fn base_being() -> BeingDef {
         role: None,
         relates_to: vec![],
         propagate_block: None,
+        rewire_block: None,
         span: Span::synthetic(),
     }
 }

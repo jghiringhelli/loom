@@ -128,6 +128,7 @@ being AdaptiveSelfAssembler:
       - step_sequencing_logic        -- order and type of assembly primitives
     selection:  fitness_guided
     cooldown:   8   -- assembly equilibration time between protocol changes
+  end
 
   plasticity:
     observe:   [assembly_yield_pct, accessible_configuration_count, defect_density_per_um2]
@@ -135,6 +136,7 @@ being AdaptiveSelfAssembler:
     -- Inhibit rewire during active annealing phases (structural changes
     -- during annealing corrupt the assembly in progress).
     inhibit_between: [annealing_start, annealing_end]
+  end
 
 -- ── Tests ───────────────────────────────────────────────────────────
 

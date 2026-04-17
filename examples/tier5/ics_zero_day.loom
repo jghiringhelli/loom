@@ -173,6 +173,7 @@ end
 
 telos: "maintain detection_rate_pct > 0.85 and false_positive_rate < 0.05 against novel ICS attack classes"
   bounded_by: defense.rules.len() <= 500
+  modifiable_by: [loom_operator]
 end
 
 end -- being ICSZeroDayDefender
