@@ -282,6 +282,32 @@ enum RuntimeCommands {
         #[arg(long, default_value = "")]
         manifest_path: String,
     },
+
+    /// Pretty-print a BIOISO experiment JSONL log produced by `loom runtime experiment`.
+    ///
+    /// Reads the JSON-lines file written by `--log-path` and displays a human-readable
+    /// summary of each tick: drift scores, proposals, promotions, tier activations,
+    /// and branching events.
+    ///
+    /// Example:
+    ///   loom runtime logs --path /data/experiment.jsonl --last 100
+    Logs {
+        /// Path to the JSON-lines experiment log.
+        #[arg(long, default_value = "/data/experiment.jsonl")]
+        path: String,
+
+        /// Only show the last N ticks (0 = all).
+        #[arg(long, default_value_t = 0)]
+        last: usize,
+
+        /// Filter to a specific entity ID (empty = all entities).
+        #[arg(long, default_value = "")]
+        entity: String,
+
+        /// Only show ticks where Tier 3 (Claude) was activated.
+        #[arg(long, default_value_t = false)]
+        t3_only: bool,
+    },
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -1095,6 +1121,103 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 println!("\n--- JSON Summary ---");
                 println!("{json}");
             }
+        }
+
+        RuntimeCommands::Logs {
+            path,
+            last,
+            entity,
+            t3_only,
+        } => {
+            use loom::runtime::experiment::TickMetrics;
+
+            let content = match std::fs::read_to_string(&path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: could not read `{path}`: {e}");
+                    process::exit(1);
+                }
+            };
+
+            let mut ticks: Vec<TickMetrics> = content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|l| serde_json::from_str(l).ok())
+                .collect();
+
+            // Filters
+            if t3_only {
+                ticks.retain(|t| t.tier_used == Some(3));
+            }
+            if !entity.is_empty() {
+                ticks.retain(|t| {
+                    t.drift_scores.contains_key(&entity)
+                        || t.entities_branched_this_tick.iter().any(|e| e == &entity)
+                });
+            }
+            if last > 0 && ticks.len() > last {
+                let skip = ticks.len() - last;
+                ticks.drain(..skip);
+            }
+
+            if ticks.is_empty() {
+                println!("No matching ticks found in `{path}`.");
+                return;
+            }
+
+            println!(
+                "  {:>6}  {:>5}  {:>5}  {:>5}  {:>4}  {:>4}  {}",
+                "TICK", "DRIFT", "PROP", "PROM", "TIER", "BRNCH", "TOP DRIFTERS"
+            );
+            println!("{}", "-".repeat(80));
+
+            for t in &ticks {
+                let drift_count = t.drift_scores.len();
+                let tier_str = t
+                    .tier_used
+                    .map(|u| format!("T{u}"))
+                    .unwrap_or_else(|| "-".into());
+                let branch_count = t.entities_branched_this_tick.len();
+
+                // Top 3 drift scores
+                let mut sorted: Vec<(&String, &f64)> = t.drift_scores.iter().collect();
+                sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+                let top: Vec<String> = sorted
+                    .iter()
+                    .take(3)
+                    .map(|(k, v)| format!("{k}={v:.2}"))
+                    .collect();
+
+                println!(
+                    "  {:>6}  {:>5}  {:>5}  {:>5}  {:>4}  {:>5}  {}",
+                    t.tick,
+                    drift_count,
+                    t.proposals,
+                    t.promoted,
+                    tier_str,
+                    branch_count,
+                    top.join("  "),
+                );
+
+                if !t.entities_branched_this_tick.is_empty() {
+                    println!(
+                        "         branched: {}",
+                        t.entities_branched_this_tick.join(", ")
+                    );
+                }
+            }
+
+            println!("{}", "-".repeat(80));
+            println!(
+                "  {} ticks shown{}{}",
+                ticks.len(),
+                if t3_only { " (T3 only)" } else { "" },
+                if !entity.is_empty() {
+                    format!(" (entity filter: {entity})")
+                } else {
+                    String::new()
+                }
+            );
         }
     }
 }

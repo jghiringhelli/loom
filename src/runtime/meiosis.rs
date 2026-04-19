@@ -280,12 +280,52 @@ fn render_genome(
                     "\n  epigenetic:\n    signal: {signal_name}\n    modifies: adaptation_rate\n    reverts_when: stress < 0.3\n    duration: 10.ticks\n  end\n"
                 ));
                 fn_defs.push_str(&format!(
-                    "\n-- structural rewire tick {}: signal '{}' → '{}' ({})\n",
+                    "\n-- [T3 structural rewire tick {}] signal '{}' → '{}': {}\n",
                     record.tick, signal_name, to_id, reason
                 ));
                 mutations_incorporated += 1;
             }
-            _ => {}
+            MutationProposal::EntityClone {
+                source_id,
+                new_id,
+                reason,
+            } => {
+                // Clone decisions are structural — record them as comments so
+                // the genome captures the LLM's reasoning for redundancy.
+                fn_defs.push_str(&format!(
+                    "\n-- [T3 clone tick {}] spawned '{}' from '{}': {}\n",
+                    record.tick, new_id, source_id, reason
+                ));
+                // A clone also implies a redundancy regulate block.
+                let fn_name = format!("propagate_to_{}", sanitize_ident(new_id));
+                if fn_names.insert(fn_name.clone()) {
+                    regulate_blocks.push_str(&format!(
+                        "\n  regulate:\n    trigger: stress > 0.6\n    action: {fn_name}\n  end\n"
+                    ));
+                    fn_defs.push_str(&format!("\nfn {fn_name} :: Unit -> Unit\nend\n"));
+                }
+                mutations_incorporated += 1;
+            }
+            MutationProposal::EntityPrune { entity_id, reason } => {
+                // Pruning decisions reflect the LLM's fitness selection.
+                fn_defs.push_str(&format!(
+                    "\n-- [T3 prune tick {}] removed '{}': {}\n",
+                    record.tick, entity_id, reason
+                ));
+                mutations_incorporated += 1;
+            }
+            MutationProposal::EntityRollback {
+                entity_id,
+                checkpoint_id,
+                reason,
+            } => {
+                // Rollbacks indicate the LLM detected divergence and reverted.
+                fn_defs.push_str(&format!(
+                    "\n-- [T3 rollback tick {}] '{}' → checkpoint {}: {}\n",
+                    record.tick, entity_id, checkpoint_id, reason
+                ));
+                mutations_incorporated += 1;
+            }
         }
     }
 
