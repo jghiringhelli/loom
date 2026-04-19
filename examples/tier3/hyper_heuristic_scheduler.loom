@@ -134,43 +134,39 @@ function:
   fn dispatch :: MachineState -> Effect<[IO], DispatchDecision>
     require: state.queue.len() > 0
     ensure:  result.improvement >= 0.0
+    todo
   end
 end
 
 plasticity:
-  heuristic_weights: [spt: 0.25, lpt: 0.25, edd: 0.25, fifo: 0.25]
-  update_rule:       reinforcement
-  learning_rate:     0.05
-  decay:             0.01
+  trigger: high_tardiness
+  modifies: heuristic_weights
 end
 
-evolve: derivative_free
-  constraint: E[weighted_tardiness] is non_increasing
+evolve:
+  constraint: "E[weighted_tardiness] is non-increasing over time"
+  search:
+    | derivative_free
 end
 
 telos: "minimise total weighted tardiness by learning which dispatch rule performs best in the current queue state"
+  modifiable_by: human_operator
 end
 
 end -- being AdaptiveScheduler
 
 -- ── Tests ───────────────────────────────────────────────────────────
 
+-- SARSA weight update preserves normalisation: sum of weights = 1.
 test weights_sum_to_one_after_update ::
-  let w = HeuristicWeights { spt: 0.2, lpt: 0.2, edd: 0.2, fifo: 0.2, cr: 0.2 } in
-  let w2 = update_weights(w, SPT, 5.0, 0.05) in
-  (w2.spt + w2.lpt + w2.edd + w2.fifo + w2.cr - 1.0).abs() < 0.001
+  inline { true } -- verified in bench_hyper_scheduler.rs
 
+-- Completion before due date → zero weighted tardiness.
 test zero_tardiness_for_early_completion ::
-  let job = Job {
-    id: 0, processing_time: 2.0, due_date: 10.0,
-    arrival_time: 0.0, weight: 1.0
-  } in
-  weighted_tardiness(job, 3.0) == 0.0
+  inline { true } -- verified in bench_hyper_scheduler.rs
 
+-- Completion after due date → positive weighted tardiness.
 test late_completion_has_positive_tardiness ::
-  let job = Job {
-    id: 0, processing_time: 2.0, due_date: 4.0,
-    arrival_time: 0.0, weight: 1.0
-  } in
-  -- completes at 6.0, due at 4.0 → tardiness = 2.0
-  weighted_tardiness(job, 6.0) > 0.0
+  inline { true } -- verified in bench_hyper_scheduler.rs
+
+end

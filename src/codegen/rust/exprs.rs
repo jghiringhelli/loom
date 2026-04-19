@@ -238,6 +238,9 @@ impl RustEmitter {
             Expr::Try(inner, _) => {
                 format!("{}?", self.emit_expr(inner))
             }
+            Expr::Index(collection, index, _) => {
+                format!("{}[{}]", self.emit_expr(collection), self.emit_expr(index))
+            }
             Expr::Match { subject, arms, .. } => {
                 let s = self.emit_expr(subject);
                 let arms_str: Vec<String> = arms

@@ -672,6 +672,9 @@ impl TypeScriptEmitter {
                 }
                 chain
             }
+            Expr::Index(collection, index, _) => {
+                format!("{}[{}]", self.emit_expr(collection), self.emit_expr(index))
+            }
         }
     }
 
@@ -1268,5 +1271,9 @@ fn scan_free_idents_ts(
             scan_free_idents_ts(body, let_bound, seen, ordered);
         }
         Expr::Literal(_) | Expr::InlineRust(_) => {}
+        Expr::Index(collection, index, _) => {
+            scan_free_idents_ts(collection, let_bound, seen, ordered);
+            scan_free_idents_ts(index, let_bound, seen, ordered);
+        }
     }
 }

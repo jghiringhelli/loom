@@ -249,6 +249,17 @@ impl<'src> crate::parser::Parser<'src> {
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
                 propagate_block = Some(self.parse_being_propagate_section()?);
+            } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "learn")
+                && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
+            {
+                // `learn: gaussian_process ... end` — skip the block (not yet lowered).
+                self.pos += 2; // consume `learn` `:`
+                               // Consume the kind identifier (e.g. `gaussian_process`)
+                if self.token_as_ident().is_some() {
+                    self.advance();
+                }
+                // Skip everything up to and including the matching `end`
+                self.skip_block_to_end();
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "role")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
@@ -387,10 +398,19 @@ impl<'src> crate::parser::Parser<'src> {
         self.advance(); // consume "function"
         self.advance(); // consume ":"
         let mut fns = Vec::new();
-        while self.at(&Token::Fn) && !self.at(&Token::End) {
+        while self.at(&Token::Fn)
+            || self.at(&Token::At)
+            || matches!(self.peek(), Some(Token::Annotation))
+        {
             fns.push(self.parse_fn_def()?);
         }
         let sec_end = self.current_span();
+        // The section's closing `end` is optional — some beings omit it.
+        // Consume it only when it's present (i.e. not when the next token is a
+        // being-level keyword like `telos`, `evolve`, `plasticity`, etc.).
+        if self.at(&Token::End) {
+            self.advance();
+        }
         Ok(FunctionBlock {
             fns,
             span: Span::merge(&sec_start, &sec_end),

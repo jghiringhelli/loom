@@ -252,6 +252,10 @@ fn collect_calls(expr: &Expr, out: &mut HashSet<String>) {
         }
         Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_calls(e, out)),
         Expr::Try(inner, _) => collect_calls(inner, out),
+        Expr::Index(collection, index, _) => {
+            collect_calls(collection, out);
+            collect_calls(index, out);
+        }
     }
 }
 

@@ -280,6 +280,10 @@ impl TypeChecker {
                 }
             }
             Expr::Try(inner, _) => self.check_expr(inner, scope, table, errors),
+            Expr::Index(collection, index, _) => {
+                self.check_expr(collection, scope, table, errors);
+                self.check_expr(index, scope, table, errors);
+            }
         }
     }
 

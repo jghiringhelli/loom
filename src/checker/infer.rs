@@ -471,6 +471,13 @@ fn infer_expr(
             let _ = infer_expr(inner, env, subst, gen, fns)?;
             Ok(gen.fresh())
         }
+
+        // Index expression — element type is unknown; return a fresh TypeVar.
+        Expr::Index(collection, index, _) => {
+            let _ = infer_expr(collection, env, subst, gen, fns)?;
+            let _ = infer_expr(index, env, subst, gen, fns)?;
+            Ok(gen.fresh())
+        }
     }
 }
 
@@ -651,6 +658,10 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
         }
         Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_let_names(e, names)),
         Expr::Try(inner, _) => collect_let_names(inner, names),
+        Expr::Index(collection, index, _) => {
+            collect_let_names(collection, names);
+            collect_let_names(index, names);
+        }
     }
 }
 
@@ -735,6 +746,10 @@ fn collect_free_vars(
                 .for_each(|e| collect_free_vars(e, let_bound, seen, ordered));
         }
         Expr::Try(inner, _) => collect_free_vars(inner, let_bound, seen, ordered),
+        Expr::Index(collection, index, _) => {
+            collect_free_vars(collection, let_bound, seen, ordered);
+            collect_free_vars(index, let_bound, seen, ordered);
+        }
     }
 }
 

@@ -216,7 +216,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut left = self.parse_additive()?;
         loop {
             let op = match self.peek() {
-                Some(Token::Eq) => BinOpKind::Eq,
+                Some(Token::Eq) | Some(Token::EqEq) => BinOpKind::Eq,
                 Some(Token::Ne) => BinOpKind::Ne,
                 Some(Token::Lt) => BinOpKind::Lt,
                 Some(Token::Le) => BinOpKind::Le,
@@ -319,7 +319,20 @@ impl<'src> crate::parser::Parser<'src> {
             if self.at(&Token::Dot) {
                 let span_start = self.current_span();
                 self.advance();
-                let (field, _) = self.expect_ident()?;
+                // Tuple index access: `expr.0`, `expr.1`, etc.
+                if let Some((Token::IntLit(idx), _)) = self.tokens.get(self.pos) {
+                    let field = idx.to_string();
+                    self.advance();
+                    let span = Span::merge(&span_start, &self.current_span());
+                    expr = Expr::FieldAccess {
+                        object: Box::new(expr),
+                        field,
+                        span,
+                    };
+                    continue;
+                }
+                // Normal field access — keyword tokens are valid field names (e.g. `.queue`, `.edges`).
+                let (field, _) = self.expect_any_name()?;
                 let span = Span::merge(&span_start, &self.current_span());
                 expr = Expr::FieldAccess {
                     object: Box::new(expr),
@@ -343,6 +356,15 @@ impl<'src> crate::parser::Parser<'src> {
                     args,
                     span: Span::merge(&span_start, &end_span),
                 };
+            } else if self.at(&Token::LBracket) {
+                // Subscript / index access: `expr[index]`.
+                let span_start = self.current_span();
+                self.advance(); // consume `[`
+                let index = self.parse_expr()?;
+                let end_span = self.current_span();
+                self.expect(Token::RBracket)?;
+                let span = Span::merge(&span_start, &end_span);
+                expr = Expr::Index(Box::new(expr), Box::new(index), span);
             } else if self.at(&Token::As) {
                 let span_start = self.current_span();
                 self.advance(); // consume `as`

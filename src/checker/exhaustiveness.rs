@@ -152,6 +152,10 @@ impl ExhaustivenessChecker {
                 }
             }
             Expr::Try(inner, _) => self.check_expr(inner, reg, errors),
+            Expr::Index(collection, index, _) => {
+                self.check_expr(collection, reg, errors);
+                self.check_expr(index, reg, errors);
+            }
         }
     }
 

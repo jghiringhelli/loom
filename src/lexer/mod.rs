@@ -68,10 +68,13 @@ pub enum Token {
     #[token("else")]
     Else,
     #[token("and")]
+    #[token("&&")]
     And,
     #[token("or")]
+    #[token("||")]
     Or,
     #[token("not")]
+    #[token("!")]
     Not,
     #[token("as")]
     As,
@@ -585,6 +588,8 @@ pub enum Token {
     Bar,
     #[token("=")]
     Eq,
+    #[token("==")]
+    EqEq,
     #[token("+")]
     Plus,
     #[token("-")]

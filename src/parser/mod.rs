@@ -66,6 +66,43 @@ impl<'src> Parser<'src> {
         tok
     }
 
+    /// Skip tokens until a matching `end` token is consumed (depth-aware).
+    ///
+    /// Useful for skipping over recognised-but-not-yet-lowered sections such as
+    /// `learn: gaussian_process … end`.  Depth increases on tokens that open a
+    /// sub-block (`fn`, `type`, `enum`, `being`, `matter`, `form`, `evolve`,
+    /// `telos`, `regulate`, `plasticity`, `rewire`) and decreases on `end`.
+    pub fn skip_block_to_end(&mut self) {
+        let mut depth: usize = 1;
+        while depth > 0 && self.peek().is_some() {
+            match self.peek() {
+                Some(Token::End) => {
+                    depth -= 1;
+                    self.pos += 1;
+                }
+                Some(
+                    Token::Fn
+                    | Token::Type
+                    | Token::Enum
+                    | Token::Being
+                    | Token::Matter
+                    | Token::Form
+                    | Token::Evolve
+                    | Token::Telos
+                    | Token::Regulate
+                    | Token::Plasticity
+                    | Token::Rewire,
+                ) => {
+                    depth += 1;
+                    self.pos += 1;
+                }
+                _ => {
+                    self.pos += 1;
+                }
+            }
+        }
+    }
+
     /// Return `true` if the current token equals `expected`.
     pub fn at(&self, expected: &Token) -> bool {
         // Use Debug-based comparison for Token variants that contain data.
@@ -3040,6 +3077,8 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::Fact => Some("fact"),
         Token::Dimension => Some("dimension"),
         Token::Embedding => Some("embedding"),
+        Token::Edges => Some("edges"),
+        Token::Step => Some("step"),
         Token::Adopt => Some("adopt"),
         Token::Process => Some("process"),
         Token::Plasticity => Some("plasticity"),

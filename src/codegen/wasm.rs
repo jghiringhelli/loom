@@ -298,6 +298,13 @@ fn emit_expr(
                 span: Span::synthetic(),
             })
         }
+
+        Expr::Index(_, _, span) => {
+            return Err(LoomError::WasmUnsupported {
+                feature: "index expression".to_string(),
+                span: span.clone(),
+            })
+        }
     }
     Ok(())
 }
@@ -387,6 +394,10 @@ fn collect_let_names_in(expr: &Expr, names: &mut Vec<String>) {
         }
         Expr::Tuple(elems, _) => elems.iter().for_each(|e| collect_let_names_in(e, names)),
         Expr::Try(inner, _) => collect_let_names_in(inner, names),
+        Expr::Index(collection, index, _) => {
+            collect_let_names_in(collection, names);
+            collect_let_names_in(index, names);
+        }
     }
 }
 
@@ -469,5 +480,9 @@ fn collect_free_vars_in(
                 .for_each(|e| collect_free_vars_in(e, let_bound, seen, ordered));
         }
         Expr::Try(inner, _) => collect_free_vars_in(inner, let_bound, seen, ordered),
+        Expr::Index(collection, index, _) => {
+            collect_free_vars_in(collection, let_bound, seen, ordered);
+            collect_free_vars_in(index, let_bound, seen, ordered);
+        }
     }
 }

@@ -1199,5 +1199,9 @@ fn scan_idents(
             scan_idents(body, let_bound, seen, ordered);
         }
         Expr::Literal(_) | Expr::InlineRust(_) => {}
+        Expr::Index(collection, index, _) => {
+            scan_idents(collection, let_bound, seen, ordered);
+            scan_idents(index, let_bound, seen, ordered);
+        }
     }
 }

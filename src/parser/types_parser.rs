@@ -16,16 +16,14 @@ impl<'src> crate::parser::Parser<'src> {
         // Peek ahead: if next is an ident followed by `where`, it's refined.
         // If next is `end` or (ident followed by `:`) it's a product type (field list).
         // Otherwise it's a type alias: `type X = SomeType<...>`.
-        let is_refined = match (self.peek(), self.peek2()) {
-            (Some(Token::Ident(_)), Some(Token::Where)) => true,
-            _ => false,
-        };
+        // Note: field names may be loom keywords (edges, queue, embedding, …) so we
+        // use token_as_ident() to recognise any keyword that can serve as a name.
+        let peek_is_name = self.token_as_ident().is_some();
 
-        let is_field_list = match (self.peek(), self.peek2()) {
-            (Some(Token::Ident(_)), Some(Token::Colon)) => true,
-            (Some(Token::End), _) => true, // empty product type
-            _ => false,
-        };
+        let is_refined = peek_is_name && matches!(self.peek2(), Some(Token::Where));
+
+        let is_field_list = matches!(self.peek(), Some(Token::End))
+            || (peek_is_name && matches!(self.peek2(), Some(Token::Colon)));
 
         if is_refined {
             let base_type = self.parse_type_expr()?;
@@ -97,7 +95,7 @@ impl<'src> crate::parser::Parser<'src> {
             if self.at(&Token::End) {
                 break;
             }
-            let (field_name, _) = self.expect_ident()?;
+            let (field_name, _) = self.expect_any_name()?;
             self.expect(Token::Colon)?;
             let ty = self.parse_type_expr()?;
             // Also accept trailing annotations after the type expression.
@@ -220,6 +218,13 @@ impl<'src> crate::parser::Parser<'src> {
                 }
                 self.expect(Token::RParen)?;
                 Ok(first)
+            }
+            Some(Token::LBracket) => {
+                // `[T]` — homogeneous list type, sugar for `Vec<T>`.
+                self.advance(); // consume `[`
+                let inner = self.parse_type_expr()?;
+                self.expect(Token::RBracket)?;
+                Ok(TypeExpr::Generic("Vec".to_string(), vec![inner]))
             }
             Some(Token::Question) => {
                 self.advance();
