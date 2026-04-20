@@ -89,6 +89,10 @@ jobs:
         run: |
           npm install -g @anthropic-ai/claude-code@latest
 
+          # Save prompt template to /tmp while still on genomes/evolved (which has the file).
+          # Must happen before switching to main, where the file does not exist.
+          cp .github/gs_t5_prompt.txt /tmp/gs_t5_prompt.txt
+
           git config user.email "genome-bot@loom.run"
           git config user.name "Loom Evolution Bot"
           git fetch origin main
@@ -107,7 +111,7 @@ jobs:
             PROMPT=$(sed \
               -e "s|__GENOME_PATH__|$f|g" \
               -e "s|__GENOME_NAME__|$GENOME_NAME|g" \
-              .github/gs_t5_prompt.txt)
+              /tmp/gs_t5_prompt.txt)
 
             if claude \
               --print \
