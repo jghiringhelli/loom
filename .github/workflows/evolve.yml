@@ -1,4 +1,4 @@
-name: Evolve — validate and merge evolved genomes
+name: Evolve — autonomous genome promotion
 
 on:
   push:
@@ -8,21 +8,26 @@ on:
       - "genomes/**/*.loom"
 
 jobs:
-  validate-genomes:
-    name: Validate evolved genome
+  promote:
+    name: Compile-gate → GS T5 apply → promote
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
         with:
           ref: genomes/evolved
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node (for Claude Code CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -47,50 +52,145 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
           echo "Found genomes: $FILES"
 
-      - name: Compile each genome
+      - name: Compile-gate each genome (T1 — loom spec must parse cleanly)
         id: compile
         run: |
-          PASS=0; FAIL=0; FAILED_FILES=""
+          PASS=0; FAIL=0; PASSED_FILES=""; FAILED_FILES=""
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             echo "▶ Compiling $f"
             if ./target/release/loom compile "$f" 2>&1; then
               echo "  ✅ $f"
               PASS=$((PASS+1))
+              PASSED_FILES="$PASSED_FILES $f"
             else
               echo "  ❌ $f"
               FAIL=$((FAIL+1))
               FAILED_FILES="$FAILED_FILES $f"
             fi
           done <<< "${{ steps.genomes.outputs.files }}"
-          echo "pass=$PASS" >> "$GITHUB_OUTPUT"
-          echo "fail=$FAIL" >> "$GITHUB_OUTPUT"
+          echo "pass=$PASS"         >> "$GITHUB_OUTPUT"
+          echo "fail=$FAIL"         >> "$GITHUB_OUTPUT"
+          echo "passed_files=$PASSED_FILES" >> "$GITHUB_OUTPUT"
           echo "failed_files=$FAILED_FILES" >> "$GITHUB_OUTPUT"
           echo "### 🧬 Genome compile: $PASS pass, $FAIL fail" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Gate — fail if any genome does not compile
+      # ── GS T5 Application Loop ────────────────────────────────────────────────
+      # Each passing genome is a GS specification (the mold).
+      # Claude Code is the stateless reader (the foundry).
+      # It reads CLAUDE.md + .claude/core.md, parses GS EVOLUTION SPEC blocks,
+      # applies mutations to src/, and runs cargo test as the T2 harness.
+      # Only genomes whose mutations pass the test harness are promoted.
+      - name: Apply genome mutations to source (GS T5 — Claude Code stateless reader)
+        id: apply
+        if: steps.compile.outputs.pass != '0' && env.ANTHROPIC_API_KEY != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npm install -g @anthropic-ai/claude-code@latest
+
+          git config user.email "genome-bot@loom.run"
+          git config user.name "Loom Evolution Bot"
+          git fetch origin main
+          git checkout main
+
+          APPLIED=0; APPLY_FAILED=0; APPLIED_FILES=""; APPLY_FAILED_FILES=""
+
+          for f in ${{ steps.compile.outputs.passed_files }}; do
+            # Copy genome from genomes/evolved branch into main working tree
+            git checkout genomes/evolved -- "$f"
+
+            GENOME_NAME=$(basename "$f" .loom)
+            echo "▶ Applying GS spec: $f (genome: $GENOME_NAME)"
+
+            # Invoke Claude Code as the GS stateless reader.
+            # The genome file contains GS EVOLUTION SPEC blocks.
+            # CLAUDE.md §Genome Application maps each block to source locations.
+            # --max-turns limits runaway sessions; --output-format stream-json for CI.
+            if claude \
+              --print \
+              --allowedTools "Read,Edit,Bash" \
+              --max-turns 15 \
+              "You are the GS stateless reader executing the T5 evolution loop for the loom BIOISO colony.
+
+CONTEXT (load these first):
+1. Read CLAUDE.md — architectural constitution and §Genome Application section
+2. Read .claude/core.md — always-loaded domain identity
+
+GENOME SPEC: $f
+
+TASK:
+Parse every '-- GS EVOLUTION SPEC' block in the genome file. For each block:
+  - ParameterAdjust: locate the named entity's BIOISOSpec in src/runtime/bioiso_runner.rs, find the field, add the delta to its current value
+  - StructuralRewire: add a Rule to the entity's spawn_domain() call in src/runtime/bioiso_runner.rs
+  - EntityClone: duplicate the source entity's BIOISOSpec as a new entry with the new_id
+  - EntityPrune: remove the entity from the ALL_DOMAINS list in src/runtime/bioiso_runner.rs
+  - EntityRollback: restore the entity's parameters to the checkpoint state (revert recent deltas)
+
+After applying all mutations:
+  Run: cargo test --lib --test-threads=1
+  If ALL tests pass: git add src/ && git commit -m 'auto(genome): apply $GENOME_NAME mutations [GS T5]'
+  If ANY test fails: git checkout src/ && exit 1"; then
+              echo "  ✅ Applied $f"
+              APPLIED=$((APPLIED+1))
+              APPLIED_FILES="$APPLIED_FILES $f"
+            else
+              echo "  ❌ Application failed (tests failed or no changes): $f"
+              git checkout src/ 2>/dev/null || true
+              APPLY_FAILED=$((APPLY_FAILED+1))
+              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
+            fi
+          done
+
+          echo "applied=$APPLIED"              >> "$GITHUB_OUTPUT"
+          echo "apply_failed=$APPLY_FAILED"    >> "$GITHUB_OUTPUT"
+          echo "applied_files=$APPLIED_FILES"  >> "$GITHUB_OUTPUT"
+          echo "### 🧬 GS T5 apply: $APPLIED applied, $APPLY_FAILED failed" >> "$GITHUB_STEP_SUMMARY"
+
+          # Push source changes to main if any were applied
+          if [ "$APPLIED" -gt 0 ]; then
+            git push origin main
+          fi
+
+      # ── Promote genome files to main ──────────────────────────────────────────
+      # Always promote compile-passing genome files (the spec record).
+      # The source changes above (if any) landed in separate commits.
+      - name: Promote passing genome files to main
+        if: steps.compile.outputs.pass != '0'
+        run: |
+          git config user.email "genome-bot@loom.run"
+          git config user.name "Loom Evolution Bot"
+
+          git fetch origin main
+          git checkout main
+
+          PROMOTED=0
+          for f in ${{ steps.compile.outputs.passed_files }}; do
+            git checkout genomes/evolved -- "$f"
+            TYPE="meiosis"
+            if echo "$f" | grep -q "mitosis_"; then
+              TYPE="mitosis"
+            fi
+            echo "  → promoting $f as $TYPE"
+            PROMOTED=$((PROMOTED+1))
+          done
+
+          if [ "$PROMOTED" -gt 0 ]; then
+            git add genomes/
+            git commit -m "auto(genome): promote $PROMOTED evolved genomes [$(git rev-parse --short genomes/evolved)]
+
+Decision types promoted autonomously by EvolutionJudge.
+GS T5 applied: ${{ steps.apply.outputs.applied || '0' }} genomes modified source.
+Compile gate: ${{ steps.compile.outputs.pass }} pass / ${{ steps.compile.outputs.fail }} fail."
+            git push origin main
+            echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Log rejected genomes
         if: steps.compile.outputs.fail != '0'
         run: |
-          echo "Failed genomes: ${{ steps.compile.outputs.failed_files }}"
-          exit 1
-
-      - name: Open PR to merge validated genomes into main
-        if: steps.compile.outputs.pass != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="genomes/evolved"
-          TITLE="feat(genomes): merge ${{ steps.compile.outputs.pass }} validated evolved genomes"
-          BODY="## Autonomous Evolution — Validated Genomes\n\nGenomes rendered by MeiosisEngine and validated:\n- **Compile gate**: ✅ ${{ steps.compile.outputs.pass }} pass\n- **Source branch**: \`$BRANCH\`\n\nThis PR was opened automatically by the \`evolve.yml\` workflow.\nReview the genome files before merging."
-          # Create PR if it doesn't already exist for this branch
-          EXISTING=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -z "$EXISTING" ]; then
-            gh pr create \
-              --title "$TITLE" \
-              --body "$(printf '%b' "$BODY")" \
-              --head "$BRANCH" \
-              --base main \
-              --label "evolved-genome" || echo "PR creation skipped (label may not exist)"
-          else
-            echo "PR #$EXISTING already open for $BRANCH"
-          fi
+          echo "### ❌ Failed compile (not promoted):" >> "$GITHUB_STEP_SUMMARY"
+          for f in ${{ steps.compile.outputs.failed_files }}; do
+            echo "  - $f" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "Compilation failures logged. Passing genomes were still promoted."
