@@ -69,3 +69,4 @@ fn activate_emergency_adaptation :: Unit -> Unit
 end
 
 end
+
