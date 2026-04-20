@@ -242,6 +242,11 @@ fn render_genome(
     let mut regulate_blocks = String::new();
     let mut epigenetic_blocks = String::new();
     let mut fn_defs = String::new();
+    // GS EVOLUTION SPEC blocks — machine-readable headers for the Claude Code
+    // stateless reader that applies this genome to the source code.
+    // Format: one block per mutation, parsed by the GS T5 application step
+    // in evolve.yml.  See CLAUDE.md §Genome Application for the derivation rules.
+    let mut gs_spec_blocks = String::new();
     let mut fn_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut mutations_incorporated = 0usize;
 
@@ -253,6 +258,21 @@ fn render_genome(
                 reason,
                 ..
             } => {
+                // GS EVOLUTION SPEC — stateless-reader derivation header
+                let sign = if *delta >= 0.0 { "+" } else { "" };
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   ParameterAdjust\n\
+                     -- entity:     {}\n\
+                     -- parameter:  {param}\n\
+                     -- delta:      {sign}{delta:.6}\n\
+                     -- tick:       {}\n\
+                     -- source:     src/runtime/bioiso_runner.rs — BIOISOSpec for \"{}\"\n\
+                     -- verify:     cargo test --lib -- runtime\n\
+                     -- reason:     {reason}\n",
+                    parent_a.entity_id, record.tick, parent_a.entity_id,
+                ));
+
                 let fn_name = format!("adjust_{}", sanitize_ident(param));
                 let threshold = if *delta > 0.0 {
                     format!("{param} < {:.4}", delta.abs() * 10.0)
@@ -276,6 +296,20 @@ fn render_genome(
                 to_id,
                 ..
             } => {
+                // GS EVOLUTION SPEC — structural rewire is applied to polycephalum rules
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   StructuralRewire\n\
+                     -- entity:     {}\n\
+                     -- signal:     {signal_name}\n\
+                     -- wires_to:   {to_id}\n\
+                     -- tick:       {}\n\
+                     -- source:     src/runtime/bioiso_runner.rs — spawn_domain(\"{}\") rule set\n\
+                     -- verify:     cargo test --lib -- runtime\n\
+                     -- reason:     {reason}\n",
+                    parent_a.entity_id, record.tick, parent_a.entity_id,
+                ));
+
                 epigenetic_blocks.push_str(&format!(
                     "\n  epigenetic:\n    signal: {signal_name}\n    modifies: adaptation_rate\n    reverts_when: stress < 0.3\n    duration: 10.ticks\n  end\n"
                 ));
@@ -290,13 +324,23 @@ fn render_genome(
                 new_id,
                 reason,
             } => {
-                // Clone decisions are structural — record them as comments so
-                // the genome captures the LLM's reasoning for redundancy.
+                // GS EVOLUTION SPEC — EntityClone means spawn a new BIOISOSpec entry
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   EntityClone\n\
+                     -- source:     {source_id}\n\
+                     -- new_id:     {new_id}\n\
+                     -- tick:       {}\n\
+                     -- source_file: src/runtime/bioiso_runner.rs — duplicate BIOISOSpec for \"{source_id}\" as \"{new_id}\"\n\
+                     -- verify:     cargo test --lib -- runtime\n\
+                     -- reason:     {reason}\n",
+                    record.tick,
+                ));
+
                 fn_defs.push_str(&format!(
                     "\n-- [T3 clone tick {}] spawned '{}' from '{}': {}\n",
                     record.tick, new_id, source_id, reason
                 ));
-                // A clone also implies a redundancy regulate block.
                 let fn_name = format!("propagate_to_{}", sanitize_ident(new_id));
                 if fn_names.insert(fn_name.clone()) {
                     regulate_blocks.push_str(&format!(
@@ -307,7 +351,18 @@ fn render_genome(
                 mutations_incorporated += 1;
             }
             MutationProposal::EntityPrune { entity_id, reason } => {
-                // Pruning decisions reflect the LLM's fitness selection.
+                // GS EVOLUTION SPEC — EntityPrune: remove or disable the entity
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   EntityPrune\n\
+                     -- entity:     {entity_id}\n\
+                     -- tick:       {}\n\
+                     -- source:     src/runtime/bioiso_runner.rs — remove BIOISOSpec for \"{entity_id}\" from ALL_DOMAINS\n\
+                     -- verify:     cargo test --lib -- runtime\n\
+                     -- reason:     {reason}\n",
+                    record.tick,
+                ));
+
                 fn_defs.push_str(&format!(
                     "\n-- [T3 prune tick {}] removed '{}': {}\n",
                     record.tick, entity_id, reason
@@ -319,7 +374,19 @@ fn render_genome(
                 checkpoint_id,
                 reason,
             } => {
-                // Rollbacks indicate the LLM detected divergence and reverted.
+                // GS EVOLUTION SPEC — EntityRollback: restore entity to a prior checkpoint
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   EntityRollback\n\
+                     -- entity:     {entity_id}\n\
+                     -- checkpoint: {checkpoint_id}\n\
+                     -- tick:       {}\n\
+                     -- source:     src/runtime/bioiso_runner.rs — restore params for \"{entity_id}\" to checkpoint state\n\
+                     -- verify:     cargo test --lib -- runtime\n\
+                     -- reason:     {reason}\n",
+                    record.tick,
+                ));
+
                 fn_defs.push_str(&format!(
                     "\n-- [T3 rollback tick {}] '{}' → checkpoint {}: {}\n",
                     record.tick, entity_id, checkpoint_id, reason
@@ -342,6 +409,14 @@ fn render_genome(
 -- {parent_comment}
 -- Mutations incorporated: {mutations_incorporated}
 -- Generated by MeiosisEngine (autonomous)
+--
+-- ── GS APPLICATION INSTRUCTIONS ────────────────────────────────────────────
+-- This file is a GS specification for the Claude Code stateless reader.
+-- Each "GS EVOLUTION SPEC" block below is a machine-readable derivation unit.
+-- To apply: read CLAUDE.md §Genome Application, then process each block.
+-- Gate: cargo test --lib must pass before committing source changes.
+-- ────────────────────────────────────────────────────────────────────────────
+{gs_spec_blocks}
 
 module {module_name}
 
