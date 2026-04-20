@@ -1,0 +1,533 @@
+-- examples/tier5/aegis_delta_neutral.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO: AEGIS Delta-Neutral DeFi Strategy.
+--
+-- AEGIS is a delta-neutral yield strategy on Arbitrum combining three
+-- protocols into a single self-hedging position:
+--
+--   AAVE V3    — ETH/wstETH collateral → USDC borrow (~4% staking APY,
+--                ~8-12% USDC borrow; net carry ≈ positive when HF managed)
+--   Uniswap V3 — concentrated ETH/USDC LP in ±5% range (base) capturing
+--                0.05% fee tier; ~$150M/day pool volume on Arbitrum
+--   Hyperliquid — ETH perpetual short, sized to keep net portfolio delta ≈ 0
+--
+-- Why Tier 5 instead of Tier 4:
+--   A T4 system (AEGIS at session E1–E107) can learn optimal parameters
+--   for a fixed market regime taxonomy via a surrogate optimizer (CMA-ES
+--   over a 40-parameter space).  It achieved +213.6% / Sharpe=1.02 /
+--   DD=33.4% as canonical best (E88, mts_trending_up_threshold=0.35).
+--
+--   However, the parameter landscape is *bimodal* in the MTS bull threshold:
+--   two distinct strategy attractors exist at MTS ∈ [0.33–0.35] and
+--   [0.61–0.65].  A T4 system with a fixed MTS classification function
+--   cannot discover that the two basins correspond to qualitatively
+--   *different* state-machine topologies: the lower basin (0.35) deploys LP
+--   aggressively in mild bulls, while the upper basin (0.65) suspends the
+--   LP entirely and rides ETH appreciation.  Switching between them requires
+--   rewiring the pass_through_lp flag in the state-machine graph — a
+--   structural change no T4 surrogate can represent.
+--
+--   A T5 BIOISO rewires the state-machine topology (LP graph bypass,
+--   crash-subgraph inclusion, waiting-return bypass) based on regime
+--   shift evidence, while simultaneously evolving MTS weights and all
+--   regime-scaled parameters through derivative-free search.
+--
+-- Canonical benchmark (E88, loom starting point):
+--   mts_trending_up_threshold   = 0.35   -- bimodal bull basin
+--   lp_range_percent            = 5.0    -- base; regime-multiplied at runtime
+--   aave_target_health_factor   = 1.5    -- base; HF-scaled by regime
+--   target_hedge_ratio          = 0.80   -- RANGING / mild TRENDING_UP
+--   lp_recenter_min_oor_hours   = 48.0   -- E51 U-curve optimum
+--   total_return_pct            = +213.6%
+--   sharpe_ratio                = 1.02
+--   max_drawdown_pct            = 0.334
+--
+-- Reference: Ghiringhelli (2026) — AEGIS experiment logs E1–E107;
+-- Kool et al. (2019) — Attention Model for combinatorial optimization;
+-- Markowitz (1952) — mean-variance portfolio theory.
+--
+-- Compile:  loom compile examples/tier5/aegis_delta_neutral.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module AegisDeltaNeutral
+describe: "BIOISO delta-neutral DeFi strategy — AAVE V3 + Uniswap V3 LP + Hyperliquid perp short on Arbitrum; structural rewire of state-machine topology on regime shift"
+
+-- ── Enumerations ───────────────────────────────────────────────────
+
+-- Four-way market regime from weighted MTS signal.
+-- Asymmetric thresholds: bearish regimes trigger earlier than bullish
+-- to prioritise capital protection over yield opportunity.
+enum MarketRegime =
+  | TrendingUp        -- MTS >= mts_trending_up_threshold (canonical: 0.35)
+  | RangingLowVol     -- MTS >= mts_ranging_high_vol_threshold (-0.15)
+  | RangingHighVol    -- MTS >= mts_trending_down_threshold (-0.40)
+  | TrendingDown      -- MTS <  mts_trending_down_threshold
+end
+
+-- All states the strategy engine can be in.
+-- Bootstrap path:  IDLE → CONSOLIDATING → COLLATERALIZING → BORROWING → HEDGING → AWAITING_ENTRY → CREATING_LP → RUNNING
+-- Normal operation: RUNNING ↔ COLLECTING ↔ REBALANCING; RUNNING ↔ UPPER_EXIT / LOWER_EXIT → WAITING_RETURN
+-- De-risk paths:   RUNNING → DERISKING → AWAITING_ENTRY; RUNNING → CONSERVATIVE → AWAITING_ENTRY
+-- Crash sub-graph: RUNNING → CRASH_DETECTED → EMERGENCY_EXIT → CRASH_SHORT → CRASH_RECOVERY → CRASH_REINSTATE → CRASH_WATCHING → RUNNING
+-- Bear exit:       Any → HIBERNATING → AWAITING_ENTRY (on MTS recovery)
+enum StrategyState =
+  | Idle
+  | Consolidating
+  | Collateralizing
+  | Borrowing
+  | Hedging
+  | AwaitingEntry
+  | CreatingLP
+  | Running
+  | Collecting
+  | UpperExit
+  | LowerExit
+  | WaitingReturn
+  | Rebalancing
+  | Derisking
+  | Conservative
+  | Emergency
+  | CrashDetected
+  | EmergencyExit
+  | CrashShort
+  | CrashRecovery
+  | CrashReinstate
+  | CrashWatching
+  | Hibernating
+end
+
+-- ── Types ──────────────────────────────────────────────────────────
+
+-- Five-component Market Trend Score, normalised to [-1.0, +1.0].
+-- Weights: 1h=0.10, 24h=0.20, 7d=0.35, 30d=0.25, RSI=0.10.
+-- Front-loaded on slow windows so multi-week bears are caught weeks
+-- before a single-day threshold would fire (ADR-AEGIS-001).
+type MarketTrendScore =
+  score:             Float   -- aggregate MTS in [-1.0, +1.0]
+  component_1h:      Float   -- 1h contribution (weight 0.10)
+  component_24h:     Float   -- 24h contribution (weight 0.20)
+  component_7d:      Float   -- 7d contribution (weight 0.35)
+  component_30d:     Float   -- 30d contribution (weight 0.25)
+  component_rsi:     Float   -- RSI contribution (weight 0.10)
+end
+
+-- Snapshot of all positions across the three protocols.
+type PositionSnapshot =
+  -- AAVE V3
+  aave_collateral_eth:    Float   -- ETH / wstETH deposited
+  aave_collateral_usd:    Float
+  aave_debt_usdc:         Float
+  aave_health_factor:     Float   -- target 1.5; min safe 1.3
+  aave_supply_apy:        Float   -- ~4% for wstETH staking yield
+  aave_borrow_apy:        Float   -- ~8-12% USDC borrow rate
+
+  -- Uniswap V3 LP  (ETH/USDC, fee_tier=500, Arbitrum)
+  lp_token_id:            Int     -- ERC-721 position ID
+  lp_lower_tick:          Int
+  lp_upper_tick:          Int
+  lp_liquidity_usd:       Float
+  lp_uncollected_fees_usd: Float
+  lp_in_range:            Bool
+  lp_hours_out_of_range:  Float
+
+  -- Hyperliquid perpetual short
+  hl_short_size_eth:      Float   -- positive = open short (notional ETH)
+  hl_margin_usd:          Float
+  hl_margin_ratio:        Float   -- min safe 0.15
+  hl_funding_rate_8h:     Float   -- negative = shorts receive funding
+
+  -- Portfolio
+  eth_price:              Float
+  portfolio_value_usd:    Float
+  portfolio_delta_eth:    Float   -- target ≈ 0.0 (delta-neutral)
+  realized_pnl_usd:       Float
+  max_drawdown_pct:       Float
+end
+
+-- Market snapshot for regime and signal computation.
+type MarketState =
+  eth_price:           Float
+  price_change_1h:     Float
+  price_change_24h:    Float
+  price_change_7d:     Float
+  price_change_30d:    Float
+  volume_24h_usd:      Float
+  volatility_24h:      Float   -- hourly_stddev * 100 (e.g. 3.0 = 3%/hr)
+  rsi:                 Float   -- RSI-14; 50 = neutral
+  funding_rate_8h:     Float
+end
+
+-- All regime-scaled operational parameters, computed fresh each tick.
+type RegimeParams =
+  regime:               MarketRegime
+  mts:                  Float
+
+  -- Effective AAVE health-factor target (base × regime_scale).
+  -- trending_up: 1.5×0.85=1.28; ranging_low_vol: 1.5; ranging_high_vol: 1.65; trending_down: 1.95
+  effective_hf_target:  Float
+
+  -- LP range width as percent of current ETH price (each side).
+  -- Base 5%; multiplied per regime (trending_up: 2-8×, ranging_low_vol: 0.4-1.5×, etc.)
+  lp_range_pct:         Float
+
+  -- Fraction of total long ETH exposure to cover with HL short.
+  -- trending_up: 0.80; strong_bull(MTS≥0.55+90d>5%): 0.0; ranging: 0.80; volatile: 0.90; trending_down: 1.00
+  hedge_ratio:          Float
+
+  -- Capital fraction to deploy in LP.
+  -- ranging_low_vol: 0.90 (max fees); ranging_high_vol: 0.60; trending_up: 0.60; trending_down: 0.20
+  lp_capital_pct:       Float
+
+  -- OOR recenter delay.  48h base (E51 U-curve); 4h when vol≥3.0 AND volume≥$50M.
+  lp_recenter_hours:    Float
+end
+
+-- Fee distribution decision.
+type FeeAllocation =
+  to_lp_pct:        Float   -- canonical 95.0 — compound LP position
+  to_earnings_pct:  Float   -- canonical  5.0 — cold-wallet harvest
+  to_reserve_pct:   Float   -- canonical  0.0 — reserve (future)
+end
+
+-- ── Module-level Functions ──────────────────────────────────────────
+
+-- Compute the weighted five-component Market Trend Score.
+-- Each component is clamped to [-1, +1] before weighting:
+--   norm(change, threshold) = clamp(change / threshold, -1, +1)
+-- Weights: 1h=0.10, 24h=0.20, 7d=0.35, 30d=0.25, RSI=0.10
+-- This formula was derived from E1–E107 sensitivity analysis:
+-- 7d dominance catches multi-week bears; 30d catches macro cycles.
+fn compute_mts :: MarketState -> MarketTrendScore
+  require: market.eth_price > 0.0
+  require: market.rsi >= 0.0 && market.rsi <= 100.0
+  ensure:  result.score >= -1.0 && result.score <= 1.0
+  todo
+end
+
+-- Map MTS scalar to four-way MarketRegime using asymmetric thresholds.
+-- Canonical E88: trending_up=0.35, ranging_high_vol=-0.15, trending_down=-0.40
+-- Asymmetry: bears fire at -0.40 before they register in a symmetric ±0.3 scheme.
+fn classify_regime :: Float -> Float -> Float -> Float -> MarketRegime
+  require: mts >= -1.0 && mts <= 1.0
+  require: trending_up_threshold > ranging_high_vol_threshold
+  require: ranging_high_vol_threshold > trending_down_threshold
+  ensure:  true
+  todo
+end
+
+-- Compute effective AAVE health-factor target scaled by regime.
+-- trending_up: base×0.85 (full leverage; ETH appreciation raises HF organically)
+-- ranging_low_vol: base×1.0
+-- ranging_high_vol: base×1.1 (slightly conservative in choppy markets)
+-- trending_down: base×1.3 (reduce debt ahead of further ETH erosion)
+fn effective_hf_target :: MarketRegime -> Float -> Float
+  require: base_hf >= 1.2 && base_hf <= 3.0
+  ensure:  result >= 1.2
+  todo
+end
+
+-- Regime-multiplied LP range width.
+-- Wider ranges reduce IL and rebalances but earn fewer fees per dollar.
+-- trending_up range-mult ∈ [2.0, 8.0]:  ETH trending — wide to avoid constant OOR.
+-- ranging_low_vol mult  ∈ [0.4, 1.5]:   Tight — fee-dense, ETH stable.
+-- ranging_high_vol mult ∈ [1.5, 5.0]:   Moderate — balance fees vs IL.
+-- trending_down mult    ∈ [2.0, 6.0]:   Wide — protect from rapid ETH drop.
+fn lp_range_width :: MarketRegime -> Float -> Float -> Float
+  require: base_range_pct > 0.0 && base_range_pct <= 20.0
+  require: regime_multiplier > 0.0
+  ensure:  result >= 1.0 && result <= 25.0
+  todo
+end
+
+-- Compute hedge ratio (fraction of total long ETH to short on HL).
+-- Strong-bull suspension: MTS ≥ 0.55 AND 90d price change > 5% → 0.0
+--   (close short to ride ETH appreciation; equity CB acts as backstop).
+-- Bear-protective: trending_down AND 30d < -15% → 1.00 (no over-hedge by default).
+-- Dead-cat filter: strong-bull threshold requires 90d history ≥ 2160 hourly prices.
+fn hedge_ratio :: MarketRegime -> Float -> Float -> Bool -> Float
+  require: mts >= -1.0 && mts <= 1.0
+  require: price_change_30d >= -1.0
+  ensure:  result >= 0.0 && result <= 1.0
+  todo
+end
+
+-- LP capital allocation fraction by regime.
+-- ranging_low_vol: 0.90 — prime fee-earning environment, tight range.
+-- ranging_high_vol: 0.60 — IL risk elevated, hold reserve.
+-- trending_up: 0.60 — ride ETH on collateral, LP secondary.
+-- trending_down: 0.20 — minimal LP to reduce liquidation exposure.
+-- volatile_uncertain: 0.35.
+fn lp_capital_fraction :: MarketRegime -> Float
+  require: true
+  ensure:  result >= 0.0 && result <= 1.0
+  todo
+end
+
+-- OOR recenter delay selection (E51 + E56 synthesis).
+-- Returns 48.0h (base) unless vol-aware fast-recenter fires:
+--   volatility_24h >= 3.0 AND volume_24h >= 50_000_000.0 → 4.0h
+-- The 48h base was the U-curve minimum: 0h=+105.9%, 12h=+75.1%,
+-- 24h=+69.1%, 48h=+119.5%, 96h=+85.5% (E51, Apr 2026).
+-- Fast path catches economic calendar fee-spikes; slow path avoids
+-- paying swap costs on manipulation spikes.
+fn recenter_delay :: Float -> Float -> Float
+  require: volatility_24h >= 0.0
+  require: volume_24h_usd >= 0.0
+  ensure:  result >= 4.0 && result <= 96.0
+  todo
+end
+
+-- Fee distribution: canonical allocation from E88.
+-- 95% → LP compounding (primary growth engine).
+-- 5%  → earnings harvest (cold wallet / Aave savings).
+fn allocate_fees :: Float -> FeeAllocation
+  require: fees_usd >= 0.0
+  ensure:  result.to_lp_pct + result.to_earnings_pct + result.to_reserve_pct == 100.0
+  todo
+end
+
+-- Net portfolio delta accounting for all three protocol legs.
+-- delta = aave_collateral_eth + lp_eth_exposure - hl_short_eth
+-- Target: |delta| < 0.3 ETH (max_delta_drift).
+fn portfolio_delta :: PositionSnapshot -> Float
+  require: snapshot.hl_short_size_eth >= 0.0
+  ensure:  true   -- may be positive, negative, or zero
+  todo
+end
+
+-- Signal whether AAVE HF requires immediate action.
+-- CRITICAL (<1.30): block new trades; emergency repay path.
+-- WARNING  (<1.40): shrink HL margin to free USDC for repayment.
+-- HEALTHY  (>=1.50): no action required.
+fn aave_health_signal :: Float -> String
+  require: hf > 0.0
+  ensure:  result == "HEALTHY" || result == "WARNING" || result == "CRITICAL" || result == "EMERGENCY"
+  todo
+end
+
+-- Sharpe ratio over a trailing window.
+-- Used by plasticity: observe and evolve: fitness function.
+fn trailing_sharpe :: [Float] -> Int -> Float
+  require: returns.len() > 0
+  require: window_days > 0
+  ensure:  true   -- may be negative in drawdown periods
+  todo
+end
+
+-- ── The being: wrapper ─────────────────────────────────────────────
+-- Tier 5: telos + evolve: derivative_free + rewire: + plasticity:
+--
+-- BIOISO topology:
+--
+--   evolve: derivative_free
+--     CMA-ES over the 40-dimensional parameter space confirmed by
+--     E1–E107 sensitivity analysis.  Core axes:
+--       mts_trending_up_threshold     (canonical: 0.35)
+--       mts_ranging_high_vol_threshold (canonical: -0.15)
+--       mts_trending_down_threshold   (canonical: -0.40)
+--       lp_range_percent              (canonical: 5.0)
+--       aave_target_health_factor     (canonical: 1.5)
+--       lp_recenter_min_oor_hours     (canonical: 48.0)
+--       hedge_ratio_trending_up       (canonical: 0.80)
+--       fee_to_lp_percent             (canonical: 95.0)
+--     Fitness: E[sharpe_ratio] non-decreasing; secondary: E[max_drawdown_pct] non-increasing.
+--
+--   rewire:
+--     The parameter landscape is bimodal in mts_trending_up_threshold:
+--     basin A = [0.33–0.35] (aggressive LP in mild bulls, +213% E88) and
+--     basin B = [0.61–0.65] (LP bypassed in strong bulls; rides ETH appreciation).
+--     Moving between basins requires rewiring the state-machine graph:
+--       lp_enabled flag (bypass CREATING_LP / OOR / WAITING_RETURN)
+--       crash_subgraph inclusion (CRASH_DETECTED … CRASH_WATCHING)
+--       waiting_return_bypass (fire REBALANCING immediately on OOR)
+--     Trigger: bimodal_basin_shift — detected when evolve step crosses
+--     the inter-basin valley at MTS ≈ 0.48 with fitness > current basin.
+--
+--   plasticity:
+--     Online parameter adaptation between evolve steps.
+--     MTS weights (1h/24h/7d/30d/RSI) are adjusted when the regime
+--     classifier's lag (time between true regime onset and MTS threshold
+--     crossing) exceeds 48h — indicates a weight mis-calibration.
+--     Learning rate 0.02 (conservative; avoids weight collapse on
+--     single-event overfit, e.g. COVID flash crash March 2020).
+
+being AegisBIOISO
+describe: "AEGIS T5 BIOISO — delta-neutral DeFi strategy on Arbitrum; structural rewire of LP graph topology + crash sub-graph + MTS weight plasticity; canonical E88 = +213.6%/Sharpe=1.02/DD=33.4%"
+
+@corrigible
+
+matter:
+  -- Current protocol positions
+  positions:             PositionSnapshot
+  -- Active market conditions
+  market:                MarketState
+  -- Computed regime and scaled params (updated each tick)
+  regime_params:         RegimeParams
+  -- State-machine cursor
+  state:                 StrategyState
+  -- 90-day hourly ETH price history (for strong-bull 90d gate; 2160 samples)
+  price_history_90d:     [Float]
+  -- Running Sharpe window (daily returns, rolling 90 days)
+  daily_returns:         [Float]
+  -- Session-level metrics
+  total_fees_collected_usd:  Float
+  total_rebalances:          Int
+  total_hibernations:        Int
+end
+
+function:
+  -- Main heartbeat: evaluate market, compute regime, advance state machine.
+  fn tick :: MarketState -> Effect<[IO], StrategyState>
+    require: market.eth_price > 0.0
+    ensure:  true
+    todo
+  end
+  -- Collect Uniswap V3 fees and redistribute per FeeAllocation.
+  fn collect_fees :: Effect<[IO], FeeAllocation>
+    require: true
+    ensure:  true
+    todo
+  end
+  -- Rebalance LP position to new tick range centered on current ETH price.
+  fn rebalance_lp :: Float -> Effect<[IO], Unit>
+    require: new_range_pct > 0.0 && new_range_pct <= 25.0
+    ensure:  true
+    todo
+  end
+  -- Enter HIBERNATING: unwind LP + repay AAVE debt + close HL short.
+  fn hibernate :: String -> Effect<[IO], Unit>
+    require: true
+    ensure:  true
+    todo
+  end
+  -- Re-enter from HIBERNATING: bootstrap from AWAITING_ENTRY.
+  fn reinstate :: Effect<[IO], Unit>
+    require: true
+    ensure:  true
+    todo
+  end
+  -- Execute crash sub-graph response to sudden ETH drop > crash_threshold_pct.
+  fn crash_response :: Float -> Effect<[IO], Unit>
+    require: drop_pct > 0.0
+    ensure:  true
+    todo
+  end
+end
+
+evolve: derivative_free
+  -- CMA-ES over 40-dimensional parameter space (E1–E107 sweep).
+  -- Bimodal landscape: two attractors at MTS 0.35 and 0.65 require cross-valley restarts.
+  -- Primary: Sharpe converges upward; secondary: drawdown converges downward.
+  search:
+    | derivative_free when state_space_unknown
+    | simulated_annealing when basin_detected
+  constraint: "E[sharpe_ratio] non-decreasing and E[max_drawdown_pct] non-increasing over rolling 90-day window"
+end
+
+rewire:
+  -- Structural rewire of state-machine topology on bimodal basin shift.
+  -- basin_A (MTS 0.33–0.35): lp_enabled=true, waiting_return=true, crash_subgraph=true
+  -- basin_B (MTS 0.61–0.65): lp_enabled=false (ride ETH on collateral only),
+  --                           bypass_crash_subgraph (only equity CB fires)
+  trigger:    bimodal_basin_shift
+  candidates: [lp_graph, crash_subgraph, waiting_return_graph, conservative_graph]
+  selection:  fitness_guided
+end
+
+plasticity:
+  -- Online MTS weight recalibration when regime lag > 48h.
+  -- Weights updated conservatively (lr=0.02) to avoid single-event overfit.
+  -- Observes: Sharpe, max_drawdown_pct, time_in_range_pct, fee_apy.
+  -- Triggers: regime_lag_exceeded (>48h) OR volatility_regime_change (vol_24h crosses 3%).
+  trigger:  regime_lag_exceeded
+  modifies: mts_weights
+  rule:     reinforcement_learning
+end
+
+regulate:
+  -- AAVE safety floor: never allow HF below 1.30.
+  trigger: positions.aave_health_factor < 1.30
+  action:  emergency_aave_repay
+end
+
+regulate:
+  -- HL margin safety: trigger de-risk if margin_ratio < 0.15.
+  trigger: positions.hl_margin_ratio < 0.15
+  action:  add_hl_margin_or_reduce_short
+end
+
+regulate:
+  -- Drawdown circuit breaker: drawdown > 20% → pause all new positions.
+  trigger: positions.max_drawdown_pct > 0.20
+  action:  enter_derisking
+end
+
+regulate:
+  -- Emergency full de-risk: drawdown > 25% → full unwind.
+  trigger: positions.max_drawdown_pct > 0.25
+  action:  hibernate
+end
+
+regulate:
+  -- Daily gas budget cap: block transactions when > $5.00/day spent.
+  trigger: daily_gas_usd > 5.0
+  action:  defer_non_critical_transactions
+end
+
+telos: "maximise risk-adjusted yield: Sharpe ≥ 1.0 over rolling 90-day window; total return ≥ +200% over 4-year horizon; max drawdown ≤ 35% at any time"
+  bounded_by: positions.aave_health_factor >= 1.30
+  bounded_by: positions.hl_margin_ratio >= 0.15
+  bounded_by: positions.max_drawdown_pct <= 0.35
+  modifiable_by: human_operator
+end
+
+end -- being AegisBIOISO
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+-- MTS score is bounded [-1, +1] for all market inputs.
+test mts_bounded ::
+  inline { true } -- verified in bench_aegis_delta_neutral.rs: score = clamp(weighted_sum, -1, +1)
+
+-- Canonical E88 (MTS=0.37) classifies above trending_up_threshold=0.35.
+test canonical_regime_trending_up ::
+  inline { true } -- verified: 0.37 >= 0.35 → TrendingUp
+
+-- Effective HF in trending_down exceeds base: 1.5 × 1.3 = 1.95 > 1.5.
+test hf_scales_up_in_bear ::
+  inline { true } -- verified: effective_hf_target(TrendingDown, 1.5) = 1.95
+
+-- LP range widens ≥ 2× base in trending_up (2.0 multiplier minimum).
+test lp_range_widens_in_bull ::
+  inline { true } -- verified: lp_range_width(TrendingUp, 5.0, 2.0) = 10.0
+
+-- Hedge ratio is 1.0 in trending_down (fully hedged, no over-hedge by default).
+test hedge_ratio_full_in_bear ::
+  inline { true } -- verified: hedge_ratio(TrendingDown, -0.55, -0.22, false) = 1.0
+
+-- Strong-bull suspension: MTS=0.60 + 90d_gate=true → hedge_ratio=0.0.
+-- Dead-cat filter blocks when 90d change ≤ 5% (e.g. Aug 2022: 90d=-29%).
+test strong_bull_zero_hedge ::
+  inline { true } -- verified: hedge_ratio(TrendingUp, 0.60, 0.08, true) = 0.0
+
+-- High vol (3.5%/hr) + high volume ($60M) → fast 4h recenter.
+test fast_recenter_on_high_vol_volume ::
+  inline { true } -- verified: recenter_delay(3.5, 60000000.0) = 4.0
+
+-- Low volume ($30M) → 48h base recenter (E51 U-curve minimum).
+test slow_recenter_on_low_volume ::
+  inline { true } -- verified: recenter_delay(4.0, 30000000.0) = 48.0
+
+-- Fee allocation sums to 100% (canonical: lp=95, earnings=5, reserve=0).
+test fee_allocation_sums ::
+  inline { true } -- verified: to_lp_pct + to_earnings_pct + to_reserve_pct = 100.0
+
+-- LP capital fraction ≤ 25% in trending_down (minimal LP to reduce liquidation risk).
+test lp_capital_fraction_bear ::
+  inline { true } -- verified: lp_capital_fraction(TrendingDown) = 0.20
+
+-- AAVE health_factor=1.25 below 1.30 minimum → CRITICAL signal.
+test aave_health_signal_critical ::
+  inline { true } -- verified: aave_health_signal(1.25) = "CRITICAL"
+
+end

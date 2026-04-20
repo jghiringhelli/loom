@@ -9,6 +9,22 @@
       "reason": "functions.rs emits todo!() as string literals into generated Rust stubs. These are intentional codegen artifacts — the todo! calls live in the OUTPUT, not in this source file. The grep pattern matches inside string literals, not real todo! invocations.",
       "addedAt": "2026-04-09",
       "addedBy": "Copilot"
+    },
+    {
+      "id": "generated-example-todo-tests",
+      "hook": "rust/todo",
+      "pattern": "examples/01-hello-contracts.rs",
+      "reason": "Auto-generated output from loom compile. The todo!() call is inside a #[cfg(test)] / #[ignore] test stub — intentional placeholder in generated code, not production logic.",
+      "addedAt": "2026-04-18",
+      "addedBy": "Claude Sonnet 4.6"
+    },
+    {
+      "id": "generated-aegis-bioiso-todos",
+      "hook": "rust/todo",
+      "pattern": "examples/tier5/aegis_delta_neutral.rs",
+      "reason": "Auto-generated output from loom compile of aegis_delta_neutral.loom. All todo!() calls correspond to loom `todo` stubs in the source — intentional BIOISO function scaffolding, not unfinished production logic.",
+      "addedAt": "2026-04-20",
+      "addedBy": "Claude Sonnet 4.6"
     }
   ]
 }
