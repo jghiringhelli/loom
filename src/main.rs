@@ -1005,12 +1005,13 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 }
             };
 
-            // Auto-seed if no entities registered yet
+            let runner = BIOISORunner::new();
+
+            // Auto-seed if no entities registered yet.
             {
                 let existing = runtime.store.all_entities().unwrap_or_default();
                 if existing.is_empty() {
                     eprintln!("info: no entities found — running seed first");
-                    let runner = BIOISORunner::new();
                     for spec in all_domain_specs() {
                         if let Err(e) = runner.spawn_domain(&mut runtime, &spec) {
                             eprintln!("  warn: seed failed for {}: {e}", spec.entity_id);
@@ -1020,6 +1021,11 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                     }
                 }
             }
+
+            // Always repopulate in-memory state (gate sources + T1 rules) from specs.
+            // spawn_domain only runs on first boot; after a restart the SQLite entities
+            // exist but the in-memory supervisor and gate are empty. This is the T1=0 fix.
+            runner.repopulate_in_memory(&mut runtime);
 
             let entity_filter: Vec<String> = if domains.is_empty() {
                 Vec::new()
