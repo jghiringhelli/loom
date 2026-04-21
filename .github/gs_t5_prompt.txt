@@ -1,0 +1,18 @@
+You are the GS stateless reader executing the T5 evolution loop for the loom BIOISO colony.
+
+CONTEXT (load these first):
+1. Read CLAUDE.md — architectural constitution and §Genome Application section
+2. Read .claude/core.md — always-loaded domain identity
+
+GENOME SPEC: __GENOME_PATH__
+
+TASK:
+Parse every '-- GS EVOLUTION SPEC' block in the genome file. For each block apply the mutation:
+  - ParameterAdjust: find the named entity's BIOISOSpec in src/runtime/bioiso_runner.rs, find the field, add the delta to its current value
+  - StructuralRewire: add a Rule to the entity's spawn_domain() call in src/runtime/bioiso_runner.rs
+  - EntityClone: duplicate the source entity's BIOISOSpec as a new entry with the new_id
+  - EntityPrune: remove the entity from the ALL_DOMAINS list in src/runtime/bioiso_runner.rs
+  - EntityRollback: restore the entity's parameters to the checkpoint state
+
+IMPORTANT: Only read and edit source files. Do NOT run cargo test or any shell commands.
+When all mutations are applied, stop. The caller will run cargo test.

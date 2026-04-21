@@ -108,22 +108,47 @@ jobs:
             GENOME_NAME=$(basename "$f" .loom)
             echo "▶ Applying GS spec: $f (genome: $GENOME_NAME)"
 
-            # Load prompt from template file to avoid YAML block-scalar breakage.
-            # The template uses __GENOME_PATH__ and __GENOME_NAME__ as placeholders.
+            # Build prompt — Claude only reads + edits, never runs cargo.
+            # cargo test runs below in the workflow shell so it isn't serialised
+            # through Claude's 15-turn budget and doesn't block on compilation.
             PROMPT=$(sed \
               -e "s|__GENOME_PATH__|$f|g" \
               -e "s|__GENOME_NAME__|$GENOME_NAME|g" \
               /tmp/gs_t5_prompt.txt)
 
-            if echo "$PROMPT" | claude \
+            # Claude applies source mutations (Read+Edit only, no Bash).
+            CLAUDE_OK=0
+            echo "$PROMPT" | claude \
               --print \
-              --allowedTools "Read,Edit,Bash" \
-              --max-turns 15; then
-              echo "  ✅ Applied $f"
+              --allowedTools "Read,Edit" \
+              --max-turns 10 && CLAUDE_OK=1 || true
+
+            if [ "$CLAUDE_OK" -eq 0 ]; then
+              echo "  ❌ Claude failed to apply mutations: $f"
+              git checkout src/ 2>/dev/null || true
+              APPLY_FAILED=$((APPLY_FAILED+1))
+              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
+              continue
+            fi
+
+            # Check if Claude actually changed anything.
+            if git diff --quiet src/; then
+              echo "  ⚠️ No src changes made by Claude — skipping: $f"
+              APPLY_FAILED=$((APPLY_FAILED+1))
+              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
+              continue
+            fi
+
+            # Gate: cargo test must pass before we commit.
+            echo "  ▶ Running cargo test --lib ..."
+            if cargo test --lib 2>&1; then
+              git add src/
+              git commit -m "auto(genome): apply $GENOME_NAME mutations [GS T5]"
+              echo "  ✅ Applied and committed $f"
               APPLIED=$((APPLIED+1))
               APPLIED_FILES="$APPLIED_FILES $f"
             else
-              echo "  ❌ Application failed (tests failed or no changes): $f"
+              echo "  ❌ cargo test failed — reverting src/: $f"
               git checkout src/ 2>/dev/null || true
               APPLY_FAILED=$((APPLY_FAILED+1))
               APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
