@@ -152,7 +152,7 @@ fn flash_crash_spec() -> BIOISOSpec {
                 metric: "order_book_depth",
                 min: Some(0.0),
                 max: Some(1.0),
-                target: 0.7,
+                target: 0.72,
             },
             MetricBoundSpec {
                 metric: "bid_ask_spread_bps",
