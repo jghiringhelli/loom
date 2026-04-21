@@ -28,6 +28,42 @@ path = "src/main.rs"
 name = "loom-lsp"
 path = "src/bin/loom_lsp.rs"
 
+[[bin]]
+name = "bench_dsatur"
+path = "src/bin/bench_dsatur.rs"
+
+[[bin]]
+name = "bench_ffd"
+path = "src/bin/bench_ffd.rs"
+
+[[bin]]
+name = "bench_spt"
+path = "src/bin/bench_spt.rs"
+
+[[bin]]
+name = "bench_tsp_sa"
+path = "src/bin/bench_tsp_sa.rs"
+
+[[bin]]
+name = "bench_knapsack_ga"
+path = "src/bin/bench_knapsack_ga.rs"
+
+[[bin]]
+name = "bench_vrp_pso"
+path = "src/bin/bench_vrp_pso.rs"
+
+[[bin]]
+name = "bench_hyper_scheduler"
+path = "src/bin/bench_hyper_scheduler.rs"
+
+[[bin]]
+name = "bench_bayesian_opt"
+path = "src/bin/bench_bayesian_opt.rs"
+
+[[bin]]
+name = "bench_neural_tsp"
+path = "src/bin/bench_neural_tsp.rs"
+
 [lib]
 name = "loom"
 path = "src/lib.rs"
