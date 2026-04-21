@@ -298,7 +298,19 @@ impl Orchestrator {
 
                 // Each promoted mutation is a division event — ages the entity's
                 // telomere. When exhausted, enforce the on_exhaustion policy.
+                // Skip already-Dead entities to avoid duplicate apoptosis logs when
+                // multiple proposals for the same entity are promoted in one tick.
                 let eid = proposal.primary_entity();
+                let already_dead = self
+                    .runtime
+                    .supervisor
+                    .get(eid)
+                    .map(|e| !e.is_alive())
+                    .unwrap_or(false);
+                if already_dead {
+                    deploy_outcomes.push(outcome);
+                    continue;
+                }
                 if let Err(msg) = self
                     .runtime
                     .supervisor
