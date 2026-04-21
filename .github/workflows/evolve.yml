@@ -77,10 +77,8 @@ jobs:
 
       # ── GS T5 Application Loop ────────────────────────────────────────────────
       # Each passing genome is a GS specification (the mold).
-      # Claude Code is the stateless reader (the foundry).
-      # It reads CLAUDE.md + .claude/core.md, parses GS EVOLUTION SPEC blocks,
-      # applies mutations to src/, and runs cargo test as the T2 harness.
-      # Only genomes whose mutations pass the test harness are promoted.
+      # Claude Code is the stateless reader (the foundry): Read+Edit only, no Bash.
+      # cargo test runs here in the workflow shell after Claude exits.
       - name: Apply genome mutations to source (GS T5 — Claude Code stateless reader)
         id: apply
         if: steps.compile.outputs.pass != '0' && env.ANTHROPIC_API_KEY != ''
@@ -89,18 +87,18 @@ jobs:
         run: |
           npm install -g @anthropic-ai/claude-code@latest
 
-          # Save prompt template to /tmp while still on genomes/evolved (which has the file).
-          # Must happen before switching to main, where the file does not exist.
+          # Copy prompt template before switching branches — it lives on genomes/evolved.
           cp .github/gs_t5_prompt.txt /tmp/gs_t5_prompt.txt
+
+          # Remove untracked .rs files loom compile may have left under genomes/.
+          git clean -fd genomes/ 2>/dev/null || true
 
           git config user.email "genome-bot@loom.run"
           git config user.name "Loom Evolution Bot"
           git fetch origin main
-          # Remove any untracked files (e.g. *.rs from loom compile) before switching branches.
-          git clean -fd genomes/ 2>/dev/null || true
           git checkout main
 
-          APPLIED=0; APPLY_FAILED=0; APPLIED_FILES=""; APPLY_FAILED_FILES=""
+          APPLIED=0; APPLY_FAILED=0; APPLIED_FILES=""
 
           for f in ${{ steps.compile.outputs.passed_files }}; do
             git checkout genomes/evolved -- "$f"
@@ -108,56 +106,39 @@ jobs:
             GENOME_NAME=$(basename "$f" .loom)
             echo "▶ Applying GS spec: $f (genome: $GENOME_NAME)"
 
-            # Build prompt — Claude only reads + edits, never runs cargo.
-            # cargo test runs below in the workflow shell so it isn't serialised
-            # through Claude's 15-turn budget and doesn't block on compilation.
             PROMPT=$(sed \
               -e "s|__GENOME_PATH__|$f|g" \
               -e "s|__GENOME_NAME__|$GENOME_NAME|g" \
               /tmp/gs_t5_prompt.txt)
 
-            # Claude applies source mutations (Read+Edit only, no Bash).
-            CLAUDE_OK=0
+            # Claude is Read+Edit only — no Bash, no cargo, no git.
             echo "$PROMPT" | claude \
               --print \
               --allowedTools "Read,Edit" \
-              --max-turns 10 && CLAUDE_OK=1 || true
+              --max-turns 10
 
-            if [ "$CLAUDE_OK" -eq 0 ]; then
-              echo "  ❌ Claude failed to apply mutations: $f"
-              git checkout src/ 2>/dev/null || true
-              APPLY_FAILED=$((APPLY_FAILED+1))
-              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
-              continue
-            fi
-
-            # Check if Claude actually changed anything.
             if git diff --quiet src/; then
-              echo "  ⚠️ No src changes made by Claude — skipping: $f"
+              echo "  ⚠ No source changes — skipping $f"
               APPLY_FAILED=$((APPLY_FAILED+1))
-              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
               continue
             fi
 
-            # Gate: cargo test must pass before we commit.
-            echo "  ▶ Running cargo test --lib ..."
-            if cargo test --lib 2>&1; then
+            if cargo test --lib; then
               git add src/
               git commit -m "auto(genome): apply $GENOME_NAME mutations [GS T5]"
               echo "  ✅ Applied and committed $f"
               APPLIED=$((APPLIED+1))
               APPLIED_FILES="$APPLIED_FILES $f"
             else
-              echo "  ❌ cargo test failed — reverting src/: $f"
-              git checkout src/ 2>/dev/null || true
+              echo "  ❌ Tests failed — reverting $f"
+              git checkout src/
               APPLY_FAILED=$((APPLY_FAILED+1))
-              APPLY_FAILED_FILES="$APPLY_FAILED_FILES $f"
             fi
           done
 
-          echo "applied=$APPLIED"              >> "$GITHUB_OUTPUT"
-          echo "apply_failed=$APPLY_FAILED"    >> "$GITHUB_OUTPUT"
-          echo "applied_files=$APPLIED_FILES"  >> "$GITHUB_OUTPUT"
+          echo "applied=$APPLIED"             >> "$GITHUB_OUTPUT"
+          echo "apply_failed=$APPLY_FAILED"   >> "$GITHUB_OUTPUT"
+          echo "applied_files=$APPLIED_FILES" >> "$GITHUB_OUTPUT"
           echo "### 🧬 GS T5 apply: $APPLIED applied, $APPLY_FAILED failed" >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$APPLIED" -gt 0 ]; then
@@ -189,23 +170,13 @@ jobs:
 
           if [ "$PROMOTED" -gt 0 ]; then
             git add genomes/
-            # Nothing to commit if genomes were already on main from the apply step.
-            if git diff --cached --quiet; then
-              echo "  Genomes already on main — skipping genome promotion commit"
-              echo "### ✅ Genome spec already on main (promoted by apply step)" >> "$GITHUB_STEP_SUMMARY"
-            else
-              SHORT=$(git rev-parse --short genomes/evolved)
-              APPLIED_COUNT="${{ steps.apply.outputs.applied || '0' }}"
-              PASS_COUNT="${{ steps.compile.outputs.pass }}"
-              FAIL_COUNT="${{ steps.compile.outputs.fail }}"
-              MSG="auto(genome): promote $PROMOTED evolved genomes [$SHORT]"
-              MSG="$MSG"$'\n\n'"Decision types promoted autonomously by EvolutionJudge."
-              MSG="$MSG"$'\n'"GS T5 applied: $APPLIED_COUNT genomes modified source."
-              MSG="$MSG"$'\n'"Compile gate: $PASS_COUNT pass / $FAIL_COUNT fail."
-              git commit -m "$MSG"
-              git push origin main
-              echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
-            fi
+            COMMIT_MSG="auto(genome): promote $PROMOTED evolved genomes [$(git rev-parse --short genomes/evolved)]"$'\n\n'
+            COMMIT_MSG="${COMMIT_MSG}Decision types promoted autonomously by EvolutionJudge."$'\n'
+            COMMIT_MSG="${COMMIT_MSG}GS T5 applied: ${{ steps.apply.outputs.applied || '0' }} genomes modified source."$'\n'
+            COMMIT_MSG="${COMMIT_MSG}Compile gate: ${{ steps.compile.outputs.pass }} pass / ${{ steps.compile.outputs.fail }} fail."
+            git commit -m "$COMMIT_MSG"
+            git push origin main
+            echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Log rejected genomes
