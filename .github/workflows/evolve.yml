@@ -113,11 +113,10 @@ jobs:
               -e "s|__GENOME_NAME__|$GENOME_NAME|g" \
               /tmp/gs_t5_prompt.txt)
 
-            if claude \
+            if echo "$PROMPT" | claude \
               --print \
               --allowedTools "Read,Edit,Bash" \
-              --max-turns 15 \
-              "$PROMPT"; then
+              --max-turns 15; then
               echo "  ✅ Applied $f"
               APPLIED=$((APPLIED+1))
               APPLIED_FILES="$APPLIED_FILES $f"
