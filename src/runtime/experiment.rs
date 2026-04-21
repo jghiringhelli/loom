@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::runtime::{
     deploy::DeployStatus,
+    epigenetic::MemoryType,
     meiosis::{hash_genome, MeiosisEngine, MeiosisReport, PromotedRecord, TelomereTracker},
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
     signal::now_ms,
@@ -414,10 +415,17 @@ impl BranchingEngine {
                 .telos_bounds_for_entity(&parent_id)
                 .unwrap_or_default();
 
-            // Register the child entity
+            // Register the child entity — offspring are more ephemeral than parents:
+            // 15-division telomere ensures aggressive exploration then apoptosis.
             let telos_json = format!(r#"{{"branched_from":"{parent_id}","tick":{tick}}}"#);
             let spawn_ok = runtime
-                .spawn_entity(&child_id, child_name, &telos_json, None, None)
+                .spawn_entity(
+                    &child_id,
+                    child_name,
+                    &telos_json,
+                    Some(15),
+                    Some("apoptosis".into()),
+                )
                 .is_ok();
 
             if spawn_ok {
@@ -707,6 +715,59 @@ impl ExperimentDriver {
             // Feed D_static aggregates into the retro scorer.
             for (eid, d_static) in &seen_entities {
                 self.retro_scorer.record(eid, *d_static);
+            }
+
+            // ── 3b. Epigenome cross-offspring broadcasting ────────────────────
+            // When distillation ran, propagate parent Core to children's Relational
+            // tier and vice-versa. This makes sibling entities aware of each other's
+            // learned adaptations — the true epigenetic coordination layer.
+            if tick_result.distillation_ran && !self.brancher.decisions.is_empty() {
+                for decision in &self.brancher.decisions {
+                    let parent = decision.parent_id.as_str();
+                    let child = decision.child_id.as_str();
+
+                    // Parent Core → Child Relational (child learns from parent).
+                    let parent_entries = self
+                        .orchestrator
+                        .runtime
+                        .epigenome
+                        .core_entries(parent)
+                        .into_iter()
+                        .take(5)
+                        .map(|e| e.content.clone())
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    if !parent_entries.is_empty() {
+                        self.orchestrator.runtime.epigenome.write_core(
+                            child,
+                            format!("[parent:{parent}@{tick}] {parent_entries}"),
+                            MemoryType::Relational,
+                            "epigenome_broadcast",
+                            ts,
+                        );
+                    }
+
+                    // Child Core → Parent Relational (parent learns from offspring exploration).
+                    let child_entries = self
+                        .orchestrator
+                        .runtime
+                        .epigenome
+                        .core_entries(child)
+                        .into_iter()
+                        .take(5)
+                        .map(|e| e.content.clone())
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    if !child_entries.is_empty() {
+                        self.orchestrator.runtime.epigenome.write_core(
+                            parent,
+                            format!("[offspring:{child}@{tick}] {child_entries}"),
+                            MemoryType::Relational,
+                            "epigenome_broadcast",
+                            ts,
+                        );
+                    }
+                }
             }
 
             let epigenome_core = self.collect_epigenome_sizes();

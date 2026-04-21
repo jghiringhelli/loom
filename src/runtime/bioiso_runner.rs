@@ -54,6 +54,11 @@ pub struct BIOISOSpec {
     pub retro_start_year: u32,
     /// Optional label of the academic baseline result for comparison.
     pub academic_baseline_label: Option<&'static str>,
+    /// Maximum promoted mutations before this entity enters senescence.
+    /// `None` = immortal (long-lived structural domains).
+    pub telomere_limit: Option<u32>,
+    /// What happens when telomere is exhausted: "apoptosis" | "senescence".
+    pub on_exhaustion: &'static str,
 }
 
 /// A single metric bound specification.
@@ -135,6 +140,8 @@ fn amr_coevolution_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2000,
         academic_baseline_label: Some("WHO Global AMR Action Plan; GBD 2019 AMR collaborators"),
+        telomere_limit: Some(25),
+        on_exhaustion: "apoptosis",
     }
 }
 
@@ -181,6 +188,8 @@ fn flash_crash_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2010,
         academic_baseline_label: Some("CFTC/SEC Flash Crash 2010 investigation report"),
+        telomere_limit: Some(20),
+        on_exhaustion: "apoptosis",
     }
 }
 
@@ -227,6 +236,8 @@ fn adaptive_jit_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2015,
         academic_baseline_label: Some("V8/HotSpot JIT benchmarks (SPEC JVM2008, Octane)"),
+        telomere_limit: Some(30),
+        on_exhaustion: "apoptosis",
     }
 }
 
@@ -273,6 +284,8 @@ fn protein_drug_resistance_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2005,
         academic_baseline_label: Some("ChEMBL drug resistance database; CCLE; BindingDB"),
+        telomere_limit: None,
+        on_exhaustion: "senescence",
     }
 }
 
@@ -317,6 +330,8 @@ fn ics_zero_day_spec() -> BIOISOSpec {
             ("novel_attack_coverage", 0.12),
             ("response_latency_ms", 850.0),
         ],
+        telomere_limit: Some(25),
+        on_exhaustion: "apoptosis",
         retro_start_year: 2010,
         academic_baseline_label: Some(
             "ICS-CERT advisories; MITRE ATT&CK for ICS; Dragos Year in Review",
@@ -367,6 +382,8 @@ fn quantum_error_mitigation_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2020,
         academic_baseline_label: Some("IBM Quantum Network; Google Sycamore error rates (2023)"),
+        telomere_limit: Some(35),
+        on_exhaustion: "apoptosis",
     }
 }
 
@@ -413,6 +430,8 @@ fn climate_intervention_spec() -> BIOISOSpec {
         ],
         retro_start_year: 1990,
         academic_baseline_label: Some("IPCC AR6 Ch17; Lenton et al. 2019 tipping elements"),
+        telomere_limit: None,
+        on_exhaustion: "senescence",
     }
 }
 
@@ -463,6 +482,8 @@ fn fusion_plasma_spec() -> BIOISOSpec {
         ],
         retro_start_year: 2012,
         academic_baseline_label: Some("ITER disruption database; Kates-Harbeck et al. 2019 FRNN"),
+        telomere_limit: None,
+        on_exhaustion: "senescence",
     }
 }
 
@@ -514,6 +535,8 @@ fn adaptive_self_assembly_spec() -> BIOISOSpec {
         academic_baseline_label: Some(
             "Rothemund 2006; Zeravcic et al. 2017; Yin et al. 2008 DNA brick",
         ),
+        telomere_limit: Some(30),
+        on_exhaustion: "apoptosis",
     }
 }
 
@@ -564,7 +587,13 @@ impl BIOISORunner {
         runtime: &mut Runtime,
         spec: &BIOISOSpec,
     ) -> Result<(), rusqlite::Error> {
-        runtime.spawn_entity(spec.entity_id, spec.name, spec.telos_json, None, None)?;
+        runtime.spawn_entity(
+            spec.entity_id,
+            spec.name,
+            spec.telos_json,
+            spec.telomere_limit,
+            Some(spec.on_exhaustion.to_string()),
+        )?;
 
         // Register telos bounds.
         for b in &spec.bounds {
@@ -663,6 +692,18 @@ impl BIOISORunner {
                     .polycephalum
                     .registry
                     .add_for_entity(spec.entity_id, rule);
+            }
+
+            // Supervisor entry — lost on restart (pure in-memory map).
+            // If already present (fresh-boot path), leave it untouched to preserve
+            // division_count accumulated during this session.
+            if runtime.supervisor.get(spec.entity_id).is_none() {
+                runtime.supervisor.spawn(
+                    spec.entity_id,
+                    spec.name,
+                    spec.telomere_limit,
+                    Some(spec.on_exhaustion.to_string()),
+                );
             }
         }
     }

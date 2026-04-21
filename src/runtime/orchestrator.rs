@@ -30,6 +30,7 @@ use crate::runtime::{
     gate::GateVerdict,
     mutation::MutationProposal,
     store::SignalStore,
+    supervisor::EntityState,
     Runtime,
 };
 
@@ -294,6 +295,31 @@ impl Orchestrator {
                 self.runtime
                     .mycelium
                     .deposit_pheromone(strategy_key, 0.2, now_ts);
+
+                // Each promoted mutation is a division event — ages the entity's
+                // telomere. When exhausted, enforce the on_exhaustion policy.
+                let eid = proposal.primary_entity();
+                if let Err(msg) = self
+                    .runtime
+                    .supervisor
+                    .record_division(eid, &self.runtime.store)
+                {
+                    eprintln!("[telomere] {msg}");
+                    let on_exhaustion = self
+                        .runtime
+                        .supervisor
+                        .get(eid)
+                        .and_then(|e| e.on_exhaustion.as_deref())
+                        .unwrap_or("senescence");
+                    if on_exhaustion == "apoptosis" {
+                        self.runtime.supervisor.transition(
+                            eid,
+                            EntityState::Dead,
+                            &self.runtime.store,
+                        );
+                        eprintln!("[apoptosis] entity '{eid}' killed after telomere exhaustion");
+                    }
+                }
             }
             deploy_outcomes.push(outcome);
         }
