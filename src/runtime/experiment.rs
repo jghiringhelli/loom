@@ -33,6 +33,7 @@
 //! ```
 
 use std::collections::HashMap;
+use std::io::Write as _;
 
 use serde::{Deserialize, Serialize};
 
@@ -800,6 +801,7 @@ impl ExperimentDriver {
             // ── 5. Progress summary ───────────────────────────────────────────
             if self.config.summary_interval > 0 && tick % self.config.summary_interval == 0 {
                 self.print_summary(tick, &metrics, &totals);
+                let _ = std::io::stdout().flush();
             }
 
             // ── 6. Convergence check ──────────────────────────────────────────
