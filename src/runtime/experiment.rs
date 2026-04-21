@@ -1212,4 +1212,114 @@ mod tests {
         assert_eq!(driver.log.ticks.len(), 3);
         assert!(driver.log.ticks.iter().all(|t| t.signals_injected == 36));
     }
+
+    #[test]
+    fn telomere_death_kills_entity_after_promotions() {
+        // Spawn a single entity with a telomere limit of 2 so it dies after 2 promoted
+        // mutations. Use the orchestrator directly to drive the division loop.
+        use crate::runtime::{
+            orchestrator::{Orchestrator, OrchestratorConfig},
+            supervisor::EntityState,
+        };
+        let mut rt = Runtime::new(":memory:").unwrap();
+        rt.spawn_entity(
+            "short_lived",
+            "ShortLived",
+            r#"{"target":"test"}"#,
+            Some(2),
+            Some("apoptosis".into()),
+        )
+        .unwrap();
+
+        // Manually drive two division events — simulates two promoted mutations.
+        rt.supervisor
+            .record_division("short_lived", &rt.store)
+            .unwrap();
+        let result = rt.supervisor.record_division("short_lived", &rt.store);
+        // Second division should exhaust the telomere.
+        assert!(
+            result.is_err(),
+            "expected telomere exhaustion on second division"
+        );
+
+        // After apoptosis, transition to Dead.
+        rt.supervisor
+            .transition("short_lived", EntityState::Dead, &rt.store);
+        assert_eq!(
+            rt.supervisor.get("short_lived").unwrap().state,
+            EntityState::Dead
+        );
+        // Dead entity should not appear in living_entity_ids().
+        assert!(!rt
+            .supervisor
+            .living_entity_ids()
+            .contains(&"short_lived".to_string()));
+    }
+
+    #[test]
+    fn offspring_get_shorter_telomere_than_parents() {
+        // Branched offspring should have a telomere limit of 15.
+        let mut rt = make_seeded_runtime();
+        let mut brancher = BranchingEngine::new(1, 2);
+
+        brancher.record_promotion("flash_crash");
+        let branched = brancher.evaluate_and_branch(&mut rt, 10);
+        assert_eq!(branched.len(), 1);
+        let child_id = &branched[0];
+        let child = rt.supervisor.get(child_id).unwrap();
+        assert_eq!(
+            child.telomere_limit,
+            Some(15),
+            "offspring telomere should be 15"
+        );
+
+        // Parent telomere limit should be 20 (flash_crash spec).
+        let parent = rt.supervisor.get("flash_crash").unwrap();
+        assert_eq!(
+            parent.telomere_limit,
+            Some(20),
+            "flash_crash telomere should be 20"
+        );
+    }
+
+    #[test]
+    fn epigenome_broadcast_writes_to_offspring_on_distillation() {
+        // After branching, the driver should broadcast parent Core to child Relational
+        // when distillation runs. Verify epigenome_core_entries grows for offspring.
+        let rt = make_seeded_runtime();
+        let config = ExperimentConfig {
+            total_ticks: 25, // distil_interval=10 → distillation fires at tick 10 & 20
+            tick_interval_ms: 0,
+            rng_seed: 42,
+            branch_threshold: 1,
+            autonomous: true,
+            summary_interval: 0,
+            ..Default::default()
+        };
+        let mut driver = ExperimentDriver::new(rt, config);
+        let summary = driver.run(None);
+        // If branching occurred AND the parent has Core entries, the child should too
+        // (broadcast propagated them). If parent has none yet, broadcast is a no-op.
+        for decision in &summary.branch_decisions {
+            let parent_entries = summary
+                .final_epigenome_core_entries
+                .get(&decision.parent_id)
+                .copied()
+                .unwrap_or(0);
+            if parent_entries > 0 {
+                let child_entries = summary
+                    .final_epigenome_core_entries
+                    .get(&decision.child_id)
+                    .copied()
+                    .unwrap_or(0);
+                assert!(
+                    child_entries > 0,
+                    "offspring {} should have epigenome entries when parent {} has {}",
+                    decision.child_id,
+                    decision.parent_id,
+                    parent_entries
+                );
+            }
+        }
+    }
 }
