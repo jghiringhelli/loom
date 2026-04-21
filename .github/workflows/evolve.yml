@@ -189,17 +189,23 @@ jobs:
 
           if [ "$PROMOTED" -gt 0 ]; then
             git add genomes/
-            SHORT=$(git rev-parse --short genomes/evolved)
-            APPLIED_COUNT="${{ steps.apply.outputs.applied || '0' }}"
-            PASS_COUNT="${{ steps.compile.outputs.pass }}"
-            FAIL_COUNT="${{ steps.compile.outputs.fail }}"
-            MSG="auto(genome): promote $PROMOTED evolved genomes [$SHORT]"
-            MSG="$MSG"$'\n\n'"Decision types promoted autonomously by EvolutionJudge."
-            MSG="$MSG"$'\n'"GS T5 applied: $APPLIED_COUNT genomes modified source."
-            MSG="$MSG"$'\n'"Compile gate: $PASS_COUNT pass / $FAIL_COUNT fail."
-            git commit -m "$MSG"
-            git push origin main
-            echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
+            # Nothing to commit if genomes were already on main from the apply step.
+            if git diff --cached --quiet; then
+              echo "  Genomes already on main — skipping genome promotion commit"
+              echo "### ✅ Genome spec already on main (promoted by apply step)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              SHORT=$(git rev-parse --short genomes/evolved)
+              APPLIED_COUNT="${{ steps.apply.outputs.applied || '0' }}"
+              PASS_COUNT="${{ steps.compile.outputs.pass }}"
+              FAIL_COUNT="${{ steps.compile.outputs.fail }}"
+              MSG="auto(genome): promote $PROMOTED evolved genomes [$SHORT]"
+              MSG="$MSG"$'\n\n'"Decision types promoted autonomously by EvolutionJudge."
+              MSG="$MSG"$'\n'"GS T5 applied: $APPLIED_COUNT genomes modified source."
+              MSG="$MSG"$'\n'"Compile gate: $PASS_COUNT pass / $FAIL_COUNT fail."
+              git commit -m "$MSG"
+              git push origin main
+              echo "### ✅ Promoted $PROMOTED genomes to main" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
       - name: Log rejected genomes
