@@ -1,0 +1,25 @@
+module VrpPso
+  type Location =
+    x: Float
+    y: Float
+  end
+
+  type Customer =
+    demand: Int
+    x: Float
+    y: Float
+  end
+
+  type Route =
+    load: Int
+    distance: Float
+  end
+
+  fn route_distance :: Int -> Float
+    inline { 0.0f64 }
+  end
+
+  fn or_opt_improve :: Float -> Float -> Float
+    inline { 0.0f64 }
+  end
+end

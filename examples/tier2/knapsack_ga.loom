@@ -1,0 +1,21 @@
+module KnapsackGa
+  type Item =
+    weight: Int
+    value: Int
+  end
+
+  type GaConfig =
+    population: Int
+    generations: Int
+    mutation_rate: Float
+    crossover_rate: Float
+  end
+
+  fn evaluate_fitness :: Int -> Int -> Int
+    inline { 0i64 }
+  end
+
+  fn dp_optimal :: Int -> Int -> Int
+    inline { 0i64 }
+  end
+end
