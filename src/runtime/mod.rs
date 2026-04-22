@@ -83,6 +83,12 @@ pub use supervisor::{EntityInstance, EntityState, EntitySupervisor};
 pub struct Runtime {
     /// The append-only SQLite signal store.
     pub store: SignalStore,
+    /// In-process parameter adjustments accumulated from promoted ParameterAdjust mutations.
+    ///
+    /// `live_params[entity_id][metric] = total delta` applied so far this run.
+    /// Applied as offsets to generated signals so promoted mutations actually change
+    /// entity behaviour within a generation — not just in the audit trail.
+    pub live_params: HashMap<String, HashMap<String, f64>>,
     /// The in-memory entity lifecycle supervisor.
     pub supervisor: EntitySupervisor,
     /// The telos drift engine — evaluates signals against declared bounds.
@@ -118,6 +124,7 @@ impl Runtime {
     pub fn new(db_path: &str) -> Result<Self, rusqlite::Error> {
         Ok(Self {
             store: SignalStore::new(db_path)?,
+            live_params: HashMap::new(),
             supervisor: EntitySupervisor::new(),
             drift_engine: DriftEngine::new(),
             membrane: Membrane::new(MembraneConfig::default()),
@@ -160,6 +167,39 @@ impl Runtime {
         self.membrane.register_entity(&entity_id);
         self.membrane.register_genome(&entity_id, telos_json);
         Ok(())
+    }
+
+    /// Apply a live parameter adjustment for an entity.
+    ///
+    /// Accumulates `delta` onto `live_params[entity_id][param]`. Applied to signals
+    /// before drift scoring so that promoted mutations actually shift entity behaviour
+    /// within the current run — not just in the audit trail.
+    pub fn apply_live_param(&mut self, entity_id: &str, param: &str, delta: f64) {
+        *self
+            .live_params
+            .entry(entity_id.to_string())
+            .or_default()
+            .entry(param.to_string())
+            .or_insert(0.0) += delta;
+    }
+
+    /// Return the accumulated live-param offset for (entity, metric), or 0.0 if none.
+    pub fn get_live_param(&self, entity_id: &str, param: &str) -> f64 {
+        self.live_params
+            .get(entity_id)
+            .and_then(|m| m.get(param))
+            .copied()
+            .unwrap_or(0.0)
+    }
+
+    /// Clone an entity's entire live_params map into another entity.
+    ///
+    /// Used at branch time so offspring start from the parent's accumulated
+    /// parameter state rather than the compiled baseline.
+    pub fn inherit_live_params(&mut self, from_id: &str, to_id: &str) {
+        if let Some(parent_params) = self.live_params.get(from_id).cloned() {
+            self.live_params.insert(to_id.to_string(), parent_params);
+        }
     }
 
     /// Emit a telemetry signal from a running entity.

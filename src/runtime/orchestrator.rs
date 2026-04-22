@@ -141,6 +141,8 @@ pub struct Orchestrator {
     deployer: CanaryDeployer,
     /// Monotonically increasing tick counter — drives periodic tasks.
     tick_count: u64,
+    /// Saturation tracking: last (param, delta_positive) promoted per entity.
+    saturation_track: std::collections::HashMap<String, (String, bool, u32)>,
 }
 
 impl Orchestrator {
@@ -154,6 +156,7 @@ impl Orchestrator {
             last_t2_tick: std::collections::HashMap::new(),
             deployer: CanaryDeployer::new(),
             tick_count: 0,
+            saturation_track: std::collections::HashMap::new(),
         }
     }
 
@@ -295,6 +298,39 @@ impl Orchestrator {
                 self.runtime
                     .mycelium
                     .deposit_pheromone(strategy_key, 0.2, now_ts);
+
+                // Apply in-process parameter adjustment so the entity's signals
+                // shift toward telos within this run, not just in the audit trail.
+                if let MutationProposal::ParameterAdjust {
+                    entity_id,
+                    param,
+                    delta,
+                    ..
+                } = proposal
+                {
+                    self.runtime.apply_live_param(entity_id, param, *delta);
+                    let total = self.runtime.get_live_param(entity_id, param);
+                    eprintln!("[live_param] {entity_id}:{param} Δ{delta:+.4} (total {total:+.4})");
+                    // Saturation detection: same param+direction promoted repeatedly
+                    // without structural change → T1 ceiling.
+                    let pos = *delta > 0.0;
+                    let entry = self
+                        .saturation_track
+                        .entry(entity_id.clone())
+                        .or_insert_with(|| (param.clone(), pos, 0));
+                    if entry.0 == *param && entry.1 == pos {
+                        entry.2 += 1;
+                        if entry.2 == self.config.tier1_fail_threshold * 2 {
+                            eprintln!(
+                                "[saturation] {entity_id}:{param} promoted {} times in same direction — \
+                                 T1 ceiling reached, T2 escalation active",
+                                entry.2
+                            );
+                        }
+                    } else {
+                        *entry = (param.clone(), pos, 1);
+                    }
+                }
 
                 // Each promoted mutation is a division event — ages the entity's
                 // telomere. When exhausted, enforce the on_exhaustion policy.
