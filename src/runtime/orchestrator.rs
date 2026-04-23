@@ -19,6 +19,7 @@
 //! The daemon loop (`run_loop`) can be run in a background thread.  It will
 //! execute `run_once` on the configured `tick_interval`.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::runtime::{
@@ -29,7 +30,7 @@ use crate::runtime::{
     epigenetic::MemoryType,
     gate::GateVerdict,
     mutation::MutationProposal,
-    store::SignalStore,
+    solver_tiers::{self, MetricObservation, N_HEURISTICS},
     supervisor::EntityState,
     Runtime,
 };
@@ -132,17 +133,29 @@ pub struct Orchestrator {
     /// Orchestration configuration.
     pub config: OrchestratorConfig,
     /// Per-entity Tier 1 failure counters (entity_id → consecutive miss count).
-    pub tier1_fail_counts: std::collections::HashMap<String, u32>,
+    pub tier1_fail_counts: HashMap<String, u32>,
     /// Per-entity Tier 2 failure counters.
-    pub tier2_fail_counts: std::collections::HashMap<String, u32>,
+    pub tier2_fail_counts: HashMap<String, u32>,
     /// Tick at which T2 last fired per entity — enforces `t2_min_interval_ticks`.
-    pub last_t2_tick: std::collections::HashMap<String, u64>,
+    pub last_t2_tick: HashMap<String, u64>,
     /// The canary deployer.
     deployer: CanaryDeployer,
     /// Monotonically increasing tick counter — drives periodic tasks.
     tick_count: u64,
     /// Saturation tracking: last (param, delta_positive) promoted per entity.
-    saturation_track: std::collections::HashMap<String, (String, bool, u32)>,
+    saturation_track: HashMap<String, (String, bool, u32)>,
+
+    // ── Solver-tier state (T1–T4 internal proposal generators) ───────────────
+    /// SA temperature per entity (T2 solver tier). Starts at 5.0, decays each tick.
+    pub t2_temperature: HashMap<String, f64>,
+    /// SARSA weight table per entity (T3 solver tier). Normalised over N_HEURISTICS.
+    pub t3_weights: HashMap<String, [f64; N_HEURISTICS]>,
+    /// GP-UCB metric observation history per entity (T4 solver tier).
+    pub t4_history: HashMap<String, HashMap<String, MetricObservation>>,
+    /// Total GP-UCB observations made per entity (T4).
+    pub t4_total_obs: HashMap<String, u32>,
+    /// LCG RNG state for T2/T3 stochastic generators (seeded from tick_count).
+    rng_state: u64,
 }
 
 impl Orchestrator {
@@ -151,12 +164,17 @@ impl Orchestrator {
         Self {
             runtime,
             config,
-            tier1_fail_counts: std::collections::HashMap::new(),
-            tier2_fail_counts: std::collections::HashMap::new(),
-            last_t2_tick: std::collections::HashMap::new(),
+            tier1_fail_counts: HashMap::new(),
+            tier2_fail_counts: HashMap::new(),
+            last_t2_tick: HashMap::new(),
             deployer: CanaryDeployer::new(),
             tick_count: 0,
-            saturation_track: std::collections::HashMap::new(),
+            saturation_track: HashMap::new(),
+            t2_temperature: HashMap::new(),
+            t3_weights: HashMap::new(),
+            t4_history: HashMap::new(),
+            t4_total_obs: HashMap::new(),
+            rng_state: 0xcafe_babe_dead_beef,
         }
     }
 
@@ -321,15 +339,44 @@ impl Orchestrator {
                     if entry.0 == *param && entry.1 == pos {
                         entry.2 += 1;
                         if entry.2 == self.config.tier1_fail_threshold * 2 {
-                            eprintln!(
-                                "[saturation] {entity_id}:{param} promoted {} times in same direction — \
-                                 T1 ceiling reached, T2 escalation active",
-                                entry.2
-                            );
+                            // T1 ceiling reached — escalate solver tier if not already at T4.
+                            let raw = self.runtime.get_live_param(entity_id, "solver_tier");
+                            let current = (raw + 1.0) as u8;
+                            if current < 4 {
+                                self.runtime.apply_live_param(entity_id, "solver_tier", 1.0);
+                                eprintln!(
+                                    "[tier_up] {entity_id}: T{current} → T{} \
+                                     (solver escalated on saturation of {param} ×{})",
+                                    current + 1,
+                                    entry.2
+                                );
+                            } else {
+                                eprintln!(
+                                    "[saturation] {entity_id}:{param} promoted {} times in same direction — \
+                                     T4 ceiling reached, meiosis required for structural escape",
+                                    entry.2
+                                );
+                            }
                         }
                     } else {
                         *entry = (param.clone(), pos, 1);
                     }
+
+                    // T4 GP-UCB feedback: record drift improvement for the promoted metric.
+                    let prev_score = self
+                        .runtime
+                        .evaluate_all_drift(self.config.drift_lookback)
+                        .ok()
+                        .and_then(|evts| {
+                            evts.into_iter()
+                                .find(|e| e.entity_id == *entity_id)
+                                .map(|e| e.score)
+                        })
+                        .unwrap_or(0.0);
+                    let improvement = 0.5 - prev_score; // positive when score < 0.5
+                    let history = self.t4_history.entry(entity_id.clone()).or_default();
+                    let total_obs = self.t4_total_obs.entry(entity_id.clone()).or_insert(0);
+                    solver_tiers::gp_observe(history, total_obs, param, improvement);
                 }
 
                 // Each promoted mutation is a division event — ages the entity's
@@ -397,15 +444,57 @@ impl Orchestrator {
     // ── Tier cascade ─────────────────────────────────────────────────────────
 
     fn propose_for_event(&mut self, event: &DriftEvent) -> (Vec<MutationProposal>, u8) {
-        let eid = &event.entity_id;
+        let eid = event.entity_id.clone();
 
-        // Tier 1 — deterministic rule engine.
-        let t1_proposals = self.runtime.propose_mutations(event, None);
-        if !t1_proposals.is_empty() {
+        // ── Solver tier dispatch ──────────────────────────────────────────────
+        // Each entity carries a solver_tier in live_params (0.0 = default → T1).
+        // Tiers 2-4 replace the Polycephalum rule engine with their own internal
+        // algorithm. The AI cascade (Haiku/Sonnet) still fires as a fallback when
+        // the entity's internal solver fails to converge.
+        let solver_tier_raw = self.runtime.get_live_param(&eid, "solver_tier");
+        // raw=0.0 → T1, raw=1.0 → T2, raw=2.0 → T3, raw=3.0 → T4
+        let effective_tier = ((solver_tier_raw + 1.0) as u8).min(4).max(1);
+
+        let internal_proposals: Vec<MutationProposal> = match effective_tier {
+            1 => {
+                // T1 — Polycephalum deterministic rule engine (existing behavior).
+                self.runtime.propose_mutations(event, None)
+            }
+            2 => {
+                // T2 — SA-inspired: Boltzmann exploration, temperature decays each tick.
+                let temp = self.t2_temperature.entry(eid.clone()).or_insert(5.0);
+                let mut rng = self.rng_state ^ eid.len() as u64;
+                let proposals = solver_tiers::t2_sa(event, *temp, &mut rng);
+                self.rng_state = rng;
+                *temp = (*temp * 0.98).max(0.01); // geometric cooling
+                proposals
+            }
+            3 => {
+                // T3 — SARSA hyper-heuristic: weight-table selection over proposal types.
+                let weights = self
+                    .t3_weights
+                    .entry(eid.clone())
+                    .or_insert([1.0 / 3.0; N_HEURISTICS]);
+                let epsilon = 0.1;
+                let mut rng = self.rng_state ^ (eid.len() as u64).wrapping_mul(99991);
+                let (proposals, _) = solver_tiers::t3_sarsa(event, weights, epsilon, &mut rng);
+                self.rng_state = rng;
+                proposals
+            }
+            _ => {
+                // T4 — GP-UCB surrogate: picks the metric with highest upper confidence bound.
+                let history = self.t4_history.entry(eid.clone()).or_default();
+                let total_obs = self.t4_total_obs.entry(eid.clone()).or_insert(0);
+                solver_tiers::t4_gp_ucb(event, history, &[], 1.0, *total_obs)
+            }
+        };
+
+        if !internal_proposals.is_empty() {
             self.tier1_fail_counts.insert(eid.clone(), 0);
-            return (t1_proposals, 1);
+            return (internal_proposals, effective_tier.min(1));
         }
 
+        // Internal solver produced nothing — fall through to AI cascade.
         let t1_fails = self.tier1_fail_counts.entry(eid.clone()).or_insert(0);
         *t1_fails += 1;
 
@@ -414,15 +503,13 @@ impl Orchestrator {
         }
 
         // T2 cooldown — prevent runaway API spend when T1 is always silent.
-        let last_t2 = self.last_t2_tick.get(eid).copied().unwrap_or(0);
+        let last_t2 = self.last_t2_tick.get(&eid).copied().unwrap_or(0);
         if self.tick_count - last_t2 < self.config.t2_min_interval_ticks {
             return (vec![], 1);
         }
 
         // Tier 2 — Ganglion (Haiku).
-        // Record the tick before the call so the cooldown is enforced even if T2 returns empty.
         self.last_t2_tick.insert(eid.clone(), self.tick_count);
-        // Split borrow: build corpus string first, then call evaluate.
         let corpus = crate::runtime::ganglion::serialize_corpus(
             &event.entity_id,
             event,
@@ -439,7 +526,6 @@ impl Orchestrator {
             // structural_rewire even when structurally required.  When drift
             // exceeds the rewire threshold, additionally invoke T3 (Sonnet) so
             // it can recognise whether structural self-modification is needed.
-            // T3 takes precedence if it returns structural proposals.
             let has_rewire = t2_proposals
                 .iter()
                 .any(|p| matches!(p, MutationProposal::StructuralRewire { .. }));
@@ -465,7 +551,7 @@ impl Orchestrator {
         // Tier 3 fallback — Mammal Brain (Sonnet) when T2 is consistently silent.
         let t3_proposals = self.runtime.evaluate_tier3(event, None);
         if !t3_proposals.is_empty() {
-            self.tier2_fail_counts.insert(eid.clone(), 0);
+            self.tier2_fail_counts.insert(eid, 0);
             return (t3_proposals, 3);
         }
 

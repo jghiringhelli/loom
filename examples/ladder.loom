@@ -1,0 +1,325 @@
+-- examples/ladder.loom
+-- ══════════════════════════════════════════════════════════════════
+-- The Loom Algorithm Ladder — T1 through T5 for Job Scheduling.
+--
+-- This file shows the SAME problem (single-machine job scheduling)
+-- expressed at each of the five tiers of the Loom taxonomy.
+-- Each tier adds exactly one primitive that the tier below cannot
+-- express. Reading top to bottom is reading the ceiling proof:
+-- each being saturates and the next tier's added primitive is the
+-- only escape.
+--
+-- The five primitives and their tier boundaries:
+--
+--   T1  telos: + function:   ← fixed rule; no feedback loop
+--   T2  + evolve:            ← stochastic search; no operator selection
+--   T3  + plasticity:        ← adaptive strategy selection; fixed operators
+--   T4  + learn:             ← surrogate model; fixed architecture
+--   T5  + rewire: + meiosis: ← structural self-modification across generations
+--
+-- Compile:  loom compile examples/ladder.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module AlgorithmLadder
+describe: "Five-tier being progression for single-machine job scheduling"
+
+-- ── Shared types (used by all tiers) ──────────────────────────────
+
+type Job =
+  id:              Int
+  processing_time: Float<seconds>
+  due_date:        Float<seconds>
+  weight:          Float
+end
+
+type Schedule =
+  sequence:                [Job]
+  makespan:                Float<seconds>
+  total_weighted_tardiness: Float<seconds>
+end
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 1 — SPT Scheduler
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- A Tier 1 being has only `telos:` and `function:`. It applies a
+-- fixed decision rule every time it is called. SPT is optimal for
+-- minimising total completion time on a single machine (Smith, 1956),
+-- but it does not adapt when the objective changes or when jobs arrive
+-- dynamically. It cannot improve its own rule.
+--
+-- T1 ceiling: any fixed dispatch rule saturates on the class of inputs
+-- it was designed for and fails on others. There is no feedback loop.
+-- ─────────────────────────────────────────────────────────────────
+
+being T1SPTScheduler
+describe: "SPT dispatch — Tier 1 heuristic, no adaptation"
+
+matter:
+  queue: [Job]
+  clock: Float<seconds>
+end
+
+function:
+  fn dispatch :: [Job] -> Schedule
+    require: jobs.len() > 0
+    ensure:  result.sequence.len() == jobs.len()
+    ensure:  result.makespan >= 0.0
+  end
+end
+
+telos: "minimise total completion time via shortest-processing-time dispatch"
+end
+
+end -- being T1SPTScheduler
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 2 — SA Job Scheduler
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Tier 2 adds `evolve:`. The being now runs a stochastic search —
+-- it can accept worsening moves with probability exp(-Δ/T) to escape
+-- local optima that T1's greedy rule gets stuck in.
+--
+-- The `evolve: simulated_annealing` block encodes the search geometry:
+-- neighbourhood operator (swap), acceptance criterion (Boltzmann),
+-- and cooling schedule (geometric). These are fixed at compile time.
+--
+-- T2 ceiling: the operators are pre-specified. SA can search the space
+-- of orderings, but cannot change WHICH metrics it optimises, nor can
+-- it select between different neighbourhood operators based on outcome.
+-- ─────────────────────────────────────────────────────────────────
+
+being T2SAScheduler
+describe: "SA job sequencing — Tier 2 meta-heuristic, stochastic neighbourhood search"
+
+matter:
+  queue:       [Job]
+  schedule:    Schedule
+  temperature: Float
+end
+
+function:
+  fn optimise :: [Job] -> Schedule
+    require: jobs.len() > 0
+    ensure:  result.total_weighted_tardiness >= 0.0
+  end
+end
+
+evolve: simulated_annealing
+  operator:     swap
+  temperature:  1000.0
+  cooling_rate: 0.995
+  constraint:   "E[distance_to_telos] decreasing"
+  search:
+    | simulated_annealing
+end
+
+telos: "minimise weighted tardiness via stochastic neighbourhood search"
+end
+
+end -- being T2SAScheduler
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 3 — Hyper-heuristic Scheduler
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Tier 3 adds `plasticity:`. The being now selects WHICH dispatch
+-- heuristic (SPT/LPT/EDD/FIFO/CR) to apply at each decision point,
+-- based on a SARSA-learned weight table that updates from feedback.
+--
+-- The `plasticity:` block encodes the weight table and update trigger.
+-- The `evolve: derivative_free` block encodes the exploration policy.
+--
+-- T3 ceiling: the portfolio (set of operators) is fixed at compile
+-- time. The being can pick the best operator, but cannot invent a new
+-- operator class or change which signals drive the scheduling decision.
+-- ─────────────────────────────────────────────────────────────────
+
+being T3HyperScheduler
+describe: "SARSA hyper-heuristic — Tier 3, adaptive operator selection"
+
+@corrigible
+
+matter:
+  queue:             [Job]
+  clock:             Float<seconds>
+  heuristic_weights: [Float]  -- one per operator in portfolio
+  epsilon:           Float    -- exploration rate
+end
+
+function:
+  fn dispatch :: [Job] -> Schedule
+    require: jobs.len() > 0
+    ensure:  result.sequence.len() == jobs.len()
+  end
+end
+
+plasticity:
+  trigger: high_weighted_tardiness
+  modifies: heuristic_weights
+  update:   sarsa
+  learning_rate: 0.1
+end
+
+evolve: derivative_free
+  constraint: "E[distance_to_telos] decreasing"
+  search:
+    | derivative_free
+end
+
+telos: "minimise weighted tardiness by learning which dispatch rule performs best in context"
+  modifiable_by: human_operator
+end
+
+end -- being T3HyperScheduler
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 4 — Bayesian Job Scheduler
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Tier 4 adds `learn:`. The being maintains a Gaussian Process
+-- surrogate model over (configuration, tardiness) pairs and selects
+-- the next configuration by maximising Expected Improvement. It
+-- amortises evaluation cost across instances: each observation updates
+-- the posterior, making future selections more sample-efficient.
+--
+-- T4 ceiling: the GP kernel and acquisition function are fixed. The
+-- model updates its weights (posterior), but cannot change its
+-- architecture (kernel type, acquisition criterion, or which
+-- hyperparameters to optimise). Structural change requires Tier 5.
+-- ─────────────────────────────────────────────────────────────────
+
+being T4BayesScheduler
+describe: "GP-UCB scheduler — Tier 4 learning-based, sample-efficient configuration search"
+
+@corrigible
+
+matter:
+  gp_state:      GPState   -- posterior over (config, tardiness) surface
+  observations:  [(Schedule, Float)]
+  budget:        Int
+end
+
+function:
+  fn suggest :: Schedule -> Schedule
+    require: true
+    ensure:  result.total_weighted_tardiness >= 0.0
+  end
+
+  fn observe :: Schedule -> Float -> Unit
+    require: tardiness >= 0.0
+    ensure:  true
+  end
+end
+
+learn: gaussian_process
+  acquisition:      expected_improvement
+  n_initial_points: 5
+  kernel:           rbf
+  constraint:       E[tardiness] is non_increasing
+end
+
+telos: "minimise weighted tardiness using at most 50 configuration evaluations"
+  modifiable_by: human_operator
+end
+
+end -- being T4BayesScheduler
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 5 — BIOISO Scheduler
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Tier 5 adds `rewire:` + `telomere:` + `meiosis:`. The being can
+-- now structurally modify its own dispatch strategy — not just
+-- selecting from a fixed portfolio (T3) or updating weights (T4),
+-- but replacing the strategy topology itself when drift persists.
+--
+-- `rewire:` — the trigger and replacement mechanism for structural
+--   self-modification. When D_static > threshold for k consecutive
+--   ticks, the being replaces its dispatch_strategy from a candidate
+--   pool (generated by the MeiosisEngine).
+--
+-- `telomere:` — the entity's generational lifecycle. After `limit`
+--   divisions, the entity enters senescence (meiosis) or apoptosis.
+--   Senescence bakes the accumulated mutations into the next genome.
+--
+-- `meiosis:` — the inter-generational learning mechanism. Surviving
+--   parameter and structural changes are promoted to the genome spec
+--   (`.loom` file), compiled into the next binary. This is the ONLY
+--   mechanism that can change an entity's algorithm class permanently
+--   without a human developer making a source code change.
+--
+-- T5 is one level above T1–T4 because it operates on the space of
+-- ALGORITHMS, not the space of parameter values or operator selections.
+-- It is the first tier whose improvements compound across generations.
+-- ─────────────────────────────────────────────────────────────────
+
+being T5BIOISOScheduler
+describe: "BIOISO scheduler — Tier 5, structural self-modification via meiosis"
+
+@corrigible
+@auditable
+
+matter:
+  queue:             [Job]
+  clock:             Float<seconds>
+  solver_tier:       Int               -- 1=SPT, 2=SA, 3=HH, 4=GP
+  generation:        Int
+end
+
+function:
+  fn dispatch :: [Job] -> Schedule
+    require: jobs.len() > 0
+    ensure:  result.sequence.len() == jobs.len()
+    ensure:  result.total_weighted_tardiness >= 0.0
+  end
+end
+
+plasticity:
+  trigger: high_weighted_tardiness
+  modifies: solver_tier
+  update:   escalate_on_saturation
+end
+
+learn: gaussian_process
+  acquisition: expected_improvement
+  kernel:      rbf
+  constraint:  E[tardiness] is non_increasing
+end
+
+rewire:
+  trigger:    drift_exceeds 0.35
+  candidates: [spt_rule, sa_search, hyper_heuristic, gp_surrogate, novel_hypothesis]
+  selection:  fitness_guided
+end
+
+-- NOTE: `telomere:` and `meiosis:` are not loom syntax — they are runtime
+-- properties declared in BIOISOSpec (src/runtime/bioiso_runner.rs).
+-- Meiosis occurs when the GS T5 genome loop promotes accumulated mutations
+-- into the next bioiso_runner.rs source via the genome .loom spec file.
+
+telos: "minimise weighted tardiness; restructure dispatch strategy when ParameterAdjust saturates"
+  modifiable_by: human_operator
+end
+
+end -- being T5BIOISOScheduler
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Ladder summary — what each tier adds and what it cannot do
+-- ═══════════════════════════════════════════════════════════════════
+
+-- | Tier | Added primitive     | Escapes                         | Cannot escape                       |
+-- |------|---------------------|---------------------------------|-------------------------------------|
+-- |  T1  | telos: + function:  | trivially solvable instances    | any instance requiring adaptation   |
+-- |  T2  | evolve:             | T1's local-optima traps         | fixed-operator architecture         |
+-- |  T3  | plasticity:         | T2's operator rigidity          | fixed operator portfolio             |
+-- |  T4  | learn:              | T3's sample inefficiency        | fixed model architecture             |
+-- |  T5  | rewire: + meiosis:  | T4's architectural ceiling      | nothing within the problem class     |
+
+-- The BIOISO colony runs T5 entities. Each entity starts at solver_tier=1 (T1-SPT).
+-- Saturation detection promotes solver_tier → T2, then T3, then T4 within a generation.
+-- Meiosis bakes the surviving tier into the genome for the next generation's compiled baseline.
+-- This is how BIOISOs "emit" T1-T4 as potential internal changes and go one level above.
+
+end

@@ -35,6 +35,7 @@ pub mod sampler;
 pub mod signal;
 pub mod signals_sim;
 pub mod simulation;
+pub mod solver_tiers;
 pub mod store;
 pub mod supervisor;
 pub mod telomere_audit;
