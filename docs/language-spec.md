@@ -917,6 +917,158 @@ signal_def     = "signal" Name "from" Name "to" Name "payload:" type_expr "end"
 
 ---
 
+## 14A. The Algorithm Tier Taxonomy (T1–T5)
+
+Loom's `being:` primitive spans five distinct optimization tiers. The tier is not a property of the syntax — it is determined by which blocks are present. Adding a block promotes the being to the next tier; removing it demotes it. The compiler verifies that the added block's requirements are met at each tier.
+
+### 14A.1 Tier Summary
+
+| Tier | Added keyword(s) | What it enables | What it cannot do |
+|------|-----------------|-----------------|-------------------|
+| T1 | `telos:` + `function:` | Fixed-rule dispatch (greedy, SPT, DSATUR) | Adapt when environment changes |
+| T2 | + `evolve:` | Stochastic neighbourhood search (SA, GA, ILS) | Select between operator types |
+| T3 | + `plasticity:` | Adaptive operator selection (SARSA hyper-heuristic) | Invent new operators |
+| T4 | + `learn:` | Surrogate-model–guided search (GP-UCB, Attention Model) | Change the model architecture |
+| T5 | + `rewire:` + `telomere:` | Structural self-modification across generations (meiosis) | Nothing within the problem class |
+
+Each tier boundary has a **ceiling proof**: a class of problem instances where the lower tier saturates (drift score plateaus above telos threshold) and the added primitive is the only structural escape.
+
+### 14A.2 `plasticity:` — Tier 3 Operator Selection (SARSA)
+
+Declares a weight table that selects between named heuristic operators at each decision point. The being learns which operator performs best in context — not which *parameter value* to use (that is T2), but which *class of operation* to apply.
+
+```loom
+plasticity:
+  trigger: high_weighted_tardiness
+  modifies: heuristic_weights
+  update:   sarsa
+  learning_rate: 0.1
+end
+```
+
+**EBNF:**
+```ebnf
+plasticity_block = "plasticity:" ":"
+  "trigger:" Name
+  "modifies:" Name
+  "update:" ("sarsa" | "q_learning" | "reinforce")
+  ("learning_rate:" float)?
+"end"
+```
+
+Checker rules:
+- `trigger` must name a field or signal type declared in `matter:`
+- `modifies` must name a field declared in `matter:`
+- `update` must be a recognized RL algorithm identifier
+- A being with `plasticity:` and no `evolve:` still compiles — `plasticity:` alone is T3
+
+The `plasticity:` block corresponds to SARSA on-policy TD(0) (Sutton & Barto 1998). The being maintains a weight table over `N_HEURISTICS` operators and updates weights after each decision based on observed reward. This is operating on the *space of operators*, not the space of solutions — the defining distinction between T2 and T3.
+
+### 14A.3 `learn:` — Tier 4 Surrogate-Model Optimization
+
+Declares that the being maintains a learned probabilistic model over the (configuration, objective) surface, and uses the model to select the next evaluation candidate. This is distinct from T3: the being does not select between pre-defined operators — it builds a posterior distribution and queries it.
+
+```loom
+learn: gaussian_process
+  acquisition:      expected_improvement
+  n_initial_points: 5
+  kernel:           rbf
+  constraint:       "E[tardiness] is non_increasing"
+end
+```
+
+```loom
+learn: attention_model
+  encoder:        transformer
+  decoder:        pointer_network
+  training:       reinforce
+  instance_size:  100
+  batch_size:     512
+  learning_rate:  0.0001
+  baseline_decay: 0.99
+end
+```
+
+**EBNF:**
+```ebnf
+learn_block  = "learn:" strategy_id
+  (("acquisition:" ident)
+  | ("n_initial_points:" int)
+  | ("xi:" float)
+  | ("kernel:" ident)
+  | ("noise_model:" ident)
+  | ("encoder:" ident)
+  | ("decoder:" ident)
+  | ("training:" ident)
+  | ("instance_size:" int)
+  | ("batch_size:" int)
+  | ("learning_rate:" float)
+  | ("baseline_decay:" float)
+  | ("constraint:" string))*
+"end"
+
+strategy_id = "gaussian_process" | "attention_model" | "neural_network"
+```
+
+**Strategy reference:**
+
+| Strategy | Algorithm | Key reference |
+|----------|-----------|---------------|
+| `gaussian_process` | Bayesian optimization with GP surrogate | Srinivas et al., ICML 2010 |
+| `attention_model` | Transformer encoder + Pointer Network, REINFORCE training | Kool et al., ICLR 2019 |
+| `neural_network` | Generic gradient-trained network | Vinyals et al., NeurIPS 2015 |
+
+The T4 ceiling: the GP kernel and attention architecture are fixed at compile time. The model updates its *weights* (posterior parameters) but cannot change its *architecture* (kernel type, acquisition function, encoder depth). Architectural change requires T5.
+
+### 14A.4 `rewire:` — Tier 5 Structural Self-Modification
+
+Declares that the being may replace its dispatch strategy from a candidate pool when drift persists above threshold. This is operating on the *space of algorithms*, not the space of parameters or operators.
+
+```loom
+rewire:
+  trigger:    drift_exceeds 0.35
+  candidates: [spt_rule, sa_search, hyper_heuristic, gp_surrogate, novel_hypothesis]
+  selection:  fitness_guided
+end
+```
+
+**EBNF:**
+```ebnf
+rewire_block = "rewire:" ":"
+  "trigger:" ("drift_exceeds" float | Name)
+  "candidates:" "[" Name ("," Name)* "]"
+  "selection:" ("fitness_guided" | "random" | Name)
+"end"
+```
+
+`rewire:` alone promotes a being to T5 within a single generation. Cross-generational T5 requires `telomere:` (the generational lifecycle boundary) and the BIOISO meiosis loop (Section 16), which bakes surviving structural mutations into the next compiled genome.
+
+### 14A.5 The Ceiling Proof Pattern
+
+Each tier boundary has a formal structure:
+
+1. **Define the problem class** — a class of inputs where the lower tier saturates.
+2. **Show saturation** — the lower tier's best strategy produces zero improvement after `k` iterations.
+3. **Exhibit the escape** — the added primitive reduces drift on the same input class.
+4. **Prove the bound** — the lower tier's mechanism cannot express the escape without the added primitive.
+
+The `examples/ladder.loom` file provides a worked instance of this pattern across all five tiers for the single-machine job scheduling problem. The `bench_colony_ladder` binary runs 60 ticks and logs every tier-up escalation, demonstrating the ladder empirically.
+
+### 14A.6 `solver_tier` in `live_params`
+
+At runtime, the CEMS orchestrator reads `live_params[entity_id]["solver_tier"]` to dispatch the correct T1–T4 proposal generator. The mapping is:
+
+| `solver_tier` value | Algorithm | Module |
+|---------------------|-----------|--------|
+| 0.0 (T1) | Greedy ParameterAdjust on worst metric | `solver_tiers::t1_greedy` |
+| 1.0 (T2) | Simulated Annealing with Boltzmann acceptance | `solver_tiers::t2_sa` |
+| 2.0 (T3) | SARSA ε-greedy hyper-heuristic | `solver_tiers::t3_sarsa` |
+| 3.0 (T4) | GP-UCB with running posterior | `solver_tiers::t4_gp_ucb` |
+
+Auto-escalation fires when the same parameter + direction is promoted `2 × tier1_fail_threshold` consecutive times without improvement. The orchestrator logs `[tier_up] entity: T{n} → T{n+1}` and increments `solver_tier` by 1.0. T5 escape (structural rewiring) is handled by the meiosis loop, not by live_params.
+
+---
+
 ## 15. Safety Architecture (M55)
 
 ### 15.1 Safety Annotations for Autopoietic Beings
