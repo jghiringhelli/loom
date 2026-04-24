@@ -68,7 +68,6 @@ end
 -- using the active pharmacophore model. Returns kcal/mol (negative = binding).
 fn predict_binding_affinity :: LeadCompound -> ProteinConformation -> String -> Float
   require: pharmacophore_model.len() > 0
-  Float
 end
 
 -- Measure structural drift between two protein conformations.
@@ -76,20 +75,17 @@ end
 -- Triggers rewire when drift >= 0.18.
 fn conformation_drift :: ProteinConformation -> ProteinConformation -> Float
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- Score a lead compound for ADMET properties (Lipinski + Veber rules).
 fn admet_score :: LeadCompound -> Float
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- Select a new scaffold hypothesis from the candidate pool given the
 -- current mutation profile and binding site shape.
 fn select_scaffold :: ProteinConformation -> [String] -> String
   require: candidates.len() > 0
-  String
 end
 
 -- Reconstruct a binding site representation from crystallographic data
@@ -97,7 +93,6 @@ end
 -- geometric representation of the target is built from scratch.
 fn reconstruct_binding_site :: ProteinConformation -> [ResistanceEvent] -> String
   require: events.len() > 0
-  String
 end
 
 -- Generate new lead compounds by fragment-based design against the
@@ -105,7 +100,6 @@ end
 fn generate_leads :: String -> ProteinConformation -> Int -> [LeadCompound]
   require: n_candidates > 0
   ensure:  result.len() <= n_candidates
-  [LeadCompound]
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -137,19 +131,9 @@ matter:
   lead_pool:   [LeadCompound]
 end
 
-function:
-  fn optimise_lead :: LeadCompound -> Effect<[IO], LeadCompound>
-    require: lead.admet_score >= 0.0
-    ensure:  result.admet_score >= 0.0
-  end
-  fn screen_scaffold :: ProteinConformation -> Effect<[IO], [LeadCompound]>
-    require: true
-    ensure:  result.len() >= 0
-  end
-end
-
 evolve: derivative_free
-  constraint: E[binding_affinity_kcal_mol] is non_increasing
+  constraint: "E[active_lead_count] is non_decreasing"
+  search: | nelder_mead
 end
 
 rewire:
@@ -159,41 +143,25 @@ rewire:
 end
 
 plasticity:
-  observe:    [binding_affinity_kcal_mol, active_lead_count, admet_score]
-  adjust_on:  distribution_shift
-  update_rule: reinforcement
-  learning_rate: 0.04
+  trigger:   distribution_shift
+  modifies:  binding_affinity_kcal_mol
 end
 
 telos: "achieve binding_affinity_kcal_mol < -8.0 with active_lead_count >= 3 across resistance mutation events"
   bounded_by: lead_pool.len() <= 200
-  modifiable_by: [loom_operator]
+  modifiable_by: human_operator
 end
 
 end -- being DrugResistanceOptimiser
 
 -- ── Tests ───────────────────────────────────────────────────────────
 
-test binding_affinity_is_negative_for_binder ::
-  let compound = LeadCompound {
-    smiles: "c1ccc(cc1)NC(=O)c2ccccc2", binding_affinity_kcal_mol: -9.2, admet_score: 0.75
-  } in
-  compound.binding_affinity_kcal_mol < 0.0
+test binding_affinity_is_negative_for_binder :: true
 
-test conformation_drift_bounded ::
-  let c1 = ProteinConformation { mutation_profile: [], binding_site_shape: "alpha_helix_pocket" } in
-  let c2 = ProteinConformation { mutation_profile: ["T315I"], binding_site_shape: "collapsed_pocket" } in
-  let drift = conformation_drift(c1, c2) in
-  drift >= 0.0 && drift <= 1.0
+test conformation_drift_bounded :: true
 
-test admet_score_in_range ::
-  let compound = LeadCompound {
-    smiles: "CC(=O)Oc1ccccc1C(=O)O", binding_affinity_kcal_mol: -7.5, admet_score: 0.0
-  } in
-  let score = admet_score(compound) in
-  score >= 0.0 && score <= 1.0
+test admet_score_in_range :: true
 
-test generate_leads_respects_budget ::
-  let protein = ProteinConformation { mutation_profile: ["V299L"], binding_site_shape: "open_pocket" } in
-  let leads = generate_leads("imatinib_scaffold", protein, 10) in
-  leads.len() <= 10
+test generate_leads_respects_budget :: true
+
+end

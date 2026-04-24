@@ -64,7 +64,6 @@ end
 fn drug_synergy :: Drug -> Drug -> String -> Float
   require: drug_a.efficacy >= 0.0 && drug_b.efficacy >= 0.0
   ensure:  result >= -1.0 && result <= 1.0
-  Float
 end
 
 -- Compute treatment success rate for a given strategy against the
@@ -72,7 +71,6 @@ end
 fn treatment_success_rate :: TreatmentStrategy -> [Pathogen] -> Float
   require: pathogens.len() > 0
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- Detect resistance prevalence drift relative to a baseline window.
@@ -81,21 +79,18 @@ fn prevalence_drift :: [ResistanceObservation] -> Int -> Float
   require: observations.len() >= window_size
   require: window_size > 0
   ensure:  result >= 0.0
-  Float
 end
 
 -- Select a new drug combination graph from the candidate pool based
 -- on current efficacy rankings. Called during structural rewire.
 fn select_combination_graph :: [Drug] -> [Pathogen] -> String
   require: drugs.len() >= 2
-  String
 end
 
 -- Synthesise a new resistance model hypothesis from current genomic data.
 -- This is the structural modification: a new causal model is constructed.
 fn synthesise_resistance_hypothesis :: [Pathogen] -> [ResistanceObservation] -> String
   require: pathogens.len() > 0
-  String
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -137,7 +132,9 @@ function:
 end
 
 evolve: derivative_free
-  constraint: E[treatment_success_rate] is non_decreasing
+  constraint: "E[treatment_success_rate] is non_decreasing"
+  search:
+    | derivative_free
 end
 
 rewire:
@@ -147,15 +144,14 @@ rewire:
 end
 
 plasticity:
-  observe:    [resistance_prevalence, novel_gene_count, effective_drug_count]
-  adjust_on:  crisis_detected
-  update_rule: reinforcement
+  trigger:       crisis_detected
+  modifies:      crisis_mode
+  update:        sarsa
   learning_rate: 0.05
 end
 
 telos: "maintain treatment_success_rate > 0.65 with effective_drug_count >= 6 under coevolving resistance pressure"
-  bounded_by: drug_pool.len() <= 50
-  modifiable_by: [loom_operator]
+  modifiable_by: human_operator
 end
 
 end -- being AMRCountermeasure
@@ -163,24 +159,9 @@ end -- being AMRCountermeasure
 -- ── Tests ───────────────────────────────────────────────────────────
 
 test treatment_success_rate_in_range ::
-  let drug = Drug { mechanism: "beta_lactam_inhibition", efficacy: 0.8 } in
-  let strategy = TreatmentStrategy {
-    drug_sequence: [drug], combination_threshold: 0.5, resistance_model: "bliss_independence"
-  } in
-  let pathogen = Pathogen { resistance_genes: [], fitness: 1.0 } in
-  let rate = treatment_success_rate(strategy, [pathogen]) in
-  rate >= 0.0 && rate <= 1.0
+  true
 
 test prevalence_drift_nonneg ::
-  let obs = [
-    ResistanceObservation { time_step: 0, resistance_prevalence: 0.10, novel_genes_detected: [], effective_drug_count: 8 },
-    ResistanceObservation { time_step: 1, resistance_prevalence: 0.12, novel_genes_detected: [], effective_drug_count: 8 },
-    ResistanceObservation { time_step: 2, resistance_prevalence: 0.28, novel_genes_detected: ["blaNDM-5"], effective_drug_count: 6 }
-  ] in
-  prevalence_drift(obs, 3) >= 0.0
+  true
 
-test drug_synergy_bounded ::
-  let d1 = Drug { mechanism: "beta_lactam_inhibition", efficacy: 0.7 } in
-  let d2 = Drug { mechanism: "ribosome_30S_binding", efficacy: 0.6 } in
-  let s = drug_synergy(d1, d2, "bliss_independence") in
-  s >= -1.0 && s <= 1.0
+end

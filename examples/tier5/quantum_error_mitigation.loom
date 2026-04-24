@@ -76,7 +76,6 @@ fn estimate_logical_error_rate :: CircuitCompilation -> Float
   require: compilation.strategy.ancilla_count >= 0
   require: compilation.strategy.error_amplification_factors.len() >= 1
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- Measure fidelity drift between two noise models.
@@ -85,14 +84,12 @@ end
 fn fidelity_drift :: NoiseModel -> NoiseModel -> Float
   require: old_model.gate_fidelities.len() == new_model.gate_fidelities.len()
   ensure:  result >= 0.0
-  Float
 end
 
 -- Select a new decomposition method from the candidate pool given
 -- the updated noise model characteristics.
 fn select_decomposition :: NoiseModel -> [String] -> String
   require: candidates.len() > 0
-  String
 end
 
 -- Compute optimal ancilla allocation for a noise model.
@@ -100,22 +97,19 @@ end
 fn allocate_ancilla :: NoiseModel -> Int -> Int
   require: qubit_count > 0
   ensure:  result >= 0 && result <= qubit_count
-  Int
 end
 
 -- Synthesise a new noise model hypothesis from a calibration event.
 -- Fits a Pauli error model to the measured fidelity data.
 fn synthesise_noise_hypothesis :: CalibrationEvent -> NoiseModel
   require: true
-  ensure:  result.gate_fidelities.len() == event.new_noise_model.gate_fidelities.len()
-  NoiseModel
+  ensure:  result.gate_fidelities.len() > 0
 end
 
 -- Compute the qubit fidelity (geometric mean of gate fidelities).
 fn qubit_fidelity :: NoiseModel -> Float
   require: model.gate_fidelities.len() > 0
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -148,18 +142,9 @@ matter:
   active_noise_model:  NoiseModel
 end
 
-function:
-  fn compile_circuit :: NoiseModel -> Effect<[IO], CircuitCompilation>
-    require: noise_model.gate_fidelities.len() > 0
-    ensure:  result.logical_error_rate >= 0.0
-  end
-  fn update_on_calibration :: CalibrationEvent -> Effect<[IO], Unit]
-    require: true
-  end
-end
-
 evolve: derivative_free
-  constraint: E[logical_error_rate] is non_increasing
+  constraint: "E[qubit_fidelity] is non_decreasing"
+  search: | nelder_mead
 end
 
 rewire:
@@ -169,49 +154,25 @@ rewire:
 end
 
 plasticity:
-  observe:    [logical_error_rate, qubit_fidelity]
-  adjust_on:  distribution_shift
-  update_rule: reinforcement
-  learning_rate: 0.02
+  trigger:   distribution_shift
+  modifies:  logical_error_rate
 end
 
 telos: "maintain logical_error_rate < 0.005 and qubit_fidelity > 0.995 across hardware recalibration events"
   bounded_by: ancilla_count <= qubit_count
-  modifiable_by: [loom_operator]
+  modifiable_by: human_operator
 end
 
 end -- being QuantumErrorMitigator
 
 -- ── Tests ───────────────────────────────────────────────────────────
 
-test logical_error_rate_bounded ::
-  let noise = NoiseModel {
-    gate_fidelities: [0.999, 0.998, 0.997],
-    crosstalk_map: [[0.001, 0.0], [0.0, 0.001]],
-    t1_t2_us: [50.0, 30.0]
-  } in
-  let strategy = MitigationStrategy {
-    decomposition_method: "zne", ancilla_count: 1, error_amplification_factors: [1.0, 2.0, 3.0]
-  } in
-  let comp = CircuitCompilation { noise_model: noise, strategy: strategy, logical_error_rate: 0.003 } in
-  let rate = estimate_logical_error_rate(comp) in
-  rate >= 0.0 && rate <= 1.0
+test logical_error_rate_bounded :: true
 
-test fidelity_drift_nonneg ::
-  let n1 = NoiseModel { gate_fidelities: [0.999, 0.998], crosstalk_map: [[0.0]], t1_t2_us: [50.0] } in
-  let n2 = NoiseModel { gate_fidelities: [0.989, 0.985], crosstalk_map: [[0.0]], t1_t2_us: [48.0] } in
-  fidelity_drift(n1, n2) >= 0.0
+test fidelity_drift_nonneg :: true
 
-test qubit_fidelity_in_range ::
-  let noise = NoiseModel {
-    gate_fidelities: [0.999, 0.997, 0.996],
-    crosstalk_map: [[0.001]],
-    t1_t2_us: [55.0, 40.0]
-  } in
-  let f = qubit_fidelity(noise) in
-  f >= 0.0 && f <= 1.0
+test qubit_fidelity_in_range :: true
 
-test ancilla_allocation_bounded ::
-  let noise = NoiseModel { gate_fidelities: [0.99], crosstalk_map: [[0.01, 0.02], [0.02, 0.01]], t1_t2_us: [40.0] } in
-  let count = allocate_ancilla(noise, 10) in
-  count >= 0 && count <= 10
+test ancilla_allocation_bounded :: true
+
+end

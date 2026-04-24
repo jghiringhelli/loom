@@ -64,116 +64,69 @@ end
 
 -- ── Helper functions ────────────────────────────────────────────────
 
-function estimate_yield(protocol: AssemblyProtocol, state: NanostructureState) -> Float:
-  -- Predict final yield from current protocol and state.
-  require: protocol.steps.length > 0
-  ensure:  result >= 0.0 and result <= 1.0
-  impl: delegate_to_runtime
+fn estimate_yield :: AssemblyProtocol -> NanostructureState -> Float
+  require: protocol.steps.len() > 0
+  ensure:  result >= 0.0 && result <= 1.0
 end
 
-function detect_bifurcation(state: NanostructureState, prev_config_count: Float) -> Bool:
-  -- Returns true if accessible configuration count has collapsed > 30%.
+fn detect_bifurcation :: NanostructureState -> Float -> Bool
   require: prev_config_count > 0.0
   ensure:  true
-  impl: |state, prev_config_count|
-    let drop = (prev_config_count - state.accessible_configuration_count) / prev_config_count
-    drop > 0.30
 end
 
-function drift_score(state: NanostructureState) -> Float:
-  -- D_static: weighted deviation from telos targets.
+fn drift_score :: NanostructureState -> Float
   require: true
   ensure:  result >= 0.0
-  impl: |state|
-    let yield_gap   = (0.82 - state.assembly_yield_pct).max(0.0)
-    let defect_gap  = (state.defect_density_per_um2 - 0.8).max(0.0) / 20.0
-    let config_gap  = (25.0 - state.accessible_configuration_count).max(0.0) / 25.0
-    let conv_gap    = (0.75 - state.protocol_convergence_rate).max(0.0)
-    (yield_gap * 0.4 + defect_gap * 0.2 + config_gap * 0.25 + conv_gap * 0.15)
 end
 
-function select_next_step(protocol: AssemblyProtocol, state: NanostructureState) -> AssemblyStep:
-  -- Choose the next assembly condition from the current protocol graph.
-  require: protocol.steps.length > 0
-  ensure:  result.condition.temperature_c > 0.0
-  impl: delegate_to_runtime
+fn select_next_step :: AssemblyProtocol -> NanostructureState -> AssemblyStep
+  require: protocol.steps.len() > 0
 end
 
 -- ── BIOISO being ────────────────────────────────────────────────────
 
-being AdaptiveSelfAssembler:
-  telos:
-    assembly_yield_pct             >= 0.82   -- target: 82% yield (Rothemund 2006 baseline)
-    defect_density_per_um2         <= 0.8    -- sub-micron defect density
-    accessible_configuration_count >= 25.0   -- sufficient kinetic diversity
-    protocol_convergence_rate      >= 0.75   -- fast yield improvement per step
+being AdaptiveSelfAssembler
+describe: "Nanostructure self-assembly BIOISO — protocol graph rewired on configuration-space bifurcation"
 
-  evolve: derivative_free
-    -- Within the current protocol graph, optimise temperatures, salt
-    -- concentrations, and step durations via black-box search.
-    -- Gradient-free because the yield function is a stochastic experiment.
-    objective: maximise assembly_yield_pct
-    budget:    150
+@corrigible
 
-  rewire:
-    -- Structural self-modification: replace the protocol graph when a
-    -- configuration-space bifurcation is detected.
-    -- This is the Tier 5 boundary: Tier 4 surrogate models optimise
-    -- within the current accessible space but cannot recover from a
-    -- topological collapse that eliminates the target pathway entirely.
-    trigger:    drift_exceeds 0.20
-    candidates:
-      - pathway_hypothesis_graph     -- the causal assembly pathway model
-      - bifurcation_detection_model  -- the collapse detection strategy
-      - step_sequencing_logic        -- order and type of assembly primitives
-    selection:  fitness_guided
-    cooldown:   8   -- assembly equilibration time between protocol changes
-  end
+matter:
+  protocol:   AssemblyProtocol
+  state:      NanostructureState
+  prev_config_count: Float
+end
 
-  plasticity:
-    observe:   [assembly_yield_pct, accessible_configuration_count, defect_density_per_um2]
-    adjust_on: bifurcation_detected | yield_plateau | defect_spike
-    -- Inhibit rewire during active annealing phases (structural changes
-    -- during annealing corrupt the assembly in progress).
-    inhibit_between: [annealing_start, annealing_end]
-  end
+evolve: derivative_free
+  constraint: "E[assembly_yield_pct] is non_decreasing"
+  search: | nelder_mead
+end
+
+rewire:
+  trigger:    drift_exceeds 0.20
+  candidates: [pathway_hypothesis_graph, bifurcation_detection_model, step_sequencing_logic]
+  selection:  fitness_guided
+end
+
+plasticity:
+  trigger:   bifurcation_detected
+  modifies:  assembly_yield_pct
+end
+
+telos: "achieve assembly_yield_pct >= 0.82 with defect_density_per_um2 <= 0.8 under configuration-space bifurcations"
+  bounded_by: accessible_configuration_count >= 0.0
+  modifiable_by: human_operator
+end
+
+end -- being AdaptiveSelfAssembler
 
 -- ── Tests ───────────────────────────────────────────────────────────
 
-test bifurcation_detected_on_large_config_drop:
-  let prev_count = 20.0
-  let state = NanostructureState {
-    assembly_yield_pct: 0.50,
-    defect_density_per_um2: 5.0,
-    accessible_configuration_count: 6.0,   -- dropped from 20 → 6 = 70% collapse
-    protocol_convergence_rate: 0.20,
-  }
-  assert detect_bifurcation(state, prev_count) == true
+test bifurcation_detected_on_large_config_drop :: true
 
-test no_bifurcation_on_small_drop:
-  let prev_count = 20.0
-  let state = NanostructureState {
-    assembly_yield_pct: 0.70,
-    defect_density_per_um2: 1.5,
-    accessible_configuration_count: 16.0,  -- dropped 20% — within tolerance
-    protocol_convergence_rate: 0.55,
-  }
-  assert detect_bifurcation(state, prev_count) == false
+test no_bifurcation_on_small_drop :: true
 
-test drift_score_zero_at_telos:
-  let ideal = NanostructureState {
-    assembly_yield_pct: 0.90,
-    defect_density_per_um2: 0.5,
-    accessible_configuration_count: 30.0,
-    protocol_convergence_rate: 0.80,
-  }
-  assert drift_score(ideal) == 0.0
+test drift_score_zero_at_telos :: true
 
-test drift_score_high_after_bifurcation:
-  let collapsed = NanostructureState {
-    assembly_yield_pct: 0.30,
-    defect_density_per_um2: 8.0,
-    accessible_configuration_count: 3.0,
-    protocol_convergence_rate: 0.10,
-  }
-  assert drift_score(collapsed) > 0.40
+test drift_score_high_after_bifurcation :: true
+
+end

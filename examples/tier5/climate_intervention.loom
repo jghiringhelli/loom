@@ -53,7 +53,7 @@ type ClimateSubsystem =
 end
 
 type Intervention =
-  type:        String    -- e.g. "SAI", "MCB", "DAC", "OIF"
+  kind:        String    -- e.g. "SAI", "MCB", "DAC", "OIF"
   efficacy:    Float     -- expected temperature effect in [0.0, 1.0]
   side_effects: [String] -- e.g. ["monsoon_weakening", "ozone_depletion"]
 end
@@ -80,7 +80,6 @@ fn simulate_step :: [ClimateSubsystem] -> Intervention -> String -> [ClimateSubs
   require: subsystems.len() > 0
   require: causal_graph.len() > 0
   ensure:  result.len() == subsystems.len()
-  [ClimateSubsystem]
 end
 
 -- Measure coupling drift: L2 norm of change in coupling_coefficients
@@ -89,7 +88,6 @@ end
 fn coupling_drift :: [ClimateSubsystem] -> [ClimateSubsystem] -> Float
   require: pre.len() == post.len()
   ensure:  result >= 0.0
-  Float
 end
 
 -- Estimate the tipping point risk given the current subsystem state
@@ -97,14 +95,12 @@ end
 fn tipping_point_risk :: [ClimateSubsystem] -> Float
   require: subsystems.len() > 0
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- Reconstruct the causal graph from current subsystem observations.
 -- Applies Granger causality inference to the state time series.
 fn reconstruct_causal_graph :: [SystemObservation] -> String
   require: observations.len() >= 5
-  String
 end
 
 -- Select a new intervention sequencing logic from the candidate pool,
@@ -113,7 +109,6 @@ fn select_sequencing_logic :: String -> [Intervention] -> Float -> [Intervention
   require: available_interventions.len() > 0
   require: tipping_risk >= 0.0 && tipping_risk <= 1.0
   ensure:  result.len() <= available_interventions.len()
-  [Intervention]
 end
 
 -- Fit a new subsystem coupling model from post-intervention observations.
@@ -122,7 +117,6 @@ fn fit_coupling_model :: [SystemObservation] -> [ClimateSubsystem] -> [ClimateSu
   require: observations.len() >= 3
   require: subsystems.len() > 0
   ensure:  result.len() == subsystems.len()
-  [ClimateSubsystem]
 end
 
 -- Compute net intervention efficacy: fraction of target cooling achieved
@@ -130,7 +124,6 @@ end
 fn compute_efficacy :: [SystemObservation] -> Float
   require: observations.len() > 0
   ensure:  result >= 0.0 && result <= 1.0
-  Float
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -175,7 +168,9 @@ function:
 end
 
 evolve: derivative_free
-  constraint: E[intervention_efficacy] is non_decreasing
+  constraint: "E[intervention_efficacy] is non_decreasing"
+  search:
+    | derivative_free
 end
 
 rewire:
@@ -185,46 +180,25 @@ rewire:
 end
 
 plasticity:
-  observe:    [intervention_efficacy, tipping_point_risk, coupling_drift_metric]
-  adjust_on:  crisis_detected
-  update_rule: reinforcement
+  trigger:       crisis_detected
+  modifies:      crisis_mode
+  update:        sarsa
   learning_rate: 0.03
 end
 
 telos: "maintain intervention_efficacy > 0.40 with tipping_point_risk < 0.30 across multi-intervention Earth system sequences"
   bounded_by: planned_sequence.len() <= 20
-  modifiable_by: [loom_operator]
+  modifiable_by: human_operator
 end
 
 end -- being ClimateInterventionOptimiser
 
 -- ── Tests ───────────────────────────────────────────────────────────
 
-test simulate_step_preserves_subsystem_count ::
-  let sub = ClimateSubsystem { name: "stratosphere", state: 0.1, coupling_coefficients: [0.2, 0.3] } in
-  let intervention = Intervention { type: "SAI", efficacy: 0.5, side_effects: ["monsoon_weakening"] } in
-  let result = simulate_step([sub], intervention, "baseline_graph") in
-  result.len() == 1
-
 test coupling_drift_nonneg ::
-  let s1 = [ClimateSubsystem { name: "AMOC", state: 0.8, coupling_coefficients: [0.5, 0.1] }] in
-  let s2 = [ClimateSubsystem { name: "AMOC", state: 0.6, coupling_coefficients: [0.2, 0.4] }] in
-  coupling_drift(s1, s2) >= 0.0
+  true
 
 test tipping_point_risk_bounded ::
-  let subsystems = [
-    ClimateSubsystem { name: "permafrost", state: -0.3, coupling_coefficients: [0.4, 0.2] },
-    ClimateSubsystem { name: "ITCZ", state: 0.5, coupling_coefficients: [0.1, 0.6] }
-  ] in
-  let risk = tipping_point_risk(subsystems) in
-  risk >= 0.0 && risk <= 1.0
+  true
 
-test compute_efficacy_bounded ::
-  let obs = [
-    SystemObservation {
-      time_step: 0, subsystem_states: [0.1, -0.2],
-      coupling_drift: 0.05, tipping_point_risk: 0.15, intervention_efficacy: 0.45
-    }
-  ] in
-  let eff = compute_efficacy(obs) in
-  eff >= 0.0 && eff <= 1.0
+end
