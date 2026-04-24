@@ -28,6 +28,64 @@ pub struct EvolveBlock {
     pub span: Span,
 }
 
+// ── Learn block (Tier 4) ──────────────────────────────────────────────────────
+
+/// Learning strategy for surrogate-model–based optimisation.
+///
+/// Distinguishes Tier 4 from Tier 3: the being maintains a probabilistic
+/// **model** of the objective and queries it to direct evaluation.
+/// No fixed neighbourhood operator — the model selects the next candidate.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LearnStrategy {
+    /// Gaussian Process surrogate with configurable kernel and acquisition.
+    /// Reference: Srinivas et al. (2010), "Gaussian Process Optimization in the Bandit Setting".
+    GaussianProcess,
+    /// Transformer encoder + Pointer Network decoder trained via REINFORCE.
+    /// Reference: Kool et al. (2019), "Attention, Learn to Solve Routing Problems!".
+    AttentionModel,
+    /// Generic neural network trained by gradient descent (catch-all for T4).
+    NeuralNetwork,
+}
+
+/// Tier 4 surrogate-model learning block.
+///
+/// Added to a `being:` to promote it from T3 to T4. The being no longer
+/// searches the solution space directly — it builds a learned model over
+/// the (configuration, objective) surface and queries the model to
+/// select the next evaluation candidate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LearnBlock {
+    /// Which learning paradigm the being uses.
+    pub strategy: LearnStrategy,
+    /// Acquisition function for GP-UCB (e.g. "expected_improvement", "ucb").
+    pub acquisition: Option<String>,
+    /// Number of random initialisation evaluations before the GP fits.
+    pub n_initial_points: Option<u32>,
+    /// Exploration-exploitation trade-off for EI acquisition (xi).
+    pub xi: Option<f64>,
+    /// GP kernel type (e.g. "rbf", "matern52").
+    pub kernel: Option<String>,
+    /// GP noise model (e.g. "heteroscedastic", "homoscedastic").
+    pub noise_model: Option<String>,
+    /// Attention model encoder architecture (e.g. "transformer").
+    pub encoder: Option<String>,
+    /// Attention model decoder (e.g. "pointer_network").
+    pub decoder: Option<String>,
+    /// Training algorithm (e.g. "reinforce", "ppo").
+    pub training: Option<String>,
+    /// Instance size for neural combinatorial models.
+    pub instance_size: Option<u32>,
+    /// Training batch size.
+    pub batch_size: Option<u32>,
+    /// Optimiser learning rate.
+    pub learning_rate: Option<f64>,
+    /// REINFORCE EMA baseline decay coefficient.
+    pub baseline_decay: Option<f64>,
+    /// Convergence constraint (mirrors evolve: constraint string).
+    pub constraint: Option<String>,
+    pub span: Span,
+}
+
 /// Homeostatic regulation block.
 ///
 /// Supports two syntaxes:
@@ -285,6 +343,8 @@ pub struct BeingDef {
     pub telos: Option<TelosDef>,
     pub regulate_blocks: Vec<RegulateBlock>,
     pub evolve_block: Option<EvolveBlock>,
+    /// Tier 4 surrogate-model learning block. Promotes a being from T3 to T4.
+    pub learn_block: Option<LearnBlock>,
     pub epigenetic_blocks: Vec<EpigeneticBlock>,
     pub morphogen_blocks: Vec<MorphogenBlock>,
     pub telomere: Option<TelomereBlock>,

@@ -180,6 +180,7 @@ impl<'src> crate::parser::Parser<'src> {
         let mut cognitive_memory: Option<CognitiveMemoryBlock> = None;
         let mut signal_attention: Option<SignalAttentionBlock> = None;
         let mut propagate_block: Option<PropagateBlock> = None;
+        let mut learn_block: Option<LearnBlock> = None;
         let mut role: Option<String> = None;
         let mut relates_to: Vec<RelatesTo> = Vec::new();
 
@@ -252,14 +253,7 @@ impl<'src> crate::parser::Parser<'src> {
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "learn")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
-                // `learn: gaussian_process ... end` — skip the block (not yet lowered).
-                self.pos += 2; // consume `learn` `:`
-                               // Consume the kind identifier (e.g. `gaussian_process`)
-                if self.token_as_ident().is_some() {
-                    self.advance();
-                }
-                // Skip everything up to and including the matching `end`
-                self.skip_block_to_end();
+                learn_block = Some(self.parse_being_learn_section()?);
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "role")
                 && matches!(self.tokens.get(self.pos + 1), Some((Token::Colon, _)))
             {
@@ -313,6 +307,7 @@ impl<'src> crate::parser::Parser<'src> {
             telos,
             regulate_blocks,
             evolve_block,
+            learn_block,
             epigenetic_blocks,
             morphogen_blocks,
             telomere,
@@ -821,6 +816,178 @@ impl<'src> crate::parser::Parser<'src> {
         self.expect(Token::End)?;
         Ok(EvolveBlock {
             search_cases,
+            constraint,
+            span: Span::merge(&sec_start, &sec_end),
+        })
+    }
+
+    fn parse_being_learn_section(&mut self) -> Result<LearnBlock, LoomError> {
+        let sec_start = self.current_span();
+        self.advance(); // consume `learn`
+        self.expect(Token::Colon)?;
+
+        // Strategy identifier: gaussian_process | attention_model | neural_network
+        let strategy = if let Some(s) = self.token_as_ident() {
+            self.advance();
+            match s.as_str() {
+                "gaussian_process" => LearnStrategy::GaussianProcess,
+                "attention_model" => LearnStrategy::AttentionModel,
+                _ => LearnStrategy::NeuralNetwork,
+            }
+        } else {
+            LearnStrategy::GaussianProcess
+        };
+
+        let mut acquisition: Option<String> = None;
+        let mut n_initial_points: Option<u32> = None;
+        let mut xi: Option<f64> = None;
+        let mut kernel: Option<String> = None;
+        let mut noise_model: Option<String> = None;
+        let mut encoder: Option<String> = None;
+        let mut decoder: Option<String> = None;
+        let mut training: Option<String> = None;
+        let mut instance_size: Option<u32> = None;
+        let mut batch_size: Option<u32> = None;
+        let mut learning_rate: Option<f64> = None;
+        let mut baseline_decay: Option<f64> = None;
+        let mut constraint: Option<String> = None;
+
+        while !self.at(&Token::End) && self.peek().is_some() {
+            if let Some(key) = self.token_as_ident() {
+                match key.as_str() {
+                    "acquisition" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            acquisition = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "n_initial_points" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            n_initial_points = Some(*n as u32);
+                            self.pos += 1;
+                        }
+                    }
+                    "xi" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                            xi = Some(*f);
+                            self.pos += 1;
+                        } else if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            xi = Some(*n as f64);
+                            self.pos += 1;
+                        }
+                    }
+                    "kernel" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            kernel = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "noise_model" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            noise_model = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "encoder" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            encoder = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "decoder" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            decoder = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "training" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some(v) = self.token_as_ident() {
+                            training = Some(v);
+                            self.advance();
+                        }
+                    }
+                    "instance_size" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            instance_size = Some(*n as u32);
+                            self.pos += 1;
+                        }
+                    }
+                    "batch_size" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::IntLit(n), _)) = self.tokens.get(self.pos) {
+                            batch_size = Some(*n as u32);
+                            self.pos += 1;
+                        }
+                    }
+                    "learning_rate" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                            learning_rate = Some(*f);
+                            self.pos += 1;
+                        }
+                    }
+                    "baseline_decay" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::FloatLit(f), _)) = self.tokens.get(self.pos) {
+                            baseline_decay = Some(*f);
+                            self.pos += 1;
+                        }
+                    }
+                    "constraint" => {
+                        self.advance();
+                        self.expect(Token::Colon)?;
+                        if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
+                            constraint = Some(s.clone());
+                            self.pos += 1;
+                        }
+                    }
+                    _ => {
+                        self.advance();
+                    }
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        let sec_end = self.current_span();
+        self.expect(Token::End)?;
+
+        Ok(LearnBlock {
+            strategy,
+            acquisition,
+            n_initial_points,
+            xi,
+            kernel,
+            noise_model,
+            encoder,
+            decoder,
+            training,
+            instance_size,
+            batch_size,
+            learning_rate,
+            baseline_decay,
             constraint,
             span: Span::merge(&sec_start, &sec_end),
         })

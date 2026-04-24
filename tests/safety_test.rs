@@ -58,6 +58,7 @@ fn base_being() -> BeingDef {
         }),
         regulate_blocks: vec![],
         evolve_block: None,
+        learn_block: None,
         epigenetic_blocks: vec![],
         morphogen_blocks: vec![],
         telomere: None,
