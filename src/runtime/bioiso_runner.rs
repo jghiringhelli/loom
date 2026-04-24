@@ -2,22 +2,23 @@
 //!
 //! # BIOISO Entities
 //!
-//! Seven BIOISO-class domains are pre-configured. Each was selected by three strict criteria:
+//! Ten BIOISO-class domains are pre-configured. Each was selected by three strict criteria:
 //! (1) the fitness landscape is *coevolutionary or structurally non-stationary*;
 //! (2) structural rewiring (`StructuralRewire`) is *load-bearing* — `ParameterAdjust`
 //! provably cannot converge; (3) the problem is *currently unsolved* by Tiers 1–4.
 //!
-//! | Entity                  | Domain                        | Historical start | Why BIOISO |
-//! |-------------------------|-------------------------------|-----------------|------------|
-//! | `amr_coevolution`       | Antimicrobial resistance      | 2000-01-01       | Pathogen co-evolves — resistance mechanisms restructure faster than any fixed strategy |
-//! | `flash_crash`           | HFT market microstructure     | 2010-05-06       | HFT strategies reverse-engineer fixed circuit breaker rules; novel detection logic required |
-//! | `adaptive_jit`          | JIT compiler optimization     | 2015-01-01       | Optimal IR pass sequence shifts as runtime hot paths evolve; structural rewiring of pass composition |
-//! | `protein_drug_resistance` | Cancer/HIV drug resistance  | 2005-01-01       | Target protein mutates; chemical search space topology shifts; new pharmacophore hypotheses needed |
-//! | `ics_zero_day`          | ICS/SCADA zero-day defense    | 2010-01-01       | Novel attack classes have unknown structure; ML on known attacks fails by definition |
-//! | `quantum_error_mitigation` | Quantum circuit compilation | 2020-01-01      | Hardware noise model changes per calibration; no fixed decomposition strategy transfers |
-//! | `climate_intervention`  | Earth system intervention seq | 1990-01-01       | Each intervention changes the causal structure; causal graph shifts after every deployment |
-//! | `fusion_plasma`         | Fusion plasma confinement     | 2012-01-01       | L-H transitions and disruption precursors are structurally novel; no fixed control law transfers |
-//! | `adaptive_self_assembly`| Nanostructure self-assembly   | 2015-01-01       | Each assembly step changes accessible configuration space; protocol graph must be rewired |
+//! | Entity                    | Domain                        | Historical start | Why BIOISO |
+//! |---------------------------|-------------------------------|-----------------|------------|
+//! | `amr_coevolution`         | Antimicrobial resistance      | 2000-01-01       | Pathogen co-evolves — resistance mechanisms restructure faster than any fixed strategy |
+//! | `flash_crash`             | HFT market microstructure     | 2010-05-06       | HFT strategies reverse-engineer fixed circuit breaker rules; novel detection logic required |
+//! | `adaptive_jit`            | JIT compiler optimization     | 2015-01-01       | Optimal IR pass sequence shifts as runtime hot paths evolve; structural rewiring of pass composition |
+//! | `protein_drug_resistance` | Cancer/HIV drug resistance    | 2005-01-01       | Target protein mutates; chemical search space topology shifts; new pharmacophore hypotheses needed |
+//! | `ics_zero_day`            | ICS/SCADA zero-day defense    | 2010-01-01       | Novel attack classes have unknown structure; ML on known attacks fails by definition |
+//! | `quantum_error_mitigation`| Quantum circuit compilation   | 2020-01-01       | Hardware noise model changes per calibration; no fixed decomposition strategy transfers |
+//! | `climate_intervention`    | Earth system intervention seq | 1990-01-01       | Each intervention changes the causal structure; causal graph shifts after every deployment |
+//! | `fusion_plasma`           | Fusion plasma confinement     | 2012-01-01       | L-H transitions and disruption precursors are structurally novel; no fixed control law transfers |
+//! | `adaptive_self_assembly`  | Nanostructure self-assembly   | 2015-01-01       | Each assembly step changes accessible configuration space; protocol graph must be rewired |
+//! | `aegis_delta_neutral`     | Delta-neutral DeFi strategy   | 2023-01-01       | Bimodal MTS basin shift requires LP graph rewire; T4 CMA-ES cannot cross inter-basin valley |
 //!
 //! # Retrospective Validation
 //!
@@ -72,7 +73,7 @@ pub struct MetricBoundSpec {
 
 // ── Pre-configured Entities ───────────────────────────────────────────────────
 
-/// Return the 9 curated BIOISO-class domain specs.
+/// Return all 10 curated BIOISO-class domain specs.
 ///
 /// Each domain was selected because structural rewiring is load-bearing —
 /// `ParameterAdjust` alone cannot achieve telos convergence under the
@@ -88,6 +89,7 @@ pub fn all_domain_specs() -> Vec<BIOISOSpec> {
         climate_intervention_spec(),
         fusion_plasma_spec(),
         adaptive_self_assembly_spec(),
+        aegis_delta_neutral_spec(),
     ]
 }
 
@@ -540,6 +542,82 @@ fn adaptive_self_assembly_spec() -> BIOISOSpec {
     }
 }
 
+// ── 10. AEGIS Delta-Neutral DeFi Strategy ────────────────────────────────────
+// Calibrated against AEGIS experiment logs E1–E107 (Ghiringhelli 2026).
+// Canonical best: E88, mts_trending_up_threshold=0.35 → +213.6%/Sharpe=1.02/DD=33.4%.
+// Fitness landscape is bimodal in MTS bull threshold: basin A≈0.35 (LP active),
+// basin B≈0.65 (LP bypassed, rides ETH collateral). Crossing the inter-basin valley
+// at MTS≈0.48 requires rewiring the state-machine graph — structural change no T4
+// surrogate can represent (pass_through_lp, crash_subgraph inclusion toggle).
+// Three protocol legs: AAVE V3 collateral, Uniswap V3 LP, Hyperliquid perp short.
+// Safety floors are hard constraints, not telos targets: HF ≥ 1.30, HL margin ≥ 0.15.
+fn aegis_delta_neutral_spec() -> BIOISOSpec {
+    BIOISOSpec {
+        entity_id: "aegis_delta_neutral",
+        name: "AEGIS Delta-Neutral DeFi Strategy",
+        telos_json: r#"{"target":"maximise risk-adjusted yield (Sharpe ≥ 1.0) via delta-neutral AAVE+UniV3+Hyperliquid position on Arbitrum; structural rewire of LP graph topology on bimodal MTS basin shift","metrics":["sharpe_ratio","total_return_pct","max_drawdown_pct","aave_health_factor","portfolio_delta_eth","fee_apy","time_in_range_pct"]}"#,
+        bounds: vec![
+            MetricBoundSpec {
+                metric: "sharpe_ratio",
+                min: Some(-5.0),
+                max: Some(5.0),
+                target: 1.02, // E88 canonical
+            },
+            MetricBoundSpec {
+                metric: "total_return_pct",
+                min: Some(-1.0),
+                max: Some(10.0),
+                target: 2.136, // E88: +213.6%
+            },
+            MetricBoundSpec {
+                metric: "max_drawdown_pct",
+                min: Some(0.0),
+                max: Some(0.35), // hard ceiling per telos
+                target: 0.25,    // drive toward 25% (E88 was 33.4%)
+            },
+            MetricBoundSpec {
+                metric: "aave_health_factor",
+                min: Some(1.30), // liquidation floor — never breach
+                max: Some(3.0),
+                target: 1.50, // E88 canonical base HF
+            },
+            MetricBoundSpec {
+                metric: "portfolio_delta_eth",
+                min: Some(-0.5),
+                max: Some(0.5),
+                target: 0.0, // delta-neutral target
+            },
+            MetricBoundSpec {
+                metric: "fee_apy",
+                min: Some(0.0),
+                max: Some(5.0),
+                target: 0.40, // 40% APY on LP capital (base estimate)
+            },
+            MetricBoundSpec {
+                metric: "time_in_range_pct",
+                min: Some(0.0),
+                max: Some(1.0),
+                target: 0.80, // LP in-range 80%+ of ticks
+            },
+        ],
+        baseline_signals: vec![
+            ("sharpe_ratio", 0.45),        // pre-optimisation baseline
+            ("total_return_pct", 0.42),    // ~42% naive HODL equivalent
+            ("max_drawdown_pct", 0.334),   // E88 starting point
+            ("aave_health_factor", 1.72),  // conservative initial HF
+            ("portfolio_delta_eth", 0.15), // imperfect hedge at start
+            ("fee_apy", 0.22),             // raw fee yield before compound
+            ("time_in_range_pct", 0.64),   // pre-recenter-optimisation
+        ],
+        retro_start_year: 2023, // Arbitrum + AAVE V3 + UniV3 + HL all live
+        academic_baseline_label: Some(
+            "AEGIS E88 (Ghiringhelli 2026); Kool et al. 2019 Attention Model; Markowitz 1952",
+        ),
+        telomere_limit: Some(40), // wider than other domains: 40-param CMA-ES space
+        on_exhaustion: "apoptosis",
+    }
+}
+
 // ── BIOISO Runner ─────────────────────────────────────────────────────────────
 
 /// Runner that registers pre-configured BIOISO domain entities in a [`Runtime`].
@@ -940,9 +1018,9 @@ mod tests {
     use crate::runtime::Runtime;
 
     #[test]
-    fn all_domain_specs_returns_nine_specs() {
+    fn all_domain_specs_returns_ten_specs() {
         let specs = all_domain_specs();
-        assert_eq!(specs.len(), 9);
+        assert_eq!(specs.len(), 10);
     }
 
     #[test]
@@ -966,9 +1044,9 @@ mod tests {
         let mut rt = Runtime::new(":memory:").unwrap();
         let runner = BIOISORunner::new();
         let count = runner.spawn_all(&mut rt).unwrap();
-        assert_eq!(count, 9);
+        assert_eq!(count, 10);
         let entities = rt.entities().unwrap();
-        assert_eq!(entities.len(), 9);
+        assert_eq!(entities.len(), 10);
     }
 
     #[test]
