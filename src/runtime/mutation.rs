@@ -66,6 +66,35 @@ pub enum MutationProposal {
         /// Rationale.
         reason: String,
     },
+
+    /// A source-level code patch produced by the T5 Synthesis tier (Forge Ladder).
+    ///
+    /// Unlike parameter mutations, `CodePatch` changes the entity's *genome* — the
+    /// actual Loom source code.  Before deployment the GS pipeline:
+    /// 1. Applies `diff` via `git apply` to `target_file`
+    /// 2. Runs `test_command` to verify compile + tests pass
+    /// 3. Monitors the entity's telos signals for convergence
+    /// 4. Promotes or reverts based on drift direction
+    ///
+    /// This is the biological analogue of CRISPR-mediated genome editing: targeted,
+    /// guided by intent (telos), and validated before expression.
+    CodePatch {
+        /// The entity whose source code should be modified.
+        entity_id: EntityId,
+        /// Source file to patch, relative to the project root.
+        target_file: String,
+        /// Unified diff (output of `diff -u`) to apply.
+        diff: String,
+        /// Shell command used to verify the patch (e.g. `cargo test --lib -- runtime`).
+        #[serde(default)]
+        test_command: String,
+        /// Structured prediction of the expected improvement, e.g.
+        /// "drift_score for `carbon_stock` drops below 0.3 within 20 ticks".
+        #[serde(default)]
+        prediction: String,
+        /// LLM-generated rationale for this code change.
+        reason: String,
+    },
 }
 
 impl MutationProposal {
@@ -77,6 +106,7 @@ impl MutationProposal {
             Self::EntityRollback { entity_id, .. } => entity_id,
             Self::EntityPrune { entity_id, .. } => entity_id,
             Self::StructuralRewire { from_id, .. } => from_id,
+            Self::CodePatch { entity_id, .. } => entity_id,
         }
     }
 
@@ -84,9 +114,11 @@ impl MutationProposal {
     /// Returns 0 when the tier is not embedded in the proposal itself.
     pub fn tier_hint(&self) -> u8 {
         // Tier 1 (Polycephalum) only ever generates ParameterAdjust.
-        // Tier 2/3 may generate any variant.  Default to 0 (unknown).
+        // Tier 5 (Synthesis) generates CodePatch.
+        // Tier 2/3 may generate any other variant.  Default to 0 (unknown).
         match self {
             Self::ParameterAdjust { .. } => 1,
+            Self::CodePatch { .. } => 5,
             _ => 0,
         }
     }
@@ -167,5 +199,34 @@ mod tests {
             reason: "".into(),
         };
         assert_eq!(p.tier_hint(), 1);
+    }
+
+    #[test]
+    fn code_patch_roundtrips_json() {
+        let p = MutationProposal::CodePatch {
+            entity_id: "amr_coevolution".into(),
+            target_file: "src/runtime/bioiso_runner.rs".into(),
+            diff: "--- a/foo\n+++ b/foo\n@@ -1 +1 @@\n-old\n+new\n".into(),
+            test_command: "cargo test --lib -- runtime".into(),
+            prediction: "drift_score drops below 0.3 within 20 ticks".into(),
+            reason: "T5: restructure resistance gene expression".into(),
+        };
+        let json = p.to_json().unwrap();
+        assert!(json.contains("code_patch"));
+        let back = MutationProposal::from_json(&json).unwrap();
+        assert_eq!(p, back);
+    }
+
+    #[test]
+    fn code_patch_tier_hint_is_five() {
+        let p = MutationProposal::CodePatch {
+            entity_id: "x".into(),
+            target_file: "src/lib.rs".into(),
+            diff: "".into(),
+            test_command: "cargo test".into(),
+            prediction: "".into(),
+            reason: "".into(),
+        };
+        assert_eq!(p.tier_hint(), 5);
     }
 }

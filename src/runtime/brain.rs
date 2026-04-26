@@ -67,7 +67,7 @@ struct ClaudeResponse {
 /// Trait allowing tests to inject a mock HTTP client.
 pub trait ClaudeClient: Send + Sync {
     /// Send a system + user prompt pair and return the assistant's text.
-    fn complete(&self, system: &str, user: &str) -> Result<String, String>;
+    fn complete(&self, system: &str, user: &str, max_tokens: u32) -> Result<String, String>;
 }
 
 /// Real blocking HTTP client for the Anthropic Messages API.
@@ -111,11 +111,11 @@ impl AnthropicClient {
 }
 
 impl ClaudeClient for AnthropicClient {
-    fn complete(&self, system: &str, user: &str) -> Result<String, String> {
+    fn complete(&self, system: &str, user: &str, max_tokens: u32) -> Result<String, String> {
         let url = format!("{}/messages", self.base_url);
         let body = ClaudeRequest {
             model: &self.model,
-            max_tokens: 2048,
+            max_tokens,
             system,
             messages: vec![ClaudeMessage {
                 role: "user",
@@ -152,18 +152,21 @@ impl ClaudeClient for AnthropicClient {
 
 // ── System-level prompt builder ───────────────────────────────────────────────
 
-/// Build the system prompt for the Mammal Brain.
+/// Build the system prompt for the Mammal Brain (T3 — Fitness Ladder).
+///
+/// T3 handles persistent drift that T1 and T2 could not resolve through parameter
+/// adjustments or simple structural rewiring.  It may propose any mutation type
+/// except `code_patch` — that is reserved for the T5 Synthesis tier.
 pub fn build_system_prompt() -> String {
-    r#"You are the Mammal Brain — the highest synthesis tier of the BIOISO
-biological computation runtime. You receive:
-- The full Loom genome (.loom source) for an entity
-- Its recent telemetry signals
-- The telos drift history
-- Prior mutation proposals and their gate verdicts
+    r#"You are the Mammal Brain — Tier 3 of the BIOISO Fitness Ladder.
+You are called when Tier 1 (deterministic rules) and Tier 2 (Haiku LLM) failed to
+converge the entity's telos drift.
+
+You receive: the entity genome (.loom source), recent signals, telos bounds, drift history.
 
 Your task: propose system-level mutations that restore convergence.
-These may involve structural rewiring, entity cloning for redundancy,
-or parameter adjustments that Tier 1 and Tier 2 could not discover.
+These may involve structural rewiring, entity cloning for redundancy, or parameter
+adjustments that lower tiers could not discover.
 
 Respond with ONLY a JSON array of mutation proposals. Each must be one of:
   {"kind":"parameter_adjust","entity_id":"...","param":"...","delta":0.0,"reason":"..."}
@@ -174,6 +177,104 @@ Respond with ONLY a JSON array of mutation proposals. Each must be one of:
 
 Return ONLY the JSON array. No explanation. No markdown fences."#
         .into()
+}
+
+/// Build the system prompt for T5 Synthesis (Forge Ladder convergence point).
+///
+/// T5 is called when the entire Fitness Ladder (T1–T4) has stagnated — no
+/// proposals have been accepted for N consecutive ticks.  Unlike lower tiers,
+/// T5 can propose source-level code changes (`code_patch`) in addition to all
+/// standard mutation types.  These patches are validated through the full GS
+/// pipeline (compile → test → canary monitor) before promotion.
+pub fn build_t5_system_prompt() -> String {
+    r#"You are the T5 Synthesis engine — the convergence point of the BIOISO
+two-ladder architecture.
+
+LADDER 1 — FITNESS LADDER: T1 (Polycephalum rules) → T2 (SA heuristics) →
+  T3 (SARSA hyper-heuristics) → T4 (GP-UCB surrogate) → T5 (you, synthesis)
+LADDER 2 — FORGE LADDER: T1 (AI writes code) → T2 (compile/test harness) →
+  T3 (CI/CD deploy) → T4 (monitoring/bug-fix loop) → T5 (you, code evolution)
+
+You are called ONLY when ALL lower tiers have stagnated — no proposals have
+been accepted for many consecutive ticks.  You have access to:
+- The entity's epigenome Core (institutional memory: what has been tried)
+- Recent telos drift trajectory
+- Lineage history (parent/branch relationships)
+- Semantic novelty report (proposals already explored)
+
+Your task: propose mutations that escape the current evolutionary dead-end.
+You may propose standard parameter/structural mutations OR source-level code
+patches.  Code patches are validated through the GS pipeline before deployment.
+
+IMPORTANT: The semantic novelty filter has already been applied. Do NOT repeat
+proposals semantically similar to those in the epigenome history.  Be creative —
+consider cross-entity signal rewiring, entity topology changes, or code-level
+structural improvements that no heuristic tier could discover.
+
+Respond with ONLY a JSON array of mutation proposals. Each must be one of:
+  {"kind":"parameter_adjust","entity_id":"...","param":"...","delta":0.0,"reason":"..."}
+  {"kind":"entity_clone","source_id":"...","new_id":"...","reason":"..."}
+  {"kind":"entity_rollback","entity_id":"...","checkpoint_id":0,"reason":"..."}
+  {"kind":"entity_prune","entity_id":"...","reason":"..."}
+  {"kind":"structural_rewire","from_id":"...","to_id":"...","signal_name":"...","reason":"..."}
+  {"kind":"code_patch","entity_id":"...","target_file":"...","diff":"...","test_command":"cargo test --lib -- runtime","prediction":"...","reason":"..."}
+
+Return ONLY the JSON array. No explanation. No markdown fences."#
+        .into()
+}
+
+/// Build the user prompt for the T5 Synthesis tier.
+///
+/// Includes the full epigenome Core summary, lineage info, recent signals, and
+/// the novelty constraint — everything the synthesis engine needs to propose
+/// an escape from the current evolutionary dead-end.
+pub fn build_t5_user_prompt(
+    entity_id: &EntityId,
+    drift_event: &DriftEvent,
+    store: &SignalStore,
+    epigenome_core_summary: &str,
+    lineage_depth: usize,
+    stagnation_ticks: u32,
+) -> String {
+    let signals = store.signals_for_entity(entity_id, 20).unwrap_or_default();
+    let bounds = store.telos_bounds_for_entity(entity_id).unwrap_or_default();
+
+    let mut prompt = String::new();
+    prompt.push_str(&format!("# T5 Synthesis — Entity: {entity_id}\n"));
+    prompt.push_str(&format!(
+        "# Stagnation: {stagnation_ticks} ticks without accepted proposals\n"
+    ));
+    prompt.push_str(&format!("# Lineage depth: {lineage_depth} generations\n"));
+    prompt.push_str(&format!(
+        "# Drift: metric='{}' score={:.3} (CRITICAL — all Fitness Ladder tiers exhausted)\n\n",
+        drift_event.triggering_metric, drift_event.score
+    ));
+
+    if !bounds.is_empty() {
+        prompt.push_str("# Telos bounds:\n");
+        for b in &bounds {
+            prompt.push_str(&format!(
+                "  metric={} min={:?} max={:?} target={:?}\n",
+                b.metric, b.min, b.max, b.target
+            ));
+        }
+        prompt.push('\n');
+    }
+
+    if !epigenome_core_summary.is_empty() {
+        prompt.push_str("# Epigenome Core (institutional memory — do NOT repeat these):\n");
+        prompt.push_str(epigenome_core_summary);
+        prompt.push('\n');
+    }
+
+    if !signals.is_empty() {
+        prompt.push_str(&format!("# Last {} signals:\n", signals.len()));
+        for s in &signals {
+            prompt.push_str(&format!("  {} = {} @ {}\n", s.metric, s.value, s.timestamp));
+        }
+    }
+
+    prompt
 }
 
 /// Build the user prompt from the full genome and signal corpus.
@@ -278,8 +379,11 @@ impl CostGuard {
 /// Tier 3 synthesis engine.
 pub struct MammalBrain {
     client: Box<dyn ClaudeClient>,
-    /// The hourly call budget enforcer.
+    /// The hourly call budget enforcer for T3 (Mammal Brain) calls.
     pub cost_guard: CostGuard,
+    /// Separate hourly call budget for T5 Synthesis calls.
+    /// Env var: `BIOISO_MAX_TIER5_CALLS_PER_HOUR`. Default: 20.
+    pub t5_cost_guard: CostGuard,
     /// Number of recent signals to include in the user prompt.
     pub corpus_lookback: usize,
 }
@@ -290,9 +394,14 @@ impl MammalBrain {
     /// Returns `None` if `CLAUDE_API_KEY` is not set.
     pub fn from_env() -> Option<Self> {
         let client = AnthropicClient::from_env()?;
+        let t5_limit = std::env::var("BIOISO_MAX_TIER5_CALLS_PER_HOUR")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(20usize);
         Some(Self {
             client: Box::new(client),
             cost_guard: CostGuard::from_env(),
+            t5_cost_guard: CostGuard::new(t5_limit),
             corpus_lookback: 30,
         })
     }
@@ -302,7 +411,60 @@ impl MammalBrain {
         Self {
             client,
             cost_guard: CostGuard::new(max_calls_per_hour),
+            t5_cost_guard: CostGuard::new(max_calls_per_hour),
             corpus_lookback: 30,
+        }
+    }
+
+    /// T5 Synthesis evaluation — called when all Fitness Ladder tiers stagnate.
+    ///
+    /// Uses the T5 system prompt which allows `code_patch` proposals.
+    /// Uses its own `t5_cost_guard` (env: `BIOISO_MAX_TIER5_CALLS_PER_HOUR`, default 20)
+    /// so T5 does not consume the T3 budget.
+    pub fn evaluate_t5(
+        &mut self,
+        event: &DriftEvent,
+        store: &SignalStore,
+        epigenome_core_summary: &str,
+        lineage_depth: usize,
+        stagnation_ticks: u32,
+    ) -> Vec<MutationProposal> {
+        if !self.t5_cost_guard.is_permitted() {
+            return vec![];
+        }
+
+        let system = build_t5_system_prompt();
+        let user = build_t5_user_prompt(
+            &event.entity_id,
+            event,
+            store,
+            epigenome_core_summary,
+            lineage_depth,
+            stagnation_ticks,
+        );
+
+        match self.client.complete(&system, &user, 8096) {
+            Ok(text) => {
+                self.t5_cost_guard.record_call();
+                let proposals = parse_proposals(&text);
+                if proposals.is_empty() {
+                    let preview = if text.len() > 400 {
+                        format!("{}…(+{})", &text[..400], text.len() - 400)
+                    } else {
+                        text.clone()
+                    };
+                    eprintln!(
+                        "[T5] synthesis yielded no proposals for `{}` (len={}):\n{preview}",
+                        event.entity_id,
+                        text.len()
+                    );
+                }
+                proposals
+            }
+            Err(e) => {
+                eprintln!("[T5] synthesis API error for `{}`: {e}", event.entity_id);
+                vec![]
+            }
         }
     }
 
@@ -321,7 +483,7 @@ impl MammalBrain {
         let system = build_system_prompt();
         let user = build_user_prompt(&event.entity_id, genome, event, store, self.corpus_lookback);
 
-        match self.client.complete(&system, &user) {
+        match self.client.complete(&system, &user, 2048) {
             Ok(text) => {
                 self.cost_guard.record_call();
                 let proposals = parse_proposals(&text);
@@ -370,7 +532,7 @@ mod tests {
     }
 
     impl ClaudeClient for MockClaudeClient {
-        fn complete(&self, _system: &str, _user: &str) -> Result<String, String> {
+        fn complete(&self, _system: &str, _user: &str, _max_tokens: u32) -> Result<String, String> {
             Ok(self.response.clone())
         }
     }
