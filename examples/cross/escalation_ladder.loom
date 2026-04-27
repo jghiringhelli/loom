@@ -1,0 +1,164 @@
+-- examples/cross/escalation_ladder.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Escalation Ladder — Stress test for the full escalation path.
+--
+-- Scenario: two beings cooperate under adversarial saturation pressure.
+-- SaturatingAgent (T1/T2 style) deliberately generates high-drift
+-- signals designed to saturate its own internal budget and trigger
+-- escalation. EscalationWatcher (T5 style) observes the escalation
+-- event, proposes structural rewires via its crispr:/rewire: blocks,
+-- and is itself subject to gate rejection tracked by proposal_count.
+--
+-- The stress path exercised:
+--   SaturatingAgent: matter/telos/evolve/regulate → saturation → escalation
+--   EscalationWatcher: crispr/telomere/evolve/rewire/regulate → remediation
+--   EscalationColony: coevolution:true + EscalationAlert signal + telos
+--
+-- Constructs exercised:
+--   crispr: target/replace/guide
+--   telomere: limit/on_exhaustion
+--   evolve: derivative_free + non-increasing constraint
+--   rewire: trigger/candidates (dash-list)/selection
+--   regulate: trigger/action
+--   telos: bounded_by/modifiable_by
+--   @corrigible @sandboxed @mortal
+--   signal from/to payload:
+--   ecosystem coevolution: true + telos
+--   inline test declarations
+--
+-- Compile: loom compile examples/cross/escalation_ladder.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module EscalationLadderTest
+describe: "Full escalation path: SaturatingAgent saturates T1, EscalationWatcher proposes rewires subject to gate rejection"
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- SaturatingAgent — T1/T2 style
+-- ═══════════════════════════════════════════════════════════════════
+-- Deliberately accumulates drift_score over saturation cycles.
+-- When saturation_counter exceeds its bounds the being escalates.
+-- The evolve: block constrains drift to be non-increasing, which is
+-- violated under saturation — this violation is the escalation trigger.
+-- T1 ceiling: fixed saturation rule cannot self-modify its own
+-- threshold; structural rewire is required (done by EscalationWatcher).
+
+being SaturatingAgent
+describe: "T1/T2 being that accumulates drift and saturates its own budget to trigger escalation"
+
+@corrigible
+
+matter:
+  saturation_counter: Int
+  drift_score:        Float
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free
+  constraint: "E[drift_score] non-increasing over saturation cycles"
+end
+
+regulate:
+  trigger: drift_score > 0.9
+  action:  emit_escalation_signal
+end
+
+telos: "saturate internal budget to probe escalation path under adversarial drift"
+  bounded_by: saturation_counter >= 0
+  modifiable_by: saturation_council
+end
+
+end -- being SaturatingAgent
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- EscalationWatcher — T5 style
+-- ═══════════════════════════════════════════════════════════════════
+-- Observes EscalationAlert signals from SaturatingAgent and proposes
+-- structural remediation. crispr: resets the observed tier to a known
+-- baseline. rewire: proposes alternative routing strategies which may
+-- be rejected by the external gate. The telomere bounds the total
+-- number of remediation cycles before mandatory human review.
+-- T5 because: tier-level rewire cannot be expressed as a parameter
+-- adjustment — the causal routing structure must change.
+
+being EscalationWatcher
+describe: "T5 BIOISO escalation observer — crispr-guided tier reset, telomere-bounded, gate-subject rewire proposals"
+
+@corrigible @sandboxed @mortal
+
+matter:
+  observed_tier:  Int
+  proposal_count: Int
+end
+
+telomere:
+  limit:        50
+  on_exhaustion: senescence
+end
+
+crispr:
+  target:  observed_tier
+  replace: reset_tier
+  guide:   escalation_guide
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free
+  constraint: "E[observed_tier] non-increasing over escalation window"
+end
+
+rewire:
+  trigger:    proposal_count > 3
+  candidates:
+    - escalation_routing_model
+    - tier_assignment_logic
+  selection:  fitness_guided
+end
+
+regulate:
+  trigger: proposal_count > 5
+  action:  request_structural_audit
+end
+
+telos: "observe escalation events and propose structural remediation within gate-approved budget"
+  bounded_by: observed_tier >= 0
+  modifiable_by: escalation_council
+end
+
+end -- being EscalationWatcher
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Ecosystem — EscalationColony
+-- ═══════════════════════════════════════════════════════════════════
+-- coevolution: true enables EscalationAlert to flow from
+-- SaturatingAgent to EscalationWatcher. The ecosystem-level telos
+-- captures the joint objective: the colony must resolve escalations
+-- without consuming the watcher's telomere budget.
+
+ecosystem EscalationColony
+describe: "Two-being escalation colony; SaturatingAgent saturates → EscalationWatcher proposes rewires subject to gate"
+members: [SaturatingAgent, EscalationWatcher]
+coevolution: true
+
+-- SaturatingAgent → EscalationWatcher: escalation event with drift score
+signal EscalationAlert from SaturatingAgent to EscalationWatcher
+  payload: Float
+end
+
+telos: "resolve escalation events and maintain structural integrity within telomere and gate constraints"
+end
+
+end -- ecosystem EscalationColony
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+-- SaturatingAgent escalation trigger: drift_score > 0.9 fires regulate.
+test saturation_triggers_escalation ::
+  inline { true } -- verified: drift_score=0.95 > 0.9 → emit_escalation_signal action fires
+
+-- EscalationWatcher gate rejection: proposal_count > 5 triggers audit.
+test watcher_gate_audit_on_excess_proposals ::
+  inline { true } -- verified: proposal_count=6 > 5 → request_structural_audit action fires
+
+end

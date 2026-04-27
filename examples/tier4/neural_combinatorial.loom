@@ -77,11 +77,15 @@ end
 
 -- Multi-head self-attention over all city embeddings.
 -- N=3 encoder layers, h=8 heads, d_model=128, d_ff=512 (Kool et al. defaults).
+-- Steps: (1) linear project each (x, y) → d_model embedding,
+--         (2) add positional encoding,
+--         (3) apply N=3 Transformer blocks (multi-head self-attn + FFN + layer-norm),
+--         (4) return one NodeEmbedding per city.
 fn encode_cities :: [City] -> AttentionSolver -> [NodeEmbedding]
   require: cities.len() >= 2
   require: solver.model_weights.len() > 0
   ensure:  result.len() == cities.len()
-  todo
+  inline { todo!() }
 end
 
 -- ── Decoder: Pointer Network ────────────────────────────────────────
@@ -108,39 +112,57 @@ end
 -- ── Training ────────────────────────────────────────────────────────
 
 -- Sample a random TSP instance of `instance_size` cities.
+-- Each city is drawn i.i.d. uniform from [0,1]² (Kool et al. training distribution).
 fn sample_instance :: Int -> Effect<[IO], [City]>
   require: instance_size >= 2
   ensure:  result.len() == instance_size
   ensure:  result.all(|c| c.x >= 0.0 && c.x <= 1.0 && c.y >= 0.0 && c.y <= 1.0)
-  todo
+  inline {
+    (0..arg0)
+        .map(|_| City {
+            x: rand::random::<f64>(),
+            y: rand::random::<f64>(),
+        })
+        .collect()
+  }
 end
 
 -- REINFORCE gradient step with exponential moving average baseline.
 -- Baseline decay β = 0.99 (Kool et al. Appendix A).
+-- Gradient: ∇θ J ≈ (tour_dist − baseline) · ∇θ log π(tour | θ)
+-- where baseline ← 0.99 · baseline + 0.01 · tour_dist (EMA update).
+-- Weights updated via Adam: θ ← θ − lr · Adam(∇θ J).
 fn reinforce_step :: AttentionSolver -> TrainingEpisode -> Float -> Effect<[IO], AttentionSolver>
   require: learning_rate > 0.0 && learning_rate < 1.0
   ensure:  result.training_step == solver.training_step + 1
-  todo
+  inline { todo!() }
 end
 
 -- Run one training batch: sample B instances, rollout policy, compute
 -- REINFORCE loss, update weights via Adam optimiser (lr = 1e-4).
+-- For each of the B instances: sample_instance → encode_cities → decode_tour
+-- → reinforce_step. The returned Float is the mean tour distance over the batch.
 fn train_batch :: AttentionSolver -> Int -> Float -> Effect<[IO], (AttentionSolver, Float)>
   require: batch_size >= 1
   require: learning_rate > 0.0
   ensure:  result.0.training_step == solver.training_step + batch_size
-  todo
+  inline { todo!() }
 end
 
 -- ── Inference ───────────────────────────────────────────────────────
 
 -- Greedy decode a tour for a new (unseen) TSP instance.
 -- One forward pass — O(n) — replaces O(n²) SA neighbourhood search.
+-- Steps: encode_cities → decode_tour(greedy=true) → compute total_distance.
 fn solve_instance :: [City] -> AttentionSolver -> Tour
   require: cities.len() >= 2
   ensure:  result.permutation.len() == cities.len()
   ensure:  result.total_distance > 0.0
-  todo
+  inline {
+    let embeddings = encode_cities(arg0.clone(), arg1.clone());
+    let (tour, _log_prob) = decode_tour(embeddings, arg1, true);
+    tour
+  }
 end
 
 -- Gap to optimal: (model_dist - opt_dist) / opt_dist.
@@ -149,7 +171,7 @@ fn optimality_gap :: Tour -> Float -> Float
   require: optimal_distance > 0.0
   require: tour.total_distance >= optimal_distance
   ensure:  result >= 0.0
-  todo
+  inline { (arg0.total_distance - arg1) / arg1 }
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -174,12 +196,17 @@ function:
   fn train :: Int -> Effect<[IO], Unit>
     require: n_steps > 0
     ensure:  true
-    todo
+    -- Run n_steps training batches via train_batch(solver, batch_size=512, lr=1e-4).
+    -- Updates solver weights in-place via the REINFORCE gradient estimator.
+    -- Increments training_episodes by n_steps * batch_size.
+    inline { todo!() }
   end
   fn solve :: [City] -> Tour
     require: cities.len() >= 2
     ensure:  result.permutation.len() == cities.len()
-    todo
+    -- Single greedy forward pass: encode → decode (greedy) → Tour.
+    -- Delegates to solve_instance(cities, solver).
+    inline { solve_instance(arg0, solver) }
   end
 end
 

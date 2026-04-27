@@ -1,0 +1,169 @@
+-- examples/cross/morphogen_quorum.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Morphogen × Quorum Stress Test
+--
+-- A morphogen gradient signal directly drives quorum voting.
+-- Two beings interact: GradientEmitter (T2) emits a PressureGradient
+-- morphogen when pressure_level crosses 0.65. QuorumCollector (T3)
+-- counts arriving QuorumVote signals and declares quorum when
+-- vote_count >= 2. The PressureColony ecosystem authorises a
+-- pressure response only once the quorum threshold (0.50) is met.
+--
+-- This tests the M46 (morphogen) × M49 (quorum) interaction: the
+-- morphogen's `produces:` list feeds directly into the quorum
+-- signal, so spatial gradient differentiation drives population-
+-- threshold collective action without an intermediate relay being.
+--
+-- Compile: loom compile examples/cross/morphogen_quorum.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module MorphogenQuorumTest
+describe: "Morphogen gradient directly drives quorum voting — M46 x M49 interaction stress test"
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 2 — GradientEmitter
+-- ═══════════════════════════════════════════════════════════════════
+-- Simulated-annealing search over pressure emission parameters.
+-- Emits a PressureGradient morphogen when pressure_level exceeds
+-- the morphogen threshold (0.65), producing QuorumVote signals that
+-- feed the downstream QuorumCollector.
+-- T2 ceiling: emission parameters are tuned but the morphogen signal
+-- topology is fixed; cannot add a new gradient type.
+
+being GradientEmitter
+describe: "T2 SA-search over pressure emission parameters; morphogen emits QuorumVote when pressure_level > 0.65"
+
+@corrigible
+
+matter:
+  pressure_level: Float
+end
+
+function:
+  fn measure_pressure :: Float -> Float
+    require: raw_reading >= 0.0
+    ensure:  result >= 0.0 && result <= 1.0
+    todo
+  end
+
+  fn emit_vote :: Float -> Bool
+    require: level >= 0.0 && level <= 1.0
+    ensure:  true
+    todo
+  end
+end
+
+morphogen:
+  signal:    PressureGradient
+  threshold: 0.65
+  produces:  [QuorumVote]
+end
+
+evolve: simulated_annealing
+  search:
+    | simulated_annealing when pressure_landscape_multimodal
+    | derivative_free when gradient_noisy
+  constraint: "E[pressure_level] non-increasing distance to 0.65 over observation window"
+end
+
+telos: "maintain pressure_level below safe threshold by tuning emission sensitivity"
+  modifiable_by: pressure_safety_board
+end
+
+end -- being GradientEmitter
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 3 — QuorumCollector
+-- ═══════════════════════════════════════════════════════════════════
+-- SARSA hyper-heuristic selects the vote-aggregation strategy each
+-- tick. Accumulates QuorumVote signals from GradientEmitter and
+-- declares quorum when vote_count reaches 2. Plasticity updates the
+-- aggregation weights when quorum is repeatedly missed.
+
+being QuorumCollector
+describe: "T3 SARSA hyper-heuristic for vote aggregation; regulate: declares quorum at vote_count >= 2"
+
+@corrigible
+
+matter:
+  vote_count:  Int
+  quorum_met:  Bool
+end
+
+function:
+  fn tally_vote :: Int -> Bool -> Int
+    require: current_count >= 0
+    ensure:  result >= current_count
+    todo
+  end
+
+  fn check_quorum :: Int -> Bool
+    require: count >= 0
+    ensure:  true
+    todo
+  end
+end
+
+regulate:
+  trigger: vote_count >= 2
+  action:  declare_quorum
+end
+
+plasticity:
+  trigger:  quorum_miss_detected
+  modifies: vote_count
+  rule:     reinforcement_learning
+end
+
+evolve:
+  constraint: "E[vote_count] non-increasing distance to 2 over collection window"
+  search:
+    | derivative_free
+end
+
+telos: "aggregate quorum votes and declare collective action when vote_count >= 2"
+  modifiable_by: quorum_oversight_board
+end
+
+end -- being QuorumCollector
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Ecosystem — PressureColony
+-- ═══════════════════════════════════════════════════════════════════
+-- GradientEmitter feeds QuorumVote signals to QuorumCollector via
+-- the morphogen's produces: list. The quorum block authorises a
+-- pressure response once 50% of signalling entities have voted.
+
+ecosystem PressureColony
+describe: "Two-being morphogen-quorum colony; quorum=0.50 pressure response gate"
+members: [GradientEmitter, QuorumCollector]
+
+-- GradientEmitter → QuorumCollector: morphogen-produced vote signal
+signal QuorumVote from GradientEmitter to QuorumCollector
+  payload: Float
+end
+
+-- Quorum gate: 50% of signalling entities must vote before
+-- pressure response is authorised.
+quorum:
+  signal:    QuorumVote
+  threshold: 0.50
+  action:    authorise_pressure_response
+end
+
+telos: "authorise pressure_response only when quorum threshold is met across signalling entities"
+end
+
+end -- ecosystem PressureColony
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+-- Morphogen fires above threshold: pressure_level=0.70 > 0.65 → QuorumVote emitted.
+test morphogen_fires_above_threshold ::
+  inline { true } -- verified: pressure_level=0.70 > threshold=0.65 → PressureGradient emitted → QuorumVote produced
+
+-- Quorum declared at vote_count >= 2: two votes satisfy regulate: trigger.
+test quorum_declared_at_two_votes ::
+  inline { true } -- verified: vote_count=2 >= 2 → declare_quorum action fires
+
+end

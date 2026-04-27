@@ -158,3 +158,5 @@ test two_opt_preserves_city_count ::
 test acceptance_probability_is_one_for_improvement ::
   -- negative delta (improvement) should always be accepted
   acceptance_probability(-5.0, 100.0) == 1.0
+
+end

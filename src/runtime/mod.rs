@@ -15,6 +15,8 @@
 
 use std::collections::HashMap;
 
+pub mod being_loader;
+pub mod bioiso_log;
 pub mod bioiso_runner;
 pub mod brain;
 pub mod circadian;
@@ -40,9 +42,10 @@ pub mod store;
 pub mod supervisor;
 pub mod telomere_audit;
 
+pub use being_loader::{being_to_spec, load_from_file, load_from_source};
 pub use bioiso_runner::{
-    all_domain_specs, BIOISORunner, BIOISOSpec, MetricBoundSpec, RetroResult, RetroScenario,
-    RetroValidator,
+    all_domain_specs, BIOISORunner, BIOISOSpec, DynamicBIOISOSpec, DynamicMetricBound,
+    MetricBoundSpec, RetroResult, RetroScenario, RetroValidator,
 };
 pub use brain::{CostGuard, MammalBrain};
 pub use circadian::{
@@ -51,7 +54,9 @@ pub use circadian::{
 pub use colony::{ColonyPeer, GossipMessage, Mycelium, PeerStatus, PheromoneTrail};
 pub use deploy::{CanaryDeployer, DeployOutcome, DeployStatus};
 pub use drift::{DriftEngine, DriftEvent, DriftSeverity};
-pub use epigenetic::{BufferEntry, CoreEntry, Epigenome, MemoryType, WorkingSummary};
+pub use epigenetic::{
+    BufferEntry, CoreEntry, Epigenome, MemoryType, SemanticIndex, WorkingSummary,
+};
 pub use ganglion::{Ganglion, GanglionConfig};
 pub use gate::{GateResult, GateVerdict, MutationGate};
 pub use gauntlet::{GauntletConfig, GauntletResult, SurvivalGauntlet};

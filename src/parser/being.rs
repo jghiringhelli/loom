@@ -759,6 +759,29 @@ impl<'src> crate::parser::Parser<'src> {
         self.advance(); // consume `evolve`
         let mut search_cases = Vec::new();
         let mut constraint = String::new();
+        // Handle inline strategy: `evolve: strategy_name` → add as a search case.
+        if self.at(&Token::Colon) {
+            self.advance(); // consume `:`
+            if let Some((Token::Ident(name), _)) = self.tokens.get(self.pos) {
+                let strategy = match name.as_str() {
+                    "gradient_descent" => Some(SearchStrategy::GradientDescent),
+                    "stochastic_gradient" => Some(SearchStrategy::StochasticGradient),
+                    "simulated_annealing" => Some(SearchStrategy::SimulatedAnnealing),
+                    "mcmc" => Some(SearchStrategy::Mcmc),
+                    "derivative_free" => Some(SearchStrategy::DerivativeFree),
+                    "genetic" => Some(SearchStrategy::Genetic),
+                    "particle_swarm" => Some(SearchStrategy::ParticleSwarm),
+                    _ => None,
+                };
+                if let Some(s) = strategy {
+                    search_cases.push(SearchCase {
+                        strategy: s,
+                        when: String::new(),
+                    });
+                    self.pos += 1;
+                }
+            }
+        }
         while !self.at(&Token::End) && self.peek().is_some() {
             if self.at(&Token::Toward) {
                 self.advance();
@@ -775,6 +798,8 @@ impl<'src> crate::parser::Parser<'src> {
                         "stochastic_gradient" => SearchStrategy::StochasticGradient,
                         "simulated_annealing" => SearchStrategy::SimulatedAnnealing,
                         "mcmc" => SearchStrategy::Mcmc,
+                        "genetic" => SearchStrategy::Genetic,
+                        "particle_swarm" => SearchStrategy::ParticleSwarm,
                         _ => SearchStrategy::DerivativeFree,
                     };
                     let when_present = matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "when");
@@ -807,6 +832,39 @@ impl<'src> crate::parser::Parser<'src> {
                 if let Some((Token::StrLit(s), _)) = self.tokens.get(self.pos) {
                     constraint = s.clone();
                     self.pos += 1;
+                } else {
+                    // Unquoted constraint: collect tokens until section boundary or `end`.
+                    let mut parts = Vec::new();
+                    loop {
+                        match self.tokens.get(self.pos) {
+                            None => break,
+                            Some((Token::End, _)) => break,
+                            Some((Token::Ident(n), _))
+                                if matches!(
+                                    n.as_str(),
+                                    "constraint"
+                                        | "search"
+                                        | "temperature"
+                                        | "cooling_rate"
+                                        | "mutation_rate"
+                                        | "population_size"
+                                        | "crossover_rate"
+                                        | "iterations"
+                                        | "toward"
+                                        | "memory"
+                                        | "learning_rate"
+                                ) =>
+                            {
+                                break
+                            }
+                            Some((tok, _)) => {
+                                let s = tok_to_str(tok);
+                                parts.push(s);
+                                self.pos += 1;
+                            }
+                        }
+                    }
+                    constraint = parts.join(" ");
                 }
             } else {
                 self.advance();
@@ -2783,5 +2841,29 @@ impl<'src> crate::parser::Parser<'src> {
             offspring_type,
             span: Span::merge(&start, &end_span),
         })
+    }
+}
+
+fn tok_to_str(tok: &Token) -> String {
+    match tok {
+        Token::Ident(n) => n.clone(),
+        Token::LBracket => "[".to_string(),
+        Token::RBracket => "]".to_string(),
+        Token::LParen => "(".to_string(),
+        Token::RParen => ")".to_string(),
+        Token::Dot => ".".to_string(),
+        Token::Comma => ",".to_string(),
+        Token::IntLit(n) => n.to_string(),
+        Token::FloatLit(f) => f.to_string(),
+        Token::StrLit(s) => format!("\"{}\"", s),
+        Token::BoolLit(b) => b.to_string(),
+        Token::Gt => ">".to_string(),
+        Token::Lt => "<".to_string(),
+        Token::Ge => ">=".to_string(),
+        Token::Le => "<=".to_string(),
+        Token::Eq => "=".to_string(),
+        Token::EqEq => "==".to_string(),
+        Token::Ne => "!=".to_string(),
+        _ => String::new(),
     }
 }

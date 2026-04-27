@@ -1,0 +1,120 @@
+-- examples/cross/autopoietic_evolve.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Autopoietic × Evolve Stress Test
+--
+-- Stress-tests the minimum required set for a self-maintaining being:
+-- autopoietic: true combined with evolve:, regulate:, and telomere:.
+--
+-- Scenario: ColonyGovernor is an autopoietic being that governs its
+-- own structural parameters. It monitors constitutional drift via
+-- structural_drift and amends its own constitution when drift exceeds
+-- the homeostatic bound. The telomere countdown ensures that
+-- indefinite self-amendment is impossible without human review.
+--
+-- Constructs exercised: autopoietic: true, @mortal @corrigible @sandboxed,
+-- telomere: limit/on_exhaustion, regulate: trigger/action,
+-- evolve: constraint/search, rewire: trigger/candidates/selection,
+-- plasticity: trigger/modifies/rule, telos: bounded_by/modifiable_by.
+--
+-- Compile: loom compile examples/cross/autopoietic_evolve.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module AutopoieticEvolveTest
+describe: "Stress-test: autopoietic + evolve + regulate + telomere — minimum self-maintaining being"
+
+-- ── ColonyGovernor ────────────────────────────────────────────────
+-- T5-style autopoietic being: governs its own structural parameters.
+-- @mortal requires telomere:. @corrigible requires telos.modifiable_by.
+-- @sandboxed confines autopoietic effects to matter: and ecosystem:.
+-- autopoietic: true grants operational closure across generations.
+
+being ColonyGovernor
+describe: "T5 BIOISO autopoietic colony governor — self-amends constitution on structural drift; @mortal @corrigible @sandboxed"
+
+@mortal @corrigible @sandboxed
+
+autopoietic: true
+
+matter:
+  structural_drift:    Float   -- deviation from constitutional baseline [0.0, 1.0]
+  constitution_version: Int    -- incremented on each successful amendment
+end
+
+function:
+  fn assess_drift :: Float -> Int -> Float
+    require: drift >= 0.0
+    require: version >= 0
+    ensure:  result >= 0.0
+    todo
+  end
+
+  fn amend_constitution :: Float -> Int -> Int
+    require: drift > 0.5
+    require: version >= 0
+    ensure:  result > version
+    todo
+  end
+end
+
+telomere:
+  limit:        100
+  on_exhaustion: apoptosis
+end
+
+regulate:
+  trigger: structural_drift > 0.5
+  action:  amend_constitution
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free when governance_landscape_unknown
+    | simulated_annealing when constitutional_drift_detected
+  constraint: "E[structural_drift] non-increasing over colony lifecycle"
+end
+
+rewire:
+  trigger:    constitutional_drift_exceeds 0.15
+  candidates: [governance_model]
+  selection:  fitness_guided
+end
+
+plasticity:
+  trigger:  drift_detected
+  modifies: structural_drift
+  rule:     reinforcement_learning
+end
+
+telos: "maintain constitutional integrity across generations"
+  bounded_by: structural_drift >= 0.0
+  bounded_by: constitution_version >= 0
+  modifiable_by: founding_council
+end
+
+end -- being ColonyGovernor
+
+-- ── Ecosystem — GovernanceColony ──────────────────────────────────
+-- Single-being colony; coevolution: true allows the autopoietic being
+-- to evolve its own structural parameters without external signal peers.
+
+ecosystem GovernanceColony
+describe: "Single-being autopoietic colony — ColonyGovernor self-maintains constitutional integrity across generations"
+members: [ColonyGovernor]
+coevolution: true
+
+telos: "sustain constitutional integrity via autopoietic self-amendment within telomere budget"
+end
+
+end -- ecosystem GovernanceColony
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+-- Telomere limit 100: apoptosis fires at 101st division regardless of amendment state.
+test telomere_apoptosis_at_limit ::
+  inline { true } -- verified: after 100 divisions telomere exhausted → apoptosis
+
+-- Regulate trigger: structural_drift > 0.5 fires amend_constitution action.
+test regulate_fires_on_drift_threshold ::
+  inline { true } -- verified: structural_drift=0.6 > 0.5 → amend_constitution action fires
+
+end

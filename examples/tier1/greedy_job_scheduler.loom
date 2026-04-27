@@ -123,3 +123,5 @@ test total_completion_time_is_sum_of_completions ::
   let sched = schedule_spt(jobs) in
   -- SPT: job1 completes at 2, job2 completes at 5 → total = 7
   sched.total_completion_time == 7.0
+
+end

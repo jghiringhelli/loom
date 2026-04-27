@@ -153,3 +153,5 @@ test feasible_solution_respects_capacity ::
   let vehicles  = [Vehicle  { id: 0, capacity: 5.0  }] in
   let sol = clarke_wright_init(customers, vehicles) in
   sol.is_feasible
+
+end

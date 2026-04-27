@@ -11,6 +11,10 @@ pub enum SearchStrategy {
     SimulatedAnnealing,
     DerivativeFree,
     Mcmc,
+    /// Evolutionary / genetic algorithm (T2): population-based search with crossover + mutation.
+    Genetic,
+    /// Particle swarm optimisation (T2): velocity-based swarm with cognitive + social components.
+    ParticleSwarm,
 }
 
 /// A single search case: when this landscape condition holds, use this strategy.

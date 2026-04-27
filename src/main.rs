@@ -283,6 +283,50 @@ enum RuntimeCommands {
         manifest_path: String,
     },
 
+    /// Load beings from a `.loom` file and seed them into the BIOISO runtime.
+    ///
+    /// Parses the source file, extracts every `being` definition that declares
+    /// a `telos:` block, infers its BIOISO tier (T1–T5) from the presence of
+    /// `evolve:`, `plasticity:`, `learn:`, `crispr:`, `morphogen:`, etc., and
+    /// seeds it into the runtime as a live colony entity.
+    ///
+    /// This is the closure that makes loom a live PLN: write a being in loom,
+    /// load it directly into the colony — no manual wiring.
+    ///
+    /// Example:
+    ///   loom runtime load examples/tier5/apex_colony.loom --db colony.db
+    Load {
+        /// Path to the `.loom` source file.
+        file: String,
+
+        /// Path to the BIOISO SQLite store.
+        #[arg(long, default_value = "bioiso.db")]
+        db: String,
+
+        /// Dry-run: parse and show what would be seeded, without writing to DB.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
+
+    /// Scan `.bioiso` event log files and print an aggregate colony report.
+    ///
+    /// Reads every `*.bioiso` file in `--dir`, parses the TOML `[[event]]` blocks,
+    /// and prints a summary of event counts and a tick-ordered timeline.
+    /// Use `--type` to filter to a single event type (e.g. `apoptosis`, `t5_proposal`).
+    ///
+    /// Example:
+    ///   loom runtime scan --dir .bioiso/
+    ///   loom runtime scan --dir .bioiso/ --type t5_proposal
+    Scan {
+        /// Directory containing `*.bioiso` event log files.
+        #[arg(long, default_value = ".bioiso")]
+        dir: String,
+
+        /// Only show events of this type (empty = all types).
+        #[arg(long, default_value = "")]
+        r#type: String,
+    },
+
     /// Pretty-print a BIOISO experiment JSONL log produced by `loom runtime experiment`.
     ///
     /// Reads the JSON-lines file written by `--log-path` and displays a human-readable
@@ -1127,6 +1171,81 @@ fn handle_runtime(subcommand: RuntimeCommands) {
                 println!("\n--- JSON Summary ---");
                 println!("{json}");
             }
+        }
+
+        RuntimeCommands::Load { file, db, dry_run } => {
+            use loom::runtime::{being_loader, BIOISORunner, Runtime};
+
+            let path = std::path::Path::new(&file);
+            let specs = match being_loader::load_from_file(path) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    process::exit(1);
+                }
+            };
+
+            if specs.is_empty() {
+                eprintln!(
+                    "warning: no BIOISO beings found in `{file}` (beings need a `telos:` block)"
+                );
+                process::exit(0);
+            }
+
+            println!("found {} beings in `{file}`:", specs.len());
+            for s in &specs {
+                println!(
+                    "  [{tier}] {id:30} — {name}",
+                    tier = s.tier,
+                    id = s.entity_id,
+                    name = s.name,
+                );
+            }
+
+            if dry_run {
+                println!("\ndry-run: no changes written.");
+                return;
+            }
+
+            let mut runtime = match Runtime::new(&db) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("error: could not open store `{db}`: {e}");
+                    process::exit(1);
+                }
+            };
+            let runner = BIOISORunner::new();
+            let mut seeded = 0usize;
+            let mut skipped = 0usize;
+            for spec in &specs {
+                match runner.spawn_dynamic_domain(&mut runtime, spec) {
+                    Ok(()) => {
+                        println!("  seeded  {}", spec.entity_id);
+                        seeded += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("  skipped {} — {e}", spec.entity_id);
+                        skipped += 1;
+                    }
+                }
+            }
+            println!("\nload complete: {seeded} seeded, {skipped} skipped → `{db}`");
+        }
+
+        RuntimeCommands::Scan { dir, r#type } => {
+            use loom::runtime::bioiso_log;
+            let dir_path = std::path::Path::new(&dir);
+            if !dir_path.exists() {
+                eprintln!("error: directory `{dir}` does not exist");
+                process::exit(1);
+            }
+            let events = bioiso_log::scan_dir(dir_path);
+            let filter = if r#type.is_empty() {
+                None
+            } else {
+                Some(r#type.as_str())
+            };
+            bioiso_log::print_scan_report(&events, filter);
         }
 
         RuntimeCommands::Logs {

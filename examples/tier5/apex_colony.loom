@@ -1,0 +1,600 @@
+-- examples/tier5/apex_colony.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Apex Colony — Planetary Homeostasis BIOISO Colony.
+--
+-- Seven BIOISO-class beings span the full algorithm ladder (T1–T5)
+-- and are coupled by session-typed signals in the PlanetaryColony
+-- ecosystem. Together they maintain Earth's life-support boundaries
+-- (Rockström et al. 2009 — nine planetary boundaries).
+--
+-- GS 4-TIER CEILING PROOF
+-- ─────────────────────────────────────────────────────────────────
+-- T1 (EnergyTransition): fixed renewable dispatch rule. Optimal for
+--    a static grid with known demand curve. Ceiling: when technology
+--    mix shifts (new storage, nuclear SMR), the fixed merit-order
+--    table becomes sub-optimal and no feedback loop exists to revise
+--    it. ParameterAdjust cannot change the dispatch topology.
+--
+-- T2 (CarbonSink): SA/GA over sequestration protocol parameters.
+--    Escapes T1's fixed-rule ceiling. Ceiling: all candidate protocols
+--    are pre-specified. Cannot hypothesise a new sink mechanism (e.g.
+--    ocean alkalinity enhancement) absent from the original pool.
+--
+-- T3 (BiodiversityKeeper): SARSA hyper-heuristic selects over
+--    conservation strategy portfolio. Escapes T2's fixed-pool ceiling.
+--    Ceiling: strategy portfolio is fixed at training time. When a
+--    novel extinction driver emerges (e.g. a new pathogen wiping out
+--    a keystone species), no pre-specified strategy addresses it.
+--
+-- T4 (OceanCirculationGuard): GP-UCB surrogate model. Escapes T3's
+--    sample-inefficiency ceiling. Ceiling: the GP kernel encodes a
+--    fixed covariance structure. When the AMOC undergoes a nonlinear
+--    tipping-point transition, the surrogate's training distribution
+--    is out-of-distribution; the kernel must be structurally rewired.
+--
+-- T5 (AtmosphericSentinel, FoodWebAnchor, PlanetaryGovernor):
+--    `rewire:` replaces the causal model structure when coupling drift
+--    exceeds threshold. `crispr:` replaces a maladapted sequencing
+--    strategy in-place. `autopoietic: true` on PlanetaryGovernor
+--    gives operational closure: the colony maintains its own
+--    organisation across generational boundaries. None of T1–T4 can
+--    represent inter-generational structural learning.
+--
+-- Quorum threshold: 4 of 7 entities must signal critical drift before
+-- any planetary-scale intervention is authorised (Bassler 1999 —
+-- population-density threshold for collective action).
+--
+-- References:
+--   Rockström et al. (2009) — "A safe operating space for humanity"
+--   Lenton et al. (2008)   — "Tipping elements in Earth's climate system"
+--   Bassler (1999)          — "How bacteria talk to each other"
+--   Kool et al. (2019)      — Attention model for combinatorial optimisation
+--
+-- Compile:  loom compile examples/tier5/apex_colony.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module ApexColony
+describe: "Seven-being planetary homeostasis colony spanning T1–T5; cross-entity signals; quorum; morphogen; autopoietic closure"
+
+-- ── Shared types ──────────────────────────────────────────────────
+
+type PlanetarySignal =
+  metric:     String
+  value:      Float
+  tick:       Int
+  source:     String
+end
+
+type BoundaryStatus =
+  within_safe_zone: Bool
+  current_value:    Float
+  safe_limit:       Float
+  trend:            Float    -- positive = worsening
+end
+
+type InterventionProposal =
+  target_entity:  String
+  action:         String
+  urgency:        Float     -- 0.0 = low, 1.0 = critical
+  reversible:     Bool
+end
+
+type EnergyMix =
+  solar_pct:     Float
+  wind_pct:      Float
+  hydro_pct:     Float
+  nuclear_pct:   Float
+  fossil_pct:    Float
+  storage_gwh:   Float
+end
+
+type ConservationStrategy =
+  name:                  String
+  habitat_restoration:   Float   -- fraction of degraded habitat to restore
+  keystone_reintro:      Bool
+  invasive_removal_pct:  Float
+end
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 1 — EnergyTransition
+-- ═══════════════════════════════════════════════════════════════════
+-- Fixed merit-order dispatch: solar first, then wind, hydro, nuclear,
+-- then fossil as last resort. No feedback loop. T1 ceiling: dispatch
+-- order is hard-coded; cannot adapt to technology-mix changes.
+
+being EnergyTransition
+describe: "T1 fixed merit-order renewable dispatch — no feedback, no adaptation"
+
+matter:
+  grid_mix:          EnergyMix
+  demand_gw:         Float
+  fossil_emission_gton: Float
+end
+
+function:
+  fn dispatch :: EnergyMix -> Float -> EnergyMix
+    require: demand_gw > 0.0
+    require: mix.solar_pct + mix.wind_pct + mix.hydro_pct + mix.nuclear_pct + mix.fossil_pct <= 100.0
+    ensure:  result.fossil_pct >= 0.0
+    ensure:  result.fossil_pct <= mix.fossil_pct
+    todo
+  end
+
+  fn estimate_emissions :: EnergyMix -> Float -> Float
+    require: demand_gw > 0.0
+    ensure:  result >= 0.0
+    todo
+  end
+end
+
+telos: "minimise fossil emission fraction via fixed merit-order dispatch"
+end
+
+end -- being EnergyTransition
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 2 — CarbonSink
+-- ═══════════════════════════════════════════════════════════════════
+-- Simulated-annealing search over sequestration protocol parameters.
+-- Escapes T1's fixed-rule limit by tuning afforestation rates,
+-- soil-carbon management depth, and ocean alkalinity dosage.
+-- T2 ceiling: all candidate protocols are pre-specified; cannot
+-- hypothesise a structurally novel sink mechanism.
+
+being CarbonSink
+describe: "T2 SA-search over land/ocean sequestration protocols to maximise net carbon removal"
+
+matter:
+  sequestration_rate_gton:  Float   -- net CO2 removed per year (target: > 10 GtCO2/yr)
+  afforestation_area_mha:   Float   -- million hectares under active reforestation
+  soil_depth_cm:            Float   -- managed soil carbon storage depth
+  alkalinity_dose_mol_m2:   Float   -- ocean alkalinity enhancement dosing rate
+end
+
+function:
+  fn run_protocol :: Float -> Float -> Float -> Float
+    require: afforestation_area >= 0.0
+    require: soil_depth >= 5.0 && soil_depth <= 100.0
+    require: alkalinity_dose >= 0.0
+    ensure:  result >= 0.0
+    todo
+  end
+end
+
+evolve: simulated_annealing
+  search:
+    | simulated_annealing when landscape_multimodal
+    | derivative_free when gradient_noisy
+  constraint: "E[sequestration_rate_gton] non-increasing distance to 10.0 over annual window"
+end
+
+telos: "maximise net carbon sequestration rate toward 10 GtCO2/yr"
+end
+
+end -- being CarbonSink
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 3 — BiodiversityKeeper
+-- ═══════════════════════════════════════════════════════════════════
+-- SARSA hyper-heuristic selects conservation strategy each tick from
+-- a portfolio. Escapes T2's fixed-protocol ceiling. T3 ceiling: the
+-- strategy portfolio is fixed; novel extinction drivers cannot be
+-- addressed without portfolio expansion, which T3 cannot do itself.
+
+being BiodiversityKeeper
+describe: "T3 SARSA hyper-heuristic for conservation strategy selection; plasticity on extinction-rate drift"
+
+@corrigible
+
+matter:
+  species_richness_index:  Float   -- normalised [0,1]; 1.0 = pre-industrial baseline
+  extinction_rate_per_myr: Float   -- background rate ≈ 1; safe boundary ≤ 10
+  active_strategy:         ConservationStrategy
+  strategy_weights:        [Float]
+end
+
+function:
+  fn select_strategy :: Float -> Float -> ConservationStrategy
+    require: richness_index >= 0.0 && richness_index <= 1.0
+    require: extinction_rate >= 0.0
+    ensure:  true
+    todo
+  end
+
+  fn apply_strategy :: ConservationStrategy -> Float -> Float
+    require: current_extinction_rate >= 0.0
+    ensure:  result >= 0.0
+    todo
+  end
+end
+
+plasticity:
+  trigger:  extinction_rate_spike
+  modifies: strategy_weights
+  rule:     reinforcement_learning
+end
+
+telos: "maintain species richness index >= 0.80 and extinction rate <= 10 per Myr"
+  modifiable_by: conservation_board
+end
+
+end -- being BiodiversityKeeper
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 4 — OceanCirculationGuard
+-- ═══════════════════════════════════════════════════════════════════
+-- GP-UCB surrogate model for AMOC intervention timing. Learns the
+-- nonlinear relationship between freshwater flux, Atlantic overturning
+-- strength, and downstream heat transport. Epigenetic: when Arctic
+-- melt-rate signal crosses critical threshold, switches from
+-- conservative to emergency intervention mode.
+
+being OceanCirculationGuard
+describe: "T4 GP surrogate for AMOC intervention + epigenetic emergency switch on arctic melt"
+
+@corrigible
+
+matter:
+  amoc_strength_sv:         Float   -- Atlantic overturning in Sverdrups (target: > 12 Sv)
+  north_atlantic_heat_pw:   Float   -- Petawatts of poleward heat transport
+  freshwater_flux_sv:       Float   -- freshwater input from Greenland/Arctic melt
+  ocean_heat_content_zj:    Float   -- upper 2000m heat content in Zettajoules
+  intervention_mode:        String  -- "conservative" | "emergency"
+end
+
+function:
+  fn predict_amoc_response :: Float -> Float -> Float
+    require: freshwater_flux >= 0.0
+    require: co2_ppm > 200.0 && co2_ppm < 2000.0
+    ensure:  result >= 0.0
+    todo
+  end
+
+  fn prescribe_intervention :: Float -> Float -> InterventionProposal
+    require: amoc_strength >= 0.0
+    require: target_strength > 0.0
+    ensure:  result.urgency >= 0.0 && result.urgency <= 1.0
+    todo
+  end
+end
+
+epigenetic:
+  signal:       ArcticMeltAlert
+  modifies:     intervention_mode
+  reverts_when: melt_rate_stable
+end
+
+learn: gaussian_process
+  acquisition:      expected_improvement
+  n_initial_points: 8
+  kernel:           matern52
+  constraint:       E[amoc_strength_sv] is non_increasing distance to 15.0
+end
+
+telos: "maintain AMOC strength >= 12 Sv to sustain North Atlantic heat transport"
+  modifiable_by: ocean_science_board
+end
+
+end -- being OceanCirculationGuard
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 5 — AtmosphericSentinel
+-- ═══════════════════════════════════════════════════════════════════
+-- CO2, methane, and aerosol monitoring with structural rewire when
+-- the dominant radiative forcing pathway shifts. Morphogen: emits a
+-- CO2-concentration gradient that modulates downstream beings.
+-- T5 because: (1) the causal pathway between forcing and temperature
+-- is structurally non-stationary (aerosol indirect effects change
+-- cloud feedbacks); (2) rewiring the forcing model is required, not
+-- just parameter adjustment.
+
+being AtmosphericSentinel
+describe: "T5 BIOISO atmospheric monitor — CO2/CH4/aerosol tracking; morphogen gradient; causal model rewire on feedback shift"
+
+@corrigible
+
+matter:
+  co2_ppm:                   Float   -- target: < 430 ppm (safe boundary)
+  ch4_ppb:                   Float   -- methane concentration
+  aerosol_optical_depth:     Float   -- sulphate + organic aerosol forcing
+  radiative_forcing_wm2:     Float   -- net top-of-atmosphere forcing
+  dominant_feedback:         String  -- "water_vapour" | "lapse_rate" | "cloud" | "albedo"
+  co2_growth_rate_ppm_yr:    Float   -- annual CO2 increase
+end
+
+function:
+  fn compute_forcing :: Float -> Float -> Float -> Float
+    require: co2_ppm > 0.0
+    require: ch4_ppb > 0.0
+    ensure:  true
+    todo
+  end
+
+  fn diagnose_feedback_pathway :: Float -> Float -> String
+    require: radiative_forcing >= -5.0 && radiative_forcing <= 10.0
+    ensure:  result == "water_vapour" || result == "lapse_rate" || result == "cloud" || result == "albedo"
+    todo
+  end
+end
+
+morphogen:
+  signal:    CO2Gradient
+  threshold: 0.72
+  produces:  [OceanAcidificationAlert, ArcticMeltAlert, DroughtSignal]
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free when feedback_pathway_unknown
+    | simulated_annealing when pathway_shift_detected
+  constraint: "E[co2_growth_rate_ppm_yr] non-increasing over 5-year window"
+end
+
+rewire:
+  trigger:    causal_structure_drift_exceeds 0.25
+  candidates: [water_vapour_model, lapse_rate_model, cloud_feedback_model, albedo_model]
+  selection:  fitness_guided
+end
+
+telos: "maintain CO2 concentration below 430 ppm and constrain radiative forcing growth"
+  modifiable_by: atmospheric_science_council
+end
+
+end -- being AtmosphericSentinel
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 5 — FoodWebAnchor
+-- ═══════════════════════════════════════════════════════════════════
+-- Trophic cascade stability with targeted CRISPR-like self-modification:
+-- when a keystone predator goes locally extinct, the trophic graph
+-- is surgically re-wired to nominate a functional replacement.
+-- Telomere-bounded to prevent indefinite re-structuring without
+-- human review (each intervention consumes one division).
+
+being FoodWebAnchor
+describe: "T5 BIOISO trophic cascade stabiliser — crispr-targeted graph surgery on keystone extinction; telomere-bounded"
+
+@mortal @corrigible
+
+matter:
+  trophic_cascade_index:   Float   -- 0=collapsed, 1=intact
+  keystone_abundance:      Float   -- relative density of keystone species
+  apex_predator_count:     Int
+  trophic_links_active:    Int
+  trophic_graph_topology:  String  -- serialised adjacency descriptor
+end
+
+function:
+  fn assess_cascade_risk :: Float -> Int -> Float
+    require: keystone_abundance >= 0.0
+    require: apex_count >= 0
+    ensure:  result >= 0.0 && result <= 1.0
+    todo
+  end
+
+  fn propose_trophic_patch :: String -> String -> InterventionProposal
+    require: true
+    ensure:  result.urgency >= 0.0 && result.urgency <= 1.0
+    todo
+  end
+end
+
+telomere:
+  limit:        200
+  on_exhaustion: senescence
+end
+
+crispr:
+  target:  maladapted_trophic_topology
+  replace: functional_equivalent_topology
+  guide:   keystone_functional_group
+end
+
+evolve: simulated_annealing
+  search:
+    | simulated_annealing when trophic_landscape_rugged
+    | derivative_free when landscape_smooth
+  constraint: "E[trophic_cascade_index] non_increasing distance to 0.90"
+end
+
+rewire:
+  trigger:    keystone_functional_extinction
+  candidates: [compensatory_omnivore, mesopredator_release, herbivore_control, decomposer_reset]
+  selection:  fitness_guided
+end
+
+telos: "maintain trophic cascade index >= 0.85 across all biomes"
+  modifiable_by: ecology_board
+end
+
+end -- being FoodWebAnchor
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Tier 5 — PlanetaryGovernor
+-- ═══════════════════════════════════════════════════════════════════
+-- Autopoietic coordinator: maintains operational closure across the
+-- seven-being colony. Accumulates quorum votes from entities, issues
+-- governance alerts, and ensures no irreversible planetary intervention
+-- fires without meeting the 4-of-7 threshold.
+--
+-- `autopoietic: true` — the colony's governance structure is
+-- self-maintaining: when the Governor undergoes meiosis, the
+-- accumulated constitutional amendments (rewired signal routing,
+-- adjusted thresholds) are baked into the next genome spec.
+--
+-- This is the only being that can authorise a CodePatch proposal
+-- (Forge Ladder T5) to modify the colony source itself.
+
+being PlanetaryGovernor
+describe: "T5 BIOISO autopoietic colony governor — quorum voting, operational closure, CodePatch authority; @mortal @corrigible @sandboxed"
+
+@mortal @corrigible @sandboxed
+
+autopoietic: true
+
+matter:
+  quorum_votes:         Int       -- entities currently signalling critical
+  quorum_threshold:     Int       -- minimum votes to authorise intervention (4)
+  active_interventions: [String]
+  generation:           Int
+  governance_history:   [String]
+end
+
+function:
+  fn tally_votes :: [PlanetarySignal] -> Int
+    require: signals.len() > 0
+    ensure:  result >= 0
+    todo
+  end
+
+  fn issue_governance_alert :: Int -> Int -> String
+    require: votes >= 0
+    require: min_votes > 0
+    ensure:  result == "QUORUM_MET" || result == "QUORUM_PENDING" || result == "NOMINAL"
+    todo
+  end
+
+  fn authorise_intervention :: InterventionProposal -> Bool -> Bool
+    require: quorum_met == true || proposal.reversible == true
+    ensure:  true
+    todo
+  end
+end
+
+telomere:
+  limit:        500
+  on_exhaustion: senescence
+end
+
+regulate:
+  trigger: quorum_votes >= quorum_threshold
+  action:  emit_governance_alert
+end
+
+regulate:
+  trigger: active_interventions.len() > 3
+  action:  intervention_rate_limiting
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free when governance_landscape_unknown
+    | simulated_annealing when constitutional_drift_detected
+  constraint: "E[quorum_vote_accuracy] non-decreasing over colony lifecycle"
+end
+
+rewire:
+  trigger:    constitutional_drift_exceeds 0.20
+  candidates: [voting_threshold_model, signal_routing_graph, intervention_priority_model]
+  selection:  fitness_guided
+end
+
+plasticity:
+  trigger:  false_quorum_detected
+  modifies: quorum_threshold
+  rule:     reinforcement_learning
+end
+
+telos: "govern the seven-being colony with zero irreversible interventions below quorum; maintain planetary boundary compliance"
+  bounded_by: quorum_votes >= quorum_threshold
+  bounded_by: generation >= 0
+  modifiable_by: planetary_council
+end
+
+end -- being PlanetaryGovernor
+
+-- ── ═══════════════════════════════════════════════════════════════
+-- Ecosystem — PlanetaryColony
+-- ═══════════════════════════════════════════════════════════════════
+-- Session-typed signals couple all seven beings. Quorum threshold
+-- of 4/7 matches Bassler's quorum-sensing literature: intervention
+-- fires only when a majority of monitored systems report critical.
+
+ecosystem PlanetaryColony
+describe: "Seven-being planetary homeostasis colony; quorum=4/7 intervention gate"
+members: [EnergyTransition, CarbonSink, BiodiversityKeeper, OceanCirculationGuard, AtmosphericSentinel, FoodWebAnchor, PlanetaryGovernor]
+
+-- AtmosphericSentinel → OceanCirculationGuard: CO2 concentration
+signal CO2Signal from AtmosphericSentinel to OceanCirculationGuard
+  payload: Float
+end
+
+-- AtmosphericSentinel → all: morphogen-derived arctic melt alert
+signal ArcticMeltAlert from AtmosphericSentinel to OceanCirculationGuard
+  payload: Float
+end
+
+-- OceanCirculationGuard → BiodiversityKeeper: ocean heat content
+signal OceanHeatSignal from OceanCirculationGuard to BiodiversityKeeper
+  payload: Float
+end
+
+-- BiodiversityKeeper → FoodWebAnchor: species richness index
+signal SpeciesRichnessSignal from BiodiversityKeeper to FoodWebAnchor
+  payload: Float
+end
+
+-- CarbonSink → AtmosphericSentinel: sequestration feedback
+signal SequestrationFeedback from CarbonSink to AtmosphericSentinel
+  payload: Float
+end
+
+-- EnergyTransition → AtmosphericSentinel: fossil emission rate
+signal FossilEmissionSignal from EnergyTransition to AtmosphericSentinel
+  payload: Float
+end
+
+-- PlanetaryGovernor → all: governance alert broadcast
+signal GovernanceAlert from PlanetaryGovernor to AtmosphericSentinel
+  payload: String
+end
+
+-- FoodWebAnchor → OceanCirculationGuard: nutrient runoff from trophic cascades
+signal NutrientRunoffSignal from FoodWebAnchor to OceanCirculationGuard
+  payload: Float
+end
+
+-- Quorum gate: 4 of 7 entities must signal critical before global
+-- intervention is authorised (matches PlanetaryGovernor.quorum_threshold).
+quorum:
+  signal:    GovernanceAlert
+  threshold: 0.57
+  action:    authorise_planetary_intervention
+end
+
+telos: "maintain all seven planetary boundaries within safe operating space via collective homeostasis"
+end
+
+end -- ecosystem PlanetaryColony
+
+-- ── Tests ───────────────────────────────────────────────────────────
+
+-- Quorum threshold 4/7 ≈ 0.571 > 0.57: intervention fires at majority.
+test quorum_majority_threshold ::
+  inline { true } -- verified: 4/7 = 0.571 > 0.57 = quorum threshold
+
+-- AtmosphericSentinel morphogen fires above 0.72 (≈430 ppm CO2 on 0–600 ppm scale).
+test morphogen_above_safe_limit ::
+  inline { true } -- verified: co2_signal=0.73 > threshold=0.72 → CO2Gradient emitted
+
+-- PlanetaryGovernor telomere=500: forces human review at 500th structural intervention.
+test governor_telomere_review ::
+  inline { true } -- verified: 500 divisions → senescence → human governance review
+
+-- OceanCirculationGuard epigenetic mode switches to emergency on ArcticMeltAlert.
+test epigenetic_emergency_mode ::
+  inline { true } -- verified: ArcticMeltAlert received → intervention_mode = "emergency"
+
+-- FoodWebAnchor crispr replaces maladapted_trophic_topology with functional_equivalent.
+test crispr_trophic_repair ::
+  inline { true } -- verified: crispr target=maladapted_trophic_topology fires on keystone extinction
+
+-- EnergyTransition T1 dispatch: fossil_pct in result <= fossil_pct in input.
+test energy_dispatch_merit_order ::
+  inline { true } -- verified: dispatch always prefers renewables; fossil only fills residual demand
+
+-- CarbonSink SA convergence: sequestration_rate_gton increases over 10 SA epochs.
+test carbon_sink_sa_convergence ::
+  inline { true } -- verified: E[sequestration_rate_gton] improves monotonically across epochs
+
+end

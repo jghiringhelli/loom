@@ -70,72 +70,113 @@ fn rbf_kernel :: [Float] -> [Float] -> GPState -> Float
   require: x.len() == x_prime.len()
   require: gp.signal_variance > 0.0
   ensure:  result > 0.0
-  todo
+  -- Compute squared Mahalanobis distance: Σ ((xᵢ - x'ᵢ) / lᵢ)² / 2
+  -- then scale by signal variance: σ² · exp(-dist²)
+  inline {
+    let sq_dist: f64 = arg0.iter()
+        .zip(arg1.iter())
+        .zip(arg2.length_scales.iter())
+        .map(|((xi, xpi), li)| {
+            let diff = xi - xpi;
+            (diff * diff) / (li * li)
+        })
+        .sum::<f64>()
+        / 2.0;
+    arg2.signal_variance * (-sq_dist).exp()
+  }
 end
 
 -- GP posterior mean and variance at a candidate point.
 -- Uses the standard Cholesky-based GP formula (Rasmussen & Williams, 2006).
+-- μ*(x) = k(x,X) · (K + σ²_n I)⁻¹ · y
+-- σ²*(x) = k(x,x) - k(x,X) · (K + σ²_n I)⁻¹ · k(X,x)
 fn gp_predict :: [Float] -> GPState -> (Float, Float)
   require: x.len() == gp.length_scales.len()
   ensure:  result.1 >= 0.0   -- variance is non-negative
-  todo
+  inline { todo!() }
 end
 
 -- Expected Improvement acquisition function.
 -- EI(x) = E[max(f(x) - f*, 0)] evaluated via the GP predictive distribution.
+-- EI(x) = (μ - f* - ξ) · Φ(Z) + σ · φ(Z),  Z = (μ - f* - ξ) / σ
 -- xi controls the exploration-exploitation trade-off (default 0.01).
 fn expected_improvement :: [Float] -> Float -> Float -> GPState -> Float
   require: xi >= 0.0
   ensure:  result >= 0.0
-  todo
+  -- Obtain GP predictive mean μ and std σ, then apply EI closed form.
+  -- Φ(Z) = normal CDF, φ(Z) = normal PDF, Z = (μ − f* − ξ) / σ.
+  inline { todo!() }
 end
 
 -- Maximise EI over the discrete/continuous search space via L-BFGS-B
 -- restarts from random initialisations.
+-- Algorithm: sample n_restarts random starting points in the unit hypercube,
+-- run L-BFGS-B from each, return the candidate with highest EI.
+-- Candidate is decoded back to HyperparamConfig via inverse of config_to_vector.
 fn maximise_acquisition :: GPState -> Float -> Int -> Effect<[IO], HyperparamConfig>
   require: gp.observation_xs.len() > 0
   require: n_restarts >= 1
-  todo
+  inline { todo!() }
 end
 
 -- Update GP posterior with a new (config, val_accuracy) observation.
 -- Refits kernel hyperparameters by marginal likelihood maximisation.
+-- Steps: (1) append config_to_vector(config) to observation_xs,
+--        (2) append val_accuracy to observation_ys,
+--        (3) refit length_scales + signal_variance via L-BFGS on log-marginal-likelihood.
 fn update_gp :: GPState -> HyperparamConfig -> Float -> Effect<[IO], GPState>
   require: val_accuracy >= 0.0 && val_accuracy <= 1.0
   ensure:  result.observation_ys.len() == gp.observation_ys.len() + 1
-  todo
+  inline { todo!() }
 end
 
 -- ── Evaluation ─────────────────────────────────────────────────────
 
 -- Train a model with the given hyperparameters and return val_accuracy.
 -- This is the expensive black-box oracle — each call is one GPU epoch run.
+-- In production: spawn a training subprocess, write config to a temp file,
+-- capture stdout for the final validation accuracy, record wall time.
 fn evaluate_config :: HyperparamConfig -> Effect<[IO], TrainingRun>
   require: config.learning_rate > 0.0 && config.learning_rate < 1.0
   require: config.batch_size > 0
   require: config.dropout >= 0.0 && config.dropout < 1.0
   ensure:  result.val_accuracy >= 0.0 && result.val_accuracy <= 1.0
   ensure:  result.wall_time_s > 0.0
-  todo
+  inline { todo!() }
 end
 
 -- Normalise a HyperparamConfig into a unit-hypercube vector for the GP.
 -- learning_rate is log-transformed before normalisation.
+-- Bounds: lr ∈ [1e-5, 1e-1] log-space, batch_size ∈ {16,32,64,128,256},
+--         dropout ∈ [0.0, 0.7].
 fn config_to_vector :: HyperparamConfig -> [Float]
   ensure: result.len() == 3
   ensure: result.all(|v| v >= 0.0 && v <= 1.0)
-  todo
+  inline {
+    let lr_norm = (arg0.learning_rate.ln() - (-5.0_f64 * std::f64::consts::LN_10))
+        / (4.0 * std::f64::consts::LN_10); -- log10 range: [-5, -1]
+    let bs_norm = ((arg0.batch_size as f64).log2() - 4.0) / 4.0; -- log2 range: [4,8] → 2^4=16 .. 2^8=256
+    let do_norm = arg0.dropout / 0.7;
+    vec![lr_norm.clamp(0.0, 1.0), bs_norm.clamp(0.0, 1.0), do_norm.clamp(0.0, 1.0)]
+  }
 end
 
 -- ── Core Bayesian optimisation loop ────────────────────────────────
 
+-- Main BO loop:
+-- Phase 1 — random initialisation: sample n_initial_points configs,
+--            evaluate each via evaluate_config, seed the GP.
+-- Phase 2 — BO loop: for each remaining evaluation budget slot,
+--            call maximise_acquisition(gp, xi, 10) → next candidate,
+--            evaluate it, call update_gp to fold in the new observation.
+-- Returns SearchHistory with all runs, best_config, best_val_accuracy.
 fn run_bayesian_optimisation :: Int -> Int -> Float -> Effect<[IO], SearchHistory>
   require: n_initial_points >= 5
   require: max_evaluations > n_initial_points
   require: xi >= 0.0
   ensure:  result.runs.len() == max_evaluations
   ensure:  result.best_val_accuracy >= 0.0 && result.best_val_accuracy <= 1.0
-  todo
+  inline { todo!() }
 end
 
 -- ── The being: wrapper ─────────────────────────────────────────────
@@ -160,11 +201,16 @@ function:
   fn suggest_next :: SearchHistory -> Effect<[IO], HyperparamConfig>
     require: history.runs.len() > 0
     ensure:  result.learning_rate > 0.0
-    todo
+    -- Compute f* = best observed val_accuracy, then call
+    -- maximise_acquisition(gp_state, f_star, 10) to get next candidate.
+    inline { todo!() }
   end
   fn observe :: HyperparamConfig -> Float -> Effect<[IO], Unit>
     require: val_accuracy >= 0.0 && val_accuracy <= 1.0
-    todo
+    -- Append (config, val_accuracy) to search_history.runs,
+    -- update best_config and best_val_accuracy if val_accuracy improves,
+    -- then call update_gp to refit the GP posterior.
+    inline { todo!() }
   end
 end
 

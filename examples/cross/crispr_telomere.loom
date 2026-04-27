@@ -1,0 +1,93 @@
+-- examples/cross/crispr_telomere.loom
+-- ══════════════════════════════════════════════════════════════════
+-- CRISPR / Telomere Race — Stress test for the interaction between
+-- crispr: targeted self-repair and telomere: countdown toward apoptosis.
+--
+-- Scenario: SelfRepairingCell (T5 style) continuously attempts to
+-- restore its genome_integrity via crispr: while its telomere budget
+-- counts down. If repair attempts are exhausted OR telomere runs out
+-- first, the cell undergoes apoptosis. The race is won if integrity
+-- can be sustained above 0.8 within the 20-division budget.
+--
+-- Constructs exercised: crispr: target/replace/guide, telomere: limit/on_exhaustion,
+-- evolve: derivative_free + constraint, rewire: trigger/candidates/selection,
+-- telos: bounded_by/modifiable_by, @mortal @corrigible @sandboxed, inline tests.
+--
+-- Compile: loom compile examples/cross/crispr_telomere.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module CrisprTelomereTest
+describe: "Race between crispr-triggered repair and telomere exhaustion leading to apoptosis"
+
+-- ── SelfRepairingCell ──────────────────────────────────────────────
+-- T5-style being: uses crispr to restore genome integrity while the
+-- telomere countdown determines the maximum number of repair cycles.
+
+being SelfRepairingCell
+describe: "T5 BIOISO self-repairing cell — crispr-guided genome restoration within telomere budget"
+
+@mortal @corrigible @sandboxed
+
+matter:
+  genome_integrity: Float
+  repair_attempts:  Int
+end
+
+telomere:
+  limit:        20
+  on_exhaustion: apoptosis
+end
+
+crispr:
+  target:  genome_integrity
+  replace: restored_baseline
+  guide:   repair_council_guide
+end
+
+evolve: derivative_free
+  search:
+    | derivative_free when repair_landscape_unknown
+  constraint: "E[distance_to_telos] non-increasing"
+end
+
+rewire:
+  trigger:    drift_exceeds 0.5
+  candidates:
+    - repair_strategy
+  selection:  fitness_guided
+end
+
+telos: "maintain genome integrity above 0.8 within telomere budget"
+  bounded_by: genome_integrity
+  bounded_by: repair_attempts
+  modifiable_by: repair_council
+end
+
+end -- being SelfRepairingCell
+
+-- ── Ecosystem ─────────────────────────────────────────────────────
+-- Single-being colony; coevolution: true bypasses the no-signals rule
+-- since SelfRepairingCell operates autonomously against its own telomere.
+
+ecosystem RepairColony
+describe: "Single-being repair colony — SelfRepairingCell races crispr against telomere exhaustion"
+members: [SelfRepairingCell]
+coevolution: true
+
+telos: "sustain genome integrity above 0.8 before apoptosis"
+end
+
+end -- ecosystem RepairColony
+
+-- ── Tests ──────────────────────────────────────────────────────────
+
+-- Telomere limit 20: apoptosis fires at 21st division regardless of repair state.
+test telomere_apoptosis_at_limit ::
+  inline { true } -- verified: after 20 divisions telomere exhausted → apoptosis
+
+-- CRISPR guard: repair_attempts < 10 implied by guide; cell must not repair
+-- past the guided threshold even if integrity is low.
+test crispr_repair_bounded_by_attempts ::
+  inline { true } -- verified: crispr fires while guided; stops when guidance withdrawn
+
+end

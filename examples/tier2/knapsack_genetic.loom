@@ -159,3 +159,5 @@ test repair_produces_feasible_solution ::
   } in
   let fixed = repair(sol, items, 10.0) in
   fixed.is_feasible
+
+end

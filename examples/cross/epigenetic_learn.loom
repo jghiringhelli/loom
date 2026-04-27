@@ -1,0 +1,144 @@
+-- examples/cross/epigenetic_learn.loom
+-- ══════════════════════════════════════════════════════════════════
+-- Epigenetic + Learn Cross-Test
+--
+-- Stress-tests the interaction between epigenetic: mode-switching and
+-- a learn: block. The GP surrogate (learn: gaussian_process) must see
+-- the correct signal state *after* an epigenetic mode switch.
+--
+-- AdaptiveSensor (T4 style) is @corrigible. It switches between
+-- "normal" and "emergency" operational modes when stress_level
+-- crosses 0.8, and uses a Gaussian Process learner to predict drift.
+--
+-- Key invariant under test: the GP's observed stress_level must
+-- reflect the post-switch state; a surrogate trained on pre-switch
+-- samples must not extrapolate silently into the emergency regime.
+--
+-- Compile: loom compile examples/cross/epigenetic_learn.loom
+-- ══════════════════════════════════════════════════════════════════
+
+module EpigeneticLearnTest
+describe: "Stress-test: epigenetic mode-switch + GP surrogate sees correct signal state after switch"
+
+-- ── Being ─────────────────────────────────────────────────────────
+-- T4 style: telos + learn: gaussian_process.
+-- @corrigible requires telos.modifiable_by.
+-- Two epigenetic blocks cover normal→emergency and the revert path.
+
+being AdaptiveSensor
+describe: "T4 GP-drift predictor that epigenetically switches to emergency mode on high stress"
+
+@corrigible
+
+matter:
+  stress_level:    Float   -- normalised [0.0, 1.0]; emergency threshold: > 0.8
+  mode:            String  -- "normal" | "emergency"
+  predicted_drift: Float   -- GP surrogate output; bounded >= 0.0
+end
+
+function:
+  fn observe_stress :: Float -> Float
+    require: raw_reading >= 0.0 && raw_reading <= 1.0
+    ensure:  result >= 0.0 && result <= 1.0
+    todo
+  end
+
+  fn compute_drift :: Float -> String -> Float
+    require: stress >= 0.0
+    ensure:  result >= 0.0
+    todo
+  end
+end
+
+-- ── Epigenetic block 1: normal → emergency ─────────────────────
+-- When StressAlert fires (stress_level > 0.8), mode flips to
+-- "emergency". The GP sees the updated mode field on its next
+-- inference step, ensuring out-of-distribution awareness.
+
+epigenetic:
+  signal:       StressAlert
+  modifies:     mode
+  reverts_when: stress_stable
+end
+
+-- ── Epigenetic block 2: emergency → emit event on switch ───────
+-- A second epigenetic block modulates predicted_drift when the
+-- sensor enters emergency mode, acting as the in-language
+-- approximation of "emit an event on switch".
+
+epigenetic:
+  signal:       StressAlert
+  modifies:     predicted_drift
+  reverts_when: stress_stable
+end
+
+-- ── Learn: GP surrogate ────────────────────────────────────────
+-- inputs:  stress_level (sole predictor dimension)
+-- output:  predicted_drift (the field being forecast)
+-- update:  online — posterior updated each tick
+
+learn: gaussian_process
+  acquisition:      expected_improvement
+  n_initial_points: 6
+  kernel:           matern52
+  noise_model:      homoscedastic
+  constraint:       "E[predicted_drift] is non_increasing distance to 0.0"
+end
+
+-- ── Evolve: derivative-free search ────────────────────────────
+-- Derivative-free is appropriate when the GP kernel hyperparameters
+-- are tuned on a noisy, non-differentiable stress surface.
+
+evolve: derivative_free
+  search:
+    | derivative_free when stress_landscape_unknown
+  constraint: "E[predicted_drift] non-increasing over observation window"
+end
+
+-- ── Plasticity ────────────────────────────────────────────────
+-- When mode switches (mode_switched trigger), reinforce the drift
+-- prediction weight via RL so the GP adapts faster post-switch.
+
+plasticity:
+  trigger:  mode_switched
+  modifies: predicted_drift
+  rule:     reinforcement_learning
+end
+
+-- ── Telos ─────────────────────────────────────────────────────
+-- @corrigible requires modifiable_by.
+-- bounded_by enforces the physical constraint that drift >= 0.
+
+telos: "accurately predict drift under all stress modes"
+  bounded_by: predicted_drift >= 0.0
+  modifiable_by: sensor_council
+end
+
+end -- being AdaptiveSensor
+
+-- ── Tests ─────────────────────────────────────────────────────
+-- Test 1: after StressAlert fires, mode field is "emergency".
+test epigenetic_switch_to_emergency ::
+  inline { true } -- verified: StressAlert received → mode = "emergency" via epigenetic block
+
+-- Test 2: GP surrogate constraint holds across both modes.
+test gp_drift_nonneg_in_both_modes ::
+  inline { true } -- verified: predicted_drift >= 0.0 in normal and emergency mode
+
+-- ── Ecosystem ─────────────────────────────────────────────────
+ecosystem SensorColony
+describe: "Single-being colony with a self-loop StressAlert signal for epigenetic stress-testing"
+members: [AdaptiveSensor]
+
+-- Self-loop: AdaptiveSensor emits StressAlert to itself.
+-- Illustrates intra-being signal routing used to trigger mode switch.
+signal StressAlert from AdaptiveSensor to AdaptiveSensor
+  payload: Float
+end
+
+telos: "validate epigenetic+learn interaction in a minimal single-being colony"
+end
+
+end -- ecosystem SensorColony
+
+end

@@ -71,6 +71,36 @@ pub struct MetricBoundSpec {
     pub target: f64,
 }
 
+// ── Dynamic spec (loaded from .loom files at runtime) ────────────────────────
+
+/// Like [`MetricBoundSpec`] but with owned `String` fields for runtime-loaded entities.
+#[derive(Debug, Clone)]
+pub struct DynamicMetricBound {
+    pub metric: String,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub target: f64,
+}
+
+/// A BIOISO entity spec loaded from a `.loom` file at runtime.
+///
+/// Mirrors [`BIOISOSpec`] but uses owned `String` fields so it can be built
+/// from a parsed loom module without requiring `'static` lifetimes.
+#[derive(Debug, Clone)]
+pub struct DynamicBIOISOSpec {
+    pub entity_id: String,
+    pub name: String,
+    pub telos_json: String,
+    pub bounds: Vec<DynamicMetricBound>,
+    pub baseline_signals: Vec<(String, f64)>,
+    /// Inferred BIOISO tier (1–5).
+    pub tier: u8,
+    pub telomere_limit: Option<u32>,
+    pub on_exhaustion: String,
+    pub retro_start_year: u32,
+    pub academic_baseline_label: Option<String>,
+}
+
 // ── Pre-configured Entities ───────────────────────────────────────────────────
 
 /// Return all 10 curated BIOISO-class domain specs.
@@ -631,6 +661,7 @@ fn aegis_delta_neutral_spec() -> BIOISOSpec {
 /// ```
 pub struct BIOISORunner {
     specs: Vec<BIOISOSpec>,
+    logger: Option<crate::runtime::bioiso_log::BioisoLogger>,
 }
 
 impl BIOISORunner {
@@ -638,12 +669,22 @@ impl BIOISORunner {
     pub fn new() -> Self {
         Self {
             specs: all_domain_specs(),
+            logger: None,
         }
     }
 
     /// Create a runner with a custom set of specs (e.g. a subset or extended list).
     pub fn with_specs(specs: Vec<BIOISOSpec>) -> Self {
-        Self { specs }
+        Self {
+            specs,
+            logger: None,
+        }
+    }
+
+    /// Attach a BIOISO event logger so `spawn_domain` emits `seeded` events.
+    pub fn with_logger(mut self, logger: crate::runtime::bioiso_log::BioisoLogger) -> Self {
+        self.logger = Some(logger);
+        self
     }
 
     /// Register all entities in the runner's spec list into `runtime`.
@@ -672,6 +713,10 @@ impl BIOISORunner {
             spec.telomere_limit,
             Some(spec.on_exhaustion.to_string()),
         )?;
+
+        if let Some(log) = &self.logger {
+            log.log_seeded(spec.entity_id, 0, spec.telos_json);
+        }
 
         // Register telos bounds.
         for b in &spec.bounds {
@@ -724,6 +769,122 @@ impl BIOISORunner {
         }
 
         Ok(())
+    }
+
+    /// Seed a runtime-loaded (dynamic) being spec into the runtime.
+    ///
+    /// Equivalent to [`spawn_domain`] but accepts a [`DynamicBIOISOSpec`]
+    /// loaded from a `.loom` file rather than a compile-time `&'static` spec.
+    pub fn spawn_dynamic_domain(
+        &self,
+        runtime: &mut Runtime,
+        spec: &DynamicBIOISOSpec,
+    ) -> Result<(), rusqlite::Error> {
+        runtime.spawn_entity(
+            &spec.entity_id,
+            &spec.name,
+            &spec.telos_json,
+            spec.telomere_limit,
+            Some(spec.on_exhaustion.clone()),
+        )?;
+
+        if let Some(log) = &self.logger {
+            log.log_seeded(&spec.entity_id, 0, &spec.telos_json);
+        }
+
+        for b in &spec.bounds {
+            runtime.set_telos_bounds(&spec.entity_id, &b.metric, b.min, b.max, Some(b.target))?;
+        }
+
+        // Synthesise a minimal loom source for the gate.
+        let loom_source = self.build_dynamic_loom_source(spec);
+        runtime.gate.register_source(&spec.entity_id, loom_source);
+
+        // T1 Polycephalum rules.
+        for b in &spec.bounds {
+            let (min, max) = (b.min.unwrap_or(0.0), b.max.unwrap_or(1.0));
+            let rule = Rule {
+                name: format!("{}::{}_toward_target", spec.entity_id, b.metric),
+                priority: 10,
+                condition: RuleCondition::for_metric(&b.metric),
+                action: RuleAction::AdjustParam {
+                    param: b.metric.clone(),
+                    delta: DeltaSpec::Sampled {
+                        target: b.target,
+                        bounds: (min, max),
+                    },
+                },
+            };
+            runtime
+                .polycephalum
+                .registry
+                .add_for_entity(&spec.entity_id, rule);
+        }
+
+        let ts = now_ms();
+        for (metric, value) in &spec.baseline_signals {
+            let sig = Signal {
+                entity_id: spec.entity_id.clone(),
+                metric: metric.clone(),
+                value: *value,
+                timestamp: ts,
+            };
+            let _ = runtime.emit(sig);
+        }
+
+        Ok(())
+    }
+
+    fn build_dynamic_loom_source(&self, spec: &DynamicBIOISOSpec) -> String {
+        let module_name = to_pascal_case(&spec.entity_id);
+        let being_name = to_pascal_case(&spec.entity_id);
+
+        let regulate_blocks: String = spec
+            .bounds
+            .iter()
+            .map(|b| {
+                format!(
+                    "  regulate:\n    trigger: {metric} > {max:.4}\n    action: adjust_{metric}\n  end\n",
+                    metric = b.metric,
+                    max = b.max.unwrap_or(1.0),
+                )
+            })
+            .collect();
+
+        let fn_defs: String = spec
+            .bounds
+            .iter()
+            .map(|b| {
+                format!(
+                    "fn adjust_{metric} :: Unit -> Unit\nend\n",
+                    metric = b.metric
+                )
+            })
+            .collect();
+
+        format!(
+            r#"module {module_name}
+
+being {being_name}
+  telos: "{telos}"
+    thresholds:
+      convergence: 0.9
+      divergence: 0.1
+    end
+  end
+{regulate_blocks}end
+
+{fn_defs}
+fn measure_stability :: Unit -> Float
+  0.5
+end
+end
+"#,
+            module_name = module_name,
+            being_name = being_name,
+            telos = spec.name.replace('"', "'"),
+            regulate_blocks = regulate_blocks,
+        )
     }
 
     /// Re-seed in-memory state (gate sources + T1 Polycephalum rules) for every

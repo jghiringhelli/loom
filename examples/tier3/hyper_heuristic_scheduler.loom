@@ -134,7 +134,24 @@ function:
   fn dispatch :: MachineState -> Effect<[IO], DispatchDecision>
     require: state.queue.len() > 0
     ensure:  result.improvement >= 0.0
-    todo
+    inline {
+      // SARSA-based hyper-heuristic dispatch step.
+      //
+      // 1. Epsilon-greedy selection: with probability `epsilon` pick a random
+      //    heuristic from {SPT, LPT, EDD, FIFO, CR}; otherwise pick the
+      //    heuristic with the highest weight in `self.heuristic_weights`.
+      //
+      // 2. Apply the chosen low-level heuristic to `state.queue` to obtain
+      //    the next job to dispatch.
+      //
+      // 3. Compute improvement = prev_weighted_tardiness - new_weighted_tardiness
+      //    (clamped to 0.0 from below so the ensure contract holds).
+      //
+      // 4. Return a DispatchDecision { chosen_heuristic, dispatched_job, improvement }.
+      //    The caller (`solve_hyper`) uses `update_weights` after each dispatch
+      //    to reinforce the chosen heuristic proportionally to `improvement`.
+      todo!()
+    }
   end
 end
 

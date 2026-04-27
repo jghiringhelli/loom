@@ -120,3 +120,5 @@ test single_item_requires_one_bin ::
   let items = [Item { id: 1, size: 0.3 }] in
   let result = pack_ffd(items, 1.0) in
   result.bin_count == 1
+
+end
