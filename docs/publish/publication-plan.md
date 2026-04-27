@@ -7,7 +7,7 @@ The full public presence across domains:
 | Domain | Purpose | Status |
 |---|---|---|
 | `genspec.dev` | GS theory community home — Jekyll, GitHub Pages | ✅ Live |
-| `zenodo.org` | White paper DOI: `10.5281/zenodo.19073543` | ✅ Published |
+| `zenodo.org` | White paper DOI: `10.5281/zenodo.19637142` | ✅ Published |
 | `bioiso.dev` | Biological isomorphisms + Loom + synthetic beings — Astro site | 🆕 Registered |
 | `bioiso.org` | Movement/community side of BIOISO | 🆕 Registered |
 | `pragmaworks.dev` | Company home | ✅ Live |

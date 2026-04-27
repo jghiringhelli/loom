@@ -4,7 +4,7 @@
 **Date:** April 2026  
 **Version:** post-M55 (Phase 1–8 complete)  
 **Repository:** github.com/jghiringhelli/loom  
-**Published preprint:** doi.org/10.5281/zenodo.19073543
+**Published preprint:** doi.org/10.5281/zenodo.19637142
 
 > This document is written for a technically sophisticated reviewer — human or AI — who has no prior context on Loom. It is designed to be read as a critique target: accurate about what is done, honest about what is not, and explicit about the claims being made.
 
@@ -283,7 +283,7 @@ Loom — language layer (this repo)
 BIOISO — application layer (synthetic beings, simulations, digital life)
 ```
 
-GS is published at `genspec.dev` and Zenodo (DOI: 10.5281/zenodo.19073543).  
+GS is published at `genspec.dev` and Zenodo (DOI: 10.5281/zenodo.19637142).  
 Loom is the compiler.  
 BIOISO is what you build with it.
 
@@ -392,7 +392,7 @@ The specific claims I am most interested in having challenged:
 | Resource | URL |
 |---|---|
 | Repository | github.com/jghiringhelli/loom |
-| White paper (Zenodo) | doi.org/10.5281/zenodo.19073543 |
+| White paper (Zenodo) | doi.org/10.5281/zenodo.19637142 |
 | GS theory | genspec.dev |
 | BIOISO (pending deploy) | bioiso.dev |
 | Intellectual primer (28 thinkers) | docs/primer.md in this repo |

@@ -13,7 +13,7 @@ We present Loom, an AI-native programming language that transpiles to Rust, Type
 
 The language is designed around a constraint we call *derivability*: every architectural decision, behavioral contract, and data sensitivity obligation must be expressible in a form that a stateless reader — specifically, an AI assistant with no persistent memory — can derive correct output from alone. This constraint is formalized in the Generative Specification (GS) methodology. Loom is its first language-level materialisation.
 
-The compiler has 388+ passing tests across all five output targets. A second contribution, demonstrated empirically, is that Loom spans the full optimization taxonomy — from Tier 1 greedy heuristics to Tier 5 self-evolving BIOISOs — using the same `being:` primitive at every level, with the compiler enforcing telos alignment across all tiers. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
+The compiler has 339+ passing tests across all five output targets. A second contribution, demonstrated empirically, is that Loom spans the full optimization taxonomy — from Tier 1 greedy heuristics to Tier 5 self-evolving BIOISOs — using the same `being:` primitive at every level, with the compiler enforcing telos alignment across all tiers. We describe the design decisions, implementation, and the cases each semantic construct makes structurally unreachable.
 
 ---
 
@@ -360,7 +360,7 @@ The seven GS properties map to Loom features as follows:
 
 ## 11. Implementation Notes
 
-the Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
+The Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 1. **Lexer** (logos 0.15): tokenises source into `(Token, Span)` pairs
 2. **Parser**: recursive-descent LL(2), produces `Module` AST
@@ -377,7 +377,7 @@ the Loom compiler is implemented in Rust (~12,000 lines). The pipeline:
 
 All checkers are stateless and composable. Adding a new checker requires implementing a single `check(&Module) -> Result<(), Vec<LoomError>>` method.
 
-Total tests: 388+, distributed across 27 test suites covering each milestone.
+Total tests: 339+, distributed across 28 test suites covering each milestone.
 
 ---
 
@@ -439,7 +439,7 @@ The GS methodology offers a framing that explains why Loom's constructs work des
 
 Hoare contracts, refined types, effect systems, algebraic completeness, REST/hypermedia architecture, linear resource management, session-typed protocols — the AI already holds all of them. They exist in its training corpus, placed there by the theorists who proved them. Without specification, the model defaults to what human practice historically permitted: the convenient shortcut, the informal approximation, the correct theory abandoned because sustaining it exceeded what teams would pay. The specification names what the model already knows. The model applies it without eroding it.
 
-This is why `flow secret` works as a keyword. It is not just syntax. It is a coordinate: the word activates Denning's lattice in the model's full training depth, not a paraphrase of information flow security, but the instruments of the field deployed at specialist precision. Naming `@exactly-once` activates Girard's linear logic. Naming `lifecycle` activates Strom and Yemini's typestate. The formal theory does not need to be explained in the source file. It needs to be named. The specification is not documentation. It is a *technique registry* whose scope is the full depth of the model's training, activated at the cost of knowing the correct words.
+This is why `flow secret` works as a keyword. It is not just syntax. It is a coordinate: the word activates Denning's lattice in the model's full training depth, not a paraphrase of information flow security, but the instruments of the field deployed at specialist precision. Naming `@exactly-once` activates Girard's linear logic. Naming `lifecycle` activates a linearized form of Strom and Yemini's typestate — a linear chain protocol sufficient for sequential resource and connection protocols, enforced without requiring a general state graph. The formal theory does not need to be explained in the source file. It needs to be named. The specification is not documentation. It is a *technique registry* whose scope is the full depth of the model's training, activated at the cost of knowing the correct words.
 
 ### 13.1 The Double Pyramid
 
@@ -447,7 +447,7 @@ This framing clarifies an apparent paradox: restriction enables expansion.
 
 Each Loom checker removes a degree of freedom from the output space. `@exactly-once` removes the class of programs where a payment is sent twice. `@pci @never-log` removes the class of programs where card numbers appear in log files. `lifecycle Payment :: Pending -> Completed` removes the class of programs where a refund is issued on an uncompleted payment.
 
-This is the downward force: fewer valid programs, the Martin direction. But the space that remains is *exactly what is correct*. Every generation session operating under these restrictions produces a program that is not merely plausible but verified. The restriction is the expansion mechanism: the AI, operating in a fully specified space, derives richer output more precisely than it would in an unconstrained one. The loss of freedom at the type level produces a gain in derivation confidence at the system level.
+This is the downward force: fewer valid programs — the direction Robert C. Martin (2008) identified as removing everything that is not the program's essential purpose. But the space that remains is *exactly what is correct*. Every generation session operating under these restrictions produces a program that is not merely plausible but verified. The restriction is the expansion mechanism: the AI, operating in a fully specified space, derives richer output more precisely than it would in an unconstrained one. The loss of freedom at the type level produces a gain in derivation confidence at the system level.
 
 The specification is the shared vertex: what the programmer adds as restriction is what the model derives as correct behavior. Restriction and derivation precision move in the same direction. Every constraint added narrows the output space to the subset that is correct.
 
@@ -471,9 +471,9 @@ A language designed only for one tier of the problem-solving hierarchy is a narr
 
 **Tier 2 — Meta-heuristics.** General-purpose adaptive search over solution space with a fixed computational architecture: Simulated Annealing for TSP, Ant Colony Optimization for VRP, Genetic Algorithms for 0/1 Knapsack. Only parameters (temperature, population, pheromone decay) adapt. Meta-heuristics fail when the *structure* of the optimal solution changes — when it is insufficient to search harder and necessary to search *differently*.
 
-**Tier 3 — Hyper-heuristics.** Search over *heuristic space* rather than solution space (Burke et al., 2013). A selection hyper-heuristic observes which low-level heuristic from a portfolio performs best at each decision point and adapts its selection via reinforcement. A generation hyper-heuristic synthesises new heuristics via genetic programming. Hyper-heuristics fail when the correct *type* of heuristic — not just its parameterisation — is unknown a priori and must be structurally invented.
+**Tier 3 — Hyper-heuristics.** Search over *heuristic space* rather than solution space (Burke et al. 2013). A selection hyper-heuristic observes which low-level heuristic from a portfolio performs best at each decision point and adapts its selection via reinforcement. A generation hyper-heuristic synthesises new heuristics via genetic programming. Hyper-heuristics fail when the correct *type* of heuristic — not just its parameterisation — is unknown a priori and must be structurally invented.
 
-**Tier 4 — Learning-based and surrogate optimization.** Neural combinatorial optimization (Vinyals et al., 2015; Kool et al., 2019), Bayesian optimization with Gaussian process surrogates (Snoek et al., 2012), and estimation of distribution algorithms (Pelikan et al., 2002). These methods learn a model of the fitness landscape and exploit it to guide search. They fail on *coevolutionary* problems where the landscape itself becomes stale because the environment adapts in response to the solution.
+**Tier 4 — Learning-based and surrogate optimization.** Neural combinatorial optimization (Vinyals et al. 2015; Kool et al. 2019), Bayesian optimization with Gaussian process surrogates (Snoek et al. 2012), and estimation of distribution algorithms (Pelikan et al. 2002). These methods learn a model of the fitness landscape and exploit it to guide search. They fail on *coevolutionary* problems where the landscape itself becomes stale because the environment adapts in response to the solution.
 
 **Tier 5 — BIOISOs.** The computational *structure* — not just parameters — evolves. Which metrics are tracked, which signals feed which controllers, what constitutes convergence: all subject to structural mutation via `StructuralRewire` proposals, validated through the full Loom compiler. BIOISOs incorporate epigenetic context-sensitivity, telomere-bounded replication, meiotic cross-entity recombination, and mycelium-based colony gossip. This is the correct tier for coevolutionary, non-stationary, and structurally ambiguous problems where no lower tier can converge.
 
@@ -526,7 +526,16 @@ being AdaptiveScheduler
   end
 end
 
--- Tier 5: structural self-modification (see Section 16)
+-- Tier 4: surrogate-model optimization
+being T4BayesScheduler
+  telos: "minimise weighted tardiness via GP-UCB surrogate-model guided search"
+  learn: gaussian_process
+    target:       weighted_tardiness
+    update_every: 10
+  end
+end
+
+-- Tier 5: structural self-modification
 being AntimicrobialResistance
   @mortal @corrigible @sandboxed
   telos: "discover drug-target binding strategies faster than resistance mechanisms evolve"
@@ -767,23 +776,28 @@ The PropagateChecker verifies: (1) `source` is a member of the ecosystem, (2) ev
 
 The combination of `propagate:` + `regulate:` + `intent_coordinator:` gives a complete formal model of a distributed reactive system that previously required microservice documentation, event storming diagrams, and incident runbooks to describe — and that was still partially specified because none of those formats are machine-verifiable.
 
-### 16.5 The Seven BIOISO Domains
+### 16.5 The BIOISO Domain Taxonomy
 
-BIOISO domains are not selected by domain prominence — they are selected by three strict criteria: (1) the fitness landscape is *coevolutionary or structurally non-stationary*; (2) structural rewiring (`StructuralRewire`) is *load-bearing* — `ParameterAdjust` provably cannot converge; (3) the problem is *currently unsolved* or inadequately addressed by Tiers 1–4.
+BIOISO domains are selected by three strict criteria: (1) the fitness landscape is *coevolutionary or structurally non-stationary*; (2) structural rewiring (`StructuralRewire`) is *load-bearing* — `ParameterAdjust` provably cannot converge; (3) the problem is *currently unsolved* or inadequately addressed by Tiers 1–4.
 
 Problems that are merely large, computationally expensive, or NP-hard are not BIOISO problems — they are Tier 1–3 problems at scale. The distinction is whether the *structure of the optimal solution* changes over the experiment horizon.
 
-| Entity | Domain | Why lower tiers fail | Load-bearing BIOISO mechanism |
-|--------|--------|---------------------|-------------------------------|
-| `amr_coevolution` | Antimicrobial resistance | Pathogen restructures resistance mechanisms faster than any fixed strategy converges | Structural rewiring of drug-target binding hypotheses as resistance pathways evolve |
-| `flash_crash` | HFT market microstructure | HFT strategies reverse-engineer and exploit fixed circuit breaker rules within hours | Generation of novel detection logic categories not present in the original rule portfolio |
-| `adaptive_jit` | JIT compiler optimization | Optimal IR pass sequence changes as runtime hot paths evolve; no fixed pipeline is universally optimal | Rewiring of which compiler transformation passes compose and in what order |
-| `protein_drug_resistance` | Cancer/HIV drug resistance | Target protein mutates; chemical search space topology shifts; existing pharmacophore hypotheses become incorrect | Structural generation of new binding hypotheses — not parameter tuning of existing ones |
-| `ics_zero_day` | Industrial control system defense | Novel attack classes have unknown structure; ML trained on known attacks fails by definition on zero-days | Synthesis of new signal categories and detection logic for attack patterns with no prior instances |
-| `quantum_error_mitigation` | Quantum circuit compilation | Hardware noise model changes per calibration cycle; no fixed gate decomposition strategy transfers across generations | Discovery of new circuit decomposition strategies — the template itself must be structurally invented |
-| `climate_intervention` | Earth system intervention sequencing | Each deployed intervention changes the causal structure of the Earth system; the causal graph shifts after every action | Structural adaptation of which interventions to sequence, as prior interventions alter system coupling |
+The colony runs ten seeded domains across three tiers. Eight require full T5 structural escape; two calibration domains demonstrate where lower tiers are sufficient:
 
-These seven domains are implemented in the CEMS runtime (Section 17) as live `being:` entities. Each runs with a signal simulator calibrated to real-world academic baselines. The telomere audit log (Section 17.3) records the complete trajectory: when drift was observed, when structural mutations fired, whether meiosis preceded breakthrough, and the final genome lineage graph.
+| Entity | Domain | Tier | Why lower tiers fail / Ceiling |
+|--------|--------|------|-------------------------------|
+| `amr_coevolution` | Antimicrobial resistance | T5 | Pathogen restructures resistance mechanisms faster than any fixed strategy converges |
+| `flash_crash` | HFT market microstructure | T5 | HFT strategies reverse-engineer and exploit fixed circuit breaker rules within hours |
+| `adaptive_jit` | JIT compiler optimization | T5 | Optimal IR pass sequence changes as hot paths evolve; no fixed pipeline is universally optimal |
+| `protein_drug_resistance` | Cancer/HIV drug resistance | T5 | Target protein mutates; existing pharmacophore hypotheses become structurally wrong |
+| `ics_zero_day` | Industrial control system defense | T5 | Novel attack classes have no training-data ancestors; ML fails by definition on zero-days |
+| `quantum_error_mitigation` | Quantum circuit compilation | T5 | Hardware noise model changes per calibration cycle; gate decomposition topology shifts |
+| `climate_intervention` | Earth system intervention sequencing | T5 | Each deployed intervention changes the causal structure; the causal graph shifts after every action |
+| `aegis_delta_neutral` | DeFi delta-neutral strategy | T5 | Liquidity pool topology coevolves with strategies; adversarial MEV invalidates fixed hedging classes |
+| `biosphere` | Biodiversity conservation | T4 (calibration) | Stable causal structure within policy horizon; GP-UCB sufficient — T5 not load-bearing |
+| `ocean_circulation` | Ocean circulation homeostasis | T3 (calibration) | Fixed operator portfolio covers AMOC mechanism space; T3 ceiling does not apply |
+
+The eight T5 domains are implemented in the CEMS runtime (Section 17) as live `being:` entities. Each runs with a signal simulator calibrated to real-world academic baselines. The telomere audit log (Section 17.3) records the complete trajectory: when drift was observed, when structural mutations fired, whether meiosis preceded breakthrough, and the final genome lineage graph.
 
 The empirical claim: for every domain in the table, a Tier 2 meta-heuristic applied to the same signal stream saturates — its drift score plateaus above the telos threshold — while the BIOISO continues to decrease drift through structural mutation. This is the central empirical result of the BIOISO paper.
 
@@ -894,7 +908,7 @@ The strongest practical gate: the full round-trip `loom compile file.loom → ru
 | V5: Store structs | ✅ PROVED | All 13 store kinds → typed Rust structs |
 | V6: Audit header | ✅ PROVED | LOOM[v7:audit] in all generated files |
 | V7: Binary executes | ✅ PROVED | All 5 examples: loom → rustc → binary |
-| V8: Convergence | ✅ EMITTED | ALX convergence contract tests |
+| V8: Convergence | ✅ PROVED | ALX complete: S_realized = 1.0, 386/386 acceptance tests |
 | V9: Dafny proof | 🔲 PENDING | Selected invariants not yet in Dafny |
 
 V9 remains pending — Dafny integration requires a separate toolchain setup. All other gates are closed.
@@ -907,7 +921,7 @@ When a Loom `being:` block carries `telos:` + `regulate:` + `evolve:` + `epigene
 
 This makes the safety question structural, not ethical. **What constraints must a synthetic digital being carry to be safe for deployment?**
 
-### 15.1 Safety Annotations as Compile Requirements
+### 18.1 Safety Annotations as Compile Requirements
 
 For autopoietic beings, the following annotations are required; the SafetyChecker (M55) treats their absence as a compile error:
 
@@ -916,19 +930,18 @@ For autopoietic beings, the following annotations are required; the SafetyChecke
 | `@mortal` | Requires `telomere:` block | `missing mortality: unbounded autopoietic being` |
 | `@corrigible` | Requires `telos.modifiable_by` field | `corrigible annotation requires telos.modifiable_by` |
 | `@sandboxed` | Effects only within declared `matter:` and `ecosystem:` | `autopoietic being with unscoped effects` |
-| `@transparent` | All state transitions emitted to observable log | `autopoietic being with hidden state` |
+| `@auditable` | All structural mutations and meiosis events are logged | `autopoietic being with unaudited structural changes` |
 | `@bounded_telos` | Telos string must not contain "maximize", "unlimited", "any", "all" | Bostrom's open-ended utility warning |
-| `@human_in_loop` on action | Requires `Effect<[Human], ...]` in type signature | `human-in-loop action must carry Human effect` |
 
-An autopoietic being without `@mortal @corrigible @sandboxed` is not a missing annotation. It is cancer: unbounded, uncorrectable, with effects outside its declared surface. The SafetyChecker is a gate, not a suggestion.
+An autopoietic being without `@mortal @corrigible @sandboxed @auditable` is not a missing annotation. It is cancer: unbounded, uncorrectable, with effects outside its declared surface. The SafetyChecker is a gate, not a suggestion.
 
-### 15.2 The Three Laws as a Type System
+### 18.2 The Three Laws as a Type System
 
 Asimov's Three Laws of Robotics (1942) are a safety specification with *S* < 1. Asimov knew this — his entire body of robot fiction is adversarial test cases against the gaps. Every story is a failing specification. The laws are correct in goal; they are incomplete in expression. The gap between what they say and safe behavior is exactly the correction cost of the $I \propto (1-S)/S$ equation.
 
 Loom's safety annotation system is what the Three Laws look like at *S* → 1: closed formal constraints, checked by a compiler, with missing constraints as build failures. The alignment problem is a specification completeness problem. The specification gap — what remains between *S*_actual and *S* = 1 — is where a human expert must permanently inhabit. For autonomous beings with open-ended telos, that gap may never close, which means `@human_in_loop` is architectural, not transitional.
 
-### 15.3 The Intellectual Lineage of this Question
+### 18.3 The Intellectual Lineage of this Question
 
 The formal circle that articulated these problems first was not speculating. Wiener's *Cybernetics* (1948) formally defined goal-directed feedback control and issued the first rigorous warning about autonomous systems without human oversight. Von Neumann's self-reproducing automata (1948) worked out autopoiesis from first principles before the word existed. Turing's morphogenesis paper (1952) derived reaction-diffusion pattern formation mathematically. Lem's *Summa Technologiae* (1964) analyzed autoevolution and AI alignment as formal systems — published as "speculation" because no journal in 1964 would accept reasoning about systems that did not exist yet.
 
@@ -944,7 +957,7 @@ A second claim, demonstrated empirically, is that Loom spans the full optimizati
 
 The key enabling conditions are: (1) AI-assisted development reduces the cost of complex type annotations to near zero; (2) multi-target compilation amplifies the value of each annotation; (3) the derivability constraint of the GS methodology provides a design rubric with well-defined scope and interaction; and (4) the biological computation layer (M41–M119) provides a complete formal vocabulary for goal-directed, self-modifying computational entities that was previously unavailable in any production language.
 
-The forty-year gap between programming language research and production language adoption closes not because the theory got easier, but because the cost/benefit ratio inverted. The theories were always correct. The problem was always annotation fatigue, single-target value, and tooling fragmentation. Multi-target derivation from a single specification closes all three simultaneously.
+The cost/benefit ratio that kept academic PL research out of production languages has inverted. The theories were always correct. The problem was annotation fatigue, single-target value, and tooling fragmentation. Multi-target derivation from a single specification closes all three simultaneously. The implementation finally meets the theory — not because the theory simplified, but because AI-assisted development eliminated the annotation cost that made the theory impractical for four decades.
 
 The BIOISO claim extends this argument to a harder problem class: not just correct programs from specifications, but *self-correcting* programs that maintain telos alignment under adversarial, coevolutionary, and non-stationary conditions. The compiler is the correctness mechanism. The CEMS runtime is the adaptation mechanism. The telomere audit is the evidence.
 
@@ -969,4 +982,5 @@ The compiler is open source. The specification is available. The gap is closed.
 - Kool, W., van Hoof, H., & Welling, M. (2019). Attention, learn to solve routing problems! *ICLR 2019.*
 - Snoek, J., Larochelle, H., & Adams, R.P. (2012). Practical Bayesian optimization of machine learning algorithms. *NeurIPS 2012.*
 - Pelikan, M., Goldberg, D.E., & Lobo, F.G. (2002). A survey of optimization by building and using probabilistic models. *Computational Optimization and Applications*, 21(1).
+- Martin, R.C. (2008). *Clean Code: A Handbook of Agile Software Craftsmanship*. Prentice Hall.
 - Romera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. *Nature*, 625, 468–475.

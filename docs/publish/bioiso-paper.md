@@ -162,7 +162,7 @@ Only mutations passing all three filters are written to `G_{n+1}`. The meiosis g
 
 **Property 2 (Structural escape):** For any problem class `P` where T1–T4 saturate, there exists a sequence of structural mutations `m_1, ..., m_k` such that `D(G_0 + m_1 + ... + m_k) < τ_telos` (below telos threshold).
 
-**Proof sketch:** The candidates pool in `rewire: candidates: [...]` can include `novel_hypothesis` — a placeholder for algorithm classes not present in the initial genome. The MeiosisEngine generates candidate implementations from the genome specification using the GS derivation rules. Since the genome is a Turing-complete specification (any algorithm expressible in the loom type system can be encoded), there exists a sequence of structural mutations that can represent any computable optimization strategy.
+**Proof sketch:** The candidates pool in `rewire: candidates: [...]` can include `novel_hypothesis` — a placeholder for algorithm classes not present in the initial genome. The MeiosisEngine generates candidate implementations from the genome specification using the GS derivation rules. Since the genome is a Turing-complete specification (any algorithm expressible in the loom type system can be encoded), there exists a sequence of structural mutations that can represent any computable optimization strategy. *Note on scope:* This is an existence argument — it establishes that a convergent mutation sequence exists for any computable problem class, not that the meiosis engine will find it in a bounded number of generations. In practice, the candidate pool must include the target algorithm class for convergence to occur; curating the initial candidate pool is a human design decision.
 
 **Property 3 (Bounded change):** The structural change per generation is bounded by `|M_promoted|` — the number of promoted mutations. Since each mutation has a declared type and safety filter, the space of possible structural changes per generation is finite.
 
@@ -210,6 +210,8 @@ Auto-escalation in `orchestrator.rs`: when the same parameter + direction is pro
 | `scheduling_t5` | T1-Greedy | T2-SA | yes (auto-escalated at tick 6) |
 
 The `scheduling_t5` entity fires `[tier_up] T1 → T2` at tick 6 (saturation ×6), demonstrating the auto-escalation mechanism. The final tier is T2-SA because the non-stationary drift does not persist long enough to saturate T2 within 60 ticks.
+
+**Scope note:** `bench_colony_ladder` demonstrates *intra-generational* auto-escalation (T1→T4) — the mechanism by which a single entity discovers a higher-tier algorithm during its current generation. It does not demonstrate *inter-generational meiosis*, where the genome file is rewritten and recompiled between generations. Cross-generational T5 meiosis operates via the `.github/workflows/evolve.yml` GS genome loop, which requires a full compile/test cycle between generations and is exercised in the `experiments/bioiso/` suite rather than the in-process benchmark.
 
 ### 4.4 The `.loom` → BIOISO Bridge (`being_loader.rs`)
 
@@ -289,13 +291,17 @@ BIOISO domains satisfy three criteria: (1) the fitness landscape is coevolutiona
 
 **Reference baseline:** AEGIS E88 canonical parameters: `aave_target_health_factor = 1.85`, `uniswap_lp_range_pct = 12.0%`, mean taper step = 0.35. These represent the T4-generation optimum before structural adaptation. BIOISO T5 escape replaces the strategy architecture when the Sharpe ratio degrades below 0.7 for `k` consecutive rebalancing cycles.
 
-### 5.9 `biosphere` — Biodiversity Metric Optimization (T4)
+### 5.9 `biosphere` — Biodiversity Metric Optimization (T4, Calibration Domain)
 
-A T4 domain where the GP surrogate models the response of biodiversity indices to conservation interventions. T4 is the appropriate ceiling because the biodiversity landscape, while non-stationary, has stable causal structure across the relevant policy horizon (decades). `ParameterAdjust` alone cannot converge because the intervention response surface is not well-modeled by linear updates, but the optimal intervention *class* does not change structurally within the policy window.
+A T4 calibration domain included to establish where T5 is *not* load-bearing. The GP surrogate models the response of biodiversity indices to conservation interventions. T4 is the appropriate ceiling because the biodiversity landscape, while non-stationary, has stable causal structure across the relevant policy horizon (decades). The optimal intervention *class* does not change structurally within the policy window — only its parameters do.
 
-### 5.10 `ocean_circulation` — Ocean Circulation Homeostasis (T3)
+Including this domain establishes the falsifiability boundary: the BIOISO model claims T5 is necessary only for domains where structural rewiring is load-bearing. A framework that ran T5 everywhere would prove nothing.
 
-A T3 domain where the hyper-heuristic selects between thermohaline intervention operators based on observed circulation indices. The operator portfolio (temperature regulation, salinity adjustment, current redirection) covers the causal mechanism space adequately; the T3 ceiling does not apply because the AMOC's structural dynamics do not exit the portfolio's coverage within the intervention horizon.
+### 5.10 `ocean_circulation` — Ocean Circulation Homeostasis (T3, Calibration Domain)
+
+A T3 calibration domain establishing the lower bound of the taxonomy. The hyper-heuristic selects between thermohaline intervention operators based on observed circulation indices. The operator portfolio (temperature regulation, salinity adjustment, current redirection) covers the causal mechanism space adequately; the T3 ceiling does not apply because the AMOC's structural dynamics do not exit the portfolio's coverage within the intervention horizon.
+
+These two calibration domains are not BIOISO (T5) entities — they are included to demonstrate tier placement correctness: the framework assigns T3 or T4 where those tiers are sufficient, not T5 by default.
 
 ---
 
@@ -375,7 +381,21 @@ Loom's role is to make the genome a typed, verifiable specification from which a
 
 ---
 
-## 8. Conclusion
+## 8. Limitations
+
+**Benchmark scale.** The `bench_colony_ladder` empirical demonstration runs 60 ticks on a single-machine scheduling problem with a synthetic non-stationary drift signal `D(t, φ) = 0.3|sin(0.05t + φ)| + 0.05ε`. This is sufficient to demonstrate T1→T4 auto-escalation but not inter-generational meiosis. Real BIOISO domains (AMR coevolution, climate intervention) operate on horizons of months to years; the 60-tick benchmark is a proof-of-mechanism, not an evaluation of domain performance.
+
+**Meiosis requires recompilation infrastructure.** The T5 meiosis loop operates via a GitHub Actions workflow (`.github/workflows/evolve.yml`) and requires `cargo test` to pass after each genome application. This makes T5 practically limited to environments where recompilation is feasible — it is not a runtime mechanism. Systems without a build pipeline cannot operate at T5.
+
+**Property 2 (structural escape) assumes adequate candidate pool.** The existence proof in §3.4 holds given that the `rewire: candidates:` pool includes an algorithm class that can converge on the target problem. If the initial candidate pool is architecturally wrong for the problem — e.g., all candidates are parameter-adjustment strategies for a problem requiring structural graph replacement — no meiosis cycle will converge. Pool design is a human responsibility.
+
+**Ceiling theorems are structural, not statistical.** The T1–T4 ceiling theorems establish that a class of structural modifications cannot be expressed within each tier — they do not make probabilistic claims about convergence rates on specific instances. Whether a T5 entity out-performs a T4 entity on a given problem in practice depends on the specific instance, the candidate pool, and the generation budget.
+
+**Domain baselines are simulated.** The CEMS runtime runs signal simulators calibrated to academic baselines, not live data streams. Results do not constitute deployment-validated evidence for any specific application domain.
+
+---
+
+## 9. Conclusion
 
 The BIOISO model formalizes a five-tier hierarchy of optimization entities, with T5 being the first tier whose adaptations operate on the space of algorithms rather than the space of parameter values, operator selections, or surrogate model weights. The T5 escape mechanism — structural self-modification via meiosis — is the only mechanism that can compound algorithmic improvements across generations without requiring a human developer to write new source code.
 
@@ -387,6 +407,7 @@ The implementation in Loom demonstrates that this model can be expressed as a ty
 
 - Brélaz, D. (1979). New methods to color the vertices of a graph. *Communications of the ACM*, 22(4), 251–256.
 - Burke, E.K., et al. (2013). Hyper-heuristics: A survey of the state of the art. *Journal of the Operational Research Society*, 64(12), 1695–1724.
+- Garcia-Molina, H., & Salem, K. (1987). Sagas. *ACM SIGMOD Record*, 16(3), 249–259.
 - Ghiringhelli, J.C. (2026). Loom: Materialising Academic Semantic Specifications as First-Class Language Constructs. *Pragmaworks Preprint.*
 - Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
 - Hansen, N., & Ostermeier, A. (2001). Completely derandomized self-adaptation in evolution strategies. *Evolutionary Computation*, 9(2), 159–195.

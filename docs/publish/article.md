@@ -44,7 +44,7 @@ error[E0001]: unit mismatch
   cannot add Float<usd> and Float<eur> — explicit conversion required
 ```
 
-F# has had this since 2009. One language in forty years.
+F# implemented this in 2009 — the one production language to do so — but never achieved mainstream adoption outside the .NET ecosystem. Loom extends the idea to a multi-target compiler accessible outside that ecosystem, and pairs it with four other semantic constructs in a single source file.
 
 ---
 
@@ -323,4 +323,4 @@ And the reader is capable because it was built by imitating the same brain that 
 
 ---
 
-*Loom is built by Pragmaworks. The compiler is written in Rust. The design stems from the Generative Specification methodology described in the GS White Paper (Ghiringhelli, 2026). All features described are implemented in the open-source compiler.*
+*Loom is built by Pragmaworks. The compiler is written in Rust (~12,000 lines), is open-source, and is in active development — the features described are implemented but the language is pre-1.0. The design stems from the Generative Specification methodology described in the GS White Paper (Ghiringhelli, 2026). All features described are implemented in the compiler and verified by 339+ tests.*

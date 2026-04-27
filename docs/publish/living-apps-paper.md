@@ -262,7 +262,7 @@ degenerate TransferProtocol
 end
 ```
 
-**What this solves:** Circuit breaker patterns, fallback chains, and multi-region routing currently rely on documentation and operational runbooks to assert fallback equivalence. `degenerate:` makes this a compile-time proof: the `ensure:` clauses of both implementations must be logically equivalent.
+**What this solves:** Circuit breaker patterns, fallback chains, and multi-region routing currently rely on documentation and operational runbooks to assert fallback equivalence. `degenerate:` makes this a compile-time proof: the `ensure:` clauses of both implementations must be logically equivalent. *Verification burden note:* proving that two different implementations have equivalent postconditions is a formal equivalence problem — harder than property-based testing. In practice it requires either a proof assistant (Dafny, Lean4) or behavioral equivalence testing against an oracle. `degenerate:` declares the equivalence obligation; the verification mechanism is a pending integration (M68 includes the proof harness design).
 
 ### 3.2 Cell Cycle Checkpoints (Hartwell, Hunt, Nurse 2001 Nobel) — *M69*
 
@@ -320,7 +320,7 @@ pathway OrderFulfillment
 end
 ```
 
-**What this solves:** Sagas in distributed systems currently require orchestrator code, documentation, and hope. A typed `pathway:` with `compensate:` makes saga correctness — "if step 3 fails, run steps 2 and 1 in reverse" — a structural property of the type system.
+**What this solves:** Sagas in distributed systems — first formalized by Garcia-Molina & Salem (1987, SOSP) — currently require orchestrator code, documentation, and hope. A typed `pathway:` with `compensate:` makes saga correctness — "if step 3 fails, run steps 2 and 1 in reverse" — a structural property of the type system. What `pathway:` adds beyond the original Saga pattern: typed compensation in the type system (not runtime-only orchestration), compiler-verified preconditions on each step, and the path from `OrderRequest` to `FulfilledOrder` as a first-class named type.
 
 ### 3.5 Symbiosis Typing (de Bary 1879) — *M72*
 
@@ -426,6 +426,21 @@ end
 
 **What this solves:** Coevolutionary systems. In a BIOISO colony, one entity's structural adaptations can create opportunities or constraints for other entities. `niche_construction:` makes this inter-entity influence a declared, bounded, checked dependency — not an emergent side effect.
 
+### Gap Analysis Summary
+
+| Milestone | Mechanism | Biological origin | Software problem solved | Loom syntax |
+|-----------|-----------|------------------|------------------------|-------------|
+| M68 | Degeneracy | Edelman 1987 | Redundancy with diverse implementations | `degenerate:` |
+| M69 | Cell cycle checkpoints | Hartwell et al. 2001 | Gated lifecycle state transitions | `lifecycle ... checkpoint:` |
+| M70 | Canalization | Waddington 1942 | Return-to-target after arbitrary perturbation | `canalize:` |
+| M71 | Metabolic pathways | Krebs 1937 | Typed sequential transformation with compensation | `pathway:` |
+| M72 | Symbiosis typing | de Bary 1879 | Typed dependency relationships | `import X as mutualistic \| commensal \| parasitic` |
+| M73 | DNA repair | Lindahl 2015 | Structured recovery before failure | `on_violation: clamp: ...` |
+| M74 | Cellular senescence | Campisi 2001 | Gradual degradation with SASP signals | `senescence:` |
+| M75 | Horizontal gene transfer | Griffith 1928 | Lateral capability acquisition without static coupling | `adopt:` |
+| M76 | Criticality / edge of chaos | Langton 1990 | System-level coupling in productive regime | `criticality:` |
+| M77 | Niche construction | Odling-Smee 1996 | Inter-entity telos parameter influence | `niche_construction:` |
+
 ---
 
 ## 4. The Living Application Definition
@@ -468,7 +483,7 @@ The BIOISO colony running in the CEMS runtime (`src/runtime/`) is a living appli
 
 **Bounded:** `@bounded_telos` is checked by the SafetyChecker. Domain scope bounds are declared in `spawn_domain()` in `bioiso_runner.rs`.
 
-**Operationally closed:** The ALX experiment: when the CEMS runtime can compile its own specification from a Loom source that the CEMS runtime itself emits, the loop closes. The current state: the compiler can parse and type-check `examples/ladder.loom` (which specifies the T1→T5 ladder); the ALX experiments are the next milestone.
+**Operationally closed:** The ALX (Autopoietic Loom eXperiment) closes this property empirically. In three phases, a stateless AI reader derived a working Loom compiler from the `experiments/alx/spec/loom.loom` specification alone — with no prior context, no access to the real compiler source, and no iterative guidance. The derived compiler was then verified against the real test suite. Final result: S_realized = 1.0 — 386/386 acceptance tests passing. The Loom compiler can be fully specified in Loom and re-derived from that specification by a stateless reader. The loop is closed.
 
 ---
 
@@ -503,7 +518,7 @@ This paper is the third in a sequence:
 
 **Paper 3 (this paper):** Living applications. The isomorphism runs both ways. Every biological survival mechanism has a formal software counterpart. Every formal software requirement maps back to a biological solution. The gaps are unsolved architecture problems. Loom closes them one milestone at a time.
 
-The three papers together argue that the forty-year gap between academic programming language research and production software practice closes not because the theory simplified — the theory was always correct — but because the cost/benefit ratio inverted. Multi-target derivation from a single specification means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously. AI-assisted development reduces the cost of complex annotations to near zero. Operational closure (the ALX) proves the language is complete enough to describe itself.
+The three papers together argue that the persistent gap between academic programming language research and production software practice closes not because the theory simplified — the theory was always correct — but because the cost/benefit ratio inverted. Multi-target derivation from a single specification means each annotation pays for itself across Rust, TypeScript, OpenAPI, and JSON Schema simultaneously. AI-assisted development reduces the cost of complex annotations to near zero. Operational closure (the ALX) proves the language is complete enough to describe itself.
 
 The specification is available. The compiler is open source. The biological properties are first-class.
 
@@ -517,7 +532,7 @@ The biological isomorphism is not a metaphor. It is a convergence result: two sy
 
 The ten gap constructs (M68–M77) are not speculation — they are the next milestones on the same isomorphism. Each one closes a software architecture problem that currently requires documentation, conventions, and incident runbooks. When all ten are implemented, the compiler will enforce properties that took biology 3.8 billion years of trial and error to discover.
 
-The trial and error period is over. The compiler knows what living looks like.
+The compiler knows what 3.8 billion years of trial and error discovered. The implementation follows — one milestone at a time.
 
 ---
 
@@ -530,6 +545,7 @@ The trial and error period is over. The compiler knows what living looks like.
 - Cannon, W.B. (1929). Organization for physiological homeostasis. *Physiological Reviews*, 9(3), 399–431.
 - Doudna, J.A., & Charpentier, E. (2012). A programmable dual-RNA–guided DNA endonuclease in adaptive bacterial immunity. *Science*, 337(6096), 816–821.
 - Edelman, G.M. (1987). *Neural Darwinism*. Basic Books.
+- Garcia-Molina, H., & Salem, K. (1987). Sagas. *ACM SIGMOD Record*, 16(3), 249–259.
 - Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
 - Ghiringhelli, J.C. (2026). Loom: Materialising Academic Semantic Specifications as First-Class Language Constructs. *Pragmaworks Preprint.*
 - Ghiringhelli, J.C. (2026). BIOISO: Biological Isomorphism for Self-Evolving Computational Entities. *Pragmaworks Preprint.*

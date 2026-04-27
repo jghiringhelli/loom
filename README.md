@@ -1,10 +1,10 @@
 # loom
 
-**loom** is an AI-native declaration language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file — and runs an autonomous BIOISO colony that continuously optimizes nine real-world NP-hard domains using a three-tier AI synthesis stack.
+**loom** is an AI-native declaration language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file — and runs an autonomous BIOISO colony that continuously optimizes ten real-world NP-hard domains using a three-tier AI synthesis stack.
 
 It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
 
-**314 lib tests · 5 emission targets · 9 BIOISO domains · T1/T2/T3 synthesis tiers · TLA+ formal verification · all examples rustc-verified**
+**339 lib tests · 5 emission targets · 10 BIOISO domains · T1/T2/T3 synthesis tiers · TLA+ formal verification · all examples rustc-verified**
 
 ---
 
@@ -115,9 +115,9 @@ The `rewire:` block is the load-bearing Tier 5 primitive. When a plasma instabil
 | 4 | Learning-based | Neural architecture search, Bayesian opt | Stationary fitness assumption |
 | **5** | **BIOISO** | **Fusion plasma, AMR coevolution** | **Non-stationary landscape — fitness surface itself evolves** |
 
-### The 9 BIOISO Colony Domains
+### The 10 BIOISO Colony Domains
 
-The autonomous colony continuously backtests all nine domains using historical data:
+The autonomous colony continuously backtests all ten domains using historical data:
 
 | Domain | Why Tier 5 | Key non-stationarity |
 |--------|-----------|---------------------|
@@ -130,6 +130,7 @@ The autonomous colony continuously backtests all nine domains using historical d
 | Climate Intervention | Earth system tipping points are path-dependent | Topology collapse = irreversible |
 | Fusion Plasma Control | L-H transition / novel instability classes | Regime transition eliminates current law |
 | Adaptive Self-Assembly | Configuration-space bifurcation collapses pathways | Protocol graph topology is path-dependent |
+| AEGIS Delta-Neutral DeFi | Yield regime shifts between protocols; adversarial MEV | Liquidity topology changes across market cycles |
 
 ### Three-tier AI synthesis stack
 
