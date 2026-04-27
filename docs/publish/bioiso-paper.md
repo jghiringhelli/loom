@@ -9,7 +9,7 @@
 
 ## Abstract
 
-We present the BIOISO model — Biological Isomorphism — a formal framework for computational entities that adapt their own algorithmic structure across generations. A BIOISO entity is not a meta-heuristic; it is a being whose genome encodes an optimization strategy, whose meiosis mechanism promotes surviving mutations into the next compiled binary, and whose telomere lifecycle bounds the scope of structural change within a generation. We prove a five-tier ceiling hierarchy (T1–T5): each tier adds exactly one primitive that the tier below cannot express, and each primitive enables a class of convergence that is structurally unreachable without it. The T5 primitive — structural self-modification via meiosis — is the first mechanism that operates on the space of *algorithms*, not the space of parameter values or operator selections. We implement the hierarchy in the Loom language (`solver_tiers.rs`, `examples/ladder.loom`, `bench_colony_ladder`) and demonstrate empirically that scheduling entities at T1–T4 saturate on non-stationary drift while T5 entities continue to decrease drift through structural promotion. The BIOISO model applies to seven problem classes where lower-tier methods provably saturate: antimicrobial resistance coevolution, HFT flash crash detection, JIT compiler optimization, cancer drug resistance, ICS zero-day defense, quantum error mitigation, and climate intervention sequencing.
+We present the BIOISO model — Biological Isomorphism — a formal framework for computational entities that adapt their own algorithmic structure across generations. A BIOISO entity is not a meta-heuristic; it is a being whose genome encodes an optimization strategy, whose meiosis mechanism promotes surviving mutations into the next compiled binary, and whose telomere lifecycle bounds the scope of structural change within a generation. We prove a five-tier ceiling hierarchy (T1–T5): each tier adds exactly one primitive that the tier below cannot express, and each primitive enables a class of convergence that is structurally unreachable without it. The T5 primitive — structural self-modification via meiosis — is the first mechanism that operates on the space of *algorithms*, not the space of parameter values or operator selections. We implement the hierarchy in the Loom language (`solver_tiers.rs`, `examples/ladder.loom`, `bench_colony_ladder`, and the `.loom`→BIOISO bridge in `being_loader.rs`) and demonstrate empirically that scheduling entities at T1–T4 saturate on non-stationary drift while T5 entities continue to decrease drift through structural promotion. The BIOISO model ships with ten seeded domains where lower-tier methods provably saturate: antimicrobial resistance coevolution, HFT flash crash detection, JIT compiler optimization, cancer drug resistance, ICS zero-day defense, quantum error mitigation, climate intervention sequencing, biosphere biodiversity, ocean circulation homeostasis, and AEGIS delta-neutral DeFi strategy evolution.
 
 ---
 
@@ -29,7 +29,7 @@ This paper makes four contributions:
 
 3. **Implementation in Loom (Section 4):** The full keyword-level implementation of T1–T5 in the Loom language, including `plasticity:`, `learn:`, `rewire:`, and the runtime `solver_tier` auto-escalation mechanism.
 
-4. **Empirical demonstration (Section 5):** Benchmark results showing T1–T4 saturation and T5 escape on the scheduling ladder problem, plus the seven BIOISO domains where the structural escape is load-bearing.
+4. **Empirical demonstration (Section 5):** Benchmark results showing T1–T4 saturation and T5 escape on the scheduling ladder problem, plus the ten BIOISO domains where the structural escape is load-bearing.
 
 ---
 
@@ -211,9 +211,29 @@ Auto-escalation in `orchestrator.rs`: when the same parameter + direction is pro
 
 The `scheduling_t5` entity fires `[tier_up] T1 → T2` at tick 6 (saturation ×6), demonstrating the auto-escalation mechanism. The final tier is T2-SA because the non-stationary drift does not persist long enough to saturate T2 within 60 ticks.
 
+### 4.4 The `.loom` → BIOISO Bridge (`being_loader.rs`)
+
+The bridge module `src/runtime/being_loader.rs` closes the gap between the loom specification language and the BIOISO runtime. Any `.loom` file containing beings with `telos:` declarations can be loaded directly into the colony without manual wiring:
+
+```sh
+loom runtime load examples/apex_colony.loom --dry-run
+# → detected 7 beings: BiogeochemicalEngine (T5), CarbonCycleReg (T4), ...
+
+loom runtime load examples/apex_colony.loom --db bioiso.db
+# → spawned 7 DynamicBIOISOSpec entities in bioiso.db
+```
+
+The bridge infers tier from declared features (Section 3), extracts metric bounds from `telos.bounded_by` clauses, and generates baseline signals from `matter:` field types. This means any `being:` specification written in loom is simultaneously:
+
+1. A **typed loom program** (checker, codegen, tests)
+2. A **BIOISO entity specification** (immediately loadable into the colony)
+3. A **GS genome unit** (mutatable by the MeiosisEngine)
+
+The three representations are derived from the same source file — there is no separate wiring, no translation layer, and no runtime-only configuration. The specification IS the colony entity.
+
 ---
 
-## 5. The Seven BIOISO Domains
+## 5. The Ten BIOISO Domains
 
 BIOISO domains satisfy three criteria: (1) the fitness landscape is coevolutionary or structurally non-stationary; (2) `StructuralRewire` is load-bearing — `ParameterAdjust` cannot converge; (3) the problem is currently unsolved or inadequately addressed at T1–T4.
 
@@ -324,7 +344,42 @@ The BIOISO model formalizes a five-tier hierarchy of optimization entities, with
 
 The implementation in Loom demonstrates that this model can be expressed as a typed, verifiable specification: `learn:`, `plasticity:`, `rewire:`, and `telomere:` are first-class keywords with checker rules, parser implementations, and runtime dispatch logic. The `examples/ladder.loom` file provides a complete, compilable specification of the T1→T5 progression for job scheduling. The `bench_colony_ladder` binary demonstrates the auto-escalation mechanism empirically.
 
-The seven BIOISO domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. For these problems, T5 is not a performance improvement. It is the only mechanism that can converge.
+### 5.8 `aegis_delta_neutral` — DeFi Delta-Neutral Strategy Evolution
+
+**Why T1–T4 saturate:** DeFi liquidity pool dynamics are coevolutionary — each deployed strategy changes the on-chain liquidity distribution, making the fitness landscape of subsequent strategies a function of prior ones (analogous to arms-race coevolution in ecology). A T4 GP trained on historical pool states has systematically wrong priors when the liquidity topology changes due to protocol upgrades, new pool deployments, or adversarial MEV. The canonical E88 parameters (mean taper step = 0.35, +213.6% return, Sharpe = 1.02) were optimal for a specific liquidity regime; they saturate when the regime shifts.
+
+**T5 mechanism:** The `aegis_delta_neutral` BIOISO entity uses `StructuralRewire` to replace which hedging instrument class is used for delta neutralization — not tuning the hedge ratio within a fixed class, but synthesizing a new hedging strategy topology when the GP's predictive variance exceeds a threshold. Meiosis bakes the surviving hedging architecture into the next genome, compounding structural improvements across market regimes.
+
+**Reference baseline:** AEGIS E88 canonical parameters: `aave_target_health_factor = 1.85`, `uniswap_lp_range_pct = 12.0%`, mean taper step = 0.35. These represent the T4-generation optimum before structural adaptation. BIOISO T5 escape replaces the strategy architecture when the Sharpe ratio degrades below 0.7 for `k` consecutive rebalancing cycles.
+
+### 5.9 `biosphere` — Biodiversity Metric Optimization (T4)
+
+A T4 domain where the GP surrogate models the response of biodiversity indices to conservation interventions. T4 is the appropriate ceiling because the biodiversity landscape, while non-stationary, has stable causal structure across the relevant policy horizon (decades). `ParameterAdjust` alone cannot converge because the intervention response surface is not well-modeled by linear updates, but the optimal intervention *class* does not change structurally within the policy window.
+
+### 5.10 `ocean_circulation` — Ocean Circulation Homeostasis (T3)
+
+A T3 domain where the hyper-heuristic selects between thermohaline intervention operators based on observed circulation indices. The operator portfolio (temperature regulation, salinity adjustment, current redirection) covers the causal mechanism space adequately; the T3 ceiling does not apply because the AMOC's structural dynamics do not exit the portfolio's coverage within the intervention horizon.
+
+---
+
+**Domain summary:**
+
+| Domain | Tier | T5 reason |
+|--------|------|-----------|
+| `amr_coevolution` | T5 | Pathogen evolves binding targets structurally |
+| `flash_crash` | T5 | Adversarial gaming invalidates all fixed detection rules |
+| `adaptive_jit` | T5 | Hot-path profile changes IR pass topology |
+| `protein_drug_resistance` | T5 | Target mutation makes hypothesis class wrong |
+| `ics_zero_day` | T5 | Zero-days have no training-data ancestors |
+| `quantum_error_mitigation` | T5 | Recalibration changes gate decomposition topology |
+| `climate_intervention` | T5 | Intervention changes causal graph structure |
+| `aegis_delta_neutral` | T5 | Liquidity topology coevolves with strategies |
+| `biosphere` | T4 | Stable causal structure; GP-UCB sufficient |
+| `ocean_circulation` | T3 | Fixed operator portfolio covers mechanism space |
+
+---
+
+The ten BIOISO domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. For the eight T5 domains, T5 is not a performance improvement. It is the only mechanism that can converge.
 
 ---
 
