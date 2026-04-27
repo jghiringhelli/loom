@@ -475,6 +475,13 @@ being <Name>
     update_every: <int>
   end
 
+  -- Tier 4+: epigenetic mode switching
+  epigenetic <name>
+    trigger:  <signal_name> > <float>
+    switches: [<mode1>, <mode2>]
+    reverts_when: "<condition_string>"
+  end
+
   -- Tier 5: structural self-modification
   rewire:
     trigger: <metric_name>_static > <float>
@@ -500,13 +507,6 @@ being <Name>
 
   -- Tier 5: autopoiesis flag
   autopoietic
-
-  -- Tier 5: epigenetic mode switching
-  epigenetic <name>
-    trigger:  <signal_name> > <float>
-    switches: [<mode1>, <mode2>]
-    reverts_when: "<condition_string>"
-  end
 
   -- Generational lifecycle (any tier with telos)
   telomere:
@@ -893,8 +893,8 @@ item       = type_def | enum_def | fn_def | interface_def | implements_def
            | import | invariant | test | being_def | ecosystem_def
 
 being_def  = "being" Name annotation* describe? matter? form? function?
-               regulate* evolve? plasticity? learn? rewire?
-               crispr* morphogen? epigenetic*
+               regulate* evolve? plasticity? learn? epigenetic*
+               rewire? crispr* morphogen?
                ("autopoietic")?
                telomere? propagate? telos "end"
 

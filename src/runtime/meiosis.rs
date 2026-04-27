@@ -393,6 +393,39 @@ fn render_genome(
                 ));
                 mutations_incorporated += 1;
             }
+            MutationProposal::CodePatch {
+                target_file,
+                diff,
+                test_command,
+                prediction,
+                reason,
+                ..
+            } => {
+                // GS EVOLUTION SPEC — CodePatch: T5 Forge Ladder source-level genome edit.
+                // The diff is embedded in the genome file for the GS pipeline to apply.
+                gs_spec_blocks.push_str(&format!(
+                    "\n-- GS EVOLUTION SPEC\n\
+                     -- mutation:   CodePatch\n\
+                     -- entity:     {}\n\
+                     -- target:     {target_file}\n\
+                     -- test:       {test_command}\n\
+                     -- tick:       {}\n\
+                     -- prediction: {prediction}\n\
+                     -- verify:     {test_command}\n\
+                     -- reason:     {reason}\n\
+                     -- diff: |\n",
+                    parent_a.entity_id, record.tick,
+                ));
+                for line in diff.lines() {
+                    gs_spec_blocks.push_str(&format!("--   {line}\n"));
+                }
+
+                fn_defs.push_str(&format!(
+                    "\n-- [T5 codepatch tick {}] patched '{}': {}\n",
+                    record.tick, target_file, reason
+                ));
+                mutations_incorporated += 1;
+            }
         }
     }
 

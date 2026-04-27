@@ -115,6 +115,15 @@ impl SignalStore {
         Ok(())
     }
 
+    /// Return the current lifecycle state string for an entity, or `None` if not found.
+    pub fn entity_state(&self, entity_id: &str) -> SqlResult<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT state FROM entities WHERE id = ?1")?;
+        let mut rows = stmt.query_map([entity_id], |row| row.get(0))?;
+        Ok(rows.next().transpose()?)
+    }
+
     /// Return all registered entity records.
     pub fn all_entities(&self) -> SqlResult<Vec<EntityRecord>> {
         let mut stmt = self

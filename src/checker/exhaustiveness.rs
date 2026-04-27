@@ -156,6 +156,11 @@ impl ExhaustivenessChecker {
                 self.check_expr(collection, reg, errors);
                 self.check_expr(index, reg, errors);
             }
+            Expr::Record { fields, .. } => {
+                fields
+                    .iter()
+                    .for_each(|(_, v)| self.check_expr(v, reg, errors));
+            }
         }
     }
 

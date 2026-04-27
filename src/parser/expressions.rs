@@ -34,17 +34,41 @@ impl<'src> crate::parser::Parser<'src> {
         })
     }
 
-    /// Parse a `let NAME = expr` binding.
+    /// Parse a `let NAME = expr` binding, optionally followed by `in body`.
+    /// Supports tuple destructuring: `let (a, b) = expr`.
     pub(in crate::parser) fn parse_let(&mut self) -> Result<Expr, LoomError> {
         let start = self.current_span();
         self.expect(Token::Let)?;
-        let (name, _) = self.expect_ident()?;
+        // Tuple destructuring: `let (a, b, ...) = ...`
+        let name = if self.at(&Token::LParen) {
+            self.advance(); // consume `(`
+            let mut parts = Vec::new();
+            while !self.at(&Token::RParen) && self.peek().is_some() {
+                let (n, _) = self.expect_any_name()?;
+                parts.push(n);
+                if self.at(&Token::Comma) {
+                    self.advance();
+                }
+            }
+            self.expect(Token::RParen)?;
+            format!("({})", parts.join(", "))
+        } else {
+            let (n, _) = self.expect_ident()?;
+            n
+        };
         self.expect(Token::Eq)?;
         let value = self.parse_expr()?;
+        let body = if self.at(&Token::In) {
+            self.advance(); // consume `in`
+            Some(Box::new(self.parse_expr()?))
+        } else {
+            None
+        };
         let end_span = self.current_span();
         Ok(Expr::Let {
             name,
             value: Box::new(value),
+            body,
             span: Span::merge(&start, &end_span),
         })
     }
@@ -365,6 +389,36 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::RBracket)?;
                 let span = Span::merge(&span_start, &end_span);
                 expr = Expr::Index(Box::new(expr), Box::new(index), span);
+            } else if self.at(&Token::LBrace) {
+                // Struct literal: `TypeName { field: value, ... }`.
+                // Only valid when the current expr is a plain identifier (the type name).
+                if !matches!(expr, Expr::Ident(_)) {
+                    break;
+                }
+                let name = if let Expr::Ident(n) = &expr {
+                    n.clone()
+                } else {
+                    unreachable!()
+                };
+                let span_start = self.current_span();
+                self.advance(); // consume `{`
+                let mut fields = Vec::new();
+                while !self.at(&Token::RBrace) && self.peek().is_some() {
+                    let (field_name, _) = self.expect_any_name()?;
+                    self.expect(Token::Colon)?;
+                    let field_val = self.parse_expr()?;
+                    fields.push((field_name, field_val));
+                    if self.at(&Token::Comma) {
+                        self.advance();
+                    }
+                }
+                let end_span = self.current_span();
+                self.expect(Token::RBrace)?;
+                expr = Expr::Record {
+                    name,
+                    fields,
+                    span: Span::merge(&span_start, &end_span),
+                };
             } else if self.at(&Token::As) {
                 let span_start = self.current_span();
                 self.advance(); // consume `as`
@@ -422,6 +476,33 @@ impl<'src> crate::parser::Parser<'src> {
             Some((Token::CommandKw, _)) => {
                 self.advance();
                 Ok(Expr::Ident("command".to_string()))
+            }
+            // Keywords that can appear as identifiers in expression context.
+            Some((Token::Capacity, _)) => {
+                self.advance();
+                Ok(Expr::Ident("capacity".to_string()))
+            }
+            Some((Token::Fitness, _)) => {
+                self.advance();
+                Ok(Expr::Ident("fitness".to_string()))
+            }
+            // List literal: `[expr, expr, ...]` — desugars to Tuple.
+            Some((Token::LBracket, _)) => {
+                let start = self.current_span();
+                self.advance(); // consume `[`
+                let mut elems = Vec::new();
+                while !self.at(&Token::RBracket) {
+                    if elems.len() > 0 {
+                        self.expect(Token::Comma)?;
+                        if self.at(&Token::RBracket) {
+                            break; // trailing comma
+                        }
+                    }
+                    elems.push(self.parse_expr()?);
+                }
+                let end = self.current_span();
+                self.expect(Token::RBracket)?;
+                Ok(Expr::Tuple(elems, Span::merge(&start, &end)))
             }
             Some((Token::LParen, _)) => {
                 let start = self.current_span();

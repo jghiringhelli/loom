@@ -29,7 +29,7 @@
 //!
 //! See [`ADR-0011`](../../docs/adrs/ADR-0011-ceks-runtime-architecture.md) §E-axis.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::runtime::signal::{EntityId, MetricName, Timestamp};
 use crate::runtime::store::{SecurityEvent, SignalStore};
@@ -189,6 +189,72 @@ pub struct CoreEntry {
     pub ts: Timestamp,
 }
 
+// ── Semantic novelty index ─────────────────────────────────────────────────────
+
+/// Lightweight semantic novelty guard using word-bigram Jaccard similarity.
+///
+/// Prevents the T5 Synthesis tier from proposing mutations that are semantically
+/// equivalent to proposals already in the epigenome Core — the "epigenetic overlap"
+/// problem.  Two proposals are considered equivalent when their word-bigram Jaccard
+/// similarity exceeds a configurable threshold (default 0.65).
+///
+/// Uses only `std` collections — no external embedding library required.
+pub struct SemanticIndex {
+    /// Per-entity ring buffer of word-bigram fingerprints (newest-first order).
+    fingerprints: HashMap<EntityId, VecDeque<HashSet<String>>>,
+    /// Maximum fingerprints retained per entity (FIFO eviction).
+    capacity: usize,
+}
+
+impl SemanticIndex {
+    /// Create a new index with the given per-entity capacity.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            fingerprints: HashMap::new(),
+            capacity,
+        }
+    }
+
+    /// Record a proposal text as a fingerprint for `entity_id`.
+    pub fn record(&mut self, entity_id: &str, text: &str) {
+        let shingles = word_bigrams(text);
+        let bucket = self.fingerprints.entry(entity_id.to_string()).or_default();
+        if bucket.len() >= self.capacity {
+            bucket.pop_back(); // evict oldest
+        }
+        bucket.push_front(shingles); // newest first
+    }
+
+    /// Return `true` when `text` is semantically novel for this entity.
+    ///
+    /// A text is considered **not novel** (i.e., seen before) when its Jaccard
+    /// similarity to any stored fingerprint exceeds `threshold` (0.0–1.0).
+    /// Default threshold: 0.65.
+    pub fn is_novel(&self, entity_id: &str, text: &str, threshold: f64) -> bool {
+        let candidate = word_bigrams(text);
+        let Some(bucket) = self.fingerprints.get(entity_id) else {
+            return true; // no history → always novel
+        };
+        for stored in bucket {
+            if jaccard(&candidate, stored) > threshold {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Number of stored fingerprints for an entity.
+    pub fn len(&self, entity_id: &str) -> usize {
+        self.fingerprints.get(entity_id).map_or(0, |b| b.len())
+    }
+}
+
+impl Default for SemanticIndex {
+    fn default() -> Self {
+        Self::new(50)
+    }
+}
+
 // ── Epigenome ─────────────────────────────────────────────────────────────────
 
 /// The Epigenome — institutional memory across Buffer, Working, Core, and Security tiers.
@@ -208,6 +274,8 @@ pub struct Epigenome {
     /// Core tier: long-term institutional memory.
     /// Key: entity_id → ordered deque (oldest first, evict from front).
     core: HashMap<EntityId, VecDeque<CoreEntry>>,
+    /// T5 semantic novelty guard — prevents redundant synthesis proposals.
+    pub semantic_index: SemanticIndex,
 }
 
 impl Epigenome {
@@ -224,6 +292,7 @@ impl Epigenome {
             buffer: HashMap::new(),
             working: HashMap::new(),
             core: HashMap::new(),
+            semantic_index: SemanticIndex::default(),
         }
     }
 
@@ -590,6 +659,26 @@ impl Default for Epigenome {
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
+
+/// Extract word-bigram shingles from text for Jaccard similarity.
+fn word_bigrams(text: &str) -> HashSet<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    words
+        .windows(2)
+        .map(|w| format!("{}_{}", w[0], w[1]))
+        .collect()
+}
+
+/// Jaccard similarity between two shingle sets: |A ∩ B| / |A ∪ B|.
+/// Returns 0.0 when both sets are empty.
+fn jaccard(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
+    if a.is_empty() && b.is_empty() {
+        return 0.0;
+    }
+    let intersection = a.intersection(b).count() as f64;
+    let union = a.union(b).count() as f64;
+    intersection / union
+}
 
 impl WorkingSummary {
     fn new_with_window(metric: impl Into<MetricName>, window: usize) -> Self {
@@ -1005,5 +1094,53 @@ mod tests {
         let (name, val) = result.unwrap();
         assert_eq!(name, "co2_ppm");
         assert!((val - 415.0).abs() < 1e-4);
+    }
+
+    // ── SemanticIndex ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn semantic_index_first_entry_is_novel() {
+        let mut idx = SemanticIndex::new(10);
+        assert!(idx.is_novel("e1", "adjust carbon_stock delta +0.05", 0.65));
+        idx.record("e1", "adjust carbon_stock delta +0.05");
+        // Same text is no longer novel.
+        assert!(!idx.is_novel("e1", "adjust carbon_stock delta +0.05", 0.65));
+    }
+
+    #[test]
+    fn semantic_index_different_text_is_novel() {
+        let mut idx = SemanticIndex::new(10);
+        idx.record("e1", "adjust carbon_stock delta +0.05 for soil health");
+        // Completely different proposal.
+        assert!(idx.is_novel("e1", "prune entity urban_heat diverged entity", 0.65));
+    }
+
+    #[test]
+    fn semantic_index_similar_text_blocked() {
+        let mut idx = SemanticIndex::new(10);
+        idx.record("e1", "adjust carbon_stock delta increase for soil entity");
+        // Nearly identical phrasing — should be blocked.
+        assert!(!idx.is_novel(
+            "e1",
+            "adjust carbon_stock delta increase for soil entity",
+            0.65
+        ));
+    }
+
+    #[test]
+    fn semantic_index_unknown_entity_is_always_novel() {
+        let idx = SemanticIndex::new(10);
+        assert!(idx.is_novel("unknown_entity", "any proposal text", 0.65));
+    }
+
+    #[test]
+    fn semantic_index_evicts_oldest_at_capacity() {
+        let mut idx = SemanticIndex::new(2);
+        idx.record("e1", "proposal alpha beta gamma");
+        idx.record("e1", "proposal delta epsilon zeta");
+        // Add a third — evicts the oldest (alpha proposal).
+        idx.record("e1", "proposal eta theta iota");
+        // The first proposal should no longer be in the index.
+        assert_eq!(idx.len("e1"), 2);
     }
 }

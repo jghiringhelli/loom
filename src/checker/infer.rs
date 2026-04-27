@@ -462,7 +462,18 @@ fn infer_expr(
                 .iter()
                 .map(|e| infer_expr(e, env, subst, gen, fns))
                 .collect();
-            Ok(TypeExpr::Tuple(types?))
+            let types = types?;
+            // Heuristic: a uniform tuple (all elems same type) originated from a list
+            // literal `[...]` — return Vec<T> so it unifies with `[T]` param types.
+            let uniform = types.windows(2).all(|w| w[0] == w[1]);
+            if uniform && !types.is_empty() {
+                Ok(TypeExpr::Generic("Vec".to_string(), vec![types[0].clone()]))
+            } else if types.is_empty() {
+                // Empty list: Vec<fresh>
+                Ok(TypeExpr::Generic("Vec".to_string(), vec![gen.fresh()]))
+            } else {
+                Ok(TypeExpr::Tuple(types))
+            }
         }
 
         Expr::Try(inner, _) => {
@@ -477,6 +488,14 @@ fn infer_expr(
             let _ = infer_expr(collection, env, subst, gen, fns)?;
             let _ = infer_expr(index, env, subst, gen, fns)?;
             Ok(gen.fresh())
+        }
+
+        // Record literal — infer each field value; return a named Record type.
+        Expr::Record { name, fields, .. } => {
+            for (_, val) in fields {
+                let _ = infer_expr(val, env, subst, gen, fns)?;
+            }
+            Ok(TypeExpr::Base(name.clone()))
         }
     }
 }
@@ -662,6 +681,9 @@ fn collect_let_names(expr: &Expr, names: &mut Vec<String>) {
             collect_let_names(collection, names);
             collect_let_names(index, names);
         }
+        Expr::Record { fields, .. } => {
+            fields.iter().for_each(|(_, v)| collect_let_names(v, names));
+        }
     }
 }
 
@@ -684,8 +706,19 @@ fn collect_free_vars(
 ) {
     match expr {
         Expr::Ident(name) => {
-            // Skip built-in keyword-like identifiers that are not function parameters.
-            const BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
+            // Skip built-in keyword-like identifiers and primitive type names
+            // (used as return-type stubs in function bodies, e.g. `Int` or `Float`).
+            const BUILTINS: &[&str] = &[
+                "todo",
+                "panic",
+                "unreachable",
+                "unimplemented",
+                "Int",
+                "Float",
+                "Bool",
+                "String",
+                "Unit",
+            ];
             if !let_bound.contains(name.as_str())
                 && !seen.contains(name)
                 && !BUILTINS.contains(&name.as_str())
@@ -749,6 +782,11 @@ fn collect_free_vars(
         Expr::Index(collection, index, _) => {
             collect_free_vars(collection, let_bound, seen, ordered);
             collect_free_vars(index, let_bound, seen, ordered);
+        }
+        Expr::Record { fields, .. } => {
+            fields
+                .iter()
+                .for_each(|(_, v)| collect_free_vars(v, let_bound, seen, ordered));
         }
     }
 }

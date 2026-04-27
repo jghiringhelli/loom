@@ -220,6 +220,8 @@ pub struct Orchestrator {
     pub t4_total_obs: HashMap<String, u32>,
     /// LCG RNG state for T2/T3 stochastic generators (seeded from tick_count).
     rng_state: u64,
+    /// Optional BIOISO event logger (writes per-entity `.bioiso` files).
+    pub bioiso_logger: Option<crate::runtime::bioiso_log::BioisoLogger>,
 }
 
 impl Orchestrator {
@@ -241,6 +243,9 @@ impl Orchestrator {
             t4_history: HashMap::new(),
             t4_total_obs: HashMap::new(),
             rng_state: 0xcafe_babe_dead_beef,
+            bioiso_logger: std::env::var("BIOISO_LOG_DIR")
+                .ok()
+                .map(crate::runtime::bioiso_log::BioisoLogger::new),
         }
     }
 
@@ -390,6 +395,18 @@ impl Orchestrator {
             } else {
                 // Gate rejection is negative feedback — the mutation was structurally invalid.
                 self.runtime.sampler.record_outcome(false);
+                if let Some(log) = &self.bioiso_logger {
+                    let eid = proposal.primary_entity();
+                    let mtype = proposal_strategy_key(&proposal);
+                    let tier = tier_used.unwrap_or(1);
+                    log.log_gate_rejected(
+                        eid,
+                        self.tick_count,
+                        tier,
+                        &mtype,
+                        result.verdict.as_audit_str(),
+                    );
+                }
             }
         }
 
@@ -402,6 +419,24 @@ impl Orchestrator {
 
             // Deposit pheromone on the strategy trail when a mutation is promoted.
             if promoted {
+                // BIOISO log: promoted event
+                if let Some(log) = &self.bioiso_logger {
+                    let eid = proposal.primary_entity();
+                    let mtype = proposal_strategy_key(proposal);
+                    let drift = active_events
+                        .iter()
+                        .find(|e| e.entity_id == eid)
+                        .map(|e| e.score)
+                        .unwrap_or(0.0);
+                    let (param, delta) =
+                        if let MutationProposal::ParameterAdjust { param, delta, .. } = proposal {
+                            (Some(param.as_str()), Some(*delta))
+                        } else {
+                            (None, None)
+                        };
+                    let tier = tier_used.unwrap_or(1);
+                    log.log_promoted(eid, self.tick_count, tier, &mtype, param, delta, drift);
+                }
                 let strategy_key = proposal_strategy_key(proposal);
                 self.runtime
                     .mycelium
@@ -440,6 +475,16 @@ impl Orchestrator {
                                     current + 1,
                                     entry.2
                                 );
+                                if let Some(log) = &self.bioiso_logger {
+                                    let reason = format!("saturation:{param}×{}", entry.2);
+                                    log.log_tier_up(
+                                        entity_id,
+                                        self.tick_count,
+                                        current,
+                                        current + 1,
+                                        &reason,
+                                    );
+                                }
                             } else {
                                 eprintln!(
                                     "[saturation] {entity_id}:{param} promoted {} times in same direction — \
@@ -503,6 +548,13 @@ impl Orchestrator {
                             &self.runtime.store,
                         );
                         eprintln!("[apoptosis] entity '{eid}' killed after telomere exhaustion");
+                        if let Some(log) = &self.bioiso_logger {
+                            log.log_apoptosis(eid, self.tick_count, "telomere_exhaustion");
+                        }
+                    } else {
+                        if let Some(log) = &self.bioiso_logger {
+                            log.log_senescence(eid, self.tick_count, "telomere_exhaustion");
+                        }
                     }
                 }
             }
@@ -621,7 +673,21 @@ impl Orchestrator {
                     // Run T5 proposals through the gate.
                     for proposal in t5_proposals {
                         let result = self.runtime.apply_proposal(&proposal);
-                        if matches!(result.verdict, GateVerdict::Accepted) {
+                        let t5_accepted = matches!(result.verdict, GateVerdict::Accepted);
+                        if let Some(log) = &self.bioiso_logger {
+                            let mtype = proposal_strategy_key(&proposal);
+                            let target = proposal.primary_entity().to_string();
+                            log.log_t5_proposal(
+                                &event.entity_id,
+                                self.tick_count,
+                                &mtype,
+                                &target,
+                                "t5_synthesis",
+                                stag as u32,
+                                t5_accepted,
+                            );
+                        }
+                        if t5_accepted {
                             // Write accepted T5 proposal as Procedural Core memory.
                             let mem_text = format!(
                                 "[T5:{}] {}",

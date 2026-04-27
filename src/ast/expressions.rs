@@ -2,10 +2,12 @@
 use super::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    /// Let binding: `let name = value`.
+    /// Let binding: `let name = value` (statement) or `let name = value in body` (expression).
     Let {
         name: String,
         value: Box<Expr>,
+        /// Present for `let name = value in body` form; absent for statement form.
+        body: Option<Box<Expr>>,
         span: Span,
     },
     /// Match expression: `match subject | Pattern -> body end`.
@@ -71,6 +73,12 @@ pub enum Expr {
     Try(Box<Expr>, Span),
     /// Subscript / index access: `expr[index]`.
     Index(Box<Expr>, Box<Expr>, Span),
+    /// Struct/record literal: `TypeName { field: value, ... }`.
+    Record {
+        name: String,
+        fields: Vec<(String, Expr)>,
+        span: Span,
+    },
 }
 
 /// Match arm: a single branch of a `match` expression.

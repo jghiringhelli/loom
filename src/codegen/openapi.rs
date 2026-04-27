@@ -1203,5 +1203,10 @@ fn scan_idents(
             scan_idents(collection, let_bound, seen, ordered);
             scan_idents(index, let_bound, seen, ordered);
         }
+        Expr::Record { fields, .. } => {
+            fields
+                .iter()
+                .for_each(|(_, v)| scan_idents(v, let_bound, seen, ordered));
+        }
     }
 }

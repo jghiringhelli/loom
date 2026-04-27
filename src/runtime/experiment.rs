@@ -42,6 +42,7 @@ use crate::runtime::{
     epigenetic::MemoryType,
     meiosis::{hash_genome, MeiosisEngine, MeiosisReport, PromotedRecord, TelomereTracker},
     orchestrator::{Orchestrator, OrchestratorConfig, TickResult},
+    polycephalum::{DeltaSpec, Rule, RuleAction, RuleCondition},
     signal::now_ms,
     signals_sim::SignalSimulator,
     telomere_audit::TelomereAuditWriter,
@@ -441,6 +442,29 @@ impl BranchingEngine {
                     );
                 }
 
+                // Register T1 Polycephalum rules for the child so it can evolve
+                // via the deterministic rule engine without needing a BIOISOSpec.
+                // Mirrors what spawn_domain does for original entities.
+                for bound in &parent_bounds {
+                    let (min, max) = (bound.min.unwrap_or(0.0), bound.max.unwrap_or(1.0));
+                    let rule = Rule {
+                        name: format!("{}::{}_toward_target", child_id, bound.metric),
+                        priority: 10,
+                        condition: RuleCondition::for_metric(&bound.metric),
+                        action: RuleAction::AdjustParam {
+                            param: bound.metric.clone(),
+                            delta: DeltaSpec::Sampled {
+                                target: bound.target.unwrap_or((min + max) / 2.0),
+                                bounds: (min, max),
+                            },
+                        },
+                    };
+                    runtime
+                        .polycephalum
+                        .registry
+                        .add_for_entity(child_id.clone(), rule);
+                }
+
                 // Inherit epigenome: copy Core memories from parent
                 let inherited = runtime.inherit_epigenome(&parent_id, &child_id);
 
@@ -553,6 +577,7 @@ impl ExperimentDriver {
         // only override tick_interval from the experiment config.
         let orch_config = OrchestratorConfig {
             tick_interval: std::time::Duration::from_millis(config.tick_interval_ms),
+            entity_filter: config.entity_filter.clone(),
             ..OrchestratorConfig::default()
         };
 
@@ -679,6 +704,19 @@ impl ExperimentDriver {
             } else {
                 Vec::new()
             };
+            // Register new branch entities with the signal simulator so they
+            // receive the same metric patterns as their parent domain.
+            // Branch IDs are formatted as "{parent_id}_b{tick}" — strip the suffix
+            // to recover the parent entity_id used in all_domain_specs().
+            for child_id in &branched_ids {
+                if let Some(parent_id) = child_id
+                    .rsplit("_b")
+                    .nth(0)
+                    .and_then(|_| child_id.rsplit_once("_b").map(|(p, _)| p))
+                {
+                    self.simulator.register_branch(child_id.clone(), parent_id);
+                }
+            }
 
             // ── 4. Collect metrics ────────────────────────────────────────────
             let drift_scores = self.collect_drift_scores(&tick_result);
@@ -1162,8 +1200,13 @@ mod tests {
         };
         let mut driver = ExperimentDriver::new(rt, config);
         let summary = driver.run(None);
-        // 5 ticks × 36 signals (9 BIOISO-class entities × 4 metrics)
-        assert_eq!(summary.total_signals_injected, 5 * 36);
+        // At least 5 ticks × 36 base signals (9 domain specs × 4 metrics); branches add more.
+        assert!(
+            summary.total_signals_injected >= 5 * 36,
+            "expected >= {} signals, got {}",
+            5 * 36,
+            summary.total_signals_injected
+        );
     }
 
     #[test]

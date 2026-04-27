@@ -256,6 +256,9 @@ fn collect_calls(expr: &Expr, out: &mut HashSet<String>) {
             collect_calls(collection, out);
             collect_calls(index, out);
         }
+        Expr::Record { fields, .. } => {
+            fields.iter().for_each(|(_, v)| collect_calls(v, out));
+        }
     }
 }
 

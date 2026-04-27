@@ -311,14 +311,44 @@ Return ONLY the JSON array.  No explanation. No markdown fences.
 ///
 /// Extracts the first `[...]` block found in the text (tolerates surrounding prose).
 pub fn parse_proposals(text: &str) -> Vec<MutationProposal> {
-    let start = text.find('[');
-    let end = text.rfind(']');
-    match (start, end) {
-        (Some(s), Some(e)) if e >= s => {
-            let json_slice = &text[s..=e];
-            serde_json::from_str(json_slice).unwrap_or_default()
+    let start = match text.find('[') {
+        Some(s) => s,
+        None => return vec![],
+    };
+
+    // Walk forward from `[` counting depth, skipping brackets inside JSON strings.
+    // This handles diffs that contain `[` / `]` characters in their content.
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escape_next = false;
+    let mut end = None;
+
+    for (i, ch) in text[start..].char_indices() {
+        if escape_next {
+            escape_next = false;
+            continue;
         }
-        _ => vec![],
+        match ch {
+            '\\' if in_string => escape_next = true,
+            '"' => in_string = !in_string,
+            '[' if !in_string => depth += 1,
+            ']' if !in_string => {
+                depth -= 1;
+                if depth == 0 {
+                    end = Some(start + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    match end {
+        Some(e) => serde_json::from_str(&text[start..=e]).unwrap_or_else(|err| {
+            eprintln!("[parse_proposals] JSON error at byte {e}: {err}");
+            vec![]
+        }),
+        None => vec![],
     }
 }
 

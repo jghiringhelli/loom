@@ -407,6 +407,8 @@ pub fn validate_evolve(evolve: &EvolveBlock, being_name: &str) -> Vec<LoomError>
         let lower = evolve.constraint.to_lowercase();
         if !lower.contains("decreasing")
             && !lower.contains("non-increasing")
+            && !lower.contains("non_increasing")
+            && !lower.contains("non_decreasing")
             && !lower.contains("converg")
         {
             errors.push(LoomError::type_err(

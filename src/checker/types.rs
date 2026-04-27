@@ -284,6 +284,11 @@ impl TypeChecker {
                 self.check_expr(collection, scope, table, errors);
                 self.check_expr(index, scope, table, errors);
             }
+            Expr::Record { fields, .. } => {
+                fields
+                    .iter()
+                    .for_each(|(_, v)| self.check_expr(v, scope, table, errors));
+            }
         }
     }
 

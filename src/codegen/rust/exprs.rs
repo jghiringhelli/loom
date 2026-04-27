@@ -113,8 +113,14 @@ impl RustEmitter {
     /// Recursively lower a Loom `Expr` to a Rust expression string.
     pub(super) fn emit_expr(&self, expr: &Expr) -> String {
         match expr {
-            Expr::Let { name, value, .. } => {
-                format!("let {} = {}", name, self.emit_expr(value))
+            Expr::Let {
+                name, value, body, ..
+            } => {
+                let binding = format!("let {} = {};", name, self.emit_expr(value));
+                match body {
+                    Some(b) => format!("{{ {} {} }}", binding, self.emit_expr(b)),
+                    None => format!("let {} = {}", name, self.emit_expr(value)),
+                }
             }
             Expr::Literal(lit) => self.emit_literal(lit),
             // `todo` is a Loom placeholder that maps to Rust's `todo!()` macro.
@@ -256,6 +262,15 @@ impl RustEmitter {
                     })
                     .collect();
                 format!("match {} {{\n{}\n    }}", s, arms_str.join(",\n"))
+            }
+            Expr::Record { name, fields, .. } => {
+                let field_strs: Vec<String> = fields
+                    .iter()
+                    .map(|(field_name, field_val)| {
+                        format!("{}: {}", field_name, self.emit_expr(field_val))
+                    })
+                    .collect();
+                format!("{} {{ {} }}", name, field_strs.join(", "))
             }
         }
     }

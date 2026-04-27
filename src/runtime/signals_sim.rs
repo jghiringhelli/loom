@@ -494,6 +494,9 @@ pub struct SignalSimulator {
     domains: Vec<DomainSpec>,
     /// Subset of entity IDs to simulate. Empty = all.
     filter: Vec<String>,
+    /// Branch entity IDs mapped to their parent domain index.
+    /// Registered via [`register_branch`] when BranchingEngine spawns a child.
+    branch_aliases: Vec<(String, usize)>,
 }
 
 impl SignalSimulator {
@@ -505,6 +508,7 @@ impl SignalSimulator {
             rng: Lcg::new(seed),
             domains: all_domain_specs(),
             filter: Vec::new(),
+            branch_aliases: Vec::new(),
         }
     }
 
@@ -512,6 +516,31 @@ impl SignalSimulator {
     pub fn with_filter(mut self, entity_ids: Vec<String>) -> Self {
         self.filter = entity_ids;
         self
+    }
+
+    /// Register a branch entity to receive signals from a parent domain.
+    ///
+    /// Called by the experiment driver after BranchingEngine spawns a child.
+    /// The branch will get the same metric patterns as `parent_entity_id` but
+    /// emitted under its own `branch_id` — enabling drift detection and proposals
+    /// on the offspring without hard-coding its spec.
+    pub fn register_branch(&mut self, branch_id: impl Into<String>, parent_entity_id: &str) {
+        // Walk up the alias chain: first try original domains, then existing aliases.
+        // This handles nested branches (e.g. amr_b3_b24 whose parent amr_b3 is itself
+        // a branch alias, not in the original domain list).
+        let idx = self
+            .domains
+            .iter()
+            .position(|d| d.entity_id == parent_entity_id)
+            .or_else(|| {
+                self.branch_aliases
+                    .iter()
+                    .find(|(id, _)| id == parent_entity_id)
+                    .map(|&(_, i)| i)
+            });
+        if let Some(idx) = idx {
+            self.branch_aliases.push((branch_id.into(), idx));
+        }
     }
 
     /// Generate all signals for the given tick.
@@ -527,6 +556,19 @@ impl SignalSimulator {
                 let value = metric.value_at(tick, &mut self.rng);
                 out.push(Signal::with_timestamp(
                     domain.entity_id,
+                    metric.name,
+                    value,
+                    ts,
+                ));
+            }
+        }
+        // Emit signals for branch entities using their parent's domain patterns.
+        for (branch_id, domain_idx) in &self.branch_aliases {
+            let domain = &self.domains[*domain_idx];
+            for metric in &domain.metrics {
+                let value = metric.value_at(tick, &mut self.rng);
+                out.push(Signal::with_timestamp(
+                    branch_id.as_str(),
                     metric.name,
                     value,
                     ts,

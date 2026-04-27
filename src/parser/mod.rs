@@ -3095,6 +3095,7 @@ fn token_keyword_str(tok: &Token) -> Option<&'static str> {
         Token::LockKw => Some("lock"),
         Token::ChannelKw => Some("channel"),
         Token::SemaphoreKw => Some("semaphore"),
+        Token::Action => Some("action"),
         Token::Actor => Some("actor"),
         Token::BarrierKw => Some("barrier"),
         Token::EventBusKw => Some("event_bus"),

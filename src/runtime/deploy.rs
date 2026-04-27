@@ -253,6 +253,7 @@ fn proposal_entity_id(proposal: &MutationProposal) -> String {
         MutationProposal::EntityRollback { entity_id, .. } => entity_id.clone(),
         MutationProposal::EntityPrune { entity_id, .. } => entity_id.clone(),
         MutationProposal::StructuralRewire { from_id, .. } => from_id.clone(),
+        MutationProposal::CodePatch { entity_id, .. } => entity_id.clone(),
     }
 }
 

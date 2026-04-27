@@ -10,9 +10,30 @@ Loom — an AI-native functional language that transpiles to Rust, TypeScript, W
 [UNIVERSAL] [CLI] [LIBRARY] [COMPILER] [AI-NATIVE]
 
 ## Current State
-- **311 tests passing** across 27 test suites
+- **339 tests passing** across 28 test suites
 - **23 milestones complete** (M1–M23)
 - All semantic checkers active in pipeline
+
+## Two-Ladder BIOISO Architecture
+Both ladders converge at T5 (BIOISO colony):
+
+**Fitness Ladder** (parameter/structure optimization):
+- T1 Polycephalum — deterministic rules → ParameterAdjust
+- T2 SA heuristics — Boltzmann annealing + Ganglion (Haiku) fallback
+- T3 SARSA hyper-heuristic — weight table + MammalBrain (Sonnet) fallback
+- T4 GP-UCB — Bayesian surrogate model (no LLM)
+- T5 BIOISO — MeiosisEngine genome recombination → GitHub GS pipeline
+
+**Forge Ladder** (code-level evolution):
+- T1 AI writes code — LLM generates Loom/Rust source
+- T2 Compile/test harness — `cargo test` gate
+- T3 CI/CD deploy — Railway pipeline
+- T4 Monitoring/bug-fix — signals + drift feedback loop
+- T5 BIOISO — `CodePatch` proposals → GS pipeline (git apply → test → canary)
+
+**T5 Synthesis trigger**: fires after `T5_STAGNATION_THRESHOLD` ticks (default 20)
+with no accepted proposals. Semantic novelty guard (Jaccard, threshold 0.65) prevents
+redundant exploration. `CodePatch` is the T5-exclusive mutation type.
 
 ## Emission Targets
 `compile()` → Rust | `compile_typescript()` → TS | `compile_wasm()` → WASM
@@ -40,11 +61,11 @@ Loom — an AI-native functional language that transpiles to Rust, TypeScript, W
 - `crispr: target: ... end` — Doudna targeted self-modification (M48)
 - `quorum: threshold: N ... end` — Bassler population-threshold coordination (M49)
 - `plasticity: learning_rate: ... end` — Hebb synaptic weight adjustment (M50)
-- `autopoietic: true` — Maturana/Varela operational closure; requires `@mortal @corrigible @sandboxed` (M51)
+- `autopoietic: true` — Maturana/Varela operational closure; requires `@mortal @corrigible @sandboxed @auditable` (M51)
 - `@mortal` — requires `telomere:` block; SafetyChecker compile error if missing (M55)
 - `@corrigible` — requires `telos.modifiable_by` field; SafetyChecker compile error if missing (M55)
 - `@sandboxed` — autopoietic effects must stay within `matter:` and `ecosystem:` (M55)
-- `@transparent` — all state transitions observable (M55)
+- `@auditable` — all structural mutations and meiosis events are logged (M55)
 - `@bounded_telos` — telos must not contain open-ended utility terms; requires `bounded_by:` (M55)
 - `compile_simulation()` — Mesa ABM Python emitter for autopoietic beings (M52)
 - `compile_neuroml()` — NeuroML 2 XML emitter for neural structure (M53)

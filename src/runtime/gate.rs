@@ -151,12 +151,14 @@ impl MutationGate {
     /// Returns `Some(MissingCaution)` if an annotation is absent, `None` if
     /// the proposal passes.
     fn check_safety_annotations(&self, proposal: &MutationProposal) -> Option<GateVerdict> {
+        // StructuralRewire is a signal-wiring change (T3 SARSA output), not an
+        // autopoietic structural mutation. Only clone/rollback/prune operations,
+        // which restructure the entity's identity, require safety annotations.
         let requires_caution = matches!(
             proposal,
             MutationProposal::EntityClone { .. }
                 | MutationProposal::EntityRollback { .. }
                 | MutationProposal::EntityPrune { .. }
-                | MutationProposal::StructuralRewire { .. }
         );
         if !requires_caution {
             return None;
@@ -231,6 +233,23 @@ impl MutationGate {
                     .get(from_id.as_str())
                     .ok_or_else(|| format!("no source registered for '{from_id}'"))?;
                 Ok(src.clone())
+            }
+            MutationProposal::CodePatch { entity_id, .. } => {
+                // CodePatch validation is handled by the GS pipeline (git apply → cargo test).
+                // The gate accepts it structurally; the patch itself is validated externally.
+                // If we have a registered source, compile it to verify the base is still valid.
+                let base = self
+                    .entity_sources
+                    .get(entity_id.as_str())
+                    .map(String::as_str)
+                    .unwrap_or("");
+                if base.is_empty() {
+                    Ok(format!(
+                        "module GateCheck\nbeing {entity_id}\n  telos: \"code patch base check\"\n  end\nend\nend\n"
+                    ))
+                } else {
+                    Ok(base.to_string())
+                }
             }
         }
     }

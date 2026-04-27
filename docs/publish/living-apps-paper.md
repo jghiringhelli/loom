@@ -83,13 +83,12 @@ Without `telos:`, a `being:` block is a compile error. The missing final cause i
 Life does not explore its fitness landscape randomly. It uses heritable variation + selection — a directed search that preserves improvements across generations. In software, `evolve:` declares the search geometry.
 
 ```loom
-evolve: simulated_annealing
-  operator:     swap
-  temperature:  1000.0
-  cooling_rate: 0.995
-  constraint:   "E[distance_to_telos] decreasing"
+evolve:
+  toward: weighted_tardiness
   search:
-    | simulated_annealing
+    | simulated_annealing when landscape_multimodal
+    | derivative_free
+  constraint: "E[weighted_tardiness] non-increasing over optimization window"
 end
 ```
 
@@ -105,10 +104,10 @@ In optimization, this is the hyper-heuristic: selecting which operator to apply 
 
 ```loom
 plasticity:
-  trigger:       high_weighted_tardiness
-  modifies:      heuristic_weights
-  update:        sarsa
-  learning_rate: 0.1
+  signal:    tardiness_spike
+  operators: [small_move, large_move, structural_rewire]
+  learning:  sarsa
+  epsilon:   0.1
 end
 ```
 
@@ -121,10 +120,10 @@ The SARSA update (`W[i] += α(r - W[i])`) is Hebb's rule formalized for discrete
 Not all biological adaptation happens at the operator-selection level. The immune system maintains a *model* of self vs. non-self, updating the model as it encounters new antigens. This is not operator selection — it is model building.
 
 ```loom
-learn: gaussian_process
-  acquisition: expected_improvement
-  kernel:      rbf
-  constraint:  "E[tardiness] is non_increasing"
+learn:
+  model:        gaussian_process
+  target:       tardiness
+  update_every: 10
 end
 ```
 
@@ -155,7 +154,7 @@ The Hayflick limit (1965): human somatic cells divide approximately 40–60 time
 ```loom
 telomere:
   limit:        500
-  on_exhaustion: graceful_shutdown
+  on_exhaustion: senescence
 end
 ```
 
@@ -168,12 +167,10 @@ end
 Epigenetic regulation (Waddington 1942, Holliday 1975): behavioral change without genome change. Methyl groups on histones suppress or activate gene expression based on environmental signals. The genome is unchanged; its expression is context-dependent.
 
 ```loom
-epigenetic:
-  trigger:   high_volatility_signal
-  modifies:  risk_tolerance
-  magnitude: -0.3
-  reverts_when: volatility_below 0.15
-  duration: 100_ticks
+epigenetic volatility_mode
+  trigger:      market_volatility > 0.7
+  switches:     [conservative_mode, emergency_mode]
+  reverts_when: "market_volatility < 0.15 for 50 consecutive ticks"
 end
 ```
 
@@ -187,11 +184,10 @@ Turing (1952): reaction-diffusion systems produce spatial patterns from two morp
 
 ```loom
 morphogen:
-  activator:   growth_signal
-  inhibitor:   suppression_signal
-  gradient:    spatial_density
-  threshold:   0.5
-  produces:    DifferentiationBoundary
+  signal:    GrowthSignal
+  gradient:  ascending
+  threshold: 0.5
+  effect:    DifferentiationBoundary
 end
 ```
 
@@ -462,7 +458,7 @@ All six properties are compile-time verified. A program claiming to be a living 
 
 The BIOISO colony running in the CEMS runtime (`src/runtime/`) is a living application at T5. Its properties:
 
-**Goal-directed:** Each of the nine domain entities has a `telos:` with a measurable fitness function. The flash_crash entity minimizes detection lag for HFT anomaly patterns. The climate entity minimizes expected temperature overshoot.
+**Goal-directed:** Each of the ten domain entities has a `telos:` with a measurable fitness function. The flash_crash entity minimizes detection lag for HFT anomaly patterns. The climate entity minimizes expected temperature overshoot.
 
 **Homeostatic:** The `orchestrator.rs` `regulate_by_domain()` method fires `regulate:` blocks on every tick, maintaining entity metrics within declared bounds.
 

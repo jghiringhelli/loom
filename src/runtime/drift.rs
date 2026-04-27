@@ -115,12 +115,22 @@ impl DriftEngine {
         )?;
 
         // Escalate entity state when score crosses critical threshold.
-        let new_state = match self.severity(score) {
-            DriftSeverity::Warning => "warning",
-            DriftSeverity::Critical => "diverging",
-            DriftSeverity::Healthy => "active",
-        };
-        store.set_entity_state(&event.entity_id, new_state)?;
+        // Do not overwrite terminal states — dead/senescent entities keep their
+        // state even though signals (and drift events) keep arriving for branches.
+        let current_state = store
+            .entity_state(&event.entity_id)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let terminal = matches!(current_state.as_str(), "dead" | "senescent");
+        if !terminal {
+            let new_state = match self.severity(score) {
+                DriftSeverity::Warning => "warning",
+                DriftSeverity::Critical => "diverging",
+                DriftSeverity::Healthy => "active",
+            };
+            store.set_entity_state(&event.entity_id, new_state)?;
+        }
 
         Ok(Some(event))
     }

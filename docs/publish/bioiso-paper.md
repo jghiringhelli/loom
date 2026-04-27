@@ -281,6 +281,43 @@ BIOISO domains satisfy three criteria: (1) the fitness landscape is coevolutiona
 
 **T5 mechanism:** The BIOISO structurally adapts which interventions to sequence by replacing the causal model template when prior interventions alter system coupling beyond the GP's predictive capacity.
 
+### 5.8 `aegis_delta_neutral` — DeFi Delta-Neutral Strategy Evolution
+
+**Why T1–T4 saturate:** DeFi liquidity pool dynamics are coevolutionary — each deployed strategy changes the on-chain liquidity distribution, making the fitness landscape of subsequent strategies a function of prior ones (analogous to arms-race coevolution in ecology). A T4 GP trained on historical pool states has systematically wrong priors when the liquidity topology changes due to protocol upgrades, new pool deployments, or adversarial MEV. The canonical E88 parameters (mean taper step = 0.35, +213.6% return, Sharpe = 1.02) were optimal for a specific liquidity regime; they saturate when the regime shifts.
+
+**T5 mechanism:** The `aegis_delta_neutral` BIOISO entity uses `StructuralRewire` to replace which hedging instrument class is used for delta neutralization — not tuning the hedge ratio within a fixed class, but synthesizing a new hedging strategy topology when the GP's predictive variance exceeds a threshold. Meiosis bakes the surviving hedging architecture into the next genome, compounding structural improvements across market regimes.
+
+**Reference baseline:** AEGIS E88 canonical parameters: `aave_target_health_factor = 1.85`, `uniswap_lp_range_pct = 12.0%`, mean taper step = 0.35. These represent the T4-generation optimum before structural adaptation. BIOISO T5 escape replaces the strategy architecture when the Sharpe ratio degrades below 0.7 for `k` consecutive rebalancing cycles.
+
+### 5.9 `biosphere` — Biodiversity Metric Optimization (T4)
+
+A T4 domain where the GP surrogate models the response of biodiversity indices to conservation interventions. T4 is the appropriate ceiling because the biodiversity landscape, while non-stationary, has stable causal structure across the relevant policy horizon (decades). `ParameterAdjust` alone cannot converge because the intervention response surface is not well-modeled by linear updates, but the optimal intervention *class* does not change structurally within the policy window.
+
+### 5.10 `ocean_circulation` — Ocean Circulation Homeostasis (T3)
+
+A T3 domain where the hyper-heuristic selects between thermohaline intervention operators based on observed circulation indices. The operator portfolio (temperature regulation, salinity adjustment, current redirection) covers the causal mechanism space adequately; the T3 ceiling does not apply because the AMOC's structural dynamics do not exit the portfolio's coverage within the intervention horizon.
+
+---
+
+**Domain summary:**
+
+| Domain | Tier | T5 reason |
+|--------|------|-----------|
+| `amr_coevolution` | T5 | Pathogen evolves binding targets structurally |
+| `flash_crash` | T5 | Adversarial gaming invalidates all fixed detection rules |
+| `adaptive_jit` | T5 | Hot-path profile changes IR pass topology |
+| `protein_drug_resistance` | T5 | Target mutation makes hypothesis class wrong |
+| `ics_zero_day` | T5 | Zero-days have no training-data ancestors |
+| `quantum_error_mitigation` | T5 | Recalibration changes gate decomposition topology |
+| `climate_intervention` | T5 | Intervention changes causal graph structure |
+| `aegis_delta_neutral` | T5 | Liquidity topology coevolves with strategies |
+| `biosphere` | T4 | Stable causal structure; GP-UCB sufficient |
+| `ocean_circulation` | T3 | Fixed operator portfolio covers mechanism space |
+
+---
+
+The ten BIOISO domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. For the eight T5 domains, T5 is not a performance improvement. It is the only mechanism that can converge.
+
 ---
 
 ## 6. Related Work
@@ -343,43 +380,6 @@ Loom's role is to make the genome a typed, verifiable specification from which a
 The BIOISO model formalizes a five-tier hierarchy of optimization entities, with T5 being the first tier whose adaptations operate on the space of algorithms rather than the space of parameter values, operator selections, or surrogate model weights. The T5 escape mechanism — structural self-modification via meiosis — is the only mechanism that can compound algorithmic improvements across generations without requiring a human developer to write new source code.
 
 The implementation in Loom demonstrates that this model can be expressed as a typed, verifiable specification: `learn:`, `plasticity:`, `rewire:`, and `telomere:` are first-class keywords with checker rules, parser implementations, and runtime dispatch logic. The `examples/ladder.loom` file provides a complete, compilable specification of the T1→T5 progression for job scheduling. The `bench_colony_ladder` binary demonstrates the auto-escalation mechanism empirically.
-
-### 5.8 `aegis_delta_neutral` — DeFi Delta-Neutral Strategy Evolution
-
-**Why T1–T4 saturate:** DeFi liquidity pool dynamics are coevolutionary — each deployed strategy changes the on-chain liquidity distribution, making the fitness landscape of subsequent strategies a function of prior ones (analogous to arms-race coevolution in ecology). A T4 GP trained on historical pool states has systematically wrong priors when the liquidity topology changes due to protocol upgrades, new pool deployments, or adversarial MEV. The canonical E88 parameters (mean taper step = 0.35, +213.6% return, Sharpe = 1.02) were optimal for a specific liquidity regime; they saturate when the regime shifts.
-
-**T5 mechanism:** The `aegis_delta_neutral` BIOISO entity uses `StructuralRewire` to replace which hedging instrument class is used for delta neutralization — not tuning the hedge ratio within a fixed class, but synthesizing a new hedging strategy topology when the GP's predictive variance exceeds a threshold. Meiosis bakes the surviving hedging architecture into the next genome, compounding structural improvements across market regimes.
-
-**Reference baseline:** AEGIS E88 canonical parameters: `aave_target_health_factor = 1.85`, `uniswap_lp_range_pct = 12.0%`, mean taper step = 0.35. These represent the T4-generation optimum before structural adaptation. BIOISO T5 escape replaces the strategy architecture when the Sharpe ratio degrades below 0.7 for `k` consecutive rebalancing cycles.
-
-### 5.9 `biosphere` — Biodiversity Metric Optimization (T4)
-
-A T4 domain where the GP surrogate models the response of biodiversity indices to conservation interventions. T4 is the appropriate ceiling because the biodiversity landscape, while non-stationary, has stable causal structure across the relevant policy horizon (decades). `ParameterAdjust` alone cannot converge because the intervention response surface is not well-modeled by linear updates, but the optimal intervention *class* does not change structurally within the policy window.
-
-### 5.10 `ocean_circulation` — Ocean Circulation Homeostasis (T3)
-
-A T3 domain where the hyper-heuristic selects between thermohaline intervention operators based on observed circulation indices. The operator portfolio (temperature regulation, salinity adjustment, current redirection) covers the causal mechanism space adequately; the T3 ceiling does not apply because the AMOC's structural dynamics do not exit the portfolio's coverage within the intervention horizon.
-
----
-
-**Domain summary:**
-
-| Domain | Tier | T5 reason |
-|--------|------|-----------|
-| `amr_coevolution` | T5 | Pathogen evolves binding targets structurally |
-| `flash_crash` | T5 | Adversarial gaming invalidates all fixed detection rules |
-| `adaptive_jit` | T5 | Hot-path profile changes IR pass topology |
-| `protein_drug_resistance` | T5 | Target mutation makes hypothesis class wrong |
-| `ics_zero_day` | T5 | Zero-days have no training-data ancestors |
-| `quantum_error_mitigation` | T5 | Recalibration changes gate decomposition topology |
-| `climate_intervention` | T5 | Intervention changes causal graph structure |
-| `aegis_delta_neutral` | T5 | Liquidity topology coevolves with strategies |
-| `biosphere` | T4 | Stable causal structure; GP-UCB sufficient |
-| `ocean_circulation` | T3 | Fixed operator portfolio covers mechanism space |
-
----
-
-The ten BIOISO domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. For the eight T5 domains, T5 is not a performance improvement. It is the only mechanism that can converge.
 
 ---
 

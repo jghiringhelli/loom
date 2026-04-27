@@ -271,6 +271,12 @@ impl UnitsChecker {
                 None
             }
             Expr::InlineRust(_) => None,
+            Expr::Record { fields, .. } => {
+                fields.iter().for_each(|(_, v)| {
+                    self.check_expr(v, env, errors);
+                });
+                None
+            }
             Expr::Index(collection, index, _) => {
                 self.check_expr(collection, env, errors);
                 self.check_expr(index, env, errors);
@@ -363,6 +369,9 @@ fn collect_let_names(expr: &Expr, out: &mut HashSet<String>) {
             collect_let_names(collection, out);
             collect_let_names(index, out);
         }
+        Expr::Record { fields, .. } => {
+            fields.iter().for_each(|(_, v)| collect_let_names(v, out));
+        }
     }
 }
 
@@ -419,6 +428,11 @@ fn scan_free_idents(
         Expr::Index(collection, index, _) => {
             scan_free_idents(collection, let_bound, seen, ordered);
             scan_free_idents(index, let_bound, seen, ordered);
+        }
+        Expr::Record { fields, .. } => {
+            fields
+                .iter()
+                .for_each(|(_, v)| scan_free_idents(v, let_bound, seen, ordered));
         }
     }
 }
