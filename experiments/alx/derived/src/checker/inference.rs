@@ -202,6 +202,25 @@ fn infer_expr_type(expr: &str, params: &[TypeExpr]) -> Option<TypeExpr> {
         return None;
     }
 
+    // `as` coercion: `expr as TypeName [op rest]`
+    // If the expression contains ` as `, infer the type from the cast target.
+    if s.contains(" as ") {
+        // Find the `as` keyword and extract the type name after it
+        if let Some(as_pos) = s.find(" as ") {
+            let after_as = s[as_pos + 4..].trim_start();
+            let type_end = after_as.find(|c: char| c.is_whitespace() || "+-*/()[]{}|,;".contains(c))
+                .unwrap_or(after_as.len());
+            let type_name = &after_as[..type_end];
+            match type_name {
+                "Float" => return Some(TypeExpr::Base("Float".to_string())),
+                "Int"   => return Some(TypeExpr::Base("Int".to_string())),
+                "Bool"  => return Some(TypeExpr::Base("Bool".to_string())),
+                "String" => return Some(TypeExpr::Base("String".to_string())),
+                _ => return None,
+            }
+        }
+    }
+
     // Integer literal (standalone)
     if s.parse::<i64>().is_ok() {
         return Some(TypeExpr::Base("Int".to_string()));

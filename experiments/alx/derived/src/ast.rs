@@ -144,6 +144,9 @@ pub struct FnDef {
     /// Inline body: verbatim Rust code from `inline { ... }`.
     /// When set, overrides `body` in the Rust emitter.
     pub inline_body: Option<String>,
+    /// Parameter names extracted from `x y => body` desugaring.
+    /// When non-empty, used instead of `arg0`, `arg1`, ... in code generation.
+    pub param_names: Vec<String>,
     pub span: Span,
 }
 

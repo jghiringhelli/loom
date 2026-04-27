@@ -1,0 +1,586 @@
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 14 tests
+test at_most_once_and_exactly_once_together_is_error ... ok
+test associative_emits_x_associative_in_openapi ... ok
+test at_most_once_emits_retry_policy_never_in_openapi ... ok
+test commutative_emits_doc_comment_in_rust ... ok
+test commutative_on_one_param_fn_is_error ... ok
+test idempotent_fn_emits_x_idempotent_in_openapi ... ok
+test exactly_once_on_non_effectful_fn_is_error ... ok
+test commutative_on_two_param_fn_is_valid ... ok
+test idempotent_and_exactly_once_together_is_error ... ok
+test idempotent_emits_doc_comment_in_rust ... ok
+test commutative_emits_x_commutative_in_openapi ... ok
+test idempotent_on_effectful_fn_is_valid ... ok
+test idempotent_emits_jsdoc_in_typescript ... ok
+test idempotent_post_fn_gets_promoted_to_put_in_openapi ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 15 tests
+test epigenetic_empty_modifies_fails_checker ... ok
+test epigenetic_empty_signal_fails_checker ... ok
+test morphogen_empty_produces_fails_checker ... ok
+test morphogen_threshold_out_of_range_fails_checker ... ok
+test morphogen_parses_with_threshold_and_produces ... ok
+test epigenetic_parses_with_signal_and_modifies ... ok
+test rust_emit_being_has_epigenetic_fn ... ok
+test rust_emit_being_has_differentiate_fn ... ok
+test telomere_parses_with_limit_and_exhaustion ... ok
+test telomere_rust_emit_has_replicate_fn ... ok
+test typescript_emit_being_has_epigenetic_method ... ok
+test typescript_emit_telomere_has_limit_field ... ok
+test telomere_rust_emit_has_telomere_count_field ... ok
+test telomere_zero_limit_fails_checker ... ok
+test typescript_emit_being_has_differentiate_method ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test autopoietic_missing_evolve_fails ... ok
+test autopoietic_missing_matter_fails ... ok
+test autopoietic_missing_regulate_fails ... ok
+test rust_emit_autopoietic_has_is_autopoietic_fn ... ok
+test autopoietic_true_with_all_requirements_passes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 12 tests
+test being_parses_with_telos ... ok
+test being_without_telos_fails_checker ... ok
+test being_with_matter_parses ... ok
+test openapi_emit_being_has_x_telos ... ok
+test evolve_without_constraint_fails_checker ... ok
+test regulate_without_bounds_fails_checker ... ok
+test typescript_emit_being_has_fitness ... ok
+test rust_emit_being_has_struct ... ok
+test typescript_emit_being_has_class ... ok
+test typescript_emit_being_has_telos_jsdoc ... ok
+test rust_emit_being_has_regulate_fn ... ok
+test rust_emit_being_has_fitness_fn ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test build_missing_manifest_exits_nonzero ... ok
+test check_only_does_not_write_output_file ... ok
+test build_project_with_valid_manifest ... ok
+test check_only_valid_file_exits_zero ... ok
+test compile_missing_file_exits_nonzero ... ok
+test compile_prints_compiled_message ... ok
+test compile_invalid_loom_exits_nonzero_with_error ... ok
+test compile_wasm_check_only ... ok
+test compile_error_message_contains_file_name ... ok
+test compile_wasm_target_writes_wat_file ... ok
+test compile_writes_rs_file ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+
+running 6 tests
+test as_float_to_int_emits_cast ... ok
+test as_in_arithmetic_expression ... ok
+test as_int_to_float_emits_cast ... ok
+test parenthesized_expression_parses ... ok
+test pricing_engine_corpus_compiles ... ok
+test e2e_int_as_float_runtime ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+
+running 9 tests
+test at_decision_emits_doc_comment ... ok
+test at_since_annotation_emits_doc_comment ... ok
+test at_deprecated_emits_doc_comment_and_attribute ... ok
+test fn_describe_emits_doc_comment ... ok
+test missing_describe_compiles_normally ... ok
+test module_at_annotation_emits_doc_comment ... ok
+test describe_and_annotation_both_emitted ... ok
+test multiple_annotations_emitted_in_order ... ok
+test module_describe_emits_doc_comment ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test function_referencing_dep_not_in_requires_errors ... ok
+test function_referencing_undeclared_dep_errors ... ok
+test module_with_multiple_requires_emits_all_fields ... ok
+test function_with_dep_gets_ctx_parameter ... ok
+test function_without_with_gets_no_ctx_parameter ... ok
+test module_with_requires_emits_context_struct ... ok
+test module_without_requires_emits_no_context_struct ... ok
+test pricing_engine_corpus_still_compiles ... ok
+test user_service_corpus_still_compiles ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test e2e_generic_identity_function ... ok
+test e2e_boolean_function_runs_correctly ... ok
+test e2e_pricing_engine_corpus_emits_valid_rust ... ok
+test e2e_comparison_returns_correct_bool ... ok
+test e2e_enum_match_runs_correctly ... ok
+test e2e_let_bindings_produce_correct_result ... ok
+test e2e_module_name_is_snake_case ... ok
+test e2e_integer_arithmetic_runs_correctly ... ok
+test e2e_struct_is_valid_rust ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+
+
+running 10 tests
+test ecosystem_parses_with_members_and_signals ... ok
+test ecosystem_multiple_signals_parse ... ok
+test ecosystem_signal_unknown_being_fails ... ok
+test rust_emit_ecosystem_has_signal_structs ... ok
+test rust_emit_ecosystem_has_coordinate_fn ... ok
+test ecosystem_without_signals_fails ... ok
+test rust_emit_ecosystem_has_module ... ok
+test typescript_emit_ecosystem_has_namespace ... ok
+test ecosystem_with_telos_parses ... ok
+test openapi_emit_ecosystem_has_x_ecosystems ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 12 tests
+test effectful_fn_declared_with_io_is_ok ... ok
+test effectful_fn_calling_effectful_fn_same_effect_is_ok ... ok
+test fn_declaring_superset_of_effects_is_ok ... ok
+test effectful_fn_missing_declared_effect_is_error ... ok
+test pure_empty_module_is_ok ... ok
+test mixed_module_pure_and_effectful_coexist ... ok
+test pure_fn_calling_another_pure_fn_is_ok ... ok
+test pure_fn_calling_effectful_fn_is_error ... ok
+test pure_fn_with_literal_body_is_ok ... ok
+test pure_fn_calling_transitive_effectful_fn_is_error ... ok
+test user_service_corpus_effectful_fns_accepted ... ok
+test pricing_engine_corpus_no_effect_errors ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test evolve_constraint_no_convergence_word_fails ... ok
+test evolve_empty_search_fails ... ok
+test evolve_with_all_strategies_passes ... ok
+test rust_emit_evolve_has_dispatcher ... ok
+test evolve_gradient_and_derivative_free_no_when_fails ... ok
+test evolve_with_gradient_descent_passes ... ok
+test rust_emit_evolve_has_gradient_method ... ok
+test typescript_emit_evolve_has_camel_methods ... ok
+test typescript_emit_evolve_dispatcher_has_loop ... ok
+test rust_emit_evolve_has_constraint_comment ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test guarded_arm_does_not_count_as_covering ... ok
+test missing_multiple_variants_errors ... ok
+test wildcard_with_guard_does_not_count_as_total_cover ... ok
+test missing_one_variant_errors ... ok
+test non_enum_match_is_not_checked ... ok
+test variable_ident_arm_covers_all_passes ... ok
+test wildcard_arm_covers_all_passes ... ok
+test exhaustive_match_all_variants_covered_passes ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 7 tests
+test multiple_type_params_are_all_valid_in_scope ... ok
+test generic_fn_with_list_param ... ok
+test single_type_param_emits_generic_fn ... ok
+test non_generic_fn_emits_no_angle_brackets ... ok
+test two_type_params_emit_correctly ... ok
+test type_param_names_are_valid_in_function_scope ... ok
+test all_existing_corpus_still_compiles_after_generics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test bool_literal_passes ... ok
+test basic_let_inference_passes ... ok
+test comparison_returns_bool_passes ... ok
+test body_type_mismatch_returns_error ... ok
+test literal_inference_passes ... ok
+test binop_operand_mismatch_returns_error ... ok
+test literal_return_type_mismatch_returns_error ... ok
+test function_argument_inference_passes ... ok
+test recursive_function_inference_passes ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test checker_allows_declassification_fn ... ok
+test checker_allows_module_without_flow_labels ... ok
+test flow_label_parses_correctly ... ok
+test checker_rejects_tainted_to_db_operation ... ok
+test checker_allows_secret_to_secret_flow ... ok
+test module_without_flow_labels_has_empty_vec ... ok
+test flow_label_has_correct_fields ... ok
+test multiple_flow_labels_parse ... ok
+test openapi_emits_x_security_labels ... ok
+test checker_rejects_secret_to_public_without_declassification ... ok
+test typescript_emits_branded_types_for_flow_labels ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 7 tests
+test inline_body_emits_verbatim ... ok
+test inline_body_not_wrapped ... ok
+test inline_body_with_braces ... ok
+test inline_with_multiline_content ... ok
+test todo_body_still_works ... ok
+test inline_demo_corpus_compiles ... ok
+test e2e_inline_forty_two ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+
+running 2 tests
+test user_service_compiles_successfully ... ok
+test pricing_engine_compiles_successfully ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test import_emits_use_super ... ok
+test implements_emits_impl_block ... ok
+test implements_with_matching_method_is_ok ... ok
+test interface_with_multiple_methods_emits_all ... ok
+test interface_emits_rust_trait ... ok
+test multiple_imports_emit_multiple_use_lines ... ok
+test no_imports_no_use_lines ... ok
+test implements_missing_method_is_error ... ok
+test e2e_interface_implements_compiles ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+
+running 10 tests
+test cfg_debug_assertions_wraps_check_invariants ... ok
+test irreversible_callee_from_reversible_caller_is_error ... ok
+test effect_tier_emits_doc_comment ... ok
+test multiple_invariants_all_emitted ... ok
+test no_invariants_compiles_normally ... ok
+test invariant_emits_debug_assert ... ok
+test reversible_tier_emits_doc_comment ... ok
+test pure_annotation_calling_effectful_fn_is_error ... ok
+test same_tier_callee_is_allowed ... ok
+test e2e_invariant_module_compiles_to_valid_rust ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+
+running 10 tests
+test for_in_emits_rust_for_loop ... ok
+test fold_emits_iter_fold ... ok
+test filter_emits_iter_chain ... ok
+test lambda_emits_rust_closure ... ok
+test lambda_multi_param ... ok
+test lambda_single_param_no_type ... ok
+test map_emits_iter_chain ... ok
+test lambda_with_type_annotation ... ok
+test e2e_map_double ... ok
+test e2e_fold_sum ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
+
+
+running 9 tests
+test diagnostic_source_is_loom ... ok
+test lex_error_produces_error_severity_diagnostic ... ok
+test multiline_span_maps_to_correct_range ... ok
+test offset_at_start_of_second_line ... ok
+test offset_at_start_of_source_returns_zero_zero ... ok
+test offset_beyond_end_is_clamped_to_last_position ... ok
+test offset_in_middle_of_second_line ... ok
+test offset_on_first_line_returns_line_zero ... ok
+test server_can_be_created ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test being_without_plasticity_not_emitted ... ok
+test being_with_plasticity_emits_neuroml_cell ... ok
+test boltzmann_rule_emits_synapse ... ok
+test compile_neuroml_returns_xml_string ... ok
+test ecosystem_with_beings_emits_network ... ok
+test morphogen_block_emits_morphology ... ok
+test hebbian_rule_emits_synapse ... ok
+test neuroml_has_correct_xmlns ... ok
+test regulate_block_emits_biophysical_properties ... ok
+test signal_emits_projection ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 14 tests
+test multiple_fields_with_multiple_labels ... ok
+test rust_emission_includes_loom_pii_attribute ... ok
+test rust_never_log_comment_emitted ... ok
+test hipaa_without_encrypt_at_rest_fails ... ok
+test parses_field_annotations_pii_gdpr ... ok
+test parses_hyphenated_annotations ... ok
+test pci_without_encrypt_at_rest_fails ... ok
+test field_def_annotations_contain_pii_and_gdpr ... ok
+test schema_emission_includes_x_pii ... ok
+test corpus_pricing_engine_still_compiles ... ok
+test openapi_includes_x_data_protection_for_pii ... ok
+test typescript_emission_includes_jsdoc_pii ... ok
+test pci_with_required_annotations_passes ... ok
+test pci_without_never_log_fails ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test manifest_parses_name_and_modules ... ok
+test manifest_with_missing_name_errors ... ok
+test build_with_compile_error_returns_error ... ok
+test build_single_module_project_succeeds ... ok
+test loom_build_with_valid_toml_succeeds ... ok
+test build_multiple_modules_emits_all_outputs ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 18 tests
+test comparison_operators_emit_correctly ... ok
+test chained_let_bindings_emit_as_statements ... ok
+test contracts_emit_debug_assert_and_comment ... ok
+test match_with_wildcard_arm_emits_underscore ... ok
+test di_full_roundtrip_emits_context_and_ctx_param ... ok
+test enum_match_with_payload_emits_rust_match ... ok
+test effect_fn_emits_result_return_type ... ok
+test pipe_operator_emits_intermediate_let ... ok
+test provides_emits_rust_trait ... ok
+test refined_type_emits_newtype_and_try_from ... ok
+test struct_field_arithmetic_emits_correctly ... ok
+test pricing_engine_emits_expected_rust_constructs ... ok
+test todo_in_body_emits_macro_call ... ok
+test generic_fn_with_collection_param_and_return ... ok
+test module_name_converted_to_snake_case_in_rust ... ok
+test match_arm_with_guard_emits_if_clause ... ok
+test user_service_emits_enum_and_refined_type ... ok
+test hashmap_import_only_when_map_type_present ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 12 tests
+test autopoietic_with_both_annotations_ok ... ok
+test bounded_telos_with_bounded_by_ok ... ok
+test corrigible_without_modifiable_by_errors ... ok
+test bounded_telos_rejects_maximize ... ok
+test autopoietic_without_sandboxed_errors ... ok
+test bounded_telos_without_bounded_by_errors ... ok
+test mortal_without_telomere_errors ... ok
+test bounded_telos_rejects_unlimited ... ok
+test non_autopoietic_being_no_safety_errors ... ok
+test corrigible_with_modifiable_by_ok ... ok
+test autopoietic_without_mortal_errors ... ok
+test mortal_with_telomere_ok ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 27 tests
+test compile_json_schema_pipeline ... ok
+test fn_generates_path ... ok
+test json_schema_contains_schema_version ... ok
+test enum_with_payload_emits_tagged_object ... ok
+test enums_appear_in_components_schemas ... ok
+test fn_describe_becomes_summary ... ok
+test effect_return_emits_async_extension ... ok
+test fn_name_becomes_operation_id ... ok
+test fn_with_params_defaults_to_post ... ok
+test compile_openapi_pipeline ... ok
+test list_type_maps_to_array_schema ... ok
+test method_annotation_overrides_default ... ok
+test enum_without_payload_emits_const_strings ... ok
+test openapi_info_title_is_module_name ... ok
+test openapi_info_description_from_describe ... ok
+test option_type_maps_to_oneof_with_null ... ok
+test path_annotation_overrides_default ... ok
+test fn_with_no_params_defaults_to_get ... ok
+test openapi_document_version ... ok
+test post_fn_emits_request_body ... ok
+test refined_type_emits_allof_with_description ... ok
+test json_schema_uses_module_name_as_id ... ok
+test return_type_maps_to_response_schema ... ok
+test type_def_emits_object_schema ... ok
+test type_def_fields_have_correct_types ... ok
+test types_appear_in_components_schemas ... ok
+test user_type_ref_emits_dollar_ref ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 15 tests
+test crispr_empty_guide_fails ... ok
+test crispr_parses_target_replace_guide ... ok
+test crispr_empty_target_fails ... ok
+test rust_emit_crispr_has_edit_fn ... ok
+test plasticity_boltzmann_rule_parses ... ok
+test plasticity_parses_trigger_modifies_rule ... ok
+test plasticity_empty_trigger_fails ... ok
+test quorum_invalid_threshold_fails ... ok
+test quorum_parses_signal_threshold_action ... ok
+test crispr_empty_replace_fails ... ok
+test rust_emit_plasticity_has_update_fn ... ok
+test rust_emit_quorum_has_check_fn ... ok
+test plasticity_empty_modifies_fails ... ok
+test quorum_empty_action_fails ... ok
+test quorum_empty_signal_fails ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test simulation_agent_has_step_method ... ok
+test simulation_ecosystem_becomes_model ... ok
+test compile_simulation_entry_point_works ... ok
+test simulation_agent_has_telos_comment ... ok
+test simulation_emits_mesa_imports ... ok
+test simulation_agent_has_fitness_method ... ok
+test simulation_model_has_schedule ... ok
+test simulation_multiple_beings_emit_multiple_agents ... ok
+test simulation_model_has_step_method ... ok
+test simulation_being_becomes_agent_class ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test list_int_emits_vec_i64 ... ok
+test module_using_both_collections_gets_combined_import ... ok
+test list_type_does_not_produce_type_error ... ok
+test module_not_using_collections_gets_no_extra_imports ... ok
+test list_string_emits_vec_string ... ok
+test module_using_map_gets_hashmap_import ... ok
+test set_bool_emits_hashset ... ok
+test module_using_set_gets_hashset_import ... ok
+test map_string_int_emits_hashmap ... ok
+test all_existing_corpus_still_compiles ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test ensure_emits_debug_assert ... ok
+test for_all_emits_edge_case_loop ... ok
+test test_block_emits_cfg_test_mod ... ok
+test multiple_test_blocks_all_emitted ... ok
+test no_test_defs_no_cfg_test_block ... ok
+test ensure_uses_condition_text_in_message ... ok
+test test_block_uses_super_import ... ok
+test test_block_emits_test_fn ... ok
+
+running 1 test
+test adder::tests::add_one_plus_one ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+test e2e_test_block_compiles_and_runs ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+
+running 18 tests
+test annotations_emit_jsdoc ... ok
+test describe_emits_jsdoc_comment ... ok
+test bool_maps_to_boolean ... ok
+test ensure_emits_postcondition_check ... ok
+test effectful_fn_emits_async_promise ... ok
+test enum_with_payload_emits_tagged_union ... ok
+test enum_emits_union_type ... ok
+test fn_emits_export_function ... ok
+test implements_emits_class ... ok
+test interface_emits_ts_interface ... ok
+test import_emits_es_import ... ok
+test int_maps_to_number ... ok
+test map_call_emits_array_map ... ok
+test require_emits_throw_on_violation ... ok
+test string_maps_to_string ... ok
+test type_def_emits_interface ... ok
+test module_emits_namespace ... ok
+test e2e_typescript_output_compiles_with_tsc ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 8 tests
+test lifecycle_declaration_parses ... ok
+test invalid_transition_skipping_state_fails ... ok
+test lifecycle_def_has_correct_fields ... ok
+test module_without_lifecycle_compiles_unchanged ... ok
+test rust_emits_phantom_state_structs ... ok
+test typescript_emits_state_union_type ... ok
+test valid_transition_passes_checker ... ok
+test openapi_includes_x_lifecycle_extension ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 16 tests
+test add_same_unit_ok ... ok
+test add_different_units_errors ... ok
+test multi_unit_module_emits_multiple_structs ... ok
+test rust_codegen_emits_usd_in_fn_signature ... ok
+test sub_same_unit_ok ... ok
+test int_with_unit_parses_as_generic ... ok
+test let_bound_same_unit_no_error ... ok
+test dimensionless_float_add_ok ... ok
+test json_schema_emits_x_unit ... ok
+test multiply_different_units_allowed ... ok
+test rust_codegen_emits_usd_struct ... ok
+test struct_field_unit_emits_in_rust ... ok
+test float_with_unit_parses_as_generic ... ok
+test full_pipeline_with_units_ok ... ok
+test sub_different_units_errors ... ok
+test typescript_emits_branded_type_alias ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test effectful_function_returns_wasm_unsupported ... ok
+test bool_return_type_emits_i32_result ... ok
+test match_expression_returns_wasm_unsupported ... ok
+test simple_int_function_emits_module_and_func ... ok
+test single_param_let_binding_emits_local ... ok
+test refined_type_returns_wasm_unsupported ... ok
+test rust_compile_still_works_after_wasm_added ... ok
+test wasm_demo_corpus_compiles_successfully ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

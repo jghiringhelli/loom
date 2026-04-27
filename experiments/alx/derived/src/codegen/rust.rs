@@ -107,6 +107,7 @@ pub fn emit_rust(module: &Module) -> String {
                 .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
                 .collect();
             let ret = type_to_rust(&sig.return_type);
+            // Find matching fn def for param names
             body.push_str(&format!("    fn {}({}) -> {};\n", op_name, params.join(", "), ret));
         }
         body.push_str("}\n\n");
@@ -136,7 +137,7 @@ pub fn emit_rust(module: &Module) -> String {
                 Item::Type(t) => emit_type_def(&mut body, t),
                 Item::Enum(e) => emit_enum_def(&mut body, e),
                 Item::RefinedType(r) => emit_refined_type(&mut body, r),
-                Item::Fn(f) => emit_fn_def_di(&mut body, f, &module.name, has_requires),
+                Item::Fn(f) => emit_fn_def_di(&mut body, f, &module.name, has_requires, false),
             }
         }
     } else {
@@ -155,7 +156,8 @@ pub fn emit_rust(module: &Module) -> String {
             body.push_str(&format!("impl {} for {} {{\n", trait_name, impl_struct));
             for item in &module.items {
                 if let Item::Fn(f) = item {
-                    emit_fn_def_di(&mut body, f, &module.name, has_requires);
+                    // in_trait_impl=true: don't emit `pub` inside impl blocks
+                    emit_fn_def_di(&mut body, f, &module.name, has_requires, true);
                 }
             }
             body.push_str("}\n\n");
@@ -291,10 +293,10 @@ fn emit_refined_type(out: &mut String, r: &RefinedType) {
 }
 
 fn emit_fn_def(out: &mut String, f: &FnDef) {
-    emit_fn_def_di(out, f, "", false);
+    emit_fn_def_di(out, f, "", false, false);
 }
 
-fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_requires: bool) {
+fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_requires: bool, in_trait_impl: bool) {
     // Doc comment
     if let Some(desc) = &f.describe {
         out.push_str(&format!("/// {}\n", desc));
@@ -336,19 +338,42 @@ fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_req
     }
     params.extend(
         f.type_sig.params.iter().enumerate()
-            .map(|(i, ty)| format!("arg{}: {}", i, type_to_rust(ty)))
+            .map(|(i, ty)| {
+                // Use the parsed param name if available, else fall back to argN
+                let name = f.param_names.get(i)
+                    .map(|s| s.as_str())
+                    .unwrap_or("_");
+                let name = if name == "_" { format!("arg{}", i) } else { name.to_string() };
+                format!("{}: {}", name, type_to_rust(ty))
+            })
     );
 
     let ret = type_to_rust(&f.type_sig.return_type);
+    // In trait impl blocks, don't use `pub` — it causes E0449
+    let fn_vis = if in_trait_impl { "" } else { "pub " };
     out.push_str(&format!(
-        "pub fn {}{}({}) -> {} {{\n",
-        f.name, type_params, params.join(", "), ret
+        "{}fn {}{}({}) -> {} {{\n",
+        fn_vis, f.name, type_params, params.join(", "), ret
     ));
 
     // require: → debug_assert!
     for req in &f.requires {
         out.push_str(&format!("    debug_assert!({}, \"require: {}\");\n", req.expr, req.expr));
     }
+
+    // Build a map of param_name → type_name for match pattern qualification.
+    // This maps e.g. "c" → "Color" so that `match c { Red => ... }` can emit `Color::Red`.
+    let param_type_map: std::collections::HashMap<String, String> = f.param_names.iter()
+        .zip(f.type_sig.params.iter())
+        .filter_map(|(name, ty)| {
+            if let TypeExpr::Base(type_name) = ty {
+                if type_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    return Some((name.clone(), type_name.clone()));
+                }
+            }
+            None
+        })
+        .collect();
 
     // Body
     if let Some(inline) = &f.inline_body {
@@ -359,7 +384,10 @@ fn emit_fn_def_di(out: &mut String, f: &FnDef, module_name: &str, module_has_req
         let body_count = f.body.len();
         for (i, stmt) in f.body.iter().enumerate() {
             let is_last = i + 1 == body_count;
-            out.push_str(&emit_fn_body_stmt(stmt, is_last));
+            let emitted = emit_fn_body_stmt(stmt, is_last);
+            // Qualify enum variant patterns in match expressions
+            let emitted = qualify_match_patterns(&emitted, &param_type_map);
+            out.push_str(&emitted);
             out.push('\n');
         }
     }
@@ -459,6 +487,38 @@ fn translate_loom_expr(expr: &str) -> String {
 
     // for expression
     if s.starts_with("for ") { return translate_for_stmt(s); }
+
+    // `as` coercion: `expr as TypeName [rest...]`
+    // `x as Float * y` → `((x) as f64) * y` (the type name is the next word only)
+    if let Some(pos) = find_as_outside_parens(s) {
+        let lhs = &s[..pos];
+        let after_as = s[pos + 4..].trim_start(); // skip " as " and leading spaces
+        // Extract just the type name (next word, up to whitespace/operator)
+        let type_end = after_as.find(|c: char| c.is_whitespace() || "+-*/()[]{}|,;".contains(c))
+            .unwrap_or(after_as.len());
+        let type_name = &after_as[..type_end];
+        let rest = after_as[type_end..].trim_start();
+
+        let rust_type = match type_name {
+            "Float" => "f64",
+            "Int" => "i64",
+            "Bool" => "bool",
+            "String" => "&str",
+            other => other,
+        };
+        let translated_lhs = translate_loom_expr(lhs);
+        let cast_expr = format!("({}) as {}", translated_lhs, rust_type);
+
+        // If there's more after the type name (e.g. `* y`), wrap the cast
+        // and emit: `(cast_expr op rest_translated)`
+        if rest.is_empty() {
+            return cast_expr;
+        } else {
+            // Emit as `(cast_expr rest_raw)` — wrapping in parens for Rust precedence.
+            // The rest may contain operators; we emit verbatim to avoid recursion issues.
+            return format!("({} {})", cast_expr, rest);
+        }
+    }
 
     // HOF: map(list, fn) → list.iter().map(fn).collect::<Vec<_>>()
     if s.starts_with("map(") {
@@ -568,6 +628,126 @@ fn translate_lambda(s: &str) -> String {
         return format!("|{}| {}", params.join(", "), translate_loom_expr(body));
     }
     s.to_string()
+}
+
+/// Qualify unqualified enum variant patterns in a match expression string.
+/// e.g. `match c { Red => 1, Green => 2 }` → `match c { Color::Red => 1, Color::Green => 2 }`
+/// when `param_type_map` contains `"c" → "Color"`.
+fn qualify_match_patterns(
+    emitted: &str,
+    param_type_map: &std::collections::HashMap<String, String>,
+) -> String {
+    // Only process lines that contain a match expression
+    if !emitted.contains("match ") { return emitted.to_string(); }
+
+    // Find the match subject (first word after "match ")
+    let match_start = match emitted.find("match ") {
+        Some(p) => p,
+        None => return emitted.to_string(),
+    };
+    let after_match = &emitted[match_start + 6..];
+    let subject_end = after_match.find(|c: char| c.is_whitespace() || c == '{').unwrap_or(after_match.len());
+    let subject = after_match[..subject_end].trim();
+
+    // Look up the enum type for this subject
+    let enum_type = match param_type_map.get(subject) {
+        Some(t) => t.clone(),
+        None => return emitted.to_string(),
+    };
+
+    // Find the match body `{ ... }` and qualify PascalCase patterns
+    let open_brace = match emitted.find('{') {
+        Some(p) => p,
+        None => return emitted.to_string(),
+    };
+    let before_brace = &emitted[..open_brace + 1];
+    let after_brace = &emitted[open_brace + 1..];
+
+    // Close brace is the last `}`
+    let close_brace = match emitted.rfind('}') {
+        Some(p) => p,
+        None => return emitted.to_string(),
+    };
+    let arms_str = &emitted[open_brace + 1..close_brace];
+    let suffix = &emitted[close_brace..];
+
+    // Qualify each arm's pattern: split on ", " between arms (approximate)
+    // Arms look like "Red => 1, Green => 2, Blue => 3"
+    let qualified_arms = qualify_match_arms(arms_str, &enum_type);
+    format!("{}{}{}", before_brace, qualified_arms, suffix)
+}
+
+/// Given arm text like `"Red => 1, Green => 2"` and enum type `"Color"`,
+/// return `"Color::Red => 1, Color::Green => 2"`.
+fn qualify_match_arms(arms_str: &str, enum_type: &str) -> String {
+    // Split on ", " but only at depth 0
+    let mut parts: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0i32;
+    let bytes = arms_str.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        match c {
+            '(' | '[' | '{' => { depth += 1; current.push(c); }
+            ')' | ']' | '}' => { depth -= 1; current.push(c); }
+            ',' if depth == 0 => {
+                parts.push(current.trim().to_string());
+                current = String::new();
+            }
+            _ => current.push(c),
+        }
+        i += 1;
+    }
+    if !current.trim().is_empty() {
+        parts.push(current.trim().to_string());
+    }
+
+    let qualified: Vec<String> = parts.iter().map(|arm| {
+        // Each arm looks like "Pattern => body" or "Pattern(x) => body"
+        if let Some(arrow_pos) = arm.find("=>") {
+            let pat = arm[..arrow_pos].trim();
+            let body = &arm[arrow_pos + 2..];
+            // Check if pattern is PascalCase (enum variant) and not already qualified
+            let base_pat = pat.split('(').next().unwrap_or(pat).trim();
+            let is_pascal = base_pat.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+                && !base_pat.contains("::");
+            if is_pascal && base_pat != "_" {
+                // Qualify it
+                let qualified_pat = if pat.contains('(') {
+                    // Has payload: e.g. "Some(x)" → "EnumType::Some(x)"
+                    format!("{}::{}", enum_type, pat)
+                } else {
+                    format!("{}::{}", enum_type, pat)
+                };
+                format!("{} =>{}", qualified_pat, body)
+            } else {
+                arm.clone()
+            }
+        } else {
+            arm.clone()
+        }
+    }).collect();
+
+    format!(" {} ", qualified.join(", "))
+}
+
+/// Find ` as ` (with spaces) outside parentheses/brackets/braces.
+/// Returns the byte position of the space before `as`.
+fn find_as_outside_parens(s: &str) -> Option<usize> {
+    const OP: &str = " as ";
+    let mut depth = 0i32;
+    let mut i = 0;
+    let bytes = s.as_bytes();
+    while i + OP.len() <= s.len() {
+        match bytes[i] {
+            b'(' | b'[' | b'{' => { depth += 1; i += 1; }
+            b')' | b']' | b'}' => { depth -= 1; i += 1; }
+            _ if depth == 0 && s[i..].starts_with(OP) => return Some(i),
+            _ => { i += 1; }
+        }
+    }
+    None
 }
 
 fn find_op_outside_parens(s: &str, op: &str) -> Option<usize> {

@@ -736,6 +736,91 @@ end
 -- G9 (additional): Parser::new takes &[Token] not Vec<Token>:
 --   pub fn new(tokens: &[Token]) -> Self  -- tests call Parser::new(&tokens)
 --
+-- ── M10: Numeric coercion (`as` operator) ────────────────────────────────────
+--
+-- Loom supports an `as` type coercion operator for numeric types.
+-- Syntax (in a function body):   expr as TypeName
+-- Examples:
+--   x as Float    -- Int → Float,  emits Rust: (x) as f64
+--   x as Int      -- Float → Int,  emits Rust: (x) as i64
+--   x as Float * y   -- coercion in arithmetic, emits: ((x) as f64 * y)
+--
+-- Codegen rules (codegen/rust.rs, translate_loom_expr):
+--   1. Detect ` as ` (with spaces) outside parentheses via find_as_outside_parens().
+--   2. Split into: lhs, type_name, rest (anything after the type name).
+--   3. Map type names: Float → f64, Int → i64, Bool → bool, String → &str.
+--   4. If rest is empty: emit `(lhs_translated) as rust_type`.
+--   5. If rest is non-empty (e.g. `* y`): emit `((lhs_translated) as rust_type rest)`.
+--   6. The lhs is recursively translated via translate_loom_expr.
+--
+-- Type inference (checker/inference.rs, infer_expr_type):
+--   If an expression contains ` as TypeName`, infer the result type from TypeName,
+--   not from the lhs type. This prevents false UnificationErrors like:
+--   "body expression type Int does not match declared return type Float"
+--   when the body is `x as Float * y` (which correctly produces a Float).
+--
+-- Parser (`collect_line` in parser/mod.rs):
+--   The `ensure:` and `require:` clause collectors (collect_line) MUST stop at
+--   Let, Match, For, and With tokens in addition to Require, Ensure, End.
+--   Failure to stop at `let` causes the entire function body to be consumed
+--   as the predicate expression.
+--
+-- ── G10: Parameter name desugaring ───────────────────────────────────────────
+--
+-- Loom functions can name their parameters explicitly via `x y => body` syntax.
+-- The FnDef AST node carries:
+--   param_names: Vec<String>   -- extracted parameter names; empty if not provided
+--
+-- Parser rules (parser/mod.rs, parse_fn_def):
+--   1. After parsing the type signature, attempt to detect `ident+ =>` lookahead.
+--      If exactly N identifiers (matching param count) are followed by `=>`,
+--      consume them as param names (the explicit FatArrow desugaring path).
+--   2. If no `=>` found, infer param names by scanning require:/ensure: and body
+--      text with extract_simple_idents(). This function:
+--      a. Skips `let X = RHS` LHS names (only scans RHS).
+--      b. Excludes language keywords, PascalCase names, and function-call names.
+--      c. Returns identifiers in first-appearance order.
+--   3. If inference finds >= N names, use the first N as param_names.
+--
+-- Codegen use (codegen/rust.rs, emit_fn_def_di):
+--   For each param at index i: if f.param_names.get(i) is Some(name), use that;
+--   otherwise fall back to `arg{i}`. This gives `fn add(x: i64, y: i64)` instead
+--   of `fn add(arg0: i64, arg1: i64)` for `fn add :: Int -> Int -> Int / x y => x+y`.
+--
+-- ── G11: CLI error propagation ────────────────────────────────────────────────
+--
+-- The CLI (main.rs) and project builder (project.rs) must propagate errors:
+--   1. `loom compile <file>`: if compilation fails, print the filename in the
+--      error message (format: `error: <file>: <error_message>`) and exit nonzero.
+--   2. `build_project(files, out_dir)`: returns Err(Vec<LoomError>) if any source
+--      file fails to compile. Does NOT silently ignore compile errors.
+--
+-- Parser strictness: bare Ident tokens at module top level are a parse error.
+-- The parser's module-level dispatch must return Err for unknown identifiers,
+-- but MUST handle the `spec SpecName` keyword (TokenKind::Spec + following Ident)
+-- by consuming and ignoring both tokens (spec declarations are informational).
+--
+-- ── G12: Enum match qualification ────────────────────────────────────────────
+--
+-- Enum variant patterns in match expressions must be qualified with their type
+-- name in emitted Rust, or the code will fail to compile (E0425: cannot find value).
+-- Example: `match c { Red => 1, Green => 2 }` must emit `match c { Color::Red => 1, Color::Green => 2 }`
+--
+-- Codegen approach (emit_fn_def_di in codegen/rust.rs):
+--   Build a param_type_map: param_name → type_name from the function's param_names
+--   and type_sig.params. For each match expression in the body, find the match subject,
+--   look it up in param_type_map, and qualify PascalCase patterns with EnumType:: prefix.
+--   Only qualify patterns that are PascalCase, not already qualified (no `::`), and
+--   not the wildcard `_`.
+--
+-- ── G13: Trait impl visibility ───────────────────────────────────────────────
+--
+-- When emitting functions inside `impl Trait for Struct` blocks, do NOT prefix
+-- with `pub`. Rust E0449 forbids redundant visibility in trait implementations.
+-- The `emit_fn_def_di` function takes an `in_trait_impl: bool` flag.
+-- When `true`, emit `fn name(...)` instead of `pub fn name(...)`.
+-- The `implements` path in emit_rust passes `in_trait_impl=true` for all fns.
+--
 -- ── ALX Self-Applicability Invariant ─────────────────────────────────────────
 -- The ALX experiment (Adversarial Loom eXperiment) measures S_realized:
 -- S_realized = (tests passing from blind derivation) / (total tests)

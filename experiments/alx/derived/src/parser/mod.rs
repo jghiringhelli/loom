@@ -258,8 +258,27 @@ impl Parser {
                     self.skip_if(&TokenKind::Colon);
                     module.describe = Some(self.parse_string_lit()?);
                 }
+                Some(TokenKind::Spec) => {
+                    // `spec SpecName` — consume both tokens and ignore
+                    self.advance(); // consume 'spec'
+                    if let Some(t) = self.peek() {
+                        if matches!(&t.kind, TokenKind::Ident(_)) {
+                            self.advance(); // consume spec name
+                        }
+                    }
+                }
+                Some(TokenKind::Ident(ref s)) => {
+                    // Bare identifier at module top-level is a syntax error.
+                    let span = self.current_span();
+                    let text = s.clone();
+                    self.advance();
+                    return Err(LoomError::new(
+                        format!("unexpected identifier '{}' at module level", text),
+                        span,
+                    ));
+                }
                 _ => {
-                    // Skip unknown token to avoid infinite loop
+                    // Skip non-Ident unknown tokens to avoid infinite loop
                     self.advance();
                 }
             }
@@ -694,6 +713,38 @@ impl Parser {
         let mut body = Vec::new();
         let mut inline_body: Option<String> = None;
         let mut with_deps: Vec<String> = Vec::new();
+        let mut param_names: Vec<String> = Vec::new();
+
+        // Detect `x y => body` parameter-name desugaring.
+        // Look ahead: if we see N identifiers followed by FatArrow (=>),
+        // those identifiers are the parameter names for the N params in the type sig.
+        // We consume them and store as param_names.
+        let param_count = type_sig.params.len();
+        if param_count > 0 {
+            let saved = self.pos;
+            let mut maybe_names: Vec<String> = Vec::new();
+            let mut found_fat_arrow = false;
+            // Collect up to param_count identifiers
+            for _ in 0..param_count {
+                match self.peek().map(|t| t.kind.clone()) {
+                    Some(TokenKind::Ident(s)) => {
+                        maybe_names.push(s);
+                        self.advance();
+                    }
+                    _ => break,
+                }
+            }
+            // Check if next token is FatArrow
+            if maybe_names.len() == param_count && self.check(&TokenKind::FatArrow) {
+                self.advance(); // consume =>
+                param_names = maybe_names;
+                found_fat_arrow = true;
+            }
+            if !found_fat_arrow {
+                // Backtrack — not a param-name desugaring
+                self.pos = saved;
+            }
+        }
 
         while !self.is_at_end() && !self.check(&TokenKind::End) {
             match self.peek().map(|t| t.kind.clone()) {
@@ -762,6 +813,41 @@ impl Parser {
         }
         self.skip_if(&TokenKind::End);
 
+        // If param_names wasn't set by `x y => body` desugaring, try to infer
+        // param names from require:/ensure: clauses and body statements.
+        if param_names.is_empty() && !type_sig.params.is_empty() {
+            let n = type_sig.params.len();
+            let mut seen: Vec<String> = Vec::new();
+
+            // Collect all source strings to scan: requires, ensures, body
+            let mut sources: Vec<String> = Vec::new();
+            for req in &requires {
+                sources.push(req.expr.clone());
+            }
+            for ens in &ensures {
+                sources.push(ens.expr.clone());
+            }
+            for stmt in &body {
+                sources.push(stmt.clone());
+            }
+
+            'infer: for source in &sources {
+                for w in extract_simple_idents(source) {
+                    if !seen.contains(&w) {
+                        seen.push(w);
+                        if seen.len() >= n {
+                            break 'infer;
+                        }
+                    }
+                }
+            }
+
+            // If we found at least N names, use the first N; otherwise keep argN defaults
+            if seen.len() >= n {
+                param_names = seen[..n].to_vec();
+            }
+        }
+
         Ok(FnDef {
             name,
             describe,
@@ -774,6 +860,7 @@ impl Parser {
             with_deps,
             body,
             inline_body,
+            param_names,
             span: Span::new(start, self.current_span().end),
         })
     }
@@ -863,7 +950,11 @@ impl Parser {
         let mut first = true;
         while let Some(t) = self.peek() {
             let span = t.span;
-            if matches!(t.kind, TokenKind::Require | TokenKind::Ensure | TokenKind::Describe | TokenKind::End) {
+            // Stop at any keyword that starts a new clause or body statement
+            if matches!(t.kind,
+                TokenKind::Require | TokenKind::Ensure | TokenKind::Describe | TokenKind::End
+                | TokenKind::Let | TokenKind::Match | TokenKind::For | TokenKind::With
+            ) {
                 break;
             }
             let text = self.advance().unwrap().text;
@@ -1150,6 +1241,7 @@ impl Parser {
                     body: Vec::new(),
                     inline_body: None,
                     with_deps: Vec::new(),
+                    param_names: Vec::new(),
                     span: fn_span,
                 });
             } else {
@@ -2018,4 +2110,81 @@ impl Parser {
 pub fn parse(tokens: Vec<Token>) -> Result<Module, LoomError> {
     let mut parser = Parser::new(&tokens);
     parser.parse_module()
+}
+
+// ── Body analysis helpers ─────────────────────────────────────────────────────
+
+/// Extract simple identifier names from a body statement string.
+/// Used to infer parameter names when no `x y => body` desugaring is present.
+/// Returns identifiers in order of first appearance, excluding:
+/// - language keywords
+/// - identifiers in function-call position (followed by `(`)
+/// - single uppercase letters (type variables)
+/// - let-binding LHS names (the name immediately after `let `)
+fn extract_simple_idents(stmt: &str) -> Vec<String> {
+    // Common keywords / builtins to exclude
+    const EXCLUDE: &[&str] = &[
+        "let", "in", "match", "if", "then", "else", "true", "false",
+        "end", "fn", "type", "enum", "as", "for", "not", "and", "or",
+        "map", "filter", "fold", "todo", "Float", "Int", "Bool", "String",
+        "Unit", "List", "Option", "Result", "Effect",
+    ];
+
+    let s = stmt.trim();
+
+    // For `let X = RHS`, skip `let` and the LHS name X, extract from RHS only.
+    let s = if s.starts_with("let ") {
+        // Find the '=' and work on the RHS
+        if let Some(eq_pos) = s.find(" = ") {
+            &s[eq_pos + 3..]
+        } else {
+            s
+        }
+    } else {
+        s
+    };
+
+    let mut result = Vec::new();
+    let chars: Vec<char> = s.chars().collect();
+    let n = chars.len();
+    let mut i = 0;
+
+    while i < n {
+        let c = chars[i];
+        // Start of an identifier: letter or underscore
+        if c.is_alphabetic() || c == '_' {
+            let start = i;
+            while i < n && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '-') {
+                i += 1;
+            }
+            let word: String = chars[start..i].iter().collect();
+
+            // Skip keywords and known names
+            if EXCLUDE.contains(&word.as_str()) {
+                continue;
+            }
+            // Skip single-letter uppercase (type variable, not value)
+            if word.len() == 1 && word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                continue;
+            }
+            // Skip multi-char uppercase-starting words that look like type names
+            // (PascalCase: start uppercase, more than 1 char)
+            if word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                continue;
+            }
+            // Skip if followed by '(' (function call)
+            let next = chars.get(i).copied();
+            if next == Some('(') {
+                continue;
+            }
+
+            // Add unique ident
+            if !result.contains(&word) {
+                result.push(word);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    result
 }

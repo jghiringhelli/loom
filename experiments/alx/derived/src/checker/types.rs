@@ -67,9 +67,9 @@ pub fn check_types(module: &Module) -> Result<(), Vec<LoomError>> {
     // Verify type_exprs used in functions reference declared types.
     for item in &module.items {
         if let Item::Fn(f) = item {
-            check_type_expr(&f.type_sig.return_type, &declared_types, &mut errors, f.span);
+            check_type_expr_strict(&f.type_sig.return_type, &declared_types, &mut errors, f.span);
             for p in &f.type_sig.params {
-                check_type_expr(p, &declared_types, &mut errors, f.span);
+                check_type_expr_strict(p, &declared_types, &mut errors, f.span);
             }
         }
     }
@@ -118,6 +118,69 @@ pub fn check_types(module: &Module) -> Result<(), Vec<LoomError>> {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// Strict version of check_type_expr used for function parameter/return types.
+/// Does NOT allow bare lowercase names — they must be known built-ins or declared types.
+/// (Lowercase types inside Float<unit> generics are still allowed via the regular version.)
+fn check_type_expr_strict(
+    ty: &TypeExpr,
+    declared: &HashSet<String>,
+    errors: &mut Vec<LoomError>,
+    span: Span,
+) {
+    match ty {
+        TypeExpr::Base(name) => {
+            // Allow single-uppercase-letter type variables (A, B, T, E, etc.)
+            if name.len() == 1 && name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                return;
+            }
+            // Lowercase bare names in fn signatures must be declared types or builtins.
+            // (Unit labels like `usd` only appear inside Float<usd>, not bare.)
+            if !declared.contains(name.as_str()) {
+                errors.push(LoomError::new(
+                    format!("unknown type '{}' in function signature", name),
+                    span,
+                ));
+            }
+        }
+        TypeExpr::Generic(name, args) => {
+            // Float<unit> / Int<unit>: unit args are not types, skip their check
+            let is_unit_parameterized = matches!(name.as_str(), "Float" | "Int");
+            if !is_unit_parameterized && !declared.contains(name.as_str()) && name != "Effect" {
+                if name.len() > 1 || !name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    if !BUILTIN_TYPES.contains(&name.as_str()) {
+                        errors.push(LoomError::new(
+                            format!("unknown generic type '{}'", name),
+                            span,
+                        ));
+                    }
+                }
+            }
+            for arg in args {
+                if !is_unit_parameterized {
+                    check_type_expr_strict(arg, declared, errors, span);
+                }
+            }
+        }
+        TypeExpr::Option(inner) | TypeExpr::Effect(_, inner) => {
+            check_type_expr_strict(inner, declared, errors, span);
+        }
+        TypeExpr::Result(ok, err) => {
+            check_type_expr_strict(ok, declared, errors, span);
+            check_type_expr_strict(err, declared, errors, span);
+        }
+        TypeExpr::Tuple(types) => {
+            for t in types {
+                check_type_expr_strict(t, declared, errors, span);
+            }
+        }
+        TypeExpr::Fn(a, b) => {
+            check_type_expr_strict(a, declared, errors, span);
+            check_type_expr_strict(b, declared, errors, span);
+        }
+        TypeExpr::TypeVar(_) => {}
     }
 }
 

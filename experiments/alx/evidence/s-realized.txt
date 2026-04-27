@@ -3,3 +3,4 @@
 0.6415 (Phase 4: AST fields, emit_rust pub mod wrapper, Assign token)
 0.7805 (Phase 5a: algebraic, biological, DI, effect improvements)
 0.9000 (Phase 5b: effect/exhaustiveness/type/infoflow/ecosystem/evolve/neuroml/units/privacy/typestate)
+1.0000 (Phase 6: param name preservation, as-coercion, enum match qualification, trait impl visibility, spec/project/schema/cli fixes — 386/386 tests pass)
