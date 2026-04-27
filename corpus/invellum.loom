@@ -1,0 +1,630 @@
+-- invellum.loom: B2C social platform for entrepreneurs.
+-- Demonstrates PII labels, payment idempotency, typestate lifecycle, BIOISO beings,
+-- and ecosystem signal coordination driven by Railway log signals.
+-- Fitness oracle: docs/invellum-fitness-oracle.md
+
+module Invellum
+@version(1)
+@author("PragmaWorks")
+
+-- ─────────────────────────────────────────
+-- Core types
+-- ─────────────────────────────────────────
+
+type UserId = Int
+
+type Email = String where valid_email
+
+type User =
+  id: UserId,
+  email: Email @pii @gdpr,
+  full_name: String @pii,
+  company_name: String,
+  industry: String,
+  funding_stage: String,
+  bio: String,
+  plan: String,
+  created_at: Int,
+  last_active_at: Int,
+  connection_count: Int,
+  post_count: Int
+end
+
+type Post =
+  id: Int,
+  author_id: UserId,
+  body: String,
+  created_at: Int,
+  like_count: Int,
+  comment_count: Int,
+  is_opportunity: Bool
+end
+
+type Connection =
+  requester_id: UserId,
+  accepter_id: UserId,
+  connected_at: Int,
+  shared_industry: Bool,
+  shared_stage: Bool
+end
+
+type FeedItem =
+  post: Post,
+  relevance_score: Float,
+  is_connection_post: Bool,
+  is_new_connection: Bool
+end
+
+type Subscription =
+  user_id: UserId @pii,
+  plan: String,
+  mrr: Float<usd> @pci @encrypt-at-rest @never-log,
+  started_at: Int,
+  renews_at: Int
+end
+
+type SessionRecord =
+  user_id: UserId,
+  duration_s: Int,
+  page_views: Int,
+  open_source: String
+end
+
+type ActivationRecord =
+  user_id: UserId,
+  hours_since_signup: Float,
+  aha_reached: Bool,
+  drop_step: String
+end
+
+-- ─────────────────────────────────────────
+-- Typestate lifecycle
+-- ─────────────────────────────────────────
+
+lifecycle UserState ::
+  Prospect -> Onboarding -> Active -> AtRisk -> Churned
+
+lifecycle SubscriptionLifecycle ::
+  Trial -> Active -> PastDue -> Cancelled
+
+-- ─────────────────────────────────────────
+-- Information flow labels
+-- ─────────────────────────────────────────
+
+flow pii_data :: User
+flow revenue_data :: Subscription
+
+-- ─────────────────────────────────────────
+-- Core functions
+-- ─────────────────────────────────────────
+
+fn create_user @exactly-once @trace("user.create") :: Email -> String -> String -> Effect<[IO, DB], User>
+  require: email.length > 0
+  ensure: result.id > 0
+  todo
+end
+
+fn create_post @trace("post.create") :: UserId -> String -> Effect<[IO, DB], Post>
+  require: author_id > 0
+  require: body.length > 0
+  require: body.length <= 2000
+  ensure: result.author_id = author_id
+  todo
+end
+
+fn send_connection_request @idempotent @trace("connection.request") :: UserId -> UserId -> Effect<[IO, DB], Unit>
+  require: requester_id > 0
+  require: accepter_id > 0
+  require: requester_id != accepter_id
+  todo
+end
+
+fn accept_connection @idempotent @trace("connection.accept") :: UserId -> UserId -> Effect<[IO, DB], Connection>
+  require: requester_id > 0
+  require: accepter_id > 0
+  todo
+end
+
+fn rank_feed :: UserId -> List<Post> -> Float -> Float -> Float -> List<FeedItem>
+  require: user_id > 0
+  require: w_recency + w_network + w_relevance = 1.0
+  ensure: result.length <= posts.length
+  todo
+end
+
+fn upgrade_subscription @exactly-once @trace("subscription.upgrade") :: UserId -> String -> Float<usd> -> Effect<[IO, DB, IO@irreversible], Subscription>
+  require: user_id > 0
+  require: mrr > 0.0
+  ensure: result.plan = plan
+  todo
+end
+
+fn send_invite @idempotent @trace("invite.send") :: UserId -> Email -> Effect<[IO], Unit>
+  require: inviter_id > 0
+  require: invite_email.length > 0
+  todo
+end
+
+fn record_session @trace("session.end") :: UserId -> Int -> Int -> Effect<[IO], Unit>
+  require: user_id > 0
+  require: duration_s >= 0
+  require: page_views >= 0
+  todo
+end
+
+fn flag_churn_risk @trace("churn.flag") :: UserId -> Int -> Effect<[IO, DB], Unit>
+  require: user_id > 0
+  require: days_inactive >= 0
+  todo
+end
+
+fn compute_loop_health :: Float -> Float -> Float -> Float -> Float
+  require: trigger_open_rate >= 0.0
+  require: action_depth >= 0.0
+  require: reward_diversity >= 0.0
+  require: investment_rate >= 0.0
+  ensure: result >= 0.0
+  ensure: result <= 1.0
+  let score = trigger_open_rate * 0.20
+            + action_depth * 0.25
+            + reward_diversity * 0.25
+            + investment_rate * 0.30
+  score
+end
+
+fn compute_viral_coefficient :: Int -> Int -> Float
+  require: conversions >= 0
+  require: signups > 0
+  ensure: result >= 0.0
+  conversions as Float / signups as Float
+end
+
+-- ─────────────────────────────────────────
+-- BIOISO beings: Invellum evolution colony
+-- ─────────────────────────────────────────
+
+being OnboardingOptimizer
+  describe: "Evolves the signup-to-aha funnel toward 35% activation rate"
+  @mortal @corrigible @sandboxed @auditable @bounded_telos
+  autopoietic: true
+
+  matter:
+    activation_rate: Float
+    activation_time_p50: Float
+    onboarding_completion_rate: Float
+    drop_step_signal: Float
+    step_order_score: Float
+  end
+
+  form:
+    type StepOrderConfig =
+      profile_first: Bool,
+      goal_before_discover: Bool,
+      connect_before_post: Bool,
+      skip_allowed_count: Int
+    end
+    enum CopyArchetype =
+      | Commitment
+      | SocialProof
+      | Reciprocity
+      | Scarcity
+    end
+    type ProgressStyle =
+      style_code: Int
+    end
+  end
+
+  function:
+    fn score_step_order :: Bool -> Bool -> Bool -> Float
+      require: true
+      ensure: result >= 0.0
+      todo
+    end
+    fn select_cta_archetype :: Float -> Float -> String
+      require: activation_rate >= 0.0
+      require: drop_rate >= 0.0
+      ensure: result.length > 0
+      todo
+    end
+  end
+
+  telos:
+    statement: "converge activation_rate toward 0.35 target and activation_time_p50 toward 12h; bounded by 0.60 ceiling; see oracle §3.1"
+    modifiable_by: product_team
+    bounded_by: activation_ceiling
+  end
+
+  regulate activation_rate
+    target: optimal
+    bounds: (poor, excellent)
+  end
+
+  regulate activation_time_p50
+    target: twelve_hours
+    bounds: (half_hour, forty_eight_hours)
+  end
+
+  evolve
+    toward: telos
+    search:
+    | simulated_annealing when gradient_unavailable
+    | gradient_descent when gradient_available
+    constraint: "E[distance_to_telos] decreasing over 14-day window"
+  end
+
+  telomere:
+    limit: 50
+    on_exhaustion: senescence
+  end
+
+end
+
+being FeedEngagement
+  describe: "Evolves feed ranking weights and notification cadence toward loop health >= 0.60"
+  @mortal @corrigible @sandboxed @auditable @bounded_telos
+  autopoietic: true
+
+  matter:
+    loop_health: Float
+    wau_mau_ratio: Float
+    feed_engagement_rate: Float
+    session_depth: Float
+    notification_open_rate: Float
+  end
+
+  form:
+    type FeedWeights =
+      weight_recency: Float,
+      weight_network: Float,
+      weight_relevance: Float,
+      connection_boost: Float
+    end
+    enum DigestFrequency =
+      | Daily
+      | ThreePerWeek
+      | Weekly
+    end
+    type FeedConfig =
+      items_per_load: Int,
+      show_suggested_in_feed: Bool,
+      notification_threshold: Int
+    end
+  end
+
+  function:
+    fn validate_weights :: Float -> Float -> Float -> Bool
+      require: w_recency >= 0.0
+      require: w_network >= 0.0
+      require: w_relevance >= 0.0
+      ensure: result = (w_recency + w_network + w_relevance = 1.0)
+      true
+    end
+    fn score_notification_config :: Int -> Float -> Float
+      require: notify_level >= 1
+      require: open_rate >= 0.0
+      ensure: result >= 0.0
+      todo
+    end
+  end
+
+  telos:
+    statement: "converge loop_health toward 0.60 target sustained over 30-day cohort windows; bounded by 0.85 ceiling; see oracle §3.2"
+    modifiable_by: product_team
+    bounded_by: engagement_ceiling
+  end
+
+  regulate loop_health
+    target: optimal
+    bounds: (degraded, excellent)
+  end
+
+  regulate wau_mau_ratio
+    target: sticky
+    bounds: (at_risk, healthy)
+  end
+
+  evolve
+    toward: telos
+    search:
+    | derivative_free when signal_noisy
+    | stochastic_gradient when signal_smooth
+    constraint: "E[distance_to_telos] decreasing over 30-day cohort window"
+  end
+
+  telomere:
+    limit: 100
+    on_exhaustion: senescence
+  end
+
+end
+
+being RetentionGuard
+  describe: "Defends Day-7 and Day-30 retention floors; fires churn countermeasures"
+  @mortal @corrigible @sandboxed @auditable @bounded_telos
+  autopoietic: true
+
+  matter:
+    d1_retention: Float
+    d7_retention: Float
+    d30_retention: Float
+    monthly_churn: Float
+    reactivation_rate: Float
+  end
+
+  form:
+    type ChurnConfig =
+      risk_threshold_days: Int,
+      email_delay_days: Int,
+      push_enabled: Bool
+    end
+    enum ReactivationCopyType =
+      | FeatureHighlight
+      | SocialProof
+      | Question
+      | DiscountOffer
+    end
+    enum WinbackOffer =
+      | None
+      | FreeWeek
+      | FeatureUnlock
+      | Badge
+    end
+  end
+
+  function:
+    fn is_churn_risk :: Int -> Int -> Bool
+      require: last_active_day >= 0
+      require: threshold_days > 0
+      ensure: true
+      last_active_day > threshold_days
+    end
+    fn select_reactivation_copy :: Float -> String
+      require: monthly_churn >= 0.0
+      ensure: result.length > 0
+      todo
+    end
+  end
+
+  telos:
+    statement: "minimize monthly_churn while maintaining d7_retention >= 0.35; Skok floors are inviolable; see oracle §3.3"
+    modifiable_by: product_team
+    bounded_by: retention_floor
+  end
+
+  regulate d1_retention
+    target: optimal
+    bounds: (critical, excellent)
+  end
+
+  regulate d7_retention
+    target: healthy
+    bounds: (at_risk, excellent)
+  end
+
+  regulate monthly_churn
+    target: minimal
+    bounds: (floor, ceiling)
+  end
+
+  evolve
+    toward: telos
+    search:
+    | mcmc when distribution_unknown
+    | gradient_descent when distribution_known
+    constraint: "E[distance_to_telos] decreasing without d7_retention regressing"
+  end
+
+  epigenetic:
+    signal: churn_spike
+    modifies: risk_threshold_days
+    reverts_when: monthly_churn_below_threshold
+  end
+
+  telomere:
+    limit: 200
+    on_exhaustion: senescence
+  end
+
+end
+
+being NetworkGrowth
+  describe: "Evolves connection suggestions and invite prompts toward viral coefficient >= 0.20"
+  @mortal @corrigible @sandboxed @auditable @bounded_telos
+  autopoietic: true
+
+  matter:
+    viral_coefficient: Float
+    invite_conversion_rate: Float
+    connection_rate: Float
+  end
+
+  form:
+    enum InvitePromptTiming =
+      | PostFirstPost
+      | DayThree
+      | DaySeven
+      | AfterFirstConnection
+    end
+    enum InviteCopyArchetype =
+      | Reciprocity
+      | SocialProof
+      | Scarcity
+    end
+    type SuggestionConfig =
+      weight_industry: Float,
+      weight_stage: Float,
+      weight_mutual: Float,
+      suggestion_count: Int
+    end
+  end
+
+  function:
+    fn viral_coeff :: Int -> Int -> Float
+      require: converted >= 0
+      require: total > 0
+      ensure: result >= 0.0
+      converted as Float / total as Float
+    end
+    fn suggestion_score :: Float -> Float -> Float -> Float -> Float -> Float
+      require: industry_match >= 0.0
+      require: stage_match >= 0.0
+      require: mutual_count >= 0.0
+      ensure: result >= 0.0
+      w_industry * industry_match + w_stage * stage_match + w_mutual * mutual_count
+    end
+  end
+
+  telos:
+    statement: "converge viral_coefficient toward 0.20 target over 30-day windows; bounded by 0.80 ceiling; @credibility_safe on copy; see oracle §3.4"
+    modifiable_by: product_team
+    bounded_by: virality_ceiling
+  end
+
+  regulate viral_coefficient
+    target: optimal
+    bounds: (minimal, saturated)
+  end
+
+  regulate connection_rate
+    target: healthy
+    bounds: (low, high)
+  end
+
+  evolve
+    toward: telos
+    search:
+    | gradient_descent when differential_signal_available
+    | simulated_annealing when signal_sparse
+    constraint: "E[distance_to_telos] decreasing over 30-day rolling window"
+  end
+
+  telomere:
+    limit: 75
+    on_exhaustion: senescence
+  end
+
+end
+
+being ConversionEngine
+  describe: "Evolves pricing page and paywall copy toward paywall_conversion_rate >= 0.12"
+  @mortal @corrigible @sandboxed @auditable @bounded_telos
+  autopoietic: true
+
+  matter:
+    pricing_to_upgrade_rate: Float
+    paywall_conversion_rate: Float
+    mrr_delta_avg: Float<usd>
+    cancellation_too_expensive_pct: Float
+  end
+
+  form:
+    enum SocialProofType =
+      | Logos
+      | Testimonials
+      | Counts
+      | Press
+    end
+    enum PaywallCopyArchetype =
+      | Authority
+      | Scarcity
+      | Reciprocity
+    end
+    type TrialConfig =
+      enabled: Bool,
+      duration_days: Int
+    end
+    type PricingConfig =
+      plan_highlighted: String,
+      annual_discount_shown: Bool,
+      annual_discount_pct: Int
+    end
+  end
+
+  function:
+    fn is_value_restricted :: Float -> Bool
+      require: too_expensive_pct >= 0.0
+      ensure: true
+      too_expensive_pct > 0.40
+    end
+    fn select_proof_type :: Float -> Float -> String
+      require: upgrade_rate >= 0.0
+      require: page_views >= 0.0
+      ensure: result.length > 0
+      todo
+    end
+  end
+
+  telos:
+    statement: "converge paywall_conversion_rate toward 0.12 target without increasing cancellation_too_expensive_pct; restrict to value-demonstration when too_expensive exceeds 40%; see oracle §3.5"
+    modifiable_by: product_team
+    bounded_by: revenue_ceiling
+  end
+
+  regulate paywall_conversion_rate
+    target: optimal
+    bounds: (low, high)
+  end
+
+  regulate cancellation_too_expensive_pct
+    target: minimal
+    bounds: (acceptable, alarming)
+  end
+
+  evolve
+    toward: telos
+    search:
+    | simulated_annealing when conversion_signal_noisy
+    | gradient_descent when conversion_signal_smooth
+    constraint: "E[distance_to_telos] decreasing without cancellation_too_expensive_pct increasing"
+  end
+
+  telomere:
+    limit: 60
+    on_exhaustion: senescence
+  end
+
+end
+
+-- ─────────────────────────────────────────
+-- Ecosystem: colony coordination
+-- ─────────────────────────────────────────
+
+ecosystem InvellumColony
+  members: [OnboardingOptimizer, FeedEngagement, RetentionGuard, NetworkGrowth, ConversionEngine]
+
+  signal ActivationSignal from OnboardingOptimizer to RetentionGuard
+    payload: Float
+  end
+
+  signal ChurnRiskSignal from RetentionGuard to FeedEngagement
+    payload: Float
+  end
+
+  signal NetworkHealthSignal from NetworkGrowth to FeedEngagement
+    payload: Float
+  end
+
+  signal ConversionHint from ConversionEngine to OnboardingOptimizer
+    payload: Float
+  end
+
+  signal RailwayFeed from RetentionGuard to OnboardingOptimizer
+    payload: Float
+  end
+
+end
+
+-- ─────────────────────────────────────────
+-- Module invariants
+-- ─────────────────────────────────────────
+
+invariant no_self_connection ::
+  connection.requester_id != connection.accepter_id
+
+invariant mrr_non_negative ::
+  subscription.mrr >= 0.0
+
+invariant d1_skok_floor ::
+  RetentionGuard.d1_retention >= 0.55
+
+end
