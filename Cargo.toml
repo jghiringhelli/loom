@@ -64,6 +64,10 @@ path = "src/bin/bench_bayesian_opt.rs"
 name = "bench_neural_tsp"
 path = "src/bin/bench_neural_tsp.rs"
 
+[[bin]]
+name = "bbob_experiment"
+path = "src/bin/bbob_experiment.rs"
+
 [lib]
 name = "loom"
 path = "src/lib.rs"

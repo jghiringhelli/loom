@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 
+pub mod bbob;
 pub mod being_loader;
 pub mod bioiso_log;
 pub mod bioiso_runner;

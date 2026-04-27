@@ -953,6 +953,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "loom-lang"
+version = "0.2.0"
+dependencies = [
+ "base64",
+ "clap",
+ "libc",
+ "logos",
+ "pretty_assertions",
+ "proptest",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tower-lsp",
+]
+
+[[package]]
 name = "lsp-types"
 version = "0.94.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2021,28 +2043,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
-]
-
-[[package]]
-name = "warp-lang"
-version = "0.2.0"
-dependencies = [
- "base64",
- "clap",
- "libc",
- "logos",
- "pretty_assertions",
- "proptest",
- "regex",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tokio",
- "toml",
- "tower-lsp",
 ]
 
 [[package]]

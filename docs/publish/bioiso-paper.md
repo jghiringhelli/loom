@@ -211,7 +211,7 @@ Auto-escalation in `orchestrator.rs`: when the same parameter + direction is pro
 
 The `scheduling_t5` entity fires `[tier_up] T1 → T2` at tick 6 (saturation ×6), demonstrating the auto-escalation mechanism. The final tier is T2-SA because the non-stationary drift does not persist long enough to saturate T2 within 60 ticks.
 
-**Scope note:** `bench_colony_ladder` demonstrates *intra-generational* auto-escalation (T1→T4) — the mechanism by which a single entity discovers a higher-tier algorithm during its current generation. It does not demonstrate *inter-generational meiosis*, where the genome file is rewritten and recompiled between generations. Cross-generational T5 meiosis operates via the `.github/workflows/evolve.yml` GS genome loop, which requires a full compile/test cycle between generations and is exercised in the `experiments/bioiso/` suite rather than the in-process benchmark.
+**Scope note:** `bench_colony_ladder` demonstrates *intra-generational* auto-escalation (T1→T4) — the mechanism by which a single entity discovers a higher-tier algorithm during its current generation. It does not demonstrate *inter-generational meiosis*, where the genome file is rewritten and recompiled between generations. Cross-generational T5 meiosis operates via the `.github/workflows/evolve.yml` GS genome loop, which requires a full compile/test cycle between generations and is exercised in the `experiments/bioiso/` suite. The T5 structural primitive itself — basis-rotation `StructuralRewire` — is validated independently in §4.5 using the COCO/BBOB benchmark suite (Hansen et al. 2009).
 
 ### 4.4 The `.loom` → BIOISO Bridge (`being_loader.rs`)
 
@@ -232,6 +232,80 @@ The bridge infers tier from declared features (Section 3), extracts metric bound
 3. A **GS genome unit** (mutatable by the MeiosisEngine)
 
 The three representations are derived from the same source file — there is no separate wiring, no translation layer, and no runtime-only configuration. The specification IS the colony entity.
+
+### 4.5 BBOB Controlled Experiment — T5 Primitive Validation
+
+To validate the T5 structural primitive in a controlled, reproducible setting, we run a
+two-condition experiment on four functions from the COCO/BBOB benchmark suite
+(Hansen et al. 2009): **f1 Sphere** (unimodal, symmetric), **f2 Separable Ellipsoid**
+(unimodal, condition number 10^6), **f15 Rastrigin** (multimodal, ~10^10 local optima
+at DIM=10), and **f24 Lunacek bi-Rastrigin** (bimodal basin structure).
+
+**Experimental design:** 30 independent trials, 200 ticks, DIM=10. The **control** condition
+runs T1–T4 only (greedy coordinate descent → simulated annealing → SARSA-step adaptation →
+Halton quasi-random). The **experimental** condition adds T5: after 20 ticks of stagnation,
+a random orthogonal basis rotation (Gram-Schmidt on LCG vectors) is generated; it is accepted
+only if a 10-step probe strictly improves normalized fitness. Seeds are fixed per trial (seed i
+for trial i) — no cherry-picking. Full source and evidence: `src/runtime/bbob.rs`,
+`src/bin/bbob_experiment.rs`, `experiments/bbob/evidence/`.
+
+**Convergence rate** (% of 30 trials reaching NF ≤ 0.01):
+
+| Function | Multimodal | T1–T4 | T1–T5 | Δ | T1–T4 Med tick | T1–T5 Med tick |
+|----------|------------|-------|-------|---|----------------|----------------|
+| f1 Sphere | no | 0.0% | 0.0% | 0.0% | — | — |
+| f2 Ellipsoid | no | 13.3% | 40.0% | **+26.7%** | 169 | 138 |
+| f15 Rastrigin | yes | 0.0% | 0.0% | 0.0% | — | — |
+| f24 Lunacek | yes | 0.0% | 0.0% | 0.0% | — | — |
+
+**Final normalized fitness at tick 200** — Median [Q1, Q3]:
+
+| Function | T1–T4 NF | T1–T5 NF | T5 Advantage |
+|----------|----------|----------|--------------|
+| f1 Sphere | 0.134 [0.082, 0.187] | 0.136 [0.067, 0.188] | 1.0× |
+| f2 Ellipsoid | 0.210 [0.067, 0.392] | 0.021 [0.005, 0.038] | **10.0×** |
+| f15 Rastrigin | 0.405 [0.351, 0.481] | 0.406 [0.368, 0.481] | 1.0× |
+| f24 Lunacek | 0.533 [0.449, 0.602] | 0.287 [0.245, 0.360] | **1.9×** |
+
+**T5 rewire selectivity:** T5 fired 0 proposals on f1 (stagnation never triggered — greedy
+descent makes continuous progress on the symmetric sphere), accepted 39/838 on f2 (4.7%),
+23/2519 on f15 (0.9%), and 49/1949 on f24 (2.5%). The low accept rate is a design feature: T5
+discards rotations that do not improve fitness, producing an outcome-gated lineage.
+
+**Interpretation:**
+
+*f1 Sphere:* Rotationally invariant — any basis rotation yields an equivalent landscape. T5
+correctly abstains (0 proposals fired). The 0% convergence for both conditions reflects a budget
+limitation: 200 ticks of coordinate-wise greedy descent in 10D does not reliably reach
+NF ≤ 0.01 from a uniform-random initialization. Both conditions converge comparably.
+
+*f2 Ellipsoid (ill-conditioned):* The 10^6 condition number creates a narrow ellipsoidal valley
+that coordinate-wise descent (T1) cannot follow efficiently. A T5 basis rotation aligns the search
+axes with the valley's principal direction, enabling the T1–T4 stack to exploit it. The result is a
+**10× median NF reduction** and **+26.7 pp convergence rate** improvement. The lineage
+(`experiments/bbob/evidence/lineage.md`) records each accepted rewire with tick, generation,
+fitness-before, and fitness-after — a compounding pattern visible across accepted events
+(e.g., Trial 1: rewire at tick 67, NF 0.056 → 0.012; subsequent T1–T4 descent reaches NF 0.002).
+
+*f15 Rastrigin (densely multimodal):* At DIM=10, Rastrigin has ~10^10 local optima on a
+regular grid. Each rotation lands in a new basin of comparable depth; improvements rarely
+compound within 200 ticks. The 0.9% accept rate reflects this — rewires are occasionally
+accepted when they chance upon a marginally better basin, but the gain is not systemic.
+This is an **honest null result** within the given budget: T5 is not universally superior,
+and the experiment correctly surfaces the boundary.
+
+*f24 Lunacek (bimodal):* T1–T4 reliably converge to the secondary (sub-optimal) basin.
+T5 rewires occasionally reorient the search toward the global basin, reducing median final NF
+by **46%** (0.533 → 0.287) without achieving full convergence within 200 ticks. A longer
+budget (≥500 ticks) is predicted to produce convergence rate separation comparable to f2.
+
+**What this establishes:** The T5 structural primitive is (a) selective — it rejects rotations
+that do not improve fitness, (b) *load-bearing* on ill-conditioned landscapes where parameter
+adjustment alone cannot resolve the conditioning artifact, and (c) directionally beneficial on
+bimodal landscapes where inter-basin structure requires a structural jump. It is not a
+universal improvement — the f1 and f15 results confirm falsifiability. This matches the
+theoretical claim in §2: T5 escape is load-bearing when the fitness landscape contains
+inter-basin topology that parameter adjustment cannot traverse.
 
 ---
 
@@ -383,7 +457,7 @@ Loom's role is to make the genome a typed, verifiable specification from which a
 
 ## 8. Limitations
 
-**Benchmark scale.** The `bench_colony_ladder` empirical demonstration runs 60 ticks on a single-machine scheduling problem with a synthetic non-stationary drift signal `D(t, φ) = 0.3|sin(0.05t + φ)| + 0.05ε`. This is sufficient to demonstrate T1→T4 auto-escalation but not inter-generational meiosis. Real BIOISO domains (AMR coevolution, climate intervention) operate on horizons of months to years; the 60-tick benchmark is a proof-of-mechanism, not an evaluation of domain performance.
+**Benchmark scale.** The `bench_colony_ladder` empirical demonstration runs 60 ticks on a single-machine scheduling problem with a synthetic non-stationary drift signal `D(t, φ) = 0.3|sin(0.05t + φ)| + 0.05ε`. This is sufficient to demonstrate T1→T4 auto-escalation but not inter-generational meiosis. Real BIOISO domains (AMR coevolution, climate intervention) operate on horizons of months to years; the 60-tick benchmark is a proof-of-mechanism, not an evaluation of domain performance. The BBOB experiment in §4.5 (30 trials × 200 ticks × 4 functions) validates the T5 structural primitive on a standard public benchmark and shows clear advantage on ill-conditioned (f2: 10× NF) and bimodal (f24: 1.9×) landscapes. It does not demonstrate full inter-generational meiosis, which requires the GS genome recompilation loop; that remains exercised only in the `experiments/bioiso/` suite. The f15 and f24 full-convergence results are budget-limited (200 ticks is insufficient for DIM=10 Rastrigin/Lunacek).
 
 **Meiosis requires recompilation infrastructure.** The T5 meiosis loop operates via a GitHub Actions workflow (`.github/workflows/evolve.yml`) and requires `cargo test` to pass after each genome application. This makes T5 practically limited to environments where recompilation is feasible — it is not a runtime mechanism. Systems without a build pipeline cannot operate at T5.
 
@@ -411,6 +485,7 @@ The implementation in Loom demonstrates that this model can be expressed as a ty
 - Ghiringhelli, J.C. (2026). Loom: Materialising Academic Semantic Specifications as First-Class Language Constructs. *Pragmaworks Preprint.*
 - Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
 - Hansen, N., & Ostermeier, A. (2001). Completely derandomized self-adaptation in evolution strategies. *Evolutionary Computation*, 9(2), 159–195.
+- Hansen, N., Finck, S., Ros, R., & Auger, A. (2009). Real-parameter black-box optimization benchmarking 2009: Noiseless functions definitions. *INRIA Research Report RR-6829.*
 - Holland, J.H. (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
 - Hutter, F., Kotthoff, L., & Vanschoren, J. (2019). Automated Machine Learning. Springer.
 - Johnson, D.S. (1974). Fast algorithms for bin packing. *Journal of Computer and System Sciences*, 8(3), 272–314.
