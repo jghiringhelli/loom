@@ -1,0 +1,19 @@
+{
+  "generation": 0,
+  "timestamp": "2026-04-28T00:00:00Z",
+  "railway_deploy_id": null,
+  "origin": "human",
+  "fitness_before": null,
+  "fitness_after": null,
+  "mutations": [
+    {
+      "domain": "all",
+      "type": "human",
+      "description": "BIOISO oracle installed. first_connection and first_post events added to connectionsService and feedService. Baseline fitness to be measured on first oracle run against staging DB.",
+      "commit": "pending",
+      "signal_target": "baseline",
+      "result": "pending"
+    }
+  ],
+  "notes": "Generation 0 — instrumentation only. No product behavior changed. Run the oracle against staging after next deploy to establish the baseline fitness_after snapshot. Subsequent generations will have fitness_before = previous gen's fitness_after."
+}
