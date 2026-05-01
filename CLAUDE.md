@@ -132,3 +132,121 @@ cargo test --lib --test-threads=1
 | Polycephalum rules | `src/runtime/bioiso_runner.rs` | `rules: vec![...]` in spawn calls |
 | Gate source | `src/runtime/gate.rs` | registered per entity |
 | Experiment config | `src/runtime/experiment.rs` | tick interval, log path |
+
+---
+
+## Invellum BIOISO Protocol (Living Domain)
+
+This section is the operational protocol for the **Invellum** living BIOISO domain — a B2C
+platform deployed on Railway. It is parallel to the loom-runtime section above but targets
+a Node.js/TypeScript codebase with Railway as the generation boundary.
+
+### What a generation is
+
+One Railway deploy of `invellum-backend` to production = one generation boundary.
+Signals accumulate in the live Postgres database for ≥7 days between deploys.
+The fitness oracle measures the delta. The genome lineage lives in `genomes/invellum/`.
+
+### Branch protocol
+
+BIOISO-proposed mutations NEVER go directly to `main`. Always:
+```
+git checkout -b bioiso/gen{N}/{domain}-{description}
+# apply mutation
+git push origin bioiso/gen{N}/...
+# run oracle on staging, human reviews, then merge to main
+```
+Human-initiated changes use normal commits on `main` or feature branches — no prefix required.
+Commit prefix for BIOISO proposals: `[bioiso gen:N domain:X] type: description`
+
+### Running the fitness oracle
+
+```sh
+cd invellum/invellum-backend
+
+# Against local DB (docker-compose up first)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/invellum npm run bioiso:oracle
+
+# Against staging (safe — read-only)
+DATABASE_URL=<railway staging url> npm run bioiso:oracle -- --days 7
+
+# Output to file
+DATABASE_URL=<url> npm run bioiso:oracle -- --out fitness.json
+```
+
+### Safety floors (hard stops — never override)
+
+Per `docs/invellum-fitness-oracle.md §1.4`:
+| Signal | Floor | Action if violated |
+|--------|-------|-------------------|
+| `d1_retention` | ≥ 0.55 | Revert immediately — no investigation first |
+| `d7_retention` | ≥ 0.25 | Revert immediately |
+| `monthly_churn` | ≤ 0.08 | Revert immediately |
+
+If oracle output contains `"safety": { "status": "VIOLATION" }` → revert the last commit on
+`main` and redeploy. Do not investigate first. Do not wait. Revert, then investigate.
+
+### Generation lifecycle
+
+```
+1. Read genomes/invellum/gen{N-1}/manifest.json → understand current baseline
+2. Propose mutation → create bioiso/gen{N}/domain-description branch
+3. Deploy branch to Railway staging
+4. Run oracle on staging (--days 7 minimum)
+5. Check safety.status — if VIOLATION, abandon the branch
+6. Human reviews oracle output and mutation diff
+7. If accepted: merge to main → Railway deploys to prod
+8. Wait 7 days → run oracle on prod → record fitness_after
+9. Fill genomes/invellum/gen{N}/manifest.json → commit to loom repo
+```
+
+### Mutation type → source mapping
+
+#### ParameterAdjust (Invellum)
+```
+domain:      onboarding
+parameter:   onboarding_step_order
+delta:       move "discover" before "connect"
+source:      invellum-frontend/app/onboarding/ — step order array
+verify:      pnpm test && pnpm build
+reason:      "onboarding_drop_step = connect for 5 consecutive days"
+```
+Apply directly to the frontend onboarding flow. One variable changed per commit.
+
+#### ParameterAdjust (backend config)
+```
+domain:      retention
+parameter:   churn_risk_threshold_days
+delta:       14 → 10
+source:      invellum-backend/src/modules/ — relevant service constant
+verify:      npx tsc --noEmit && pnpm test
+```
+
+#### StructuralRewire (Invellum)
+```
+domain:      feed_engagement
+signal:      session_depth
+wires_to:    notification_digest_frequency
+source:      invellum-backend/src/modules/notifications/ — digest controller
+verify:      npx tsc --noEmit
+reason:      "notification_open_rate < 0.10 for 7 days"
+```
+A StructuralRewire in Invellum = a new conditional in the controller logic that changes
+which signal drives which behavior. Not a parameter change — a graph edge change.
+
+### Cialdini isolation rule
+
+Only one Cialdini archetype per page per generation (see `docs/invellum-fitness-oracle.md §1.5`).
+Copy mutations require `@credibility_safe` annotation in the commit message.
+Mutations without it are held at T2 (staging only) until human review.
+
+### Source map (quick reference)
+| Domain | Primary source | Signal feed |
+|--------|---------------|------------|
+| onboarding | `invellum-frontend/app/onboarding/` | `UserAnalytics.event = 'first_connection' \| 'first_post'` |
+| feed_engagement | `invellum-backend/src/modules/feed/` | `UserActivitySession`, `Post`, `PostComment` |
+| retention | `invellum-backend/src/modules/` (various) | `UserActivitySession` (D1/D7/D30 cohorts) |
+| network_growth | `invellum-backend/src/modules/connections/` | `Connection` count per WAU |
+| conversion | `invellum-backend/src/modules/payments/` | `UserSubscription.status = ACTIVE` |
+| oracle script | `invellum-backend/scripts/bioiso-fitness-oracle.ts` | reads all of the above |
+| genome lineage | `genomes/invellum/gen{N}/manifest.json` | in this (loom) repo |
