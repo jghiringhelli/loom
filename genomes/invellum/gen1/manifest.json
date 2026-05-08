@@ -1,0 +1,43 @@
+{
+  "generation": 1,
+  "timestamp": "2026-05-08T00:00:00Z",
+  "railway_deploy_id": null,
+  "origin": "human",
+  "experiment": "invellum-mvc-1",
+  "experiment_meta_issue": "https://github.com/jghiringhelli/invellum-frontend/issues/1",
+  "fitness_before": null,
+  "fitness_after": null,
+  "mutations": [
+    {
+      "domain": "onboarding",
+      "type": "ParameterAdjust",
+      "description": "Localize industry interest options. Adds locale-aware name resolution at the data layer (schema or translation table) so Step1InterestSelection renders Spanish labels in es locale.",
+      "issue": "https://github.com/jghiringhelli/invellum-frontend/issues/2",
+      "branch": "bioiso/gen1/onboarding-industry-i18n",
+      "commit": "pending",
+      "signal_target": "onboarding_completion_rate (es-locale users)",
+      "result": "pending"
+    },
+    {
+      "domain": "feed_engagement",
+      "type": "ParameterAdjust",
+      "description": "Localize CreatePostDialog. Wires useI18n() and adds feed.composer translation slice covering POST_TYPES labels, placeholders, section headings, and visibility options.",
+      "issue": "https://github.com/jghiringhelli/invellum-frontend/issues/3",
+      "branch": "bioiso/gen1/feed-composer-i18n",
+      "commit": "pending",
+      "signal_target": "post_creation_rate (es-locale users)",
+      "result": "pending"
+    },
+    {
+      "domain": "feed_engagement",
+      "type": "ParameterAdjust",
+      "description": "Fix post-composer trigger card contrast. Replaces bg-white/70 backdrop-blur-sm with opaque bg-white dark:bg-gray-800 on app/feed/page.tsx:788 to restore WCAG AA contrast.",
+      "issue": "https://github.com/jghiringhelli/invellum-frontend/issues/4",
+      "branch": "bioiso/gen1/feed-composer-card-contrast",
+      "commit": "pending",
+      "signal_target": "post_creation_rate (all locales)",
+      "result": "pending"
+    }
+  ],
+  "notes": "Generation 1 — Meiosis MVC Experiment 1. Three human-reviewed bug fixes derived from real production usage. Generation cadence: bundle (all three merged before fitness_after is measured). Skok floors monitored via npm run bioiso:check during deploy window. Generation closes when fitness_after is recorded ≥7 days post final merge. See experiments/invellum-mvc-1/ for full protocol and hypothesis."
+}

@@ -61,3 +61,4 @@ Any mutation that degrades these is rejected regardless of T-tier.
 | Gen | Date       | Origin  | Primary domain   | Primary signal       | Δ score | Notes                      |
 |-----|------------|---------|------------------|----------------------|---------|----------------------------|
 | 0   | 2026-04-28 | human   | —                | baseline             | —       | Oracle installed, T0       |
+| 1   | 2026-05-08 | human   | onboarding + feed_engagement | i18n + contrast | pending | Meiosis MVC Experiment 1 — bundle gen of 3 bugs |

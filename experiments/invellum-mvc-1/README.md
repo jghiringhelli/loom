@@ -1,0 +1,60 @@
+# Invellum Meiosis MVC Experiment 1
+
+First real-product Meiosis BIOISO experiment. Domain: Invellum (B2C entrepreneurial networking platform, deployed on Railway).
+
+## Status
+
+**In progress** — gen0 baseline established, gen1 in flight.
+
+## Question being asked
+
+Does the T5 inter-generational meiosis loop produce useful work in a domain where:
+- The fitness signal is noisy and externally generated (real user behaviour)
+- We do not control the input distribution (real bugs, not synthetic perturbations)
+- The generation boundary is a real production deploy (Railway), not a simulation tick
+- The cost of error is real (paying users, retention floors, brand)
+
+The two prior T5 experiments — `experiments/bbob/` and `experiments/aegis/` — answered the structural-primitive question on closed domains. This experiment closes the *open-domain* gap.
+
+## Inputs
+
+- **Bug list**: 3 issues filed on `jghiringhelli/invellum-frontend` with label `bioiso-mvc-1`:
+  - [#2 Industry interest options not localized](https://github.com/jghiringhelli/invellum-frontend/issues/2) — `i18n`, `data-model`
+  - [#3 Post composer hardcoded English](https://github.com/jghiringhelli/invellum-frontend/issues/3) — `i18n`
+  - [#4 Feed post-composer trigger card has poor contrast](https://github.com/jghiringhelli/invellum-frontend/issues/4) — `ui-styling`
+- **Meta-issue**: [#1](https://github.com/jghiringhelli/invellum-frontend/issues/1) — experiment tracking
+- **Fitness oracle**: `invellum-backend/scripts/bioiso-fitness-oracle.ts`
+- **Safety check**: `npm run bioiso:check` (exits 1 on Skok floor violation)
+- **Genome**: `genomes/invellum/gen1/manifest.json`
+
+## Protocol
+
+Per `loom/CLAUDE.md` *Invellum BIOISO Protocol* section:
+
+1. Read meta-issue (#1) → understand experiment scope
+2. For each bug issue (#2, #3, #4):
+   1. `git checkout -b bioiso/gen1/<domain>-<description>`
+   2. Apply fix; pass `pnpm test && npx tsc --noEmit`
+   3. Commit with `[bioiso gen:1 domain:X] type: description`
+   4. Push, open PR, link to issue
+3. Human reviews each PR; merges trigger Railway redeploys (one generation per merge OR all-three-as-one bundle generation — see `hypothesis.md` for the variable)
+4. Wait ≥7 days post-deploy
+5. Run oracle on prod: `railway run npm run bioiso:oracle:staging` (against prod DB; `:staging` is the 7-day-window flag, not the env)
+6. Record results in `evidence/` and `genomes/invellum/gen1/manifest.json`
+7. Tag commit on loom repo: `feat(bioiso): Invellum gen1 — Meiosis MVC Experiment 1`
+
+## Acceptance criteria
+
+- [ ] All 3 issues fixed and merged to `main`
+- [ ] No `safety.status: "VIOLATION"` from oracle in the deploy window
+- [ ] All 339 backend tests still pass post-merge
+- [ ] gen1 `manifest.json` filled with `fitness_after`
+- [ ] Generation log row in `genomes/invellum/README.md`
+- [ ] Adversarial review: `experiments/invellum-mvc-1/evidence/post-mortem.md` written
+
+## Monitoring layer
+
+GitHub issues are the async communication layer for this experiment.
+The forgecraft-eye `github-issues` adapter (separate work, see `forgecraft-eye/src/adapters/github-issues.ts`) polls the `bioiso-mvc-1` label and emits T4 signals into `.forgecraft/t4-signals.json`, which forgecraft-mcp surfaces in the next AI session.
+
+This is intentional: the experiment validates not just the meiosis loop, but the **observation channel** that drives it.

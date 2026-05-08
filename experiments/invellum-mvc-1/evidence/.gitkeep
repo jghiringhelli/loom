@@ -1,0 +1,10 @@
+# evidence/ — populated as the experiment runs
+
+Files that will appear here:
+
+- `gen0-fitness-snapshot.json` — oracle output establishing the baseline (after first staging deploy of gen0 instrumentation)
+- `gen1-fitness-snapshot.json` — oracle output ≥7 days after gen1 deploy
+- `delta.md` — human-readable fitness delta analysis
+- `pr-list.md` — links to the merged PRs that produced gen1
+- `post-mortem.md` — adversarial review after gen1 closes (what went well, what didn't, what to change for gen2)
+- `oracle-runs.jsonl` — raw oracle outputs (one per line) for any run during the experiment window
