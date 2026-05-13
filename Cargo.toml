@@ -10,6 +10,9 @@ documentation = "https://docs.rs/loom"
 readme = "README.md"
 keywords = ["compiler", "language", "ai-native", "correctness", "transpiler"]
 categories = ["compilers", "development-tools", "command-line-utilities"]
+# examples/*.rs are emission outputs from `loom compile`, not cargo example bins.
+# Disable auto-discovery so `cargo build --examples` doesn't trip on them.
+autoexamples = false
 exclude = [
   "experiments/",
   "corpus/",
@@ -67,6 +70,10 @@ path = "src/bin/bench_neural_tsp.rs"
 [[bin]]
 name = "bbob_experiment"
 path = "src/bin/bbob_experiment.rs"
+
+[[bin]]
+name = "aegis_experiment"
+path = "src/bin/aegis_experiment.rs"
 
 [lib]
 name = "loom"
