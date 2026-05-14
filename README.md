@@ -199,8 +199,9 @@ See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
 
 | Document | Purpose |
 |----------|---------|
+| **[`docs/manual.md`](docs/manual.md)** | **Canonical manual** — start here for the full Loom reference |
 | [`docs/getting-started.md`](docs/getting-started.md) | 10-minute install → compile → run guide |
-| [`docs/language-spec.md`](docs/language-spec.md) | Complete language reference |
+| [`docs/language-spec.md`](docs/language-spec.md) | Formal language specification (companion to the manual) |
 | [`docs/taxonomy.md`](docs/taxonomy.md) | 5-tier optimization taxonomy and BIOISO ontology |
 | [`docs/bioiso-loom-convergence.md`](docs/bioiso-loom-convergence.md) | BIOISO formal disciplines and compiler enforcement |
 | [`docs/foundations.md`](docs/foundations.md) | Theoretical foundations (type theory, PLN, OU convergence) |
