@@ -1,15 +1,15 @@
-# BIOISO: Biological Isomorphism for Self-Evolving Computational Entities
+# BIOISO: A Biologically-Inspired Framework for Self-Evolving Computational Entities
 
 **Author:** Juan Carlos Ghiringhelli (Pragmaworks)  
-**Status:** Preprint  
-**Repository:** github.com/pragmaworks/loom  
-**Related:** Loom Language White Paper (Ghiringhelli, 2026); Generative Specification (Ghiringhelli, 2026)
+**Status:** Preprint v1 — empirical validation and structural argument; formal autopoietic isomorphism is forthcoming work (see §3.5).  
+**Repository:** github.com/jghiringhelli/loom  
+**Related:** *Onwards: The Formal Tradition Was Waiting for Its Executor* (Ghiringhelli, 2026 — companion essay carrying the autopoietic argument); Loom Language White Paper (Ghiringhelli, 2026); Generative Specification (Ghiringhelli, 2026).
 
 ---
 
 ## Abstract
 
-We present the BIOISO model — Biological Isomorphism — a formal framework for computational entities that adapt their own algorithmic structure across generations. A BIOISO entity is not a meta-heuristic; it is a being whose genome encodes an optimization strategy, whose meiosis mechanism promotes surviving mutations into the next compiled binary, and whose telomere lifecycle bounds the scope of structural change within a generation. We prove a five-tier ceiling hierarchy (T1–T5): each tier adds exactly one primitive that the tier below cannot express, and each primitive enables a class of convergence that is structurally unreachable without it. The T5 primitive — structural self-modification via meiosis — is the first mechanism that operates on the space of *algorithms*, not the space of parameter values or operator selections. We implement the hierarchy in the Loom language (`solver_tiers.rs`, `examples/ladder.loom`, `bench_colony_ladder`, and the `.loom`→BIOISO bridge in `being_loader.rs`) and demonstrate empirically that scheduling entities at T1–T4 saturate on non-stationary drift while T5 entities continue to decrease drift through structural promotion. The BIOISO model ships with ten seeded domains where lower-tier methods provably saturate: antimicrobial resistance coevolution, HFT flash crash detection, JIT compiler optimization, cancer drug resistance, ICS zero-day defense, quantum error mitigation, climate intervention sequencing, biosphere biodiversity, ocean circulation homeostasis, and AEGIS delta-neutral DeFi strategy evolution.
+We present BIOISO — a biologically-inspired framework for computational entities that adapt their own algorithmic structure across generations. A BIOISO entity is not a meta-heuristic; it is a being whose genome encodes an optimization strategy, whose meiosis mechanism promotes surviving mutations into the next compiled binary, and whose telomere lifecycle bounds the scope of structural change within a generation. We argue for a five-tier ceiling hierarchy (T1–T5), supported by proof sketches in §2 and empirical validation in §4.5–§4.6: each tier adds exactly one primitive that the tier below cannot express, and each primitive enables a class of convergence that is structurally unreachable without it. The T5 primitive — structural self-modification via meiosis — is the first mechanism that operates on the space of *algorithms*, not the space of parameter values or operator selections. We implement the hierarchy in the Loom language (`solver_tiers.rs`, `examples/ladder.loom`, `bench_colony_ladder`, and the `.loom`→BIOISO bridge in `being_loader.rs`). We empirically validate the T5 structural primitive in two settings: the COCO/BBOB f2 ill-conditioned ellipsoid (§4.5, 10× median NF reduction across 30 trials — a public benchmark controlled experiment, not itself a "domain" in §5's sense) and the AEGIS delta-neutral DeFi strategy across five market regimes (§4.6, inter-generational topology switching with measured Sharpe advantage at regime boundaries). The BIOISO model seeds ten domains in §5: eight T5 domains (one empirically validated — AEGIS — and seven theoretically motivated, where the structural criterion for T5 is satisfied but empirical validation is forthcoming work), plus two calibration domains (T3 ocean_circulation, T4 biosphere) included to demonstrate that the framework correctly assigns lower tiers where they are sufficient and does not default to T5 everywhere. The framing of BIOISO as a *formal* biological isomorphism — in the sense of Maturana and Varela's autopoiesis (1972) — is deferred to a companion paper currently in preparation; this paper uses "biologically-inspired" to denote structural inspiration, not formal organizational-closure equivalence.
 
 ---
 
@@ -23,13 +23,30 @@ BIOISO is the answer to the question: what is the tier above T4? The answer is n
 
 This paper makes four contributions:
 
-1. **Formal ceiling hierarchy (Section 2):** A proof-structured argument that T1–T5 form a strict hierarchy, with each tier's ceiling explicitly derived from its primitive's expressive bounds.
+1. **Ceiling hierarchy argument (Section 2):** A proof-sketch-structured argument that T1–T5 form a strict hierarchy, with each tier's ceiling explicitly derived from its primitive's expressive bounds. The arguments are sketches in the academic sense — they identify the structural reason a ceiling exists and cite the underlying impossibility result (e.g., No Free Lunch, RKHS-closure); they are not machine-checked proofs.
 
-2. **BIOISO formal model (Section 3):** A specification of the T5 entity — genome, telomere lifecycle, meiosis mechanism, and the conditions under which structural mutation fires.
+2. **BIOISO operational model (Section 3):** A specification of the T5 entity — genome, telomere lifecycle, meiosis mechanism, and the conditions under which structural mutation fires.
 
-3. **Implementation in Loom (Section 4):** The full keyword-level implementation of T1–T5 in the Loom language, including `plasticity:`, `learn:`, `rewire:`, and the runtime `solver_tier` auto-escalation mechanism.
+3. **Implementation in Loom (Section 4):** The full keyword-level implementation of T1–T5 in the Loom language, including `plasticity:`, `learn:`, `rewire:`, and the runtime `solver_tier` auto-escalation mechanism. Two controlled experiments validate the T5 structural primitive: §4.5 on the COCO/BBOB benchmark suite, §4.6 on the AEGIS DeFi strategy.
 
-4. **Empirical demonstration (Section 5):** Benchmark results showing T1–T4 saturation and T5 escape on the scheduling ladder problem, plus the ten BIOISO domains where the structural escape is load-bearing.
+4. **Domain seeding (Section 5):** Ten domains seeded under the BIOISO model — two empirically validated (§4.5, §4.6) and eight theoretically motivated. The eight motivated domains satisfy the structural criterion for T5 (the optimal solution class changes during the experiment horizon); empirical validation on each is forthcoming work.
+
+### 1.1 Scope of claims
+
+To prevent the framing from outrunning the evidence, this paper distinguishes four levels of claim and notes which apply where:
+
+- **Proved:** Properties whose argument follows from a cited published result applied to the construction here — e.g., the T1 ceiling follows from No Free Lunch (Wolpert & Macready 1997) applied to a non-stationary instance distribution; the T4 ceiling follows from RKHS-closure properties of Gaussian-process kernels.
+- **Argued (proof sketch):** Properties 1 (Monotone Lineage) and 2 (Structural Escape) in §3.4 are presented as arguments with named scope limitations. Property 1 establishes a per-mutation drift-improvement invariant that lifts to a lineage-level expectation under stated assumptions; the full lineage-level monotonicity in non-stationary regimes is not proved here. Property 2 is an existence argument conditional on candidate-pool adequacy.
+- **Empirically validated:** The T5 structural primitive on BBOB f2 (10× median NF reduction across 30 trials, §4.5 — a public benchmark, not a "domain") and on the AEGIS bimodal regime structure (10/10 correct topology switches at StrongBull epochs, §4.6 — the `aegis_delta_neutral` T5 domain, §5.8).
+- **Theoretically motivated, empirically unvalidated:** Seven of the eight T5 domains in §5 — namely §5.1 amr_coevolution, §5.2 flash_crash, §5.3 adaptive_jit, §5.4 protein_drug_resistance, §5.5 ics_zero_day, §5.6 quantum_error_mitigation, §5.7 climate_intervention. The structural criterion for T5 is satisfied for each; the T5 mechanism is specified; their empirical validation analogous to §4.6 is forthcoming work.
+- **Calibration:** §5.9 biosphere (T4) and §5.10 ocean_circulation (T3) are deliberately *not* BIOISO/T5 entities. They are included to demonstrate that the framework correctly assigns lower tiers where they are sufficient, providing the falsifiability boundary for the "T5 is necessary" claim.
+
+What this paper does **not** claim:
+- A formal autopoietic isomorphism (Maturana & Varela 1972) between BIOISO meiosis and biological self-production. The structural inspiration is acknowledged; the formal organizational-closure equivalence is the subject of a companion paper in preparation (see §3.5).
+- Deployment-validated performance for any of the seven theoretically-motivated T5 domains (§5.1–§5.7).
+- Convergence rate bounds on the meiosis cycle. Property 2 is an existence argument, not a bound.
+
+The autopoietic/biological-isomorphism *argument* — the claim that BIOISO exhibits functional isomorphism with self-maintaining biological systems — is developed in the companion essay *Onwards: The Formal Tradition Was Waiting for Its Executor* (Ghiringhelli 2026, submitted to ACM SIGPLAN Onward! 2026). The present paper supplies the operational model and initial empirical evidence; the essay supplies the theoretical framing.
 
 ---
 
@@ -111,7 +128,7 @@ GP-UCB selects the next configuration by maximising `UCB(x) = μ(x) + β·σ(x)`
 
 A BIOISO entity `B` is a tuple `(G, T, M, Ω)` where:
 
-- **G (Genome):** A `.loom` specification file encoding the being's current algorithm tier, parameter bounds, and structural constraints. The genome is machine-readable and derivable — a stateless AI reader can apply mutations from the genome without prior context.
+- **G (Genome):** A `.loom` specification file encoding the being's current algorithm tier, parameter bounds, and structural constraints. The genome is machine-readable and *GS-derivable* — meaning a stateless reader (a human or an AI session with no prior context) can apply a mutation specified in the genome's machine-readable `-- GS EVOLUTION SPEC` blocks to source code without consulting external state. Derivability is the foundational GS property: every other artifact (Rust source, TypeScript declarations, OpenAPI definitions, JSON Schema) is mechanically derivable from the same `.loom` source; see Ghiringhelli (2026, Generative Specification) for the formal treatment.
 
 - **T (Telomere):** A bounded counter `t ∈ [0, t_max]` incremented on each generational division. When `t = t_max`, the entity enters senescence: surviving mutations are committed to the genome and a new entity is spawned from the updated specification.
 
@@ -156,15 +173,34 @@ Only mutations passing all three filters are written to `G_{n+1}`. The meiosis g
 
 ### 3.4 Formal Properties
 
-**Property 1 (Monotone lineage):** Let `D(G_n)` be the mean drift score across all ticks of generation `n`. Then `E[D(G_{n+1})] ≤ E[D(G_n)]` for all `n`.
+**Property 1 (Monotone lineage — proof sketch under stationarity):** Let `D(G_n)` be the mean drift score across all ticks of generation `n`, and let `D̃(m, G_n)` denote the drift improvement at the tick when mutation `m` was applied during generation `n`. Under the assumption that the instance distribution at generations `n` and `n+1` is identically distributed (i.i.d. across generation boundaries), `E[D(G_{n+1})] ≤ E[D(G_n)]`.
 
-**Proof:** The meiosis gate only promotes mutations that reduced drift. If no mutations pass the gate, `G_{n+1} = G_n` and `D(G_{n+1}) = D(G_n)`. If mutations are promoted, each applied mutation reduced drift at time of application, so the expected drift of the next generation is at most equal to the current.
+**Proof-sketch argument:** The meiosis gate (§3.3) only promotes a mutation `m` if `D̃(m, G_n) ≥ δ_min > 0` — the mutation reduced drift at its application tick by at least `δ_min`. If no mutations pass the gate, `G_{n+1} = G_n` and `D(G_{n+1}) = D(G_n)` deterministically. If mutations are promoted, then on instances drawn from the same distribution as those of generation `n`, each promoted mutation produces a drift improvement bounded below by `δ_min` in expectation, so generation `n+1`'s expected mean drift is at most `D(G_n) − (∑_m δ_min)/T_max`.
+
+**Scope limitations of this argument:**
+- *Non-stationarity.* In genuinely non-stationary regimes (the case the framework is designed for, see §1), the instance distribution at generation `n+1` differs from generation `n`. The per-tick improvement at application time does not directly bound the next generation's expected drift over its full lifetime. A complete proof requires bounding the regret between application-time drift improvement and lifetime expected drift; this is beyond the present paper.
+- *Stability filter coverage.* The gate's stability filter (`cargo test --lib` passes after mutation) is necessary but not sufficient for downstream lineage monotonicity — passing tests at one generation does not guarantee non-degradation under a subsequent regime change.
+- *Adversarial mutation composition.* Two mutations each individually drift-reducing may interact non-additively in composition. The current gate evaluates mutations in isolation against the post-application state but does not jointly validate the full promoted set.
+
+A complete proof of lineage-level monotonicity under non-stationary regimes is forthcoming work.
 
 **Property 2 (Structural escape):** For any problem class `P` where T1–T4 saturate, there exists a sequence of structural mutations `m_1, ..., m_k` such that `D(G_0 + m_1 + ... + m_k) < τ_telos` (below telos threshold).
 
 **Proof sketch:** The candidates pool in `rewire: candidates: [...]` can include `novel_hypothesis` — a placeholder for algorithm classes not present in the initial genome. The MeiosisEngine generates candidate implementations from the genome specification using the GS derivation rules. Since the genome is a Turing-complete specification (any algorithm expressible in the loom type system can be encoded), there exists a sequence of structural mutations that can represent any computable optimization strategy. *Note on scope:* This is an existence argument — it establishes that a convergent mutation sequence exists for any computable problem class, not that the meiosis engine will find it in a bounded number of generations. In practice, the candidate pool must include the target algorithm class for convergence to occur; curating the initial candidate pool is a human design decision.
 
 **Property 3 (Bounded change):** The structural change per generation is bounded by `|M_promoted|` — the number of promoted mutations. Since each mutation has a declared type and safety filter, the space of possible structural changes per generation is finite.
+
+### 3.5 Relation to autopoiesis (scope of the biological-isomorphism claim)
+
+The title of this paper uses "biologically-inspired." It does *not* use "biological isomorphism" in the strong formal sense that Maturana and Varela introduced. The distinction is load-bearing for what the paper claims.
+
+**What we mean by "biologically-inspired."** The mechanisms named in §3.1 — genome, telomere, meiosis — are taken from biology as structural inspiration. The names denote the architectural role each plays (an information store that is read but never consumed; a generational lifecycle counter; a mutation-promotion gate operating on the information store), and the role is structurally similar to the biological mechanism that shares the name. This is a *functional analogy* — the resemblance is at the level of role and operation, not at the level of a proved equivalence between the formal systems.
+
+**What we do not claim.** Maturana and Varela (1972) defined autopoiesis as the organizational closure of a self-producing system — a system whose components produce themselves and through that self-production maintain the system's boundary. Subsequent work (Di Paolo 2005; Bianchini 2023) formalizes the criteria under which a non-biological system can be said to exhibit autopoiesis: organizational closure, self-production of components, boundary maintenance, and a recognized substrate-independence argument. **Establishing that BIOISO satisfies these criteria is a separate piece of work that this paper does not attempt.** The architecture is *consistent* with autopoietic structure — the genome produces the binary that produces the next genome, the meiosis gate maintains the boundary of admissible mutations, the telomere defines a generational closure — but consistency is not equivalence. The formal demonstration requires biological-systems expertise this paper's author does not bring alone.
+
+**Forthcoming work.** A companion paper, currently in preparation in collaboration with a biological-systems researcher, develops the formal autopoietic isomorphism: an organizational-closure equivalence between BIOISO's `(G, T, M, Ω)` structure and the Maturana–Varela definition, with explicit treatment of substrate-independence under Di Paolo's adaptivity criteria. That paper, when complete, will replace the present paper's "biologically-inspired" framing with the stronger formal claim where it is warranted, and identify where it is not.
+
+**Where the broader argument lives.** The theoretical framing connecting BIOISO to the larger thesis — that the formal tradition of correct computing has been waiting for an executor (the LLM as Logos to the formal Nous), that GS is the discipline that connects them, and that the resulting systems exhibit *directed formal autopoiesis* as a structural consequence — is developed in the companion essay *Onwards: The Formal Tradition Was Waiting for Its Executor* (Ghiringhelli 2026, submitted to ACM SIGPLAN Onward! 2026). The essay carries the autopoietic argument; this paper supplies the operational model and the initial empirical evidence. Readers seeking the theoretical scaffolding should read the two together; readers seeking the proof of formal isomorphism should wait for the forthcoming companion paper.
 
 ---
 
@@ -182,7 +218,7 @@ T4BayesScheduler  — + learn: gaussian_process
 T5BIOISOScheduler — + rewire: + telomere: (meiosis via GS genome loop)
 ```
 
-The file compiles clean (`loom compile examples/ladder.loom → OK`), proving all five tiers are valid loom syntax.
+The file compiles clean (`loom compile examples/ladder.loom → OK`), demonstrating syntactic validity of the five-tier vocabulary — the loom checker accepts each `being:` block under its declared tier's required keyword set. This is a syntactic validation only; semantic adequacy (that each tier's runtime behavior matches the tier's theoretical description) is established by the experiments in §4.5 and §4.6.
 
 ### 4.2 `src/runtime/solver_tiers.rs`
 
@@ -339,7 +375,17 @@ Cumulative 5-epoch mean Sharpe: T1–T4 = 1.710, T1–T5 = 1.686 (Δ = +0.012).
 
 ---
 
-## 5. The Ten BIOISO Domains
+## 5. Ten Seeded Domains: One T5 Validated, Seven Theoretically Motivated, Two Calibration
+
+The BIOISO framework seeds ten domains. The split, made explicit:
+
+- **§5.8 `aegis_delta_neutral`** — the one T5 domain empirically validated in this paper (§4.6).
+- **§5.1–§5.7** — seven T5 domains theoretically motivated below. Each satisfies the structural criterion for T5 (the optimal solution class changes during the experiment horizon, making `StructuralRewire` rather than `ParameterAdjust` the load-bearing primitive). Empirical validation analogous to §4.6 is forthcoming work for each.
+- **§5.9 `biosphere`** (T4 calibration) and **§5.10 `ocean_circulation`** (T3 calibration) — deliberately *not* BIOISO/T5 entities. They are included to demonstrate that the framework correctly assigns lower tiers where they are sufficient, providing the falsifiability boundary for the framework's "T5 is necessary" claim.
+
+A separate controlled experiment on the COCO/BBOB f2 ill-conditioned ellipsoid (§4.5) validates the T5 *primitive* on a standard public benchmark; it is not itself a "BIOISO domain" in the sense of §5 but provides reproducible evidence on a non-domain landscape.
+
+For each domain we present (a) why T1–T4 are predicted to saturate, (b) the T5 mechanism that addresses the saturation, and where applicable (c) the academic baseline that establishes the structural-criterion bar. Empirical-status is summarized in the domain table at the end of §5.
 
 BIOISO domains satisfy three criteria: (1) the fitness landscape is coevolutionary or structurally non-stationary; (2) `StructuralRewire` is load-bearing — `ParameterAdjust` cannot converge; (3) the problem is currently unsolved or inadequately addressed at T1–T4.
 
@@ -411,22 +457,24 @@ These two calibration domains are not BIOISO (T5) entities — they are included
 
 **Domain summary:**
 
-| Domain | Tier | T5 reason |
-|--------|------|-----------|
-| `amr_coevolution` | T5 | Pathogen evolves binding targets structurally |
-| `flash_crash` | T5 | Adversarial gaming invalidates all fixed detection rules |
-| `adaptive_jit` | T5 | Hot-path profile changes IR pass topology |
-| `protein_drug_resistance` | T5 | Target mutation makes hypothesis class wrong |
-| `ics_zero_day` | T5 | Zero-days have no training-data ancestors |
-| `quantum_error_mitigation` | T5 | Recalibration changes gate decomposition topology |
-| `climate_intervention` | T5 | Intervention changes causal graph structure |
-| `aegis_delta_neutral` | T5 | Liquidity topology coevolves with strategies |
-| `biosphere` | T4 | Stable causal structure; GP-UCB sufficient |
-| `ocean_circulation` | T3 | Fixed operator portfolio covers mechanism space |
+| Domain | Tier | T5 reason | Empirical status (this paper) |
+|--------|------|-----------|-------------------------------|
+| `amr_coevolution` | T5 | Pathogen evolves binding targets structurally | Theoretically motivated |
+| `flash_crash` | T5 | Adversarial gaming invalidates all fixed detection rules | Theoretically motivated |
+| `adaptive_jit` | T5 | Hot-path profile changes IR pass topology | Theoretically motivated |
+| `protein_drug_resistance` | T5 | Target mutation makes hypothesis class wrong | Theoretically motivated |
+| `ics_zero_day` | T5 | Zero-days have no training-data ancestors | Theoretically motivated |
+| `quantum_error_mitigation` | T5 | Recalibration changes gate decomposition topology | Theoretically motivated |
+| `climate_intervention` | T5 | Intervention changes causal graph structure | Theoretically motivated |
+| `aegis_delta_neutral` | T5 | Liquidity topology coevolves with strategies | **Empirically validated (§4.6)** |
+| `biosphere` | T4 | Stable causal structure; GP-UCB sufficient | Calibration domain (tier placement) |
+| `ocean_circulation` | T3 | Fixed operator portfolio covers mechanism space | Calibration domain (tier placement) |
+
+A separate controlled experiment on the COCO/BBOB f2 ill-conditioned ellipsoid (§4.5) validates the T5 structural primitive on a standard public benchmark; it is not itself a "BIOISO domain" in the sense above but provides reproducible evidence on a non-domain landscape.
 
 ---
 
-The ten BIOISO domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. For the eight T5 domains, T5 is not a performance improvement. It is the only mechanism that can converge.
+The eight motivated T5 domains are not selected because they are prominent — they are selected because they satisfy the structural criterion: the optimal solution's *class* changes during the experiment horizon, making T1–T4 saturation a mathematical consequence rather than a practical limitation. **For each domain, an empirical validation analogous to §4.6 (AEGIS) is forthcoming work**; without that validation, the present paper claims theoretical motivation only — the structural criterion is satisfied, and the T5 mechanism is specified, but performance on the live domain is not measured here.
 
 ---
 
@@ -497,13 +545,19 @@ Loom's role is to make the genome a typed, verifiable specification from which a
 
 **Domain baselines are simulated.** The CEMS runtime runs signal simulators calibrated to academic baselines, not live data streams. Results do not constitute deployment-validated evidence for any specific application domain.
 
+**Empirical evidence covers one T5 domain plus one controlled primitive experiment.** Of the eight T5 domains in §5 (§5.1–§5.8), only `aegis_delta_neutral` (§5.8) is empirically validated in this paper, via §4.6. The COCO/BBOB f2 experiment (§4.5) validates the T5 *primitive* on a standard public benchmark but is not itself a BIOISO domain. The remaining seven T5 domains (§5.1–§5.7) are theoretically motivated — the structural criterion is satisfied and the T5 mechanism is specified, but their empirical validation is forthcoming work. The two calibration domains (§5.9–§5.10) are tier-placement examples, not T5 entities. A reader skeptical of the framework should weight the empirical claims accordingly.
+
+**Formal biological isomorphism is not demonstrated in this paper.** The "biologically-inspired" framing in §3.5 acknowledges structural inspiration, not formal organizational-closure equivalence with biological autopoiesis (Maturana & Varela 1972). Establishing the formal isomorphism — that BIOISO's `(G, T, M, Ω)` structure satisfies the autopoietic criteria as formalized by Maturana–Varela and subsequent work (Di Paolo 2005; Bianchini 2023) — is the subject of a companion paper currently in preparation; that paper will require biological-systems expertise this paper's author does not bring alone. The broader autopoietic argument (BIOISO and Loom as instances of *directed formal autopoiesis*) is developed in the companion essay *Onwards* (Ghiringhelli 2026); see §3.5 for the relationship between the three works.
+
 ---
 
 ## 9. Conclusion
 
-The BIOISO model formalizes a five-tier hierarchy of optimization entities, with T5 being the first tier whose adaptations operate on the space of algorithms rather than the space of parameter values, operator selections, or surrogate model weights. The T5 escape mechanism — structural self-modification via meiosis — is the only mechanism that can compound algorithmic improvements across generations without requiring a human developer to write new source code.
+The BIOISO framework proposes a five-tier hierarchy of optimization entities, with T5 being the first tier whose adaptations operate on the space of algorithms rather than the space of parameter values, operator selections, or surrogate model weights. The T5 escape mechanism — structural self-modification via meiosis — is the first mechanism that compounds algorithmic improvements across generations without requiring a human developer to write new source code each cycle.
 
-The implementation in Loom demonstrates that this model can be expressed as a typed, verifiable specification: `learn:`, `plasticity:`, `rewire:`, and `telomere:` are first-class keywords with checker rules, parser implementations, and runtime dispatch logic. The `examples/ladder.loom` file provides a complete, compilable specification of the T1→T5 progression for job scheduling. The `bench_colony_ladder` binary demonstrates the auto-escalation mechanism empirically.
+The implementation in Loom demonstrates that this framework can be expressed as a typed, verifiable specification: `learn:`, `plasticity:`, `rewire:`, and `telomere:` are first-class keywords with checker rules, parser implementations, and runtime dispatch logic. The `examples/ladder.loom` file provides a compilable specification of the T1→T5 progression for job scheduling. The `bench_colony_ladder` binary demonstrates intra-generational auto-escalation; the BBOB experiment (§4.5) validates the T5 structural primitive on a public benchmark with reproducible advantage on ill-conditioned landscapes; the AEGIS experiment (§4.6) closes the inter-generational meiosis gap with measured Sharpe advantage in the regime where T1–T4 cannot operate.
+
+**Status.** This is preprint v1. The eight theoretically-motivated domains in §5 await empirical validation analogous to §4.6. The formal autopoietic isomorphism — establishing organizational-closure equivalence between BIOISO and the Maturana–Varela definition — is the subject of a companion paper in preparation. The broader theoretical framing (the formal tradition waiting for its executor; the AI as Logos to the formal Nous; directed formal autopoiesis as the structural category) is developed in the companion essay *Onwards* (Ghiringhelli 2026, submitted to ACM SIGPLAN Onward! 2026). Readers seeking the theoretical scaffolding should read the three works together; readers seeking proof of formal isomorphism should wait for the forthcoming companion paper.
 
 ---
 
@@ -513,7 +567,11 @@ The implementation in Loom demonstrates that this model can be expressed as a ty
 - Burke, E.K., et al. (2013). Hyper-heuristics: A survey of the state of the art. *Journal of the Operational Research Society*, 64(12), 1695–1724.
 - Garcia-Molina, H., & Salem, K. (1987). Sagas. *ACM SIGMOD Record*, 16(3), 249–259.
 - Ghiringhelli, J.C. (2026). Loom: Materialising Academic Semantic Specifications as First-Class Language Constructs. *Pragmaworks Preprint.*
-- Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.*
+- Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic Programming Paradigm for the Stateless Reader. *Pragmaworks Preprint.* https://doi.org/10.5281/zenodo.19637142
+- Ghiringhelli, J.C. (2026). Onwards: The Formal Tradition Was Waiting for Its Executor. *Submitted to ACM SIGPLAN Onward! 2026.*
+- Maturana, H.R., & Varela, F.J. (1972). *De Máquinas y Seres Vivos: Autopoiesis — La Organización de lo Vivo.* Editorial Universitaria.
+- Di Paolo, E.A. (2005). Autopoiesis, Adaptivity, Teleology, Agency. *Phenomenology and the Cognitive Sciences*, 4(4), 429–452.
+- Bianchini, F. (2023). Autopoiesis of the Artificial: From Systems to Cognition. *BioSystems*, 234, 105065.
 - Hansen, N., & Ostermeier, A. (2001). Completely derandomized self-adaptation in evolution strategies. *Evolutionary Computation*, 9(2), 159–195.
 - Hansen, N., Finck, S., Ros, R., & Auger, A. (2009). Real-parameter black-box optimization benchmarking 2009: Noiseless functions definitions. *INRIA Research Report RR-6829.*
 - Holland, J.H. (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
