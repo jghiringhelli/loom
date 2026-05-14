@@ -54,6 +54,8 @@ The broader *speculative argument* — that BIOISO and Loom exhibit structural a
 
 ## 2. The Five-Tier Ceiling Hierarchy
 
+> **Tier-naming note (BIOISO vs GS lifecycle cascade).** The BIOISO tier hierarchy named in §2.1–§2.6 enumerates *optimization complexity* — fixed-rule dispatch (T1) through structural self-modification via meiosis (T5), mapping the algorithmic primitives that can or cannot escape a saturation regime. This is distinct from the GS cascade tiers named in the companion essay [Ghiringhelli 2026, *Onwards*; companion paper §V] and developed in full in the GS framework, which enumerate *software-lifecycle stages*: T1 Development, T2 Staging / Pre-production, T3 Production, T4 Evolution, plus higher synthesis tiers and two transversal layers (generative execution, judgment layer). The two namespaces overlap by accident — both use Tn — and converge at one point: **GS T4 (the *Evolution* lifecycle stage) is the lifecycle stage at which BIOISO operates**; **BIOISO T5 (the *structural self-modification* primitive) is the operational mechanism the GS T4 stage employs**. When this paper writes "T5" without qualifier, BIOISO T5 is meant; when the GS lifecycle stage is meant, the paper writes "GS T4 (Evolution)". This namespace separation is deliberate: BIOISO is a domain-specific instantiation of the GS T4 stage, not a parallel framework.
+
 ### 2.1 Definitions
 
 **Definition 1 (Optimization tier):** A tier is characterized by the primitive it adds to the tier below. A being at tier T possesses all primitives of tiers 1 through T.
