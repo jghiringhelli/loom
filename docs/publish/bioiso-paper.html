@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>BIOISO: Biological Isomorphisms in Formal Self-Maintaining Systems</title>
+  <style>
+html {
+color: #1a1a1a;
+background-color: #fdfdfd;
+}
+body {
+margin: 0 auto;
+max-width: 36em;
+padding-left: 50px;
+padding-right: 50px;
+padding-top: 50px;
+padding-bottom: 50px;
+hyphens: auto;
+overflow-wrap: break-word;
+text-rendering: optimizeLegibility;
+font-kerning: normal;
+}
+@media (max-width: 600px) {
+body {
+font-size: 0.9em;
+padding: 12px;
+}
+h1 {
+font-size: 1.8em;
+}
+}
+@media print {
+html {
+background-color: white;
+}
+body {
+background-color: transparent;
+color: black;
+font-size: 12pt;
+}
+p, h2, h3 {
+orphans: 3;
+widows: 3;
+}
+h2, h3, h4 {
+page-break-after: avoid;
+}
+}
+p {
+margin: 1em 0;
+}
+a {
+color: #1a1a1a;
+}
+a:visited {
+color: #1a1a1a;
+}
+img {
+max-width: 100%;
+}
+h1, h2, h3, h4, h5, h6 {
+margin-top: 1.4em;
+}
+h5, h6 {
+font-size: 1em;
+font-style: italic;
+}
+h6 {
+font-weight: normal;
+}
+ol, ul {
+padding-left: 1.7em;
+margin-top: 1em;
+}
+li > ol, li > ul {
+margin-top: 0;
+}
+blockquote {
+margin: 1em 0 1em 1.7em;
+padding-left: 1em;
+border-left: 2px solid #e6e6e6;
+color: #606060;
+}
+code {
+font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+font-size: 85%;
+margin: 0;
+hyphens: manual;
+}
+pre {
+margin: 1em 0;
+overflow: auto;
+}
+pre code {
+padding: 0;
+overflow: visible;
+overflow-wrap: normal;
+}
+.sourceCode {
+background-color: transparent;
+overflow: visible;
+}
+hr {
+background-color: #1a1a1a;
+border: none;
+height: 1px;
+margin: 1em 0;
+}
+table {
+margin: 1em 0;
+border-collapse: collapse;
+width: 100%;
+overflow-x: auto;
+display: block;
+font-variant-numeric: lining-nums tabular-nums;
+}
+table caption {
+margin-bottom: 0.75em;
+}
+tbody {
+margin-top: 0.5em;
+border-top: 1px solid #1a1a1a;
+border-bottom: 1px solid #1a1a1a;
+}
+th {
+border-top: 1px solid #1a1a1a;
+padding: 0.25em 0.5em 0.25em 0.5em;
+}
+td {
+padding: 0.125em 0.5em 0.25em 0.5em;
+}
+header {
+margin-bottom: 4em;
+text-align: center;
+}
+#TOC li {
+list-style: none;
+}
+#TOC ul {
+padding-left: 1.3em;
+}
+#TOC > ul {
+padding-left: 0;
+}
+#TOC a:not(:hover) {
+text-decoration: none;
+}
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">BIOISO: Biological Isomorphisms in Formal
+Self-Maintaining Systems</h1>
+</header>
+<h1 id="bioiso-biological-isomorphisms-in-formal-self-maintaining-systems">BIOISO:
+Biological Isomorphisms in Formal Self-Maintaining Systems</h1>
+<p><strong>Author:</strong> Juan Carlos Ghiringhelli (Pragmaworks)<br />
+<strong>Status:</strong> Preprint v1 — operational model, structural
+analogy, and empirical validation of the T5 primitive (BBOB §4.5, AEGIS
+§4.6). The title names the research program; the <em>formal</em>
+autopoietic isomorphism with Maturana–Varela autopoiesis is the subject
+of a forthcoming companion paper currently in preparation. What this
+iteration delivers vs. what is deferred is documented explicitly in §1.1
+(Scope of claims) and §3.5 (Relation to autopoiesis).<br />
+<strong>Repository:</strong> github.com/jghiringhelli/loom<br />
+<strong>Related:</strong> <em>Onwards: The Formal Tradition Was Waiting
+for Its Executor</em> (Ghiringhelli, 2026 — companion essay carrying the
+autopoietic argument); Loom Language Manual (<code>docs/manual.md</code>
+in the repository — the canonical reference for the language);
+Generative Specification (Ghiringhelli, 2026 — Zenodo DOI
+10.5281/zenodo.19637142).</p>
+<hr />
+<h2 id="abstract">Abstract</h2>
+<p>We present BIOISO — a biologically-inspired framework for
+computational entities that adapt their own algorithmic structure across
+generations. A BIOISO entity is not a meta-heuristic; it is a being
+whose genome encodes an optimization strategy, whose meiosis mechanism
+promotes surviving mutations into the next compiled binary, and whose
+telomere lifecycle bounds the scope of structural change within a
+generation. We argue for a five-tier ceiling hierarchy (T1–T5),
+supported by proof sketches in §2 and empirical validation in §4.5–§4.6:
+each tier adds exactly one primitive that the tier below cannot express,
+and each primitive enables a class of convergence that is structurally
+unreachable without it. The T5 primitive — structural self-modification
+via meiosis — is the first mechanism that operates on the space of
+<em>algorithms</em>, not the space of parameter values or operator
+selections. We implement the hierarchy in the Loom language
+(<code>solver_tiers.rs</code>, <code>examples/ladder.loom</code>,
+<code>bench_colony_ladder</code>, and the <code>.loom</code>→BIOISO
+bridge in <code>being_loader.rs</code>). We empirically validate the T5
+structural primitive in two settings: the COCO/BBOB f2 ill-conditioned
+ellipsoid (§4.5, 10× median NF reduction across 30 trials against a
+Halton-approximated T4 baseline — a public benchmark controlled
+experiment, not itself a “domain” in §5’s sense; the Halton substitution
+is a benchmark scope limitation discussed in §4.5) and the AEGIS
+delta-neutral DeFi strategy across five market regimes (§4.6,
+inter-generational topology switching with epoch-2 (StrongBull)
+per-epoch Sharpe advantage of +0.517, but <strong>net 5-epoch cumulative
+Sharpe of −0.024 — a small loss, not a gain</strong> — driven by
+parameter re-convergence cost at the return-Ranging boundary (−0.339)
+plus a MildBear false-positive (−0.285) outweighing the StrongBull win;
+per (StrongBull + return-Ranging) cycle the net is +0.178 Sharpe, so
+compounding cumulative advantage is projected over repeated such cycles
+in longer backtests, but is not demonstrated within the 5-epoch window).
+The BIOISO model seeds ten domains in §5: eight T5 domains (one
+empirically validated — AEGIS — and seven theoretically motivated, where
+the structural criterion for T5 is satisfied but empirical validation is
+forthcoming work), plus two calibration domains (T3 ocean_circulation,
+T4 biosphere) included to demonstrate that the framework correctly
+assigns lower tiers where they are sufficient and does not default to T5
+everywhere. The framing of BIOISO as a <em>formal</em> biological
+isomorphism — in the sense of Maturana and Varela’s autopoiesis (1972) —
+is deferred to a companion paper currently in preparation; this paper
+uses “biologically-inspired” to denote structural inspiration, not
+formal organizational-closure equivalence.</p>
+<hr />
+<h2 id="introduction">1. Introduction</h2>
+<p>The history of heuristic optimization is a history of ceilings.
+Greedy algorithms (T1) saturate on any instance requiring backtracking.
+Simulated annealing (T2) escapes local optima but saturates when the
+optimal operator class changes. Hyper-heuristics (T3) adapt operator
+selection but saturate when the operator portfolio is architecturally
+wrong. Bayesian optimization (T4) is sample-efficient but saturates when
+the surrogate model’s architecture cannot represent the objective
+surface.</p>
+<blockquote>
+<p><strong>A note on tier namespaces.</strong> The T1–T5 labels used
+throughout this paper refer to the <strong>optimization algorithm
+hierarchy</strong> defined in §2 (greedy → simulated annealing →
+hyper-heuristic → Bayesian → meiosis). The Generative Specification (GS)
+system-architecture framework defines a <em>different</em> tier
+hierarchy — T1–T6 deployment tiers (development → staging → production →
+evolution → synthesis → meta-telos) — described in Ghiringhelli (2026).
+The numbering overlaps but the namespaces are distinct: a “T4” in this
+paper is a Bayesian optimization algorithm; a “T4” in the GS framework
+is the BIOISO / evolution deployment tier (which itself uses the
+algorithm hierarchy below as building blocks). Readers coming to this
+paper from the <em>Onwards!</em> essay or other GS material should keep
+the two namespaces separate when interpreting tier references.</p>
+</blockquote>
+<p>Each ceiling is not a failure of implementation — it is a structural
+property of the tier’s expressive power. A T1 algorithm cannot discover
+that its greedy rule is wrong by applying the rule more carefully. A T2
+algorithm cannot invent a new neighbourhood operator by exploring more
+of the existing space. The ceiling is <em>built into the tier’s
+combinatorial geometry</em>.</p>
+<p>BIOISO is the answer to the question: what is the tier above T4? The
+answer is not “a better surrogate model” or “a smarter acquisition
+function.” Those are T4 improvements. The answer is a tier whose
+adaptations operate on the space of algorithms — where the entity can
+structurally replace which algorithm it runs, and where that replacement
+persists across generations through a meiosis mechanism that compiles
+the surviving mutation into the next binary.</p>
+<p>This paper makes four contributions:</p>
+<ol type="1">
+<li><p><strong>Ceiling hierarchy argument (Section 2):</strong> A
+proof-sketch-structured argument that T1–T5 form a strict hierarchy,
+with each tier’s ceiling explicitly derived from its primitive’s
+expressive bounds. The arguments are sketches in the academic sense —
+they identify the structural reason a ceiling exists and cite the
+underlying impossibility result (e.g., No Free Lunch, RKHS-closure);
+they are not machine-checked proofs.</p></li>
+<li><p><strong>BIOISO operational model (Section 3):</strong> A
+specification of the T5 entity — genome, telomere lifecycle, meiosis
+mechanism, and the conditions under which structural mutation
+fires.</p></li>
+<li><p><strong>Implementation in Loom (Section 4):</strong> The full
+keyword-level implementation of T1–T5 in the Loom language, including
+<code>plasticity:</code>, <code>learn:</code>, <code>rewire:</code>, and
+the runtime <code>solver_tier</code> auto-escalation mechanism. Two
+controlled experiments validate the T5 structural primitive: §4.5 on the
+COCO/BBOB benchmark suite, §4.6 on the AEGIS DeFi strategy.</p></li>
+<li><p><strong>Domain seeding (Section 5):</strong> Ten domains seeded
+under the BIOISO model. Empirical status: <strong>one T5 domain
+empirically validated</strong> (<code>aegis_delta_neutral</code>, §4.6)
+<strong>plus one separate controlled primitive experiment</strong> (BBOB
+f2, §4.5, validating the T5 <em>primitive</em> on a public benchmark not
+itself a §5 “domain”); seven T5 domains theoretically motivated
+(§5.1–§5.7); two calibration domains (§5.9 biosphere T4, §5.10
+ocean_circulation T3) included to demonstrate the framework does not
+default to T5 universally. The seven motivated T5 domains satisfy the
+structural criterion for T5 (the optimal solution class changes during
+the experiment horizon); empirical validation on each is forthcoming
+work.</p></li>
+</ol>
+<h3 id="scope-of-claims">1.1 Scope of claims</h3>
+<p>To prevent the framing from outrunning the evidence, this paper
+distinguishes four levels of claim and notes which apply where:</p>
+<ul>
+<li><strong>Proved:</strong> Properties whose argument follows from a
+cited published result applied to the construction here — e.g., the T1
+ceiling follows from No Free Lunch (Wolpert &amp; Macready 1997) applied
+to a non-stationary instance distribution; the T4 ceiling follows from
+RKHS-closure properties of Gaussian-process kernels.</li>
+<li><strong>Argued (proof sketch):</strong> Properties 1 (Monotone
+Lineage) and 2 (Structural Escape) in §3.4 are presented as arguments
+with named scope limitations. Property 1 establishes a per-mutation
+drift-improvement invariant that lifts to a lineage-level expectation
+under stated assumptions; the full lineage-level monotonicity in
+non-stationary regimes is not proved here. Property 2 is an existence
+argument conditional on candidate-pool adequacy.</li>
+<li><strong>Empirically validated:</strong> The T5 structural primitive
+on BBOB f2 (10× median NF reduction across 30 trials, §4.5 — a public
+benchmark, not a “domain”) and on the AEGIS bimodal regime structure
+(10/10 correct topology switches at StrongBull epochs, §4.6 — the
+<code>aegis_delta_neutral</code> T5 domain, §5.8).</li>
+<li><strong>Theoretically motivated, empirically unvalidated:</strong>
+Seven of the eight T5 domains in §5 — namely §5.1 amr_coevolution, §5.2
+flash_crash, §5.3 adaptive_jit, §5.4 protein_drug_resistance, §5.5
+ics_zero_day, §5.6 quantum_error_mitigation, §5.7 climate_intervention.
+The structural criterion for T5 is satisfied for each; the T5 mechanism
+is specified; their empirical validation analogous to §4.6 is
+forthcoming work.</li>
+<li><strong>Calibration:</strong> §5.9 biosphere (T4) and §5.10
+ocean_circulation (T3) are deliberately <em>not</em> BIOISO/T5 entities.
+They are included to demonstrate that the framework correctly assigns
+lower tiers where they are sufficient, providing the falsifiability
+boundary for the “T5 is necessary” claim.</li>
+</ul>
+<p>What this paper does <strong>not</strong> claim: - A formal
+autopoietic isomorphism (Maturana &amp; Varela 1972) between BIOISO
+meiosis and biological self-production. The structural inspiration is
+acknowledged; the formal organizational-closure equivalence is the
+subject of a companion paper in preparation (see §3.5). -
+Deployment-validated performance for any of the seven
+theoretically-motivated T5 domains (§5.1–§5.7). - Convergence rate
+bounds on the meiosis cycle. Property 2 is an existence argument, not a
+bound.</p>
+<p>The broader <em>speculative argument</em> — that BIOISO and Loom
+exhibit structural analogy with biological self-maintaining systems, and
+that this analogy is a load-bearing piece of a larger thesis about
+<em>directed formal autopoiesis</em> — is developed in the companion
+essay <em>Onwards: The Formal Tradition Was Waiting for Its
+Executor</em> (Ghiringhelli 2026, submitted to ACM SIGPLAN Onward!
+2026). That essay frames the analogy in structural terms consistent with
+§3.5 of this paper; the <em>formal</em> organizational-closure
+equivalence (autopoiesis in the Maturana–Varela sense) is deferred to
+forthcoming work in both documents. The present paper supplies the
+operational model and initial empirical evidence; the essay supplies the
+theoretical framing; neither claims formal isomorphism as
+established.</p>
+<hr />
+<h2 id="the-five-tier-ceiling-hierarchy">2. The Five-Tier Ceiling
+Hierarchy</h2>
+<blockquote>
+<p><strong>Tier-naming note (BIOISO vs GS lifecycle cascade).</strong>
+The BIOISO tier hierarchy named in §2.1–§2.6 enumerates <em>optimization
+complexity</em> — fixed-rule dispatch (T1) through structural
+self-modification via meiosis (T5), mapping the algorithmic primitives
+that can or cannot escape a saturation regime. This is distinct from the
+GS obligation cascade developed in the GS white paper (Ghiringhelli
+2026, §4.1.f) and summarised in the companion essay [Ghiringhelli 2026,
+<em>Onwards</em>, §V], which enumerates <em>software-lifecycle
+stages</em> in a <strong>six-tier cascade</strong>: T1 Development, T2
+Staging / Pre-prod, T3 Production, T4 Evolution, T5 Synthesis
+(architecturally specified), T6 Meta-telos (research agenda). The
+harness is <em>not a tier</em> in the GS framework — it is a
+cross-cutting capability that recurs at every tier with
+stage-appropriate tests; the judgment layer is also <em>not a tier</em>
+— it is the irreducible human work that no future tier removes. The
+BIOISO and GS namespaces overlap by accident — both use Tn — and
+converge at one point: <strong>GS T4 (the <em>Evolution</em> lifecycle
+stage) is the lifecycle stage at which BIOISO operates</strong>;
+<strong>BIOISO T5 (the <em>structural self-modification</em> primitive)
+is the operational mechanism the GS T4 stage employs</strong>. When this
+paper writes “T5” without qualifier, BIOISO T5 is meant; when the GS
+lifecycle stage is meant, the paper writes “GS T4 (Evolution)” or
+another explicit qualifier. This namespace separation is deliberate:
+BIOISO is a domain-specific instantiation of the GS T4 stage, not a
+parallel framework.</p>
+</blockquote>
+<h3 id="definitions">2.1 Definitions</h3>
+<p><strong>Definition 1 (Optimization tier):</strong> A tier is
+characterized by the primitive it adds to the tier below. A being at
+tier T possesses all primitives of tiers 1 through T.</p>
+<p><strong>Definition 2 (Saturation):</strong> A tier-T being
+<em>saturates</em> on problem instance P if there exists k such that for
+all n &gt; k, the being’s improvement in objective value per iteration
+is zero — the drift score <code>D(t)</code> plateaus above the telos
+threshold for all subsequent ticks.</p>
+<p><strong>Definition 3 (Structural escape):</strong> A tier-(T+1) being
+<em>structurally escapes</em> saturation on P if it can reduce drift
+below the telos threshold using only the primitive added at tier T+1 —
+the escape is not achievable by any being at tier T regardless of
+parameter settings.</p>
+<h3 id="tier-1-fixed-rule-dispatch">2.2 Tier 1: Fixed-Rule Dispatch</h3>
+<p><strong>Primitive:</strong> <code>telos:</code> +
+<code>function:</code> — a pure function that maps state to action with
+no feedback.</p>
+<p><strong>Canonical algorithms:</strong> SPT (Smith 1956), DSATUR
+(Brélaz 1979), First-Fit Decreasing (Johnson 1974), Nearest Neighbor
+TSP.</p>
+<p><strong>T1 ceiling theorem:</strong> Any fixed dispatch rule
+saturates on any input class for which the rule was not designed.
+Formally: there exists a problem class P for which no fixed mapping
+<code>f: State → Action</code> produces a monotone improvement sequence
+over all instances in P.</p>
+<p><strong>Proof sketch:</strong> By the No Free Lunch theorem (Wolpert
+&amp; Macready 1997), a fixed rule that is optimal over one distribution
+of instances is suboptimal over the complementary distribution. A
+non-stationary environment generates instances from a distribution that
+shifts over time, so any fixed rule eventually faces a majority of
+instances it was not designed for.</p>
+<p><strong>What T2 adds:</strong> The ability to accept worsening moves
+with probability <code>exp(-ΔE/T)</code>, escaping the local optimum
+that the greedy rule terminates at.</p>
+<h3 id="tier-2-stochastic-neighbourhood-search">2.3 Tier 2: Stochastic
+Neighbourhood Search</h3>
+<p><strong>Primitive:</strong>
+<code>evolve: simulated_annealing | genetic_algorithm | ils</code> — a
+stochastic search that explores the solution neighbourhood.</p>
+<p><strong>Canonical algorithms:</strong> Simulated Annealing
+(Kirkpatrick et al. 1983), Genetic Algorithm (Holland 1975), Iterated
+Local Search with Or-opt perturbation (Lourenço et al. 2003).</p>
+<p><strong>T2 ceiling theorem:</strong> A fixed-operator stochastic
+search saturates when the <em>class</em> of optimal move changes.
+Specifically, if the problem distribution shifts such that the
+neighbourhood defined by the current operator no longer contains
+improving solutions within polynomial reach, T2 cannot escape.</p>
+<p><strong>Proof sketch:</strong> The SA acceptance criterion allows
+uphill moves, but only within the operator’s neighbourhood geometry. If
+the optimal solution requires a move that the operator cannot express
+(e.g., a cross-route exchange when the operator only performs
+within-route swaps), no temperature schedule allows SA to find it. The
+operator portfolio is fixed at compile time.</p>
+<p><strong>What T3 adds:</strong> The ability to select <em>which</em>
+operator to apply at each decision point, based on observed
+performance.</p>
+<h3 id="tier-3-adaptive-operator-selection-hyper-heuristic">2.4 Tier 3:
+Adaptive Operator Selection (Hyper-Heuristic)</h3>
+<p><strong>Primitive:</strong> <code>plasticity:</code> — a weight table
+that selects between heuristic operators using reinforcement
+learning.</p>
+<p><strong>Canonical algorithms:</strong> SARSA selection
+hyper-heuristic (Sutton &amp; Barto 1998; Burke et al. 2013), Q-learning
+over operator space.</p>
+<p>The key distinction from T2: the SARSA agent operates on the
+<em>space of operators</em>, not the space of solutions. Given operators
+<code>{H_1, H_2, H_3}</code> and state <code>s</code>, it selects
+<code>H_i</code> to apply next based on a learned weight table (Sutton
+&amp; Barto 1998, §6.4). The operators themselves are fixed; the agent
+learns which one to use when.</p>
+<p><strong>T3 ceiling theorem:</strong> A hyper-heuristic saturates when
+the optimal operator is <em>not in the portfolio</em>. If the
+non-stationary environment requires an operator class
+<code>H_novel</code> that was not declared at compile time, no weight
+table update can produce <code>H_novel</code>.</p>
+<p><strong>Proof sketch:</strong> The SARSA update rule is
+<code>W[i] += α(r - W[i])</code> — it adjusts weights toward observed
+reward. If <code>max_i(W[i])</code> over all declared operators still
+produces drift above telos threshold, and the optimal action lies in a
+class not representable by any operator in the portfolio, no learning
+rate <code>α</code> allows convergence.</p>
+<p><strong>What T4 adds:</strong> A learned surrogate model over the
+objective surface, enabling the being to direct evaluations toward
+regions of likely improvement without requiring a pre-specified
+operator.</p>
+<h3 id="tier-4-surrogate-model-optimization">2.5 Tier 4: Surrogate-Model
+Optimization</h3>
+<p><strong>Primitive:</strong>
+<code>learn: gaussian_process | attention_model</code> — a probabilistic
+model over the (configuration, objective) space.</p>
+<p><strong>Canonical algorithms:</strong> Bayesian Optimization with
+GP-UCB (Srinivas et al. 2010, Snoek et al. 2012), Attention Model with
+Pointer Network and REINFORCE training (Kool et al. 2019, Vinyals et
+al. 2015).</p>
+<p>GP-UCB selects the next configuration by maximising
+<code>UCB(x) = μ(x) + β·σ(x)</code>, balancing exploitation (high
+<code>μ</code>) against exploration (high <code>σ</code>). The GP
+posterior updates after each observation, making future selections
+progressively more sample-efficient.</p>
+<p><strong>T4 ceiling theorem:</strong> A GP-based optimizer saturates
+when the optimal function lies outside its kernel’s RKHS. Formally:
+there exists an objective <code>f*</code> such that for any GP with
+kernel <code>k</code>, the predictive posterior <code>μ_n(x)</code> does
+not converge to <code>f*(x)</code> as <code>n → ∞</code> if
+<code>f* ∉ H_k</code> (the reproducing kernel Hilbert space of
+<code>k</code>).</p>
+<p><strong>Proof sketch:</strong> The GP posterior mean is a weighted
+sum of kernel evaluations. If <code>f*</code> is not in the closure of
+this space (e.g., <code>f*</code> has a discontinuous structure that the
+RBF kernel cannot represent), the GP will not converge regardless of the
+number of observations. The kernel is fixed at compile time; changing it
+requires a new model architecture.</p>
+<p><strong>What T5 adds:</strong> The ability to structurally replace
+the optimization algorithm — not just its parameters — when saturation
+is detected.</p>
+<h3 id="tier-5-structural-self-modification-via-meiosis">2.6 Tier 5:
+Structural Self-Modification via Meiosis</h3>
+<p><strong>Primitives:</strong> <code>rewire:</code> (intra-generational
+structural replacement) + <code>telomere:</code> (generational lifecycle
+boundary) + meiosis (inter-generational mutation promotion).</p>
+<p><strong>The T5 distinction:</strong> T1–T4 all operate on the
+<em>same</em> optimization problem with the <em>same</em> algorithm
+class. They differ in how much they adapt <em>within</em> the algorithm
+class. T5 operates on the space of algorithm classes — it can replace
+which algorithm it runs, and this replacement is compiled into the next
+generation’s binary.</p>
+<p><strong>The escape mechanism:</strong> When
+<code>D_static &gt; threshold</code> for <code>k</code> consecutive
+ticks (<code>rewire:</code> trigger), the BIOISO replaces its dispatch
+strategy from a candidate pool (<code>candidates: [...]</code>). The
+replacement is selected by <code>fitness_guided</code> scoring — the
+candidate that, when simulated on recent signal history, produces the
+greatest drift reduction. The meiosis loop then bakes the surviving
+replacement into the genome file for the next compiled binary.</p>
+<hr />
+<h2 id="the-bioiso-formal-model">3. The BIOISO Formal Model</h2>
+<h3 id="components">3.1 Components</h3>
+<p>A BIOISO entity <code>B</code> is a tuple <code>(G, T, M, Ω)</code>
+where:</p>
+<ul>
+<li><strong>G (Genome):</strong> A <code>.loom</code> specification file
+encoding the being’s current algorithm tier, parameter bounds, and
+structural constraints. The genome is machine-readable and
+<em>GS-derivable</em>.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> Derivability is the foundational GS
+property: every other artifact (Rust source, TypeScript declarations,
+OpenAPI definitions, JSON Schema) is mechanically derivable from the
+same <code>.loom</code> source; see Ghiringhelli (2026, Generative
+Specification) for the formal treatment.</li>
+</ul>
+<ul>
+<li><p><strong>T (Telomere):</strong> A bounded counter
+<code>t ∈ [0, t_max]</code> incremented on each generational division.
+When <code>t = t_max</code>, the entity enters senescence: surviving
+mutations are committed to the genome and a new entity is spawned from
+the updated specification.</p></li>
+<li><p><strong>M (Mutation set):</strong> The set of promoted mutations
+<code>{m_1, ..., m_n}</code> accumulated during the current generation.
+Each mutation <code>m_i</code> is one of:
+<code>ParameterAdjust(entity, param, δ)</code>,
+<code>StructuralRewire(entity, signal, target)</code>,
+<code>EntityClone(source, new_id)</code>,
+<code>EntityPrune(entity)</code>, or
+<code>EntityRollback(entity, checkpoint)</code>.</p></li>
+<li><p><strong>Ω (Orchestrator):</strong> The runtime that dispatches
+T1–T4 proposal generators based on
+<code>live_params[&quot;solver_tier&quot;]</code> and detects saturation
+conditions that trigger structural mutation.</p></li>
+</ul>
+<h3 id="the-generational-lifecycle">3.2 The Generational Lifecycle</h3>
+<pre><code>Generation n:
+  Entity spawned from genome G_n
+  Telomere counter t = 0
+  live_params[&quot;solver_tier&quot;] = baseline_tier(G_n)
+  
+  While t &lt; t_max:
+    Tick: receive signals, dispatch solver_tier, observe outcome
+    If saturation(k consecutive same-direction promotions):
+      If solver_tier &lt; 4: escalate solver_tier (intra-generational T1→T4)
+      Else: fire rewire: (replace dispatch strategy)
+      Append mutation to M
+    t += 1
+  
+  Senescence:
+    Filter M: keep mutations that improved drift
+    Write surviving mutations to G_{n+1}
+    Compile G_{n+1} → new binary
+    Spawn entity from G_{n+1}</code></pre>
+<h3 id="the-meiosis-gate">3.3 The Meiosis Gate</h3>
+<p>The meiosis gate is the <em>design specification</em> for which
+mutations are promoted from generation <code>n</code> to
+<code>n+1</code>. The gate is specified as three filters; the
+implementation status of each filter, made explicit below, varies.</p>
+<ol type="1">
+<li><p><strong>Improvement filter:</strong> Mutation <code>m</code> is
+kept iff the drift score decreased by at least <code>δ_min</code> after
+<code>m</code> was applied. <strong>Implementation status:</strong>
+specified; partially enforced in the runtime <code>MeiosisEngine</code>
+(mutations that did not reduce drift at application time are rejected
+pre-workflow), but the workflow itself does not currently re-verify
+drift reduction at the genome boundary.</p></li>
+<li><p><strong>Safety filter:</strong> Mutation <code>m</code> is
+rejected if it would cause any safety annotation violation
+(<code>@bounded_telos</code>, <code>@corrigible</code>,
+<code>@mortal</code>, <code>@sandboxed</code>) in the compiled genome.
+<strong>Implementation status:</strong> specified; enforced indirectly
+by the loom checker (<code>SafetyChecker</code>) as compile-time errors
+when a mutation produces a genome that violates a safety annotation —
+but this is a <em>compile</em> check, not an explicit gate filter.
+Mutations that pass <code>cargo build</code> are assumed safe by the
+workflow; if the safety check ever ran as a separate stage it would
+catch the same set, so the current arrangement is sound but not what
+§3.3 strictly describes.</p></li>
+<li><p><strong>Stability filter:</strong> Mutation <code>m</code> is
+rejected if the cargo tests (<code>cargo test --lib</code>) fail after
+applying <code>m</code> in isolation. <strong>Implementation
+status:</strong> specified and enforced —
+<code>.github/workflows/evolve.yml</code> runs <code>cargo build</code>
+and <code>cargo test --lib</code> as the post-application gate. This is
+the filter the workflow directly implements.</p></li>
+</ol>
+<p><strong>Implementation-vs-specification scoping.</strong> The
+three-filter description above is the design specification. What
+<code>.github/workflows/evolve.yml</code> actually executes today is the
+stability filter (cargo build + cargo test –lib). The improvement and
+safety filters are enforced upstream of the workflow — the improvement
+filter inside the runtime <code>MeiosisEngine</code> (which proposes
+mutations only when drift improvement is observed at application time),
+the safety filter inside the loom compiler (<code>SafetyChecker</code>
+rejects builds that violate safety annotations). The pipeline is the
+<em>composition</em> of these three locations, not a single artifact.
+Bringing all three into a single explicit gate stage — re-verifying
+drift improvement <em>and</em> safety annotations <em>and</em> cargo
+tests at the workflow boundary — is forthcoming infrastructure work,
+listed in §8 Limitations. A reviewer inspecting <code>evolve.yml</code>
+will see only the stability stage; they should read §3.3 as the
+<em>spec</em> the full pipeline approximates, not as a literal
+description of what one file contains.</p>
+<h3 id="formal-properties">3.4 Formal Properties</h3>
+<p><strong>Property 1 (Monotone lineage — proof sketch under
+stationarity):</strong> Let <code>D(G_n)</code> be the mean drift score
+across all ticks of generation <code>n</code>, and let
+<code>D̃(m, G_n)</code> denote the drift improvement at the tick when
+mutation <code>m</code> was applied during generation <code>n</code>.
+Under the assumption that the instance distribution at generations
+<code>n</code> and <code>n+1</code> is identically distributed (i.i.d.
+across generation boundaries),
+<code>E[D(G_{n+1})] ≤ E[D(G_n)]</code>.</p>
+<p><strong>Proof-sketch argument:</strong> The meiosis gate (§3.3) only
+promotes a mutation <code>m</code> if
+<code>D̃(m, G_n) ≥ δ_min &gt; 0</code> — the mutation reduced drift at
+its application tick by at least <code>δ_min</code>. If no mutations
+pass the gate, <code>G_{n+1} = G_n</code> and
+<code>D(G_{n+1}) = D(G_n)</code> deterministically. If mutations are
+promoted, then on instances drawn from the same distribution as those of
+generation <code>n</code>, each promoted mutation produces a drift
+improvement bounded below by <code>δ_min</code> in expectation, so
+generation <code>n+1</code>’s expected mean drift is at most
+<code>D(G_n) − (∑_m δ_min)/T_max</code>.</p>
+<p><strong>Scope limitations of this argument:</strong> -
+<em>Non-stationarity.</em> In genuinely non-stationary regimes (the case
+the framework is designed for, see §1), the instance distribution at
+generation <code>n+1</code> differs from generation <code>n</code>. The
+per-tick improvement at application time does not directly bound the
+next generation’s expected drift over its full lifetime. A complete
+proof requires bounding the regret between application-time drift
+improvement and lifetime expected drift; this is beyond the present
+paper. - <em>Stability filter coverage.</em> The gate’s stability filter
+(<code>cargo test --lib</code> passes after mutation) is necessary but
+not sufficient for downstream lineage monotonicity — passing tests at
+one generation does not guarantee non-degradation under a subsequent
+regime change. - <em>Adversarial mutation composition.</em> Two
+mutations each individually drift-reducing may interact non-additively
+in composition. The current gate evaluates mutations in isolation
+against the post-application state but does not jointly validate the
+full promoted set.</p>
+<p>A complete proof of lineage-level monotonicity under non-stationary
+regimes is forthcoming work.</p>
+<p><strong>Property 2 (Structural escape):</strong> For any problem
+class <code>P</code> where T1–T4 saturate, there exists a sequence of
+structural mutations <code>m_1, ..., m_k</code> such that
+<code>D(G_0 + m_1 + ... + m_k) &lt; τ_telos</code> (below telos
+threshold).</p>
+<p><strong>Proof sketch:</strong> The candidates pool in
+<code>rewire: candidates: [...]</code> can include
+<code>novel_hypothesis</code> — a placeholder for algorithm classes not
+present in the initial genome. The MeiosisEngine generates candidate
+implementations from the genome specification using the GS derivation
+rules. Since the genome is a Turing-complete specification (any
+algorithm expressible in the loom type system can be encoded), there
+exists a sequence of structural mutations that can represent any
+computable optimization strategy. <em>Note on scope:</em> This is an
+existence argument — it establishes that a convergent mutation sequence
+exists for any computable problem class, not that the meiosis engine
+will find it in a bounded number of generations. In practice, the
+candidate pool must include the target algorithm class for convergence
+to occur; curating the initial candidate pool is a human design
+decision.</p>
+<p><strong>What <code>novel_hypothesis</code> operationally is.</strong>
+Because the reviewer-facing meaning of the existence argument depends on
+what the MeiosisEngine actually does when it encounters
+<code>novel_hypothesis</code>, we describe it concretely. In the current
+implementation, <code>novel_hypothesis</code> triggers an LLM-mediated
+derivation step: the engine reads the genome’s machine-readable
+<code>-- GS EVOLUTION SPEC</code> blocks plus the surrounding
+<code>telos:</code> and <code>metric_bounds:</code> declarations, and
+asks an LLM to propose a candidate algorithm class expressible in the
+existing loom type system. The proposal is then subjected to the
+three-filter meiosis gate (§3.3) — <code>cargo test --lib</code> must
+pass, no safety annotation may be violated, and the candidate must
+produce a measured drift reduction on the held-out signal history before
+it is promoted. This means Property 2’s existence argument is not a
+claim about deterministic formal derivation: it is the claim that
+<em>given</em> an LLM-mediated candidate generator and <em>given</em> an
+adequate test/safety/improvement gate, the search space of candidate
+algorithms is unrestricted (any computable optimization strategy is
+representable in the loom type system). The validity of the existence
+argument is therefore conditional on the candidate generator producing a
+viable proposal within the generation budget; the gate is the
+convergence filter, not the search itself. This is closer in spirit to
+AlphaDev-style RL search (Mankowitz et al. 2023, §6.6) than to
+deterministic program synthesis — with the important difference that the
+meiosis gate enforces both cross-generational persistence and
+safety-annotation invariance, both absent from AlphaDev. A
+deterministic-only (LLM-free) version of the engine, restricted to
+genome-template recombination over a fixed candidate pool, is a subset
+of the current implementation and is the case in which the existence
+argument reduces to a finite-pool search problem.</p>
+<p><strong>Property 3 (Bounded change):</strong> The structural change
+per generation is bounded by <code>|M_promoted|</code> — the number of
+promoted mutations. Since each mutation has a declared type and safety
+filter, the space of possible structural changes per generation is
+finite.</p>
+<h3 id="relation-to-autopoiesis-scope-of-the-biological-isomorphism-claim">3.5
+Relation to autopoiesis (scope of the biological-isomorphism claim)</h3>
+<p>The title of this paper uses “biologically-inspired.” It does
+<em>not</em> use “biological isomorphism” in the strong formal sense
+that Maturana and Varela introduced. The distinction is load-bearing for
+what the paper claims.</p>
+<p><strong>What we mean by “biologically-inspired.”</strong> The
+mechanisms named in §3.1 — genome, telomere, meiosis — are taken from
+biology as structural inspiration. The names denote the architectural
+role each plays (an information store that is read but never consumed; a
+generational lifecycle counter; a mutation-promotion gate operating on
+the information store), and the role is structurally similar to the
+biological mechanism that shares the name. This is a <em>functional
+analogy</em> — the resemblance is at the level of role and operation,
+not at the level of a proved equivalence between the formal systems.</p>
+<p><strong>What we do not claim.</strong> Maturana and Varela (1972)
+defined autopoiesis as the organizational closure of a self-producing
+system — a system whose components produce themselves and through that
+self-production maintain the system’s boundary. Subsequent work (Di
+Paolo 2005; Bianchini 2023) formalizes the criteria under which a
+non-biological system can be said to exhibit autopoiesis: organizational
+closure, self-production of components, boundary maintenance, and a
+recognized substrate-independence argument. <strong>Establishing that
+BIOISO satisfies these criteria is a separate piece of work that this
+paper does not attempt.</strong> The architecture is <em>consistent</em>
+with autopoietic structure — the genome produces the binary that
+produces the next genome, the meiosis gate maintains the boundary of
+admissible mutations, the telomere defines a generational closure — but
+consistency is not equivalence. The formal demonstration requires
+biological-systems expertise this paper’s author does not bring
+alone.</p>
+<p><strong>Forthcoming work.</strong> A companion paper, currently in
+preparation in collaboration with a biological-systems researcher,
+develops the formal autopoietic isomorphism: an organizational-closure
+equivalence between BIOISO’s <code>(G, T, M, Ω)</code> structure and the
+Maturana–Varela definition, with explicit treatment of
+substrate-independence under Di Paolo’s adaptivity criteria. That paper,
+when complete, will replace the present paper’s “biologically-inspired”
+framing with the stronger formal claim where it is warranted, and
+identify where it is not.</p>
+<p><strong>Where the broader argument lives.</strong> The theoretical
+framing connecting BIOISO to the larger thesis — that the formal
+tradition of correct computing has been waiting for an executor (the LLM
+as Logos to the formal Nous), that GS is the discipline that connects
+them, and that the resulting systems exhibit <em>directed formal
+autopoiesis</em> as a structural consequence — is developed in the
+companion essay <em>Onwards: The Formal Tradition Was Waiting for Its
+Executor</em> (Ghiringhelli 2026, submitted to ACM SIGPLAN Onward!
+2026). The essay carries the autopoietic argument; this paper supplies
+the operational model and the initial empirical evidence. Readers
+seeking the theoretical scaffolding should read the two together;
+readers seeking the proof of formal isomorphism should wait for the
+forthcoming companion paper.</p>
+<hr />
+<h2 id="implementation-in-loom">4. Implementation in Loom</h2>
+<h3 id="the-examplesladder.loom-specification">4.1 The
+<code>examples/ladder.loom</code> Specification</h3>
+<p>The canonical T1→T5 progression is specified in
+<code>examples/ladder.loom</code> as five <code>being:</code> blocks for
+the single-machine job scheduling problem:</p>
+<pre><code>T1SPTScheduler    — telos: + function: only
+T2SAScheduler     — + evolve: simulated_annealing
+T3HyperScheduler  — + plasticity: sarsa
+T4BayesScheduler  — + learn: gaussian_process
+T5BIOISOScheduler — + rewire: + telomere: (meiosis via GS genome loop)</code></pre>
+<p>The file compiles clean
+(<code>loom compile examples/ladder.loom → OK</code>), demonstrating
+syntactic validity of the five-tier vocabulary — the loom checker
+accepts each <code>being:</code> block under its declared tier’s
+required keyword set. This is a syntactic validation only; semantic
+adequacy (that each tier’s runtime behavior matches the tier’s
+theoretical description) is established by the experiments in §4.5 and
+§4.6.</p>
+<h3 id="srcruntimesolver_tiers.rs">4.2
+<code>src/runtime/solver_tiers.rs</code></h3>
+<p>The T1–T4 proposal generators are pure functions dispatched by the
+orchestrator based on <code>live_params[&quot;solver_tier&quot;]</code>:</p>
+<table>
+<colgroup>
+<col style="width: 37%" />
+<col style="width: 22%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Tier</th>
+<th>Algorithm</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>t1_greedy(event)</code></td>
+<td>T1</td>
+<td>Fixed delta on worst metric</td>
+</tr>
+<tr class="even">
+<td><code>t2_sa(event, temp, rng)</code></td>
+<td>T2</td>
+<td>Boltzmann: <code>p_uphill = exp(-score/T)</code></td>
+</tr>
+<tr class="odd">
+<td><code>t3_sarsa(event, weights, ε, rng)</code></td>
+<td>T3</td>
+<td>ε-greedy over <code>N_HEURISTICS = 3</code> operator types (Sutton
+&amp; Barto 1998)</td>
+</tr>
+<tr class="even">
+<td><code>t4_ucb_bandit(event, history, metrics, β, N)</code></td>
+<td>T4</td>
+<td>Bandit UCB: <code>μ + β√(ln(N+1)/(n+1))</code> — <em>not</em> GP-UCB
+(see implementation note)</td>
+</tr>
+</tbody>
+</table>
+<p>Auto-escalation in <code>orchestrator.rs</code>: when the same
+parameter + direction is promoted <code>2 × tier1_fail_threshold</code>
+consecutive times, <code>solver_tier</code> increments by 1.0 and the
+orchestrator logs
+<code>[tier_up] entity: T{n} → T{n+1} (saturation × k)</code>.</p>
+<p><strong>Implementation note — T4 is bandit UCB, not GP-UCB.</strong>
+§2.5 defines T4 as Gaussian-process or attention-model surrogate
+optimization (GP-UCB). The function the orchestrator dispatches as “T4”
+in <code>solver_tiers.rs</code> is a <em>bandit-style</em> UCB — mean
+improvement plus an exploration bonus of the form
+<code>β√(ln(N+1)/(n+1))</code> — without a Gaussian-process posterior or
+any kernel-based surrogate. This is a deliberate scope choice for the
+current implementation (no GP dependency, no kernel hyperparameter
+tuning) but it means the runtime T4 is functionally closer to a UCB-1
+bandit than to GP-UCB. A full GP-UCB implementation is forthcoming work;
+until it lands, claims that the runtime “implements T4” should be read
+as “implements a bandit approximation of T4”. The §2.5 ceiling argument
+— that GP-UCB saturates on objectives outside the kernel’s RKHS — is
+preserved as a <em>conceptual</em> T4 ceiling; the <em>runtime</em> T4
+has a different, weaker ceiling (the bandit UCB cannot model the
+objective surface at all, only the per-arm empirical reward
+distribution).</p>
+<p><strong>Implementation note — T3/T5 boundary blur, and the rewire
+signal.</strong> The T3 SARSA portfolio in <code>solver_tiers.rs</code>
+carries three heuristic slots: <code>H_SMALL_ADJUST</code>,
+<code>H_LARGE_ADJUST</code>, and <code>H_REWIRE</code>. The first two
+emit <code>MutationProposal::ParameterAdjust</code>; the third currently
+emits <code>MutationProposal::StructuralRewire</code>. Strictly, this
+blurs the conceptual T3/T5 boundary defined in §2.4 vs §2.6: by the
+hierarchy, a hyper-heuristic at T3 should select among operators within
+its portfolio, not emit structural rewires (those should be
+T5-exclusive). <strong>The current code’s design intent is that
+<code>H_REWIRE</code> functions as a <em>saturation signal</em>: when
+SARSA weights converge on the <code>H_REWIRE</code> slot, the
+orchestrator reads this as “T3 has exhausted its operator portfolio and
+structural change is needed” and escalates
+<code>live_params[&quot;solver_tier&quot;]</code> toward T5.</strong> The emitted
+<code>StructuralRewire</code> proposal is, in this reading, a
+signal-payload rather than a true intra-T3 structural emission. A clean
+refactor that separates the saturation <em>signal</em> (T3-emittable,
+telling the orchestrator to escalate) from the structural
+<em>emission</em> (T5-only, generated by <code>rewire:</code> rule
+firing) is forthcoming work; the conceptual hierarchy in §2 — that only
+T5 owns structural emission as a first-class primitive — is the
+load-bearing claim and is unchanged by the implementation boundary
+blur.</p>
+<h3 id="the-bench_colony_ladder-proof">4.3 The
+<code>bench_colony_ladder</code> Proof</h3>
+<p><code>src/bin/bench_colony_ladder.rs</code> runs five entities over
+60 ticks on a non-stationary drift signal
+<code>D(t, φ) = 0.3|sin(0.05t + φ)| + 0.05ε</code>:</p>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 30%" />
+<col style="width: 23%" />
+<col style="width: 28%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Entity</th>
+<th>Starting tier</th>
+<th>Final tier</th>
+<th>Convergence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>scheduling_t1</code></td>
+<td>T1-Greedy</td>
+<td>T1-Greedy</td>
+<td>no (ceiling)</td>
+</tr>
+<tr class="even">
+<td><code>scheduling_t2</code></td>
+<td>T2-SA</td>
+<td>T2-SA</td>
+<td>yes (slow)</td>
+</tr>
+<tr class="odd">
+<td><code>scheduling_t3</code></td>
+<td>T3-SARSA</td>
+<td>T3-SARSA</td>
+<td>yes</td>
+</tr>
+<tr class="even">
+<td><code>scheduling_t4</code></td>
+<td>T4-GP-UCB</td>
+<td>T4-GP-UCB</td>
+<td>yes</td>
+</tr>
+<tr class="odd">
+<td><code>scheduling_t5_capable</code></td>
+<td>T1-Greedy</td>
+<td>T2-SA</td>
+<td>yes (auto-escalated at tick 6)</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>scheduling_t5_capable</code> entity (named
+<em>T5-capable</em> rather than <em>T5</em> because it carries the full
+T5 keyword set — <code>rewire:</code> + <code>telomere:</code> — but
+does not exercise inter-generational meiosis within the 60-tick budget)
+fires <code>[tier_up] T1 → T2</code> at tick 6 (saturation ×6),
+demonstrating the intra-generational auto-escalation mechanism. The
+final tier is T2-SA because the non-stationary drift does not persist
+long enough to saturate T2 within 60 ticks. The T5 inter-generational
+primitive itself is validated separately in §4.5 (BBOB controlled
+experiment) and §4.6 (AEGIS controlled experiment); this benchmark is a
+proof-of-mechanism for T1→T4 auto-escalation only.</p>
+<p><strong>Scope note:</strong> <code>bench_colony_ladder</code>
+demonstrates <em>intra-generational</em> auto-escalation (T1→T4) — the
+mechanism by which a single entity discovers a higher-tier algorithm
+during its current generation. It does not demonstrate
+<em>inter-generational meiosis</em>, where the genome file is rewritten
+and recompiled between generations. Cross-generational T5 meiosis
+operates via the <code>.github/workflows/evolve.yml</code> GS genome
+loop, which requires a full compile/test cycle between generations and
+is exercised in the <code>experiments/bioiso/</code> suite. The T5
+structural primitive itself — basis-rotation
+<code>StructuralRewire</code> — is validated independently in §4.5 using
+the COCO/BBOB benchmark suite (Hansen et al. 2009).</p>
+<h3 id="the-.loom-bioiso-bridge-being_loader.rs">4.4 The
+<code>.loom</code> → BIOISO Bridge (<code>being_loader.rs</code>)</h3>
+<p>The bridge module <code>src/runtime/being_loader.rs</code> closes the
+gap between the loom specification language and the BIOISO runtime. Any
+<code>.loom</code> file containing beings with <code>telos:</code>
+declarations can be loaded directly into the colony without manual
+wiring:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">loom</span> runtime load examples/apex_colony.loom <span class="at">--dry-run</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># → detected 7 beings: BiogeochemicalEngine (T5), CarbonCycleReg (T4), ...</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">loom</span> runtime load examples/apex_colony.loom <span class="at">--db</span> bioiso.db</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># → spawned 7 DynamicBIOISOSpec entities in bioiso.db</span></span></code></pre></div>
+<p>The bridge infers tier from declared features (Section 3), extracts
+metric bounds from <code>telos.bounded_by</code> clauses, and generates
+baseline signals from <code>matter:</code> field types. This means any
+<code>being:</code> specification written in loom is simultaneously:</p>
+<ol type="1">
+<li>A <strong>typed loom program</strong> (checker, codegen, tests)</li>
+<li>A <strong>BIOISO entity specification</strong> (immediately loadable
+into the colony)</li>
+<li>A <strong>GS genome unit</strong> (mutatable by the
+MeiosisEngine)</li>
+</ol>
+<p>The three representations are derived from the same source file —
+there is no separate wiring, no translation layer, and no runtime-only
+configuration. The specification IS the colony entity.</p>
+<h3 id="bbob-controlled-experiment-t5-primitive-validation">4.5 BBOB
+Controlled Experiment — T5 Primitive Validation</h3>
+<p>To validate the T5 structural primitive in a controlled, reproducible
+setting, we run a two-condition experiment on four functions from the
+COCO/BBOB benchmark suite (Hansen et al. 2009): <strong>f1
+Sphere</strong> (unimodal, symmetric), <strong>f2 Separable
+Ellipsoid</strong> (unimodal, condition number 10^6), <strong>f15
+Rastrigin</strong> (multimodal, ~10^10 local optima at DIM=10), and
+<strong>f24 Lunacek bi-Rastrigin</strong> (bimodal basin structure).</p>
+<p><strong>Experimental design:</strong> 30 independent trials, 200
+ticks, DIM=10. The <strong>control</strong> condition runs T1–T4 only
+(greedy coordinate descent → simulated annealing → SARSA-step adaptation
+→ Halton quasi-random). The <strong>experimental</strong> condition adds
+T5: after 20 ticks of stagnation, a random orthogonal basis rotation
+(Gram-Schmidt on LCG vectors) is generated; it is accepted only if a
+10-step probe strictly improves normalized fitness. Seeds are fixed per
+trial (seed i for trial i) — no cherry-picking. Full source and
+evidence: <code>src/runtime/bbob.rs</code>,
+<code>src/bin/bbob_experiment.rs</code>,
+<code>experiments/bbob/evidence/</code>.</p>
+<p><strong>T4 baseline scope limitation.</strong> §2.5 defines T4 as
+Gaussian-process or attention-model surrogate optimization (GP-UCB), but
+the T4 stage in this benchmark is implemented as Halton quasi-random
+space-filling — a deliberately lightweight approximation chosen to keep
+the experiment reproducible without a GP dependency and to isolate the
+T5 structural-rewire mechanism from confounders introduced by GP kernel
+selection and hyperparameter tuning. The practical consequence is that
+the T1–T4 control under-represents the strongest T4 instantiation a
+reviewer might expect: a full GP-UCB with an RBF kernel would model the
+f2 ellipsoidal valley and would likely achieve sample-efficiency
+competitive with — or superior to — the T1–T5 condition on this specific
+function. <strong>The result in this section is therefore an upper bound
+on the T5 advantage over a Halton-T4 baseline, not over a GP-UCB-T4
+baseline.</strong> Likewise, the comparison does not include CMA-ES
+(Hansen &amp; Ostermeier 2001), which learns a full covariance matrix
+that performs structurally similar basis rotation to the T5 primitive
+demonstrated here and would likely solve f2 without requiring an
+external structural-rewire mechanism. We acknowledge both gaps
+explicitly: a full GP-UCB and a CMA-ES comparison on f2 are forthcoming
+work. The present experiment establishes that the T5 <em>primitive</em>
+— random orthogonal basis rotation with a fitness-gated accept rule — is
+selective and load-bearing on the f2 landscape; it does not establish
+that T5 is the <em>only</em> mechanism capable of solving f2, nor that
+T5 out-performs the strongest existing rotation-aware T2-class
+method.</p>
+<p><strong>Convergence rate</strong> (% of 30 trials reaching NF ≤
+0.01):</p>
+<table>
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 16%" />
+<col style="width: 9%" />
+<col style="width: 9%" />
+<col style="width: 4%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Multimodal</th>
+<th>T1–T4</th>
+<th>T1–T5</th>
+<th>Δ</th>
+<th>T1–T4 Med tick</th>
+<th>T1–T5 Med tick</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>f1 Sphere</td>
+<td>no</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>f2 Ellipsoid</td>
+<td>no</td>
+<td>13.3%</td>
+<td>40.0%</td>
+<td><strong>+26.7%</strong></td>
+<td>169</td>
+<td>138</td>
+</tr>
+<tr class="odd">
+<td>f15 Rastrigin</td>
+<td>yes</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>f24 Lunacek</td>
+<td>yes</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>0.0%</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Final normalized fitness at tick 200</strong> — Median [Q1,
+Q3]:</p>
+<table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 31%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>T1–T4 NF</th>
+<th>T1–T5 NF</th>
+<th>T5 Advantage</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>f1 Sphere</td>
+<td>0.134 [0.082, 0.187]</td>
+<td>0.136 [0.067, 0.188]</td>
+<td>1.0×</td>
+</tr>
+<tr class="even">
+<td>f2 Ellipsoid</td>
+<td>0.210 [0.067, 0.392]</td>
+<td>0.021 [0.005, 0.038]</td>
+<td><strong>10.0×</strong></td>
+</tr>
+<tr class="odd">
+<td>f15 Rastrigin</td>
+<td>0.405 [0.351, 0.481]</td>
+<td>0.406 [0.368, 0.481]</td>
+<td>1.0×</td>
+</tr>
+<tr class="even">
+<td>f24 Lunacek</td>
+<td>0.533 [0.449, 0.602]</td>
+<td>0.287 [0.245, 0.360]</td>
+<td><strong>1.9×</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>T5 rewire selectivity:</strong> T5 fired 0 proposals on f1
+(stagnation never triggered — greedy descent makes continuous progress
+on the symmetric sphere), accepted 39/838 on f2 (4.7%), 23/2519 on f15
+(0.9%), and 49/1949 on f24 (2.5%). The low accept rate is a design
+feature: T5 discards rotations that do not improve fitness, producing an
+outcome-gated lineage.</p>
+<p><strong>Interpretation:</strong></p>
+<p><em>f1 Sphere:</em> Rotationally invariant — any basis rotation
+yields an equivalent landscape. T5 correctly abstains (0 proposals
+fired). The 0% convergence for both conditions reflects a budget
+limitation: 200 ticks of coordinate-wise greedy descent in 10D does not
+reliably reach NF ≤ 0.01 from a uniform-random initialization. Both
+conditions converge comparably.</p>
+<p><em>f2 Ellipsoid (ill-conditioned):</em> The 10^6 condition number
+creates a narrow ellipsoidal valley that coordinate-wise descent (T1)
+cannot follow efficiently. A T5 basis rotation aligns the search axes
+with the valley’s principal direction, enabling the T1–T4 stack to
+exploit it. The result is a <strong>10× median NF reduction</strong> and
+<strong>+26.7 pp convergence rate</strong> improvement. The lineage
+(<code>experiments/bbob/evidence/lineage.md</code>) records each
+accepted rewire with tick, generation, fitness-before, and fitness-after
+— a compounding pattern visible across accepted events (e.g., Trial 1:
+rewire at tick 67, NF 0.056 → 0.012; subsequent T1–T4 descent reaches NF
+0.002).</p>
+<p><em>f15 Rastrigin (densely multimodal):</em> At DIM=10, Rastrigin has
+~10^10 local optima on a regular grid. Each rotation lands in a new
+basin of comparable depth; improvements rarely compound within 200
+ticks. The 0.9% accept rate reflects this — rewires are occasionally
+accepted when they chance upon a marginally better basin, but the gain
+is not systemic. This is an <strong>honest null result</strong> within
+the given budget: T5 is not universally superior, and the experiment
+correctly surfaces the boundary.</p>
+<p><em>f24 Lunacek (bimodal):</em> T1–T4 reliably converge to the
+secondary (sub-optimal) basin. T5 rewires occasionally reorient the
+search toward the global basin, reducing median final NF by
+<strong>46%</strong> (0.533 → 0.287) without achieving full convergence
+within 200 ticks. A longer budget (≥500 ticks) is predicted to produce
+convergence rate separation comparable to f2.</p>
+<p><strong>What this establishes:</strong> The T5 structural primitive
+is (a) selective — it rejects rotations that do not improve fitness, (b)
+<em>load-bearing</em> on ill-conditioned landscapes where parameter
+adjustment alone cannot resolve the conditioning artifact, and (c)
+directionally beneficial on bimodal landscapes where inter-basin
+structure requires a structural jump. It is not a universal improvement
+— the f1 and f15 results confirm falsifiability. This matches the
+theoretical claim in §2: T5 escape is load-bearing when the fitness
+landscape contains inter-basin topology that parameter adjustment cannot
+traverse.</p>
+<h3 id="aegis-controlled-experiment-inter-generational-meiosis">4.6
+AEGIS Controlled Experiment — Inter-Generational Meiosis</h3>
+<p>The BBOB experiment in §4.5 validates the T5 structural primitive
+(basis-rotation <code>StructuralRewire</code>) on a continuous
+optimisation benchmark, but it does not demonstrate
+<em>inter-generational meiosis</em> — the case where the accepted
+topology becomes the genome for the next epoch and T5 fires again at the
+epoch boundary. This section closes that gap with the AEGIS
+delta-neutral DeFi strategy, a domain where T1–T4 provably cannot cross
+the inter-basin fitness valley and T5 operates through state-machine
+topology switching at epoch boundaries.</p>
+<p><strong>Setup.</strong> The AEGIS being manages a delta-neutral
+position: AAVE V3 collateral loan (ETH→USDC), Uniswap V3 concentrated LP
+(±5% ETH/USDC), and a Hyperliquid perpetual short. The strategy has two
+attractors: <em>LP-Active</em> (lower MTS basin, MTS≈0.35, hedge ratio
+0.80, LP capital 65%) and <em>LP-Bypassed</em> (upper MTS basin,
+MTS≈0.65, no LP, hedge ratio 0.0). E88 canonical params: Sharpe=1.02,
+Return=+213.6%, MaxDD=33.4%. <strong>Origin of E88 parameters.</strong>
+The E88 canonical parameter set was identified through approximately 100
+manual parameter explorations by the author over several weeks; §4.6
+validates the meiosis <em>mechanism</em> operating on that
+configuration, not the autonomous discovery of the configuration itself.
+This is intentional: the controlled experiment isolates the structural
+primitive (inter-generational topology switching) from the surrounding
+question of whether BIOISO can autonomously locate optimal parameters in
+a search space the author has already exhausted manually. The latter is
+a separate, larger experiment.</p>
+<p>The fitness landscape is bimodal in the
+<code>(hedge_ratio, lp_capital_pct)</code> plane. The inter-basin valley
+corresponds to parameter regions where LP is partially active (capital
+5–40%) — neither earning meaningful fees nor providing delta-neutrality
+— producing suboptimal performance in every regime. T1 gradient
+perturbation and T2-class CMA-ES (consistent with the §6.4
+classification) both operate within topology-bounded feasible sets:
+LP-Active bounds <code>hedge_ratio</code> ∈ [0.60, 1.00] and
+<code>lp_capital_pct</code> ∈ [0.40, 0.90]. These bounds prevent T1–T4
+from constructing the parameter trajectory required to exit to
+LP-Bypassed.</p>
+<p><strong>Experiment.</strong> 10 trials × 5 epochs × 200 ticks/epoch.
+Epoch schedule: Ranging → MildBull → StrongBull → Ranging → MildBear. T5
+probes at each epoch boundary using an analytical Sharpe comparison with
+calibrated estimation noise (σ=0.25), accepting if the alternative
+topology exceeds the current by &gt;0.10 Sharpe. Analytical acceptance
+rates: Ranging (&lt;2%), StrongBull (~91%), MildBear (&lt;2%). Seeds are
+<code>wrapping_mul(i, 0x517CC1B727220A95)+1</code> for trial i
+(reproducible; no cherry-picking).</p>
+<p><strong>Scope of the validation — what this experiment is and is
+not.</strong> The AEGIS experiment validates the meiosis
+<em>mechanism</em> under an analytical Sharpe model calibrated to
+LP-fee, impermanent-loss, carry, and drift economics; it does
+<strong>not</strong> validate the strategy under live market execution.
+The analytical model establishes the <em>expected</em> acceptance rate
+per regime (Ranging &lt;2%, StrongBull ~91%, MildBear &lt;2%) and the
+experiment confirms the realized 10-trial rates land within the
+analytical band under the declared σ=0.25 noise. Because the analytical
+model both predicts the rates and generates the per-tick fitness signal
+the meiosis gate operates on, this is a closed-system validation of the
+mechanism (does the gate fire when the model says it should? does the
+topology transition correctly when the model says regimes have shifted?)
+rather than an open-system validation of the strategy’s performance
+against unmodeled market dynamics (slippage, gas spikes, oracle latency,
+MEV, protocol risk, depegging events, regulatory action). A reviewer
+interpreting these results should read them as: “the meiosis mechanism
+functions as designed under the analytical model” — not “the AEGIS
+strategy with T5 outperforms by +0.517 Sharpe in production.”
+Live-trading validation is forthcoming work and requires a separate
+experimental setup (paper trading on a testnet over a multi-month
+horizon with real on-chain price feeds and gas costs).</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 18%" />
+<col style="width: 19%" />
+<col style="width: 19%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Epoch</th>
+<th>Regime</th>
+<th>T1–T4 Sharpe</th>
+<th>T1–T5 Sharpe</th>
+<th>Δ Sharpe</th>
+<th>Rewires/10</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>Ranging</td>
+<td>2.162</td>
+<td>2.006</td>
+<td>−0.156</td>
+<td>0/10</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>MildBull</td>
+<td>2.565</td>
+<td>2.777</td>
+<td>+0.213</td>
+<td>0/10</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>StrongBull</td>
+<td>2.002</td>
+<td>2.519</td>
+<td><strong>+0.517</strong></td>
+<td><strong>10/10</strong></td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>Ranging</td>
+<td>2.488</td>
+<td>2.149</td>
+<td>−0.339</td>
+<td>10/10</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>MildBear</td>
+<td>−0.572</td>
+<td>−0.858</td>
+<td>−0.285</td>
+<td>1/10</td>
+</tr>
+</tbody>
+</table>
+<p>Cumulative 5-epoch mean Sharpe: T1–T4 = 1.710, T1–T5 = 1.686
+(<strong>Δ = −0.024</strong> — net loss).</p>
+<p><strong>StrongBull (epoch 2):</strong> ETH appreciating at +350%/yr
+annualised causes the ±5% LP range to exit range within ~6 ticks,
+spending 80% of the epoch out-of-range. LP earns fees on 20% of capital
+and incurs 20%/yr impermanent loss. LP-Active expected Sharpe = 1.90;
+LP-Bypassed expected Sharpe = 2.48. Gap = 0.58 Sharpe. Observed: 10/10
+trials accepted the topology switch; median per-epoch Sharpe advantage =
+<strong>+0.517</strong>. T1–T4 cannot replicate this: the fitness valley
+between topologies lies outside the LP-Active feasible set.</p>
+<p><strong>Regime detection is calibrated:</strong> 0/10 false positives
+in Ranging (epoch 0); 10/10 correct detections in StrongBull (epoch 2);
+10/10 correct back-switches in the following Ranging epoch (epoch 3).
+The 1/10 false positive in MildBear (trial 6) is consistent with
+calibration: both topologies have negative expected Sharpe (LP-Active ≈
+−0.27, LP-Bypassed ≈ −2.53), and the marginal probe reading (+0.14, just
+above the 0.10 threshold) is plausible under σ=0.25 estimation
+noise.</p>
+<p><strong>T5 is worse than T1–T4 in epoch 4 (MildBear).</strong> The
+table is honest about this: T1–T5 Sharpe is −0.858 vs T1–T4’s −0.572 —
+T5 loses an additional 0.286. The mechanism is that in regimes where
+both topologies have negative expected Sharpe, a T5 false-positive
+topology switch trades a small drawdown (LP-Active −0.27) for a larger
+one (LP-Bypassed −2.53) plus a re-convergence cost. This is a real cost
+the framework does not paper over: T5 is a <em>upside-regime
+detection</em> mechanism, not a bear-regime optimization mechanism. The
+acceptable use of T5 is where the upside-regime gain (StrongBull:
++0.517) statistically dominates the bear-regime cost (MildBear: −0.286)
+over the deployment horizon. In a regime mix where bear epochs outnumber
+StrongBull epochs by a wide enough margin, T5 should be disabled — the
+framework supplies the detection mechanism; the deployment policy (when
+to enable T5 versus pinning to T1–T4) is a domain decision, not a
+framework default.</p>
+<p><strong>Inter-generational compounding and transition cost.</strong>
+Each epoch boundary is a genome cycle: the accepted topology is carried
+forward. In epoch 3 (Ranging), T1–T5 correctly switches back to
+LP-Active (10/10) but pays a <strong>parameter re-convergence
+cost</strong> (−0.339 Sharpe): after the topology switch, parameters
+start near the LP-Bypassed optimum and require 100–150 ticks to
+re-converge to the LP-Active optimum. T1–T4, never having left
+LP-Active, arrives with fully-converged parameters. This cost is real
+and is not suppressed. <strong>Over the 5-epoch experiment the net is
+−0.024 Sharpe — a small loss, not a gain.</strong> The loss decomposes
+as: epoch-2 StrongBull win (+0.517) offset by epoch-3 return-Ranging
+re-convergence cost (−0.339) yielding +0.178 per (StrongBull +
+return-Ranging) cycle; plus epoch-4 MildBear false-positive (−0.285);
+plus epoch-0/1 small per-epoch deltas (−0.156 / +0.213) that roughly
+cancel — summing to the observed net loss.</p>
+<p><strong>Compounding projection (with explicit sign
+convention).</strong> Per (StrongBull + return-Ranging) cycle the
+additive contribution to cumulative Sharpe is:</p>
+<blockquote>
+<p>per-cycle Δ = (StrongBull win) + (return-Ranging cost) = (+0.517) +
+(−0.339) = <strong>+0.178 Sharpe</strong></p>
+</blockquote>
+<p>Over <em>k</em> such cycles with <em>no</em> bear regime, the
+projected net is <em>k × 0.178</em> — monotonically increasing. The
+5-epoch experiment contains exactly <strong>one</strong> such cycle
+(epoch 2 → epoch 3), plus a MildBear epoch the cycle decomposition does
+not account for. A multi-year backtest with multiple StrongBull/Ranging
+cycles is required to demonstrate the projected positive cumulative —
+and even then, the projection holds only when bear-regime false-positive
+cost (epoch-4 in this experiment) does not statistically dominate the
+per-cycle gain. See the bear-regime acceptability note in §4.6
+below.</p>
+<p><strong>Lineage.</strong> The full rewire lineage is recorded in
+<code>experiments/aegis/evidence/lineage.md</code>. Each accepted rewire
+is tagged with trial, generation, regime, topology transition, and probe
+Sharpe before/after. The per-trial Δ ranges from −0.580 (trial 7,
+unlucky noise in epoch 3) to +0.379 (trial 4), reflecting the σ=0.25
+per-epoch estimation noise. Across 10 trials, 21 total accepted rewires:
+10 in StrongBull, 10 in the return-Ranging, 1 false-positive in
+MildBear.</p>
+<p><strong>What this establishes.</strong> AEGIS closes the
+inter-generational meiosis gap: (a) T5 fires at epoch boundaries, not
+within ticks; (b) the accepted topology is transmitted as the genome for
+the next generation; (c) the mechanism produces measurable Sharpe
+advantage in a regime T1–T4 cannot access; (d) detection rate matches
+the analytical model; (e) transition costs are real and quantified. The
+experiment does not require a live trading environment — the analytical
+Sharpe model is grounded in LP fee, impermanent loss, carry, and drift
+economics, all calibrated to the E88 parameter set.</p>
+<hr />
+<h2 id="ten-seeded-domains-one-t5-validated-seven-theoretically-motivated-two-calibration">5.
+Ten Seeded Domains: One T5 Validated, Seven Theoretically Motivated, Two
+Calibration</h2>
+<p>The BIOISO framework seeds ten domains. The split, made explicit:</p>
+<ul>
+<li><strong>§5.8 <code>aegis_delta_neutral</code></strong> — the one T5
+domain empirically validated in this paper (§4.6).</li>
+<li><strong>§5.1–§5.7</strong> — seven T5 domains theoretically
+motivated below. Each satisfies the structural criterion for T5 (the
+optimal solution class changes during the experiment horizon, making
+<code>StructuralRewire</code> rather than <code>ParameterAdjust</code>
+the load-bearing primitive). Empirical validation analogous to §4.6 is
+forthcoming work for each.</li>
+<li><strong>§5.9 <code>biosphere</code></strong> (T4 calibration) and
+<strong>§5.10 <code>ocean_circulation</code></strong> (T3 calibration) —
+deliberately <em>not</em> BIOISO/T5 entities. They are included to
+demonstrate that the framework correctly assigns lower tiers where they
+are sufficient, providing the falsifiability boundary for the
+framework’s “T5 is necessary” claim.</li>
+</ul>
+<p>A separate controlled experiment on the COCO/BBOB f2 ill-conditioned
+ellipsoid (§4.5) validates the T5 <em>primitive</em> on a standard
+public benchmark; it is not itself a “BIOISO domain” in the sense of §5
+but provides reproducible evidence on a non-domain landscape.</p>
+<p>For each domain we present (a) why T1–T4 are predicted to saturate,
+(b) the T5 mechanism that addresses the saturation, and where applicable
+(c) the academic baseline that establishes the structural-criterion bar.
+Empirical-status is summarized in the domain table at the end of §5.</p>
+<p>BIOISO domains satisfy three criteria: (1) the fitness landscape is
+coevolutionary or structurally non-stationary; (2)
+<code>StructuralRewire</code> is load-bearing —
+<code>ParameterAdjust</code> cannot converge; (3) the problem is
+currently unsolved or inadequately addressed at T1–T4.</p>
+<h3 id="amr_coevolution-antimicrobial-resistance">5.1
+<code>amr_coevolution</code> — Antimicrobial Resistance</h3>
+<p><strong>Why T1–T4 saturate:</strong> AMR pathogens evolve resistance
+mechanisms on a timescale of hours to days. A T4 GP surrogate trained on
+resistance mechanisms from generation <code>n</code> will have
+misspecified priors for generation <code>n+1</code> because the target
+protein has structurally mutated. The GP cannot represent a binding
+hypothesis that did not exist in its training data.</p>
+<p><strong>T5 mechanism:</strong> <code>StructuralRewire</code> replaces
+the pharmacophore hypothesis class when the surrogate’s predictive
+variance exceeds threshold — the being generates a new hypothesis
+topology rather than refining parameters within the old one. Meiosis
+bakes the new hypothesis template into the next genome.</p>
+<p><strong>Reference baseline:</strong> AlphaFold 2 (Jumper et al. 2021)
+provides structure prediction; BIOISO provides the adaptive strategy for
+selecting which structures to target as resistance evolves.</p>
+<h3 id="flash_crash-hft-market-microstructure">5.2
+<code>flash_crash</code> — HFT Market Microstructure</h3>
+<p><strong>Why T1–T4 saturate:</strong> HFT firms reverse-engineer and
+game fixed circuit breaker rules within hours of deployment (Kirilenko
+et al. 2017). A T3 hyper-heuristic with a fixed portfolio of detection
+rules will have all portfolio members neutralized by adversarial trading
+within a single trading session. T4’s GP cannot generate detection logic
+for attack patterns it has never observed.</p>
+<p><strong>T5 mechanism:</strong> The <code>flash_crash</code> BIOISO
+entity generates novel detection signal categories — not parameter
+tuning of existing signals, but structural synthesis of new signal types
+that the adversarial strategy has not yet been designed to evade. The
+meiosis loop promotes detection categories that survived a full trading
+session without being gamed.</p>
+<h3 id="adaptive_jit-jit-compiler-optimization">5.3
+<code>adaptive_jit</code> — JIT Compiler Optimization</h3>
+<p><strong>Why T1–T4 saturate:</strong> The optimal IR pass sequence for
+a JIT compilation target changes as the runtime hot-path profile
+evolves. A T4 surrogate trained on pass orderings for workload
+<code>W_n</code> has an architectural mismatch for workload
+<code>W_{n+1}</code> if the hot-path structure changes.</p>
+<p><strong>T5 mechanism:</strong> <code>StructuralRewire</code> replaces
+which compiler transformation passes compose and in what order — not
+parameter tuning within a fixed pipeline, but synthesis of a new
+pipeline topology that the hot-path profile calls for.</p>
+<h3 id="protein_drug_resistance-cancerhiv-drug-resistance">5.4
+<code>protein_drug_resistance</code> — Cancer/HIV Drug Resistance</h3>
+<p><strong>Why T1–T4 saturate:</strong> Cancer and HIV drug targets
+mutate under selection pressure from existing drugs (Perelson et
+al. 1997). Each drug-target binding hypothesis is architecturally
+specific to the target’s current structure. As the target mutates, the
+hypothesis becomes incorrect — not merely suboptimal, but structurally
+wrong about which sites are binding candidates.</p>
+<p><strong>T5 mechanism:</strong> The BIOISO generates new binding
+hypotheses from structural analysis of the mutated target, replacing the
+hypothesis topology rather than refining its parameters.</p>
+<h3 id="ics_zero_day-ics-zero-day-defense">5.5 <code>ics_zero_day</code>
+— ICS Zero-Day Defense</h3>
+<p><strong>Why T1–T4 saturate:</strong> Zero-day attacks have, by
+definition, no prior instances in training data. A T4 attention model
+trained on known attack patterns has zero generalization to attacks with
+novel structure — the architecture encodes a prior over the known attack
+class distribution that is wrong for zero-days.</p>
+<p><strong>T5 mechanism:</strong> The BIOISO synthesizes new signal
+detection categories by hypothesis generation — it proposes signal
+correlations that would indicate a structurally novel attack, validates
+them against the current signal stream, and promotes detection logic
+that fires on the novel pattern.</p>
+<h3 id="quantum_error_mitigation-quantum-circuit-compilation">5.6
+<code>quantum_error_mitigation</code> — Quantum Circuit Compilation</h3>
+<p><strong>Why T1–T4 saturate:</strong> Quantum hardware noise models
+change per calibration cycle, making the optimal gate decomposition
+strategy non-stationary (Preskill 2018). A T4 surrogate fitted to the
+noise model at calibration time <code>t</code> is misspecified after
+recalibration at <code>t+1</code> if the noise structure changes.</p>
+<p><strong>T5 mechanism:</strong> <code>StructuralRewire</code>
+discovers new circuit decomposition strategies by structural mutation of
+the gate sequence template — not parameter optimization within a fixed
+template, but replacement of the template topology when the noise
+structure changes.</p>
+<h3 id="climate_intervention-earth-system-intervention-sequencing">5.7
+<code>climate_intervention</code> — Earth System Intervention
+Sequencing</h3>
+<p><strong>Why T1–T4 saturate:</strong> Each deployed climate
+intervention changes the causal structure of the Earth system (Lenton et
+al. 2019). Solar radiation management at time <code>t</code> alters
+cloud feedback mechanisms; subsequent interventions operate on a
+causally different system. A T4 GP fitted to the pre-intervention causal
+graph has systematically wrong priors post-intervention.</p>
+<p><strong>T5 mechanism:</strong> The BIOISO structurally adapts which
+interventions to sequence by replacing the causal model template when
+prior interventions alter system coupling beyond the GP’s predictive
+capacity.</p>
+<h3 id="aegis_delta_neutral-defi-delta-neutral-strategy-evolution">5.8
+<code>aegis_delta_neutral</code> — DeFi Delta-Neutral Strategy
+Evolution</h3>
+<p><strong>Why T1–T4 saturate:</strong> DeFi liquidity pool dynamics are
+coevolutionary — each deployed strategy changes the on-chain liquidity
+distribution, making the fitness landscape of subsequent strategies a
+function of prior ones (analogous to arms-race coevolution in ecology).
+A T4 GP trained on historical pool states has systematically wrong
+priors when the liquidity topology changes due to protocol upgrades, new
+pool deployments, or adversarial MEV. The canonical E88 parameters (mean
+taper step = 0.35, +213.6% return, Sharpe = 1.02) were optimal for a
+specific liquidity regime; they saturate when the regime shifts.</p>
+<p><strong>T5 mechanism:</strong> The <code>aegis_delta_neutral</code>
+BIOISO entity uses <code>StructuralRewire</code> to replace which
+hedging instrument class is used for delta neutralization — not tuning
+the hedge ratio within a fixed class, but synthesizing a new hedging
+strategy topology when the GP’s predictive variance exceeds a threshold.
+Meiosis bakes the surviving hedging architecture into the next genome,
+compounding structural improvements across market regimes.</p>
+<p><strong>Reference baseline:</strong> AEGIS E88 canonical parameters:
+<code>aave_target_health_factor = 1.85</code>,
+<code>uniswap_lp_range_pct = 12.0%</code>, mean taper step = 0.35. These
+represent the T4-generation optimum before structural adaptation. BIOISO
+T5 escape replaces the strategy architecture when the Sharpe ratio
+degrades below 0.7 for <code>k</code> consecutive rebalancing
+cycles.</p>
+<h3 id="biosphere-biodiversity-metric-optimization-t4-calibration-domain">5.9
+<code>biosphere</code> — Biodiversity Metric Optimization (T4,
+Calibration Domain)</h3>
+<p>A T4 calibration domain included to establish where T5 is
+<em>not</em> load-bearing. The GP surrogate models the response of
+biodiversity indices to conservation interventions. T4 is the
+appropriate ceiling because the biodiversity landscape, while
+non-stationary, has stable causal structure across the relevant policy
+horizon (decades). The optimal intervention <em>class</em> does not
+change structurally within the policy window — only its parameters
+do.</p>
+<p>Including this domain establishes the falsifiability boundary: the
+BIOISO model claims T5 is necessary only for domains where structural
+rewiring is load-bearing. A framework that ran T5 everywhere would prove
+nothing.</p>
+<h3 id="ocean_circulation-ocean-circulation-homeostasis-t3-calibration-domain">5.10
+<code>ocean_circulation</code> — Ocean Circulation Homeostasis (T3,
+Calibration Domain)</h3>
+<p>A T3 calibration domain establishing the lower bound of the taxonomy.
+The hyper-heuristic selects between thermohaline intervention operators
+based on observed circulation indices. The operator portfolio
+(temperature regulation, salinity adjustment, current redirection)
+covers the causal mechanism space adequately; the T3 ceiling does not
+apply because the AMOC’s structural dynamics do not exit the portfolio’s
+coverage within the intervention horizon.</p>
+<p>These two calibration domains are not BIOISO (T5) entities — they are
+included to demonstrate tier placement correctness: the framework
+assigns T3 or T4 where those tiers are sufficient, not T5 by
+default.</p>
+<hr />
+<p><strong>Domain summary:</strong></p>
+<table>
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 6%" />
+<col style="width: 12%" />
+<col style="width: 37%" />
+<col style="width: 34%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Domain</th>
+<th>Tier</th>
+<th>T5 reason</th>
+<th>Structural criterion (Y/N)<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></th>
+<th>Empirical status (this paper)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>amr_coevolution</code></td>
+<td>T5</td>
+<td>Pathogen evolves binding targets structurally</td>
+<td>Y (target structure mutates)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="even">
+<td><code>flash_crash</code></td>
+<td>T5</td>
+<td>Adversarial gaming invalidates all fixed detection rules</td>
+<td>Y (adversary defeats fixed portfolio)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="odd">
+<td><code>adaptive_jit</code></td>
+<td>T5</td>
+<td>Hot-path profile changes IR pass topology</td>
+<td>Y (workload topology shifts)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="even">
+<td><code>protein_drug_resistance</code></td>
+<td>T5</td>
+<td>Target mutation makes hypothesis class wrong</td>
+<td>Y (binding hypothesis class becomes wrong)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="odd">
+<td><code>ics_zero_day</code></td>
+<td>T5</td>
+<td>Zero-days have no training-data ancestors</td>
+<td>Y (no prior class of training instance)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="even">
+<td><code>quantum_error_mitigation</code></td>
+<td>T5</td>
+<td>Recalibration changes gate decomposition topology</td>
+<td>Y (noise model changes between calibrations)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="odd">
+<td><code>climate_intervention</code></td>
+<td>T5</td>
+<td>Intervention changes causal graph structure</td>
+<td>Y (each intervention re-wires the causal model)</td>
+<td>Theoretically motivated</td>
+</tr>
+<tr class="even">
+<td><code>aegis_delta_neutral</code></td>
+<td>T5</td>
+<td>Liquidity topology coevolves with strategies</td>
+<td>Y (LP-Active ↔︎ LP-Bypassed inter-basin valley)</td>
+<td><strong>Empirically validated (§4.6)</strong></td>
+</tr>
+<tr class="odd">
+<td><code>biosphere</code></td>
+<td>T4</td>
+<td>Stable causal structure; GP-UCB sufficient</td>
+<td>N (causal structure stable in horizon)</td>
+<td>Calibration domain (tier placement)</td>
+</tr>
+<tr class="even">
+<td><code>ocean_circulation</code></td>
+<td>T3</td>
+<td>Fixed operator portfolio covers mechanism space</td>
+<td>N (mechanism space covered by portfolio)</td>
+<td>Calibration domain (tier placement)</td>
+</tr>
+</tbody>
+</table>
+<p>A separate controlled experiment on the COCO/BBOB f2 ill-conditioned
+ellipsoid (§4.5) validates the T5 structural primitive on a standard
+public benchmark; it is not itself a “BIOISO domain” in the sense above
+but provides reproducible evidence on a non-domain landscape.</p>
+<hr />
+<p>The eight motivated T5 domains are not selected because they are
+prominent — they are selected because they satisfy the structural
+criterion: the optimal solution’s <em>class</em> changes during the
+experiment horizon, making T1–T4 saturation a mathematical consequence
+rather than a practical limitation. <strong>For each domain, an
+empirical validation analogous to §4.6 (AEGIS) is forthcoming
+work</strong>; without that validation, the present paper claims
+theoretical motivation only — the structural criterion is satisfied, and
+the T5 mechanism is specified, but performance on the live domain is not
+measured here.</p>
+<p><strong>Implementation-vs-spec note on the §5 roster.</strong> The
+current <code>src/runtime/bioiso_runner.rs</code> registers eight
+runtime BIOISO entities as T5: seven match §5.1–§5.7 by name
+(<code>amr_coevolution</code>, <code>flash_crash</code>,
+<code>adaptive_jit</code>, <code>protein_drug_resistance</code>,
+<code>ics_zero_day</code>, <code>quantum_error_mitigation</code>,
+<code>climate_intervention</code>), plus
+<code>aegis_delta_neutral</code> from §5.8 (the empirically validated
+one), plus two additional T5 entities introduced during development that
+are <strong>not</strong> in §5: <code>fusion_plasma</code>
+(plasma-confinement control with non-stationary noise topology) and
+<code>adaptive_self_assembly</code> (nanostructure protocol-graph
+rewiring). The two calibration domains described in §5.9 (biosphere T4)
+and §5.10 (ocean_circulation T3) are described in this paper as the
+framework intends them but are <strong>not yet implemented as runtime
+entities</strong> in <code>bioiso_runner.rs</code>; their inclusion here
+is to establish the framework’s falsifiability boundary — implementation
+of the calibration domains as runtime entities is forthcoming work,
+listed in §8 Limitations. The runtime/paper roster mismatch is
+acknowledged here in the open rather than papered over.</p>
+<hr />
+<h2 id="related-work">6. Related Work</h2>
+<h3 id="hyper-heuristics">6.1 Hyper-Heuristics</h3>
+<p>Burke et al. (2013) survey the state of hyper-heuristics as of 2013.
+The field distinguishes <em>selection</em> hyper-heuristics (our T3)
+from <em>generation</em> hyper-heuristics (closer to T5 in spirit, but
+without cross-generational persistence). The key distinction between T5
+and generation hyper-heuristics: generation HHs generate new low-level
+heuristics within a single run; BIOISO promotes structural mutations
+across compiled generations via meiosis. The genome is the persistence
+mechanism.</p>
+<h3 id="bayesian-optimization">6.2 Bayesian Optimization</h3>
+<p>Srinivas et al. (2010) prove sublinear regret bounds for GP-UCB. Our
+T4 ceiling theorem does not contradict these bounds — it identifies the
+condition under which the bounds’ assumptions fail: when the objective
+is outside the kernel’s RKHS. Snoek et al. (2012) make BO practical for
+hyperparameter tuning; the ceiling we identify is their practical
+observation that “sometimes you need to rethink the search space,”
+formalized.</p>
+<h3 id="neural-combinatorial-optimization">6.3 Neural Combinatorial
+Optimization</h3>
+<p>Kool et al. (2019) train an attention model to solve routing problems
+with near-optimal performance. The T4 ceiling for attention models is
+that the trained policy is fitted to a specific problem distribution;
+distribution shift that changes the combinatorial structure of the
+optimal solution requires architectural change, not weight update.</p>
+<h3 id="evolutionary-strategies-and-automl">6.4 Evolutionary Strategies
+and AutoML</h3>
+<p>CMA-ES (Hansen &amp; Ostermeier 2001) is a sophisticated T2-class
+algorithm. AutoML (Hutter et al. 2019) is a T4-class framework (GP/SMAC
+for algorithm configuration search). Neither crosses the T5 boundary:
+they optimize algorithm parameters, not algorithm class. The defining
+characteristic of T5 is that the algorithm class — the hypothesis space
+itself — is the subject of optimization.</p>
+<h3 id="meta-learning-and-algorithm-selection">6.5 Meta-Learning and
+Algorithm Selection</h3>
+<p>Vanschoren (2018) surveys meta-learning. The algorithm selection
+problem (Rice 1976) asks: given a portfolio of algorithms, which one to
+apply to a given instance? This is T3 — selection from a fixed
+portfolio. T5 generates new portfolio entries.</p>
+<h3 id="program-synthesis">6.6 Program Synthesis</h3>
+<p>AlphaDev (Mankowitz et al. 2023) discovers new sort algorithms via RL
+on assembly code. This is structurally close to T5 but operates in a
+different regime: AlphaDev discovers algorithms within a fixed
+computational substrate (assembly), without the cross-generational
+persistence mechanism (meiosis) or the biological lifecycle constraint
+(telomere). BIOISO provides the lifecycle and persistence model.</p>
+<hr />
+<h2 id="discussion">7. Discussion</h2>
+<h3 id="the-meiosis-requirement">7.1 The Meiosis Requirement</h3>
+<p>The defining T5 primitive is not <code>rewire:</code> alone — it is
+the combination of <code>rewire:</code> (intra-generational structural
+replacement) with meiosis (inter-generational mutation promotion).
+Without meiosis, <code>rewire:</code> produces only transient structural
+change: the next entity spawned from the same genome would start from
+the pre-rewire baseline. With meiosis, structural mutations compound:
+each generation begins from the endpoint of the previous generation’s
+learning, not its start.</p>
+<p>This is the formal analog of the distinction between Lamarckian
+inheritance (acquired characteristics pass to offspring) and Darwinian
+selection (only genotype-encoded variants pass). BIOISO meiosis is
+Lamarckian at the genome level — the promoted mutations are literally
+written into the next genome specification — but Darwinian at the
+fitness level: only mutations that reduced drift in the current
+generation are promoted.</p>
+<h3 id="safety-constraints-on-structural-change">7.2 Safety Constraints
+on Structural Change</h3>
+<p>T5 entities require
+<code>@mortal @corrigible @sandboxed @auditable</code> annotations (the
+SafetyChecker enforces these as compile errors). This is not decoration
+— it is the safety invariant for structural self-modification:</p>
+<ul>
+<li><code>@mortal</code> + <code>telomere:</code> bounds the scope of
+intra-generational change.</li>
+<li><code>@corrigible</code> requires
+<code>modifiable_by: human_operator</code> in <code>telos:</code> — a
+human can override the telos at any point.</li>
+<li><code>@sandboxed</code> restricts the entity’s signal surface: a
+structurally self-modifying entity must have a declared boundary.</li>
+<li><code>@auditable</code> requires a telomere audit log: every
+structural mutation, every meiosis event, every genome promotion is
+recorded and traceable.</li>
+</ul>
+<p>The auditable constraint makes the T5 escape <em>inspectable</em>:
+the lineage graph from genome <code>G_0</code> to <code>G_n</code> is a
+complete record of which structural mutations accumulated and why each
+was promoted.</p>
+<h3 id="the-language-level-matters">7.3 The Language Level Matters</h3>
+<p>The BIOISO model requires a language-level implementation for a
+specific reason: the genome is a source specification, not a runtime
+data structure. Meiosis modifies the genome and recompiles — this is a
+compiler operation, not a runtime operation. A runtime-only system (a
+Python dict of algorithm parameters) cannot implement true T5 meiosis
+because it cannot change which algorithm the system compiles to in the
+next generation.</p>
+<p>Loom’s role is to make the genome a typed, verifiable specification
+from which all runtime behavior is derived. The GS methodology’s
+derivability constraint ensures that a stateless reader (the meiosis
+engine) can apply genome mutations correctly without prior context. This
+is the connection between the language design (GS-derivable
+specifications) and the evolutionary mechanism (GS-derived genome
+application).</p>
+<hr />
+<h2 id="limitations">8. Limitations</h2>
+<p><strong>Benchmark scale.</strong> The
+<code>bench_colony_ladder</code> empirical demonstration runs 60 ticks
+on a single-machine scheduling problem with a synthetic non-stationary
+drift signal <code>D(t, φ) = 0.3|sin(0.05t + φ)| + 0.05ε</code>. This is
+sufficient to demonstrate T1→T4 auto-escalation but not
+inter-generational meiosis. Real BIOISO domains (AMR coevolution,
+climate intervention) operate on horizons of months to years; the
+60-tick benchmark is a proof-of-mechanism, not an evaluation of domain
+performance. The BBOB experiment in §4.5 (30 trials × 200 ticks × 4
+functions) validates the T5 structural primitive on a standard public
+benchmark and shows clear advantage on ill-conditioned (f2: 10× NF) and
+bimodal (f24: 1.9×) landscapes. The AEGIS experiment in §4.6 (10 trials
+× 5 epochs × 200 ticks) demonstrates inter-generational meiosis on the
+AEGIS DeFi domain, with topology switches firing at epoch boundaries and
+the accepted topology transmitted as genome for the next generation. The
+f15 and f24 full-convergence results are budget-limited (200 ticks is
+insufficient for DIM=10 Rastrigin/Lunacek). The AEGIS 5-epoch cumulative
+result is a small <strong>loss</strong> (−0.024 Sharpe), not a gain —
+the StrongBull win (+0.517) is more than offset by the return-Ranging
+re-convergence cost (−0.339) and the MildBear false-positive (−0.285).
+The framework’s claim is not that T5 wins on every regime mix, but that
+per (StrongBull + return-Ranging) cycle the additive contribution is
++0.178 Sharpe; a multi-year backtest with multiple such cycles and a
+bear-light regime mix is required to demonstrate compounding advantage
+at scale.</p>
+<p><strong>Meiosis requires recompilation infrastructure.</strong> The
+T5 meiosis loop operates via a GitHub Actions workflow
+(<code>.github/workflows/evolve.yml</code>) and requires
+<code>cargo test</code> to pass after each genome application. This
+makes T5 practically limited to environments where recompilation is
+feasible — it is not a runtime mechanism. Systems without a build
+pipeline cannot operate at T5.</p>
+<p><strong>Meiosis gate is composed across three locations, not
+one.</strong> §3.3 specifies a three-filter gate (improvement + safety +
+stability). In the current implementation only the stability filter
+(cargo build + <code>cargo test --lib</code>) is directly enforced by
+<code>.github/workflows/evolve.yml</code>. The improvement filter is
+enforced upstream in the runtime <code>MeiosisEngine</code>; the safety
+filter is enforced indirectly by the loom compiler’s
+<code>SafetyChecker</code>. A reviewer inspecting only
+<code>evolve.yml</code> will see only the stability stage. The pipeline
+is the <em>composition</em> of all three locations; consolidating them
+into a single explicit gate stage at the workflow boundary is
+forthcoming infrastructure work and is a known scoping gap between
+specification and implementation.</p>
+<p><strong>Runtime T4 is a bandit UCB, not GP-UCB.</strong> §2.5 defines
+T4 as Gaussian-process or attention-model surrogate optimization. The
+runtime function dispatched as T4 in <code>solver_tiers.rs</code> is a
+bandit-style UCB (<code>μ + β√(ln(N+1)/(n+1))</code>) without a
+Gaussian-process posterior or any kernel-based surrogate. The §2.5
+ceiling argument applies to the <em>conceptual</em> T4 (GP-UCB); the
+runtime T4 has a different, weaker ceiling. A full GP-UCB implementation
+is forthcoming work. See §4.2 implementation note for details.</p>
+<p><strong>Domain implementation roster mismatch.</strong> The current
+<code>src/runtime/bioiso_runner.rs</code> registers eight runtime BIOISO
+entities as T5 (the seven §5.1–§5.7 motivated domains plus §5.8 AEGIS),
+but also includes two T5 entities not described in §5
+(<code>fusion_plasma</code>, <code>adaptive_self_assembly</code>) and
+omits the two §5.9–§5.10 calibration domains (<code>biosphere</code> T4,
+<code>ocean_circulation</code> T3). The mismatch is acknowledged in §5;
+aligning the runtime roster with the paper’s roster (either by adding
+the calibration domains to the runtime or by replacing §5.9–§5.10 with
+<code>fusion_plasma</code>/<code>adaptive_self_assembly</code>) is
+forthcoming work.</p>
+<p><strong>Domain-saturation arguments are generic, not domain-specific
+(§5.1–§5.7).</strong> For each of the seven theoretically-motivated T5
+domains in §5, the argument that T1–T4 saturate is currently stated in
+the general form “the optimal solution class changes during the
+experiment horizon, so the T4 prior misspecifies after the shift.” A
+reviewer evaluating any individual domain (e.g., adaptive_jit,
+ics_zero_day) will rightly ask for the <em>domain-specific</em>
+structural-impossibility argument — why, concretely, the JIT pass
+orderings cannot be enumerated in a fixed portfolio for a given hardware
+target, or why zero-day attack signatures cannot be parameterized within
+a T4 surrogate’s kernel. Producing these domain-specific arguments (each
+requires domain expertise the present paper’s author may not bring
+alone) is forthcoming work; the current §5 entries should be read as
+initial framings, not final arguments.</p>
+<p><strong>Property 2 (structural escape) assumes adequate candidate
+pool.</strong> The existence proof in §3.4 holds given that the
+<code>rewire: candidates:</code> pool includes an algorithm class that
+can converge on the target problem. If the initial candidate pool is
+architecturally wrong for the problem — e.g., all candidates are
+parameter-adjustment strategies for a problem requiring structural graph
+replacement — no meiosis cycle will converge. Pool design is a human
+responsibility.</p>
+<p><strong>Ceiling theorems are structural, not statistical.</strong>
+The T1–T4 ceiling theorems establish that a class of structural
+modifications cannot be expressed within each tier — they do not make
+probabilistic claims about convergence rates on specific instances.
+Whether a T5 entity out-performs a T4 entity on a given problem in
+practice depends on the specific instance, the candidate pool, and the
+generation budget.</p>
+<p><strong>Domain baselines are simulated.</strong> The CEMS runtime
+runs signal simulators calibrated to academic baselines, not live data
+streams. Results do not constitute deployment-validated evidence for any
+specific application domain.</p>
+<p><strong>Empirical evidence covers one T5 domain plus one controlled
+primitive experiment.</strong> Of the eight T5 domains in §5
+(§5.1–§5.8), only <code>aegis_delta_neutral</code> (§5.8) is empirically
+validated in this paper, via §4.6. The COCO/BBOB f2 experiment (§4.5)
+validates the T5 <em>primitive</em> on a standard public benchmark but
+is not itself a BIOISO domain. The remaining seven T5 domains
+(§5.1–§5.7) are theoretically motivated — the structural criterion is
+satisfied and the T5 mechanism is specified, but their empirical
+validation is forthcoming work. The two calibration domains (§5.9–§5.10)
+are tier-placement examples, not T5 entities. A reader skeptical of the
+framework should weight the empirical claims accordingly.</p>
+<p><strong>Formal biological isomorphism is not demonstrated in this
+paper.</strong> The “biologically-inspired” framing in §3.5 acknowledges
+structural inspiration, not formal organizational-closure equivalence
+with biological autopoiesis (Maturana &amp; Varela 1972). Establishing
+the formal isomorphism — that BIOISO’s <code>(G, T, M, Ω)</code>
+structure satisfies the autopoietic criteria as formalized by
+Maturana–Varela and subsequent work (Di Paolo 2005; Bianchini 2023) — is
+the subject of a companion paper currently in preparation; that paper
+will require biological-systems expertise this paper’s author does not
+bring alone. The broader autopoietic argument (BIOISO and Loom as
+instances of <em>directed formal autopoiesis</em>) is developed in the
+companion essay <em>Onwards</em> (Ghiringhelli 2026); see §3.5 for the
+relationship between the three works.</p>
+<hr />
+<h2 id="conclusion">9. Conclusion</h2>
+<p>The BIOISO framework proposes a five-tier hierarchy of optimization
+entities, with T5 being the first tier whose adaptations operate on the
+space of algorithms rather than the space of parameter values, operator
+selections, or surrogate model weights. The T5 escape mechanism —
+structural self-modification via meiosis — is the first mechanism that
+compounds algorithmic improvements across generations without requiring
+a human developer to write new source code each cycle.</p>
+<p>The implementation in Loom demonstrates that this framework can be
+expressed as a typed, verifiable specification: <code>learn:</code>,
+<code>plasticity:</code>, <code>rewire:</code>, and
+<code>telomere:</code> are first-class keywords with checker rules,
+parser implementations, and runtime dispatch logic. The
+<code>examples/ladder.loom</code> file provides a compilable
+specification of the T1→T5 progression for job scheduling. The
+<code>bench_colony_ladder</code> binary demonstrates intra-generational
+auto-escalation; the BBOB experiment (§4.5) validates the T5 structural
+primitive on a public benchmark with reproducible advantage on
+ill-conditioned landscapes; the AEGIS experiment (§4.6) closes the
+inter-generational meiosis gap with measured Sharpe advantage in the
+regime where T1–T4 cannot operate.</p>
+<p><strong>Status.</strong> This is preprint v1. The eight
+theoretically-motivated domains in §5 await empirical validation
+analogous to §4.6. The formal autopoietic isomorphism — establishing
+organizational-closure equivalence between BIOISO and the
+Maturana–Varela definition — is the subject of a companion paper in
+preparation. The broader theoretical framing (the formal tradition
+waiting for its executor; the AI as Logos to the formal Nous; directed
+formal autopoiesis as the structural category) is developed in the
+companion essay <em>Onwards</em> (Ghiringhelli 2026, submitted to ACM
+SIGPLAN Onward! 2026). Readers seeking the theoretical scaffolding
+should read the three works together; readers seeking proof of formal
+isomorphism should wait for the forthcoming companion paper.</p>
+<hr />
+<h2 id="references">References</h2>
+<ul>
+<li>Brélaz, D. (1979). New methods to color the vertices of a graph.
+<em>Communications of the ACM</em>, 22(4), 251–256.</li>
+<li>Burke, E.K., et al. (2013). Hyper-heuristics: A survey of the state
+of the art. <em>Journal of the Operational Research Society</em>,
+64(12), 1695–1724.</li>
+<li>Ghiringhelli, J.C. (2026). <em>Loom: An AI-Native Functional
+Language</em> — repository and canonical manual.
+https://github.com/jghiringhelli/loom (see <code>docs/manual.md</code>
+for the language reference).</li>
+<li>Ghiringhelli, J.C. (2026). Generative Specification: A Pragmatic
+Programming Paradigm for the Stateless Reader. <em>Pragmaworks
+Preprint.</em> https://doi.org/10.5281/zenodo.19637142</li>
+<li>Ghiringhelli, J.C. (2026). Onwards: The Formal Tradition Was Waiting
+for Its Executor. <em>Submitted to ACM SIGPLAN Onward! 2026.</em></li>
+<li>Maturana, H.R., &amp; Varela, F.J. (1972). <em>De Máquinas y Seres
+Vivos: Autopoiesis — La Organización de lo Vivo.</em> Editorial
+Universitaria.</li>
+<li>Di Paolo, E.A. (2005). Autopoiesis, Adaptivity, Teleology, Agency.
+<em>Phenomenology and the Cognitive Sciences</em>, 4(4), 429–452.</li>
+<li>Bianchini, F. (2023). Autopoiesis of the Artificial: From Systems to
+Cognition. <em>BioSystems</em>, 234, 105065.</li>
+<li>Hansen, N., &amp; Ostermeier, A. (2001). Completely derandomized
+self-adaptation in evolution strategies. <em>Evolutionary
+Computation</em>, 9(2), 159–195.</li>
+<li>Hansen, N., Finck, S., Ros, R., &amp; Auger, A. (2009).
+Real-parameter black-box optimization benchmarking 2009: Noiseless
+functions definitions. <em>INRIA Research Report RR-6829.</em></li>
+<li>Holland, J.H. (1975). Adaptation in Natural and Artificial Systems.
+University of Michigan Press.</li>
+<li>Hutter, F., Kotthoff, L., &amp; Vanschoren, J. (2019). Automated
+Machine Learning. Springer.</li>
+<li>Johnson, D.S. (1974). Fast algorithms for bin packing. <em>Journal
+of Computer and System Sciences</em>, 8(3), 272–314.</li>
+<li>Jumper, J., et al. (2021). Highly accurate protein structure
+prediction with AlphaFold. <em>Nature</em>, 596, 583–589.</li>
+<li>Kirilenko, A.A., et al. (2017). The flash crash: High-frequency
+trading in an electronic market. <em>Journal of Finance</em>, 72(3),
+967–998.</li>
+<li>Kirkpatrick, S., Gelatt, C.D., &amp; Vecchi, M.P. (1983).
+Optimization by simulated annealing. <em>Science</em>, 220(4598),
+671–680.</li>
+<li>Kool, W., van Hoof, H., &amp; Welling, M. (2019). Attention, learn
+to solve routing problems! <em>ICLR 2019.</em></li>
+<li>Lenton, T.M., et al. (2019). Climate tipping points — too risky to
+bet against. <em>Nature</em>, 575, 592–595.</li>
+<li>Lourenço, H.R., Martin, O.C., &amp; Stützle, T. (2003). Iterated
+local search. In <em>Handbook of Metaheuristics</em> (pp. 320–353).
+Kluwer.</li>
+<li>Mankowitz, D.J., et al. (2023). Faster sorting algorithms discovered
+using deep reinforcement learning. <em>Nature</em>, 618, 257–263.</li>
+<li>Perelson, A.S., et al. (1997). Decay characteristics of
+HIV-1-infected compartments during combination therapy. <em>Nature</em>,
+387, 188–191.</li>
+<li>Preskill, J. (2018). Quantum computing in the NISQ era and beyond.
+<em>Quantum</em>, 2, 79.</li>
+<li>Rice, J.R. (1976). The algorithm selection problem. <em>Advances in
+Computers</em>, 15, 65–118.</li>
+<li>Smith, W.E. (1956). Various optimizers for single-stage production.
+<em>Naval Research Logistics Quarterly</em>, 3(1–2), 59–66.</li>
+<li>Snoek, J., Larochelle, H., &amp; Adams, R.P. (2012). Practical
+Bayesian optimization of machine learning algorithms. <em>NeurIPS
+2012.</em></li>
+<li>Srinivas, N., et al. (2010). Gaussian process optimization in the
+bandit setting. <em>ICML 2010.</em></li>
+<li>Sutton, R.S., &amp; Barto, A.G. (1998). Reinforcement Learning: An
+Introduction. MIT Press.</li>
+<li>Vanschoren, J. (2018). Meta-learning: A survey.
+<em>arXiv:1810.03548.</em></li>
+<li>Vinyals, O., Fortunato, M., &amp; Jaitly, N. (2015). Pointer
+networks. <em>NeurIPS 2015.</em></li>
+<li>Wolpert, D.H., &amp; Macready, W.G. (1997). No free lunch theorems
+for optimization. <em>IEEE Transactions on Evolutionary
+Computation</em>, 1(1), 67–82.</li>
+</ul>
+<aside id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>A specification is <em>GS-derivable</em> if a stateless
+reader with no prior context — a fresh human contributor, or a new AI
+session — can apply any mutation specified in the genome’s
+<code>-- GS EVOLUTION SPEC</code> blocks to source code by reading the
+specification alone, without consulting external state or institutional
+memory. Operationally, each <code>-- GS EVOLUTION SPEC</code> block
+declares a mutation type (e.g. <code>ParameterAdjust</code>,
+<code>StructuralRewire</code>), the target entity, the parameter or
+signal being modified, the delta or wiring change, the source file and
+symbol the mutation maps to, and the verification command
+(e.g. <code>cargo test --lib -- runtime</code>). The block is
+intentionally self-contained: it carries every piece of information
+needed to apply the mutation, audit it, and confirm it. See Ghiringhelli
+(2026, <em>Generative Specification</em>) for the formal definition and
+the broader GS discipline this property anchors.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>A domain satisfies the <strong>structural criterion for
+T5</strong> when the <em>class</em> of optimal solution — not merely its
+parameters — changes during the experiment horizon, making
+<code>StructuralRewire</code> rather than <code>ParameterAdjust</code>
+the load-bearing primitive. The criterion is falsifiable: a domain
+marked Y can be demoted to T3/T4 if an empirical study shows its
+optimal-solution class is in fact stable; a domain marked N can be
+promoted if structural drift is observed. The two calibration domains
+(<code>biosphere</code>, <code>ocean_circulation</code>) are marked N by
+design to demonstrate the framework does not default to T5
+universally.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</aside>
+</body>
+</html>
