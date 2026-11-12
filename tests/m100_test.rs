@@ -35,6 +35,8 @@ end
 }
 
 // 2. Without the `smt` feature, every result has status Skipped.
+// (Only meaningful when the feature is off; with `--features smt` Z3 runs and yields Unknown/Proved.)
+#[cfg(not(feature = "smt"))]
 #[test]
 fn test_m100_simple_contract_skipped_without_z3() {
     let src = r#"
