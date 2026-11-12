@@ -23,6 +23,9 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 **with the claims scoped to the evidence**, and let the experiments in
 [`docs/maturity-experiments.md`](docs/maturity-experiments.md) move the claims up.
 
+> Prior-art assessment (2026-11-12): [`docs/landscape-2026-11.md`](docs/landscape-2026-11.md) — most individual
+> ideas have mature prior art; recommended positioning is governance/safety for AI-patched systems.
+
 ## Phase A — Open the repo (blockers before announcing)
 
 - [x] Repository metadata fixed: `Cargo.toml` and publish docs now point to `github.com/jghiringhelli/loom` (the real remote).
