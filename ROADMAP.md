@@ -13,7 +13,7 @@
 | Emission targets: Rust, TypeScript, WASM, OpenAPI 3.0, JSON Schema | Working (WASM limited) | `tests/`, `corpus/` |
 | Biological layer (`being:`, `telos:`, `regulate:`, `evolve:`, SafetyChecker) | Implemented | `tests/`, `experiments/` |
 | BIOISO runtime (colony, T1–T5 ladders, meiosis) | Experimental | `experiments/bbob`, `experiments/aegis` |
-| Self-applicability (ALX) | **Not proven** — last recorded S_realized = 0.339, gate is 0.90 | `experiments/alx` |
+| Self-applicability (ALX) | **Partially shown** — S_realized 0.000 → 1.000 (386/386) over 6 correction phases, but phases 4–6 also patched the derived code directly, so it is *not yet* a blind-derivation result | `experiments/alx/evidence` |
 | Stateless derivability (LX-4) | **Not yet run** | `experiments/lx/LX-4-*` |
 | Users / ecosystem | None outside the author | — |
 
@@ -38,7 +38,7 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 Each claim has a pass/fail gate in [`docs/maturity-experiments.md`](docs/maturity-experiments.md).
 A claim that fails its gate is rewritten, not defended.
 
-- [ ] **ALX**: raise S_realized from 0.339 toward ≥ 0.90 (gaps G11–G15). Publish only if the gate passes.
+- [ ] **ALX-R (blind re-derivation)**: a fresh reader derives the compiler from the *final* `loom.loom` + `language-spec.md` with no human patching; report S_realized. This is what turns the 1.000 above into a publishable claim.
 - [ ] **LX-4**: run the five stateless-derivability trials in fresh sessions and record results.
 - [ ] **BBOB**: extend from 4 to the full 24-function suite; report where T5 does *not* help (sphere, Rastrigin already show no gain).
 - [ ] **Compiler maturity**: fuzzing, mutation testing, and a differential check of emitted Rust against `rustc`.

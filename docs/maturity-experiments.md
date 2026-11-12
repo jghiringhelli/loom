@@ -20,7 +20,8 @@ a fresh developer machine may not. Record `rustc --version` and the commit SHA i
 | M4 | Are checkers sound on negative cases? | To run | Every checker has ≥ 5 *must-fail* programs that fail with the expected error | — |
 | LX-1 | Semantic density vs TS/Rust | Done | ≥ 2× tokens/property | `experiments/lx/LX-1-semantic-density` (2.66× avg) |
 | LX-4 | Can a fresh LLM session extend Loom from the spec alone? | **Pending** | ≥ 4/5 features compile within 2 attempts | `experiments/lx/LX-4-*` |
-| ALX | Can a blind reader derive the compiler from `loom.loom`? | In progress | S_realized ≥ 0.90 | 0.339 (Phase 3) |
+| ALX | Guided derivation + corrections reaches full test pass? | Done (caveat) | S_realized ≥ 0.90 | 1.000, 386/386 (2026-04-27); phases 4–6 patched derived code directly |
+| ALX-R | Can a **blind** reader re-derive the compiler from the *final* spec? | **To run** | S_realized ≥ 0.90 with zero human edits to derived code | — |
 | BBOB | Does T5 help optimization beyond T1–T4? | Partial (4 of 24 fns, DIM=10, 30 trials) | T5 better on ≥ 1 class **and** not worse elsewhere, Wilcoxon p < 0.05 | `experiments/bbob/evidence` |
 | AEGIS | Does inter-generational meiosis transfer? | Partial | Held-out period beats parent genome | `experiments/aegis/evidence` |
 | COL | Does the colony run unattended and stay safe? | Unknown since 2026-04-20 | 7 days, 0 safety-floor violations, drift bounded | Railway logs |
@@ -42,8 +43,11 @@ One table-driven test per checker. This measures *soundness of rejection*, which
 ### LX-4 — Stateless derivability
 Follow `experiments/lx/LX-4-stateless-derivability/protocol.md`. Fresh session each trial, no repo access beyond the prompts. Record verbatim output.
 
-### ALX — Self-applicability
-Follow `experiments/alx/protocol.md`. Report S_realized per phase and the correction log (information content of each fix).
+### ALX — Self-applicability (done, with caveat)
+History: 0.000 → 0.339 → 0.641 → 0.780 → 0.900 → 1.000. Commits for phases 4, 5a, 5b modified `experiments/alx/derived/src` without modifying `spec/loom.loom`, so the final score reflects spec **plus** manual patches.
+
+### ALX-R — Blind re-derivation from the final spec
+Fresh session, no repo access except `docs/language-spec.md` and `experiments/alx/spec/loom.loom` (final version). Derive into a new directory, run the same test suite, record S_realized and the list of failures. Then diff against `derived/` to see which spec statements were insufficient. No manual edits allowed before measuring.
 
 ### BBOB — Optimization efficacy
 Extend to all 24 noiseless functions × DIMs {5, 10, 20} × 30 seeds. Baselines: T1–T4 and plain CMA-ES. Report convergence rate, median final NF with IQR, and an effect size. **Report losses and ties with equal prominence.** (Current data: gains on f2 and f24; none on f1 and f15.)
@@ -67,6 +71,6 @@ notes:     <what this does NOT show>
 ## Decision rule for going public
 
 - **Open the repo** when M0, M1 and M4 pass (Phase A in `ROADMAP.md`).
-- **Claim "AI-derivable"** only when LX-4 and ALX gates pass.
+- **Claim "AI-derivable"** only when LX-4 and **ALX-R** gates pass (ALX 1.000 alone is not enough: it included manual patches).
 - **Claim "BIOISO T5 improves optimization"** only on the function classes where BBOB shows it.
 - **Claim "mature"** is not on the table before v1.0; the target wording is *research compiler*.

@@ -20,7 +20,7 @@
 ## Next
 1. Install Rust toolchain locally; run M0–M4 from `docs/maturity-experiments.md`.
 2. Phase A blockers in `ROADMAP.md` (repo URL mismatch, release binaries, README quick start).
-3. Run LX-4 (fresh sessions) and continue ALX toward S_realized ≥ 0.90.
+3. ALX reached S_realized = 1.000 (386/386, 2026-04-27) but with manual patches to derived code in phases 4–6. Run **ALX-R** (blind re-derivation from the final spec) and LX-4.
 
 ## History
 Earlier status (2026-04-20, T5 AEGIS + colony fixes) is preserved in git history of this file.
