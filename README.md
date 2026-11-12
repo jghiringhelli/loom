@@ -208,7 +208,9 @@ See [Getting Started](docs/getting-started.md) for a 10-minute walkthrough.
 | [`docs/pln.md`](docs/pln.md) | Probabilistic reasoning and telos convergence estimates |
 | [`docs/lifecycle.md`](docs/lifecycle.md) | Full software lifecycle spec |
 | [`docs/publish/white-paper.md`](docs/publish/white-paper.md) | Academic white paper |
-| [`docs/roadmap.md`](docs/roadmap.md) | Full milestone roadmap |
+| [`ROADMAP.md`](ROADMAP.md) | Public roadmap — what is done, being proven, and not promised |
+| [`docs/maturity-experiments.md`](docs/maturity-experiments.md) | Maturity & efficacy experiments with pass/fail gates |
+| [`docs/roadmap.md`](docs/roadmap.md) | Historical milestone specs (M1–M18) |
 | [`docs/TechSpec.md`](docs/TechSpec.md) | Compiler architecture |
 | [`docs/deploy-railway.md`](docs/deploy-railway.md) | Colony deployment on Railway |
 

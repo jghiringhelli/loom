@@ -1,5 +1,9 @@
 # Loom — Phase 2 & Phase 3 Roadmap
 
+> **Historical milestone specs.** Status columns below are not maintained (e.g. M9–M18 show
+> "Planned" but have shipped). For the current public roadmap see [`/ROADMAP.md`](../ROADMAP.md);
+> for experiments see [`maturity-experiments.md`](maturity-experiments.md).
+
 > Phase 1 is complete (lexer · parser · type checker · effect checker · Rust emitter · CLI).
 > Phase 2 is complete (type inference · exhaustiveness · WASM back-end · LSP).
 > Phase 3 extends the compiler with dependency injection, stdlib type mappings, generics, and multi-module compilation.
