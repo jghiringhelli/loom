@@ -499,8 +499,15 @@ CONSTANTS\n\
         }
 
         if let Some(evolve) = &being.evolve_block {
+            // A strategy may appear in several search cases (different `when` guards);
+            // emit its method once, otherwise rustc reports E0592 duplicate definitions.
+            let mut emitted_methods: std::collections::HashSet<&'static str> =
+                std::collections::HashSet::new();
             for sc in &evolve.search_cases {
                 let method = strategy_rust_method(&sc.strategy);
+                if !emitted_methods.insert(method) {
+                    continue;
+                }
                 let strategy_name = strategy_rust_label(&sc.strategy);
                 let step_comment = strategy_rust_step_comment(&sc.strategy);
                 out.push_str(&format!("\n    /// Search strategy: {}\n", strategy_name));
@@ -564,11 +571,13 @@ CONSTANTS\n\
                 out.push_str("    }\n");
             }
 
-            let strategy_list: Vec<&str> = evolve
-                .search_cases
-                .iter()
-                .map(|sc| strategy_rust_label(&sc.strategy))
-                .collect();
+            let mut strategy_list: Vec<&str> = Vec::new();
+            for sc in &evolve.search_cases {
+                let label = strategy_rust_label(&sc.strategy);
+                if !strategy_list.contains(&label) {
+                    strategy_list.push(label);
+                }
+            }
             let default_method = evolve
                 .search_cases
                 .first()

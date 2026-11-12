@@ -716,7 +716,8 @@ impl RustEmitter {
             }
         }
 
-        if body_lines.is_empty() {
+        // A contract-only fn (require:/ensure: but no body) would otherwise return `()`.
+        if body_lines.is_empty() || body_count == 0 {
             body_lines
                 .push("    todo\x21(\"Phase 1 stub — body not yet implemented\")".to_string());
         }
