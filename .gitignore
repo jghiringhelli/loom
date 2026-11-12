@@ -52,3 +52,11 @@ data/btc_ohlc.json
 # Forgecraft local cache (per-developer, regenerated)
 .forgecraft/gates-cache.json
 .forgecraft/gates/
+
+# Emitted artefacts from `loom compile` on examples/experiments (regenerated, never commit)
+examples/**/*.ts
+examples/**/*.openapi.yaml
+examples/**/*.schema.json
+examples/**/*.tla
+examples/**/*.cfg
+experiments/alx/derived/out/
