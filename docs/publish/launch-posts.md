@@ -38,7 +38,7 @@ The killer demo is a scalping agent written in 378 lines of Loom. It compiles
 to Rust, the runner fetches real BTC price data from CoinGecko, and backtests:
 491 trades, 53.4% win rate, Sharpe 0.760.
 
-GitHub: https://github.com/PragmaWorks/loom
+GitHub: https://github.com/jghiringhelli/loom
 119 milestones, 800+ tests, MIT license.
 
 Happy to answer anything about the language design, the biological isomorphisms,
@@ -106,7 +106,7 @@ cleanly to Loom's typestate and effect tracking. The `#[cfg(kani)]` proof
 harness pattern is idiomatic. And `cargo` makes the "does it actually compile
 and run" verification gate straightforward.
 
-GitHub: https://github.com/PragmaWorks/loom
+GitHub: https://github.com/jghiringhelli/loom
 119 milestones | 800+ tests | MIT | Written in Rust
 
 Curious what the r/rust community thinks about the generated output quality.
@@ -171,7 +171,7 @@ is where I'd most appreciate expert eyes.
 > MIT license
 > Written in Rust
 >
-> github.com/PragmaWorks/loom
+> github.com/jghiringhelli/loom
 >
 > cargo install loom-lang (coming to crates.io this week)
 
@@ -193,6 +193,6 @@ I'm releasing Loom v0.2 today — a compiler project I've been working on that I
 
 119 milestones complete. 800+ tests. MIT license.
 
-GitHub: https://github.com/PragmaWorks/loom
+GitHub: https://github.com/jghiringhelli/loom
 
 I'm particularly interested in connecting with researchers working on programming language theory, formal verification, AI safety, and systems biology. The isomorphism table is deep and I've only mapped part of it.

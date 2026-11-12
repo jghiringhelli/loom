@@ -176,7 +176,7 @@ fn fetch_coingecko_ohlc(coin_id: &str, days: u32) -> Option<Vec<Candle>> {
     );
     let output = Command::new("curl")
         .args(["-s", "--max-time", "10", "--user-agent",
-               "LoomScalper/1.0 (github.com/PragmaWorks/loom)", &url])
+               "LoomScalper/1.0 (github.com/jghiringhelli/loom)", &url])
         .output()
         .ok()?;
 

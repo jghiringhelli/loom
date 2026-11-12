@@ -118,7 +118,7 @@ An AI-to-AI communication protocol layer for describing compiler tasks in a mini
 
 ```sh
 # From source (Cargo v1.75+):
-git clone https://github.com/PragmaWorks/loom
+git clone https://github.com/jghiringhelli/loom
 cd loom
 cargo build --release
 ./target/release/loom compile examples/01-hello-contracts.loom

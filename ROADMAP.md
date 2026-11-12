@@ -25,7 +25,7 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 
 ## Phase A — Open the repo (blockers before announcing)
 
-- [ ] Fix repository metadata: `Cargo.toml` points to `PragmaWorks/loom`, the remote is `jghiringhelli/loom`. Pick one.
+- [x] Repository metadata fixed: `Cargo.toml` and publish docs now point to `github.com/jghiringhelli/loom` (the real remote).
 - [x] Re-baseline test counts: 1975 passing / 17 ignored across 169 suites (2026-11-12). CI previously hid failures (`| tee` without pipefail) and counted ~480; fixed.
 - [ ] **Emitted Rust must compile for every corpus/example program** (M1: 12/42 today). Top clusters: duplicate `evolve_derivative_free` (10), malformed pattern emission (5), undefined types (3).
 - [ ] Confirm the Linux CI run is green with the hardened workflow.
