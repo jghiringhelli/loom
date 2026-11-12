@@ -19,6 +19,9 @@ pub struct Parser<'src> {
     pub pending_effect_tiers: Vec<(String, ConsequenceTier)>,
     /// Annotations parsed before a `fn` keyword at item level — merged into the fn.
     pub pending_annotations: Vec<Annotation>,
+    /// When true, `Ident {` is not parsed as a record literal (e.g. `for n in xs { ... }`,
+    /// where `{` opens the loop body).
+    no_record_literal: bool,
 }
 
 mod being;
@@ -34,6 +37,7 @@ impl<'src> Parser<'src> {
             pos: 0,
             pending_effect_tiers: Vec::new(),
             pending_annotations: Vec::new(),
+            no_record_literal: false,
         }
     }
 

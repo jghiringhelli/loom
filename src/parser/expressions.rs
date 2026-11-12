@@ -21,7 +21,11 @@ impl<'src> crate::parser::Parser<'src> {
         self.expect(Token::For)?;
         let (var, _) = self.expect_ident()?;
         self.expect(Token::In)?;
-        let iter = self.parse_pipe()?;
+        // `{` after the iterator opens the loop body, not a record literal.
+        let prev = std::mem::replace(&mut self.no_record_literal, true);
+        let iter = self.parse_pipe();
+        self.no_record_literal = prev;
+        let iter = iter?;
         self.expect(Token::LBrace)?;
         let body = self.parse_expr()?;
         let end_span = self.current_span();
@@ -392,7 +396,7 @@ impl<'src> crate::parser::Parser<'src> {
             } else if self.at(&Token::LBrace) {
                 // Struct literal: `TypeName { field: value, ... }`.
                 // Only valid when the current expr is a plain identifier (the type name).
-                if !matches!(expr, Expr::Ident(_)) {
+                if self.no_record_literal || !matches!(expr, Expr::Ident(_)) {
                     break;
                 }
                 let name = if let Expr::Ident(n) = &expr {

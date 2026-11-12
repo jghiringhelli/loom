@@ -162,12 +162,15 @@ fn e2e_iter(loom_src: &str, fn_call: &str, expected: &str) {
     let main_src =
         format!("{rust_src}\nfn main() {{\n    println!(\"{{}}\", {mod_name}::{fn_call});\n}}\n");
 
+    // Thread id keeps parallel tests apart: subsec_nanos alone can collide on
+    // platforms with coarse clocks (Windows), letting tests overwrite each other.
     let dir = std::env::temp_dir().join(format!(
-        "loom_iter_e2e_{}",
+        "loom_iter_e2e_{}_{:?}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .subsec_nanos()
+            .subsec_nanos(),
+        std::thread::current().id()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let rs_path = dir.join("main.rs");

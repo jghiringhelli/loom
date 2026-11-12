@@ -34,7 +34,8 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Cargo test (single-threaded for e2e stability)
-        run: cargo test -- --test-threads=1 2>&1 | tee test-output.txt
+        shell: bash
+        run: cargo test --no-fail-fast -- --test-threads=1 2>&1 | tee test-output.txt
 
       - name: Count passing tests
         if: always()
@@ -167,7 +168,8 @@ jobs:
           restore-keys: ${{ runner.os }}-smt-
 
       - name: Build + test with smt feature
-        run: cargo test --features smt -- --test-threads=1 2>&1 | tee smt-output.txt
+        shell: bash
+        run: cargo test --features smt --no-fail-fast -- --test-threads=1 2>&1 | tee smt-output.txt
 
       - name: Smoke test Z3 invocation
         run: |

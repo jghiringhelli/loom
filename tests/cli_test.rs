@@ -17,20 +17,9 @@ use std::process::{Command, Output};
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 fn loom_bin() -> PathBuf {
-    // In CI / test mode, cargo places the binary under target/debug/
-    let mut p = std::env::current_exe().unwrap();
-    p.pop(); // remove test binary name
-    if p.ends_with("deps") {
-        p.pop();
-    }
-    p.push("loom");
-    // Windows
-    p.set_extension("exe");
-    if !p.exists() {
-        // Fallback: look relative to workspace root
-        p = PathBuf::from("target/debug/loom.exe");
-    }
-    p
+    // Cargo builds the `loom` bin for integration tests and exposes its exact path
+    // (correct extension on every OS — a hardcoded `.exe` broke Linux CI).
+    PathBuf::from(env!("CARGO_BIN_EXE_loom"))
 }
 
 fn run(args: &[&str]) -> Output {
