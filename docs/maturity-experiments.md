@@ -13,8 +13,8 @@ a fresh developer machine may not. Record `rustc --version` and the commit SHA i
 
 | ID | Question | Status | Gate (pass if…) | Existing data |
 |---|---|---|---|---|
-| M0 | Does `main` build and test clean? | CI green (2026-05-15) | `cargo test` 0 failures on 3 OSes | CI logs |
-| M1 | Does emitted Rust compile? | To run | 100% of `corpus/` + `examples/` emit Rust that passes `rustc --edition 2021` | — |
+| M0 | Does `main` build and test clean? | **PASS** (2026-11-12, Windows) — Linux CI re-verifying | `cargo test --no-fail-fast` 0 failures | 1975 passed / 0 failed / 17 ignored, 169 suites (`experiments/maturity/evidence/summary.md`). Previous "green" CI was masked by `\| tee` without pipefail and ran only ~480 tests |
+| M1 | Does emitted Rust compile? | **FAIL** (2026-11-12) | 100% of `corpus/` + `examples/` emit Rust that passes `rustc --edition 2021` | 12/42 (29%). Clusters: 10× duplicate `evolve_derivative_free`, 5× malformed pattern emission, 3× undefined types, 3× `>` on structs, 2× `.all()` on Vec, 2× stray `let`, 1× `→` leaked into output (`evidence/m1-*.tsv`) |
 | M2 | Do tests catch bugs? | Partial (`mutants.out` was local) | Mutation score ≥ 80% on `checker/` | cargo-mutants, 2026 local runs (archived) |
 | M3 | Does the parser survive hostile input? | To run | 1M fuzz execs on lexer+parser, 0 panics | — |
 | M4 | Are checkers sound on negative cases? | To run | Every checker has ≥ 5 *must-fail* programs that fail with the expected error | — |

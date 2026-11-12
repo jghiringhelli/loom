@@ -9,7 +9,7 @@
 
 | Area | State | Evidence |
 |---|---|---|
-| Compiler (lex → parse → 11 semantic checkers → codegen) | Working | CI green on `main` |
+| Compiler (lex → parse → 11 semantic checkers → codegen) | Front-end and checkers working: 1975 tests pass (2026-11-12). **Emitted Rust compiles for only 12 of 42 corpus/example programs** | `experiments/maturity/evidence` |
 | Emission targets: Rust, TypeScript, WASM, OpenAPI 3.0, JSON Schema | Working (WASM limited) | `tests/`, `corpus/` |
 | Biological layer (`being:`, `telos:`, `regulate:`, `evolve:`, SafetyChecker) | Implemented | `tests/`, `experiments/` |
 | BIOISO runtime (colony, T1–T5 ladders, meiosis) | Experimental | `experiments/bbob`, `experiments/aegis` |
@@ -26,7 +26,9 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 ## Phase A — Open the repo (blockers before announcing)
 
 - [ ] Fix repository metadata: `Cargo.toml` points to `PragmaWorks/loom`, the remote is `jghiringhelli/loom`. Pick one.
-- [ ] Re-baseline test counts in CI output (docs quote 314 / 339 / 410 depending on the file). One source of truth: the CI log.
+- [x] Re-baseline test counts: 1975 passing / 17 ignored across 169 suites (2026-11-12). CI previously hid failures (`| tee` without pipefail) and counted ~480; fixed.
+- [ ] **Emitted Rust must compile for every corpus/example program** (M1: 12/42 today). Top clusters: duplicate `evolve_derivative_free` (10), malformed pattern emission (5), undefined types (3).
+- [ ] Confirm the Linux CI run is green with the hardened workflow.
 - [ ] Ship a tagged `v0.2.0` release with prebuilt binaries (Linux, macOS, Windows) — currently no cross-platform artifacts.
 - [ ] `README` quick start verified on a clean machine (Windows included) in ≤ 5 minutes.
 - [ ] Triage and label GitHub issues (`good first issue`, `research`, `ALX gap`).

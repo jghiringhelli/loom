@@ -1,0 +1,30 @@
+corpus_di_demo	error[E0425]: cannot find type `DbConn` in this scope
+corpus_invellum	error[E0428]: the name `Active` is defined multiple times
+corpus_pricing_engine	error[E0308]: mismatched types
+corpus_user_service	error[E0425]: cannot find value `valid_email` in this scope
+examples_05_autonomous_agent	error[E0425]: cannot find value `min_energy_f64` in this scope
+examples_cross_autopoietic_evolve	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
+examples_cross_crispr_telomere	error[E0425]: cannot find type `repair_council_guide` in this scope
+examples_cross_epigenetic_learn	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_cross_escalation_ladder	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
+examples_cross_morphogen_quorum	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
+examples_ladder	error[E0425]: cannot find type `GPState` in this scope
+examples_tier1_dsatur_graph_coloring	error: expected expression, found `let` statement
+examples_tier1_ffd_bin_packer	error[E0599]: no method named `all` found for struct `Vec<Item>` in the current scope
+examples_tier1_greedy_job_scheduler	error[E0599]: no method named `all` found for struct `Vec<Job>` in the current scope
+examples_tier2_knapsack_genetic	error[E0369]: binary operation `>` cannot be applied to type `Solution`
+examples_tier2_tsp_simulated_annealing	error[E0369]: binary operation `>=` cannot be applied to type `Tour`
+examples_tier3_hyper_heuristic_scheduler	error[E0369]: binary operation `>` cannot be applied to type `HeuristicWeights`
+examples_tier4_bayesian_optimizer	error: unknown start of token: \u{2192}
+examples_tier4_neural_combinatorial	error: expected expression, found `let` statement
+examples_tier5_adaptive_jit	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_adaptive_self_assembly	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_aegis_delta_neutral	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
+examples_tier5_amr_coevolution	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_apex_colony	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
+examples_tier5_climate_intervention	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_flash_crash	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_fusion_plasma	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_ics_zero_day	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_protein_drug_resistance	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples_tier5_quantum_error_mitigation	error[E0592]: duplicate definitions with name `evolve_derivative_free`
