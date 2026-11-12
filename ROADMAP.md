@@ -13,7 +13,7 @@
 | Emission targets: Rust, TypeScript, WASM, OpenAPI 3.0, JSON Schema | Working (WASM limited) | `tests/`, `corpus/` |
 | Biological layer (`being:`, `telos:`, `regulate:`, `evolve:`, SafetyChecker) | Implemented | `tests/`, `experiments/` |
 | BIOISO runtime (colony, T1–T5 ladders, meiosis) | Experimental | `experiments/bbob`, `experiments/aegis` |
-| Self-applicability (ALX) | **Partially shown** — S_realized 0.000 → 1.000 (386/386) over 6 correction phases, but phases 4–6 also patched the derived code directly, so it is *not yet* a blind-derivation result | `experiments/alx/evidence` |
+| Self-applicability (ALX) | **Not shown as claimed.** Guided derivation reached 1.000 with manual patches; a blind re-derivation from the final spec (ALX-R, 2026-11-12) scored **0.375** vs a 0.90 gate | `experiments/alx/evidence/alx-r` |
 | Stateless derivability (LX-4) | **Not yet run** | `experiments/lx/LX-4-*` |
 | Users / ecosystem | None outside the author | — |
 
@@ -43,7 +43,7 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 Each claim has a pass/fail gate in [`docs/maturity-experiments.md`](docs/maturity-experiments.md).
 A claim that fails its gate is rewritten, not defended.
 
-- [ ] **ALX-R (blind re-derivation)**: a fresh reader derives the compiler from the *final* `loom.loom` + `language-spec.md` with no human patching; report S_realized. This is what turns the 1.000 above into a publishable claim.
+- [x] **ALX-R run**: 0.375 (gate 0.90). Next: feed its gaps back into `loom.loom` (spec, not code), repeat with ≥3 runs and a second model, and report variance. Do not publish the "AI-derivable" claim until the gate passes.
 - [ ] **LX-4**: run the five stateless-derivability trials in fresh sessions and record results.
 - [ ] **BBOB**: extend from 4 to the full 24-function suite; report where T5 does *not* help (sphere, Rastrigin already show no gain).
 - [ ] **Compiler maturity**: fuzzing, mutation testing, and a differential check of emitted Rust against `rustc`.
