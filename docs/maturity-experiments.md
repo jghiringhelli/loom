@@ -22,7 +22,7 @@ a fresh developer machine may not. Record `rustc --version` and the commit SHA i
 | LX-4 | Can a fresh LLM session extend Loom from the spec alone? | **Pending** | ≥ 4/5 features compile within 2 attempts | `experiments/lx/LX-4-*` |
 | ALX | Guided derivation + corrections reaches full test pass? | Done (caveat) | S_realized ≥ 0.90 | 1.000, 386/386 (2026-04-27); phases 4–6 patched derived code directly |
 | ALX-R | Can a **blind** reader re-derive the compiler from the *final* spec? | **To run** | S_realized ≥ 0.90 with zero human edits to derived code | — |
-| BBOB | Does T5 help optimization beyond T1–T4? | Partial (4 of 24 fns, DIM=10, 30 trials) | T5 better on ≥ 1 class **and** not worse elsewhere, Wilcoxon p < 0.05 | `experiments/bbob/evidence` |
+| BBOB | Does T5 help optimization beyond T1–T4? | **PASS, scoped** (2026-11-12): reproduced bit-for-bit; 4 of 24 fns, DIM=10, 30 trials | T5 better on ≥ 1 class **and** not worse elsewhere, p < 0.05 | Ellipsoid p=4.8e-5 (Cliff δ=0.61), Lunacek p=1.3e-8 (δ=0.86); sphere p=0.72 and Rastrigin p=0.99 = no difference (`evidence/stats.txt`). Limits: only 4 functions, baseline is T1–T4 not CMA-ES |
 | AEGIS | Does inter-generational meiosis transfer? | Partial | Held-out period beats parent genome | `experiments/aegis/evidence` |
 | COL | Does the colony run unattended and stay safe? | Unknown since 2026-04-20 | 7 days, 0 safety-floor violations, drift bounded | Railway logs |
 

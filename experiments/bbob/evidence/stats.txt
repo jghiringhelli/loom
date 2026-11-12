@@ -1,0 +1,5 @@
+function         median_T1-T4  median_T1-T5   p (MWU)    Cliff_d (T4>T5 => T5 better)
+f1_sphere             0.1336        0.1364   0.7227     +0.05
+f2_ellipsoid          0.2100        0.0210   4.789e-05  +0.61
+f15_rastrigin         0.4046        0.4064   0.9882     -0.00
+f24_lunacek           0.5330        0.2874   1.256e-08  +0.86
