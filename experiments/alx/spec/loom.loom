@@ -1155,6 +1155,11 @@ end
 --    return -> error; `n > 0` -> Bool OK; `n * factorial(n)` -> OK (call = unknown); `x as Float * y` for
 --    Float return -> OK; let-chains `let r = n + n; r` -> OK; `todo`/`inline` bodies -> not inferred.
 --    Signature-level: type variables in a signature are checked for cycles only.
+--    Entry-point pipelines differ and the inference stage is NOT run everywhere: compile_openapi runs
+--    TypeChecker then AlgebraicChecker only; compile_json_schema runs TypeChecker only; compile_typescript
+--    runs InferenceEngine then AspectChecker first. So `fn f @idempotent :: Int -> Effect<[DB], String>
+--    id` compiles to OpenAPI (no UnificationError), while the same body through compile_typescript
+--    does not.
 --
 -- ── R6. Emitted-text conventions ──────────────────────────────────────────────────────────────
 --  R6.0 Naming helpers. snake(X): lower-case, inserting `_` before every upper-case letter except the
