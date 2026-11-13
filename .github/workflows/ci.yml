@@ -237,21 +237,21 @@ jobs:
 
       - name: Run mutation tests on checker core
         run: |
-          cargo mutants --timeout 120 \
-            --file src/checker/smt_bridge.rs \
-            --file src/checker/property_checker.rs \
-            --file src/checker/refinement.rs \
-            -- -- --test-threads=1 2>&1 | tee mutants-output.txt
-          CAUGHT=$(grep -c "caught" mutants-output.txt || echo 0)
-          MISSED=$(grep -c "missed" mutants-output.txt || echo 0)
+          # cargo-mutants exits non-zero when mutants survive; the score gate below decides.
+          cargo mutants --timeout 120             --file src/checker/smt_bridge.rs             --file src/checker/property_checker.rs             --file src/checker/refinement.rs             -- -- --test-threads=1 2>&1 | tee mutants-output.txt || true
+          # Score from the structured report, not from grepping console text.
+          OUT=mutants.out/outcomes.json
+          test -f "$OUT" || { echo "no outcomes.json: mutation run failed"; exit 1; }
+          CAUGHT=$(jq '.caught' "$OUT")
+          MISSED=$(jq '.missed' "$OUT")
           TOTAL=$((CAUGHT + MISSED))
           if [ $TOTAL -gt 0 ]; then
             SCORE=$(( (CAUGHT * 100) / TOTAL ))
             echo "Mutation score: $SCORE% ($CAUGHT/$TOTAL caught)"
-            echo "### 🧬 Mutation score: $SCORE% ($CAUGHT/$TOTAL)" >> $GITHUB_STEP_SUMMARY
-            [ $SCORE -ge 70 ] || (echo "Mutation score below 70% threshold" && exit 1)
+            echo "### Mutation score: $SCORE% ($CAUGHT/$TOTAL)" >> $GITHUB_STEP_SUMMARY
+            [ $SCORE -ge 70 ] || { echo "Mutation score below 70% threshold"; exit 1; }
           else
-            echo "No mutants generated"
+            echo "No mutants generated"; exit 1
           fi
 
       - name: Upload mutants output
@@ -259,7 +259,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mutants-output
-          path: mutants-output.txt
+          path: |
+            mutants-output.txt
+            mutants.out/
           retention-days: 7
 
   # ── ALX-6 statistical proofs ──────────────────────────────────────────────────
