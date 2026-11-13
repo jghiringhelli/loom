@@ -510,7 +510,7 @@ CONSTANTS\n\
                 out.push_str(
                     "        // No bounds declared: unbounded regulation, steady-state assumed.\n",
                 );
-                out.push_str("        0.0_f64\n");
+                out.push_str("        // (signature returns unit when no bounds are declared)\n");
             }
             out.push_str("    }\n");
         }
@@ -690,8 +690,8 @@ CONSTANTS\n\
             ));
             out.push_str("    /// Doudna/Charpentier (2012): targeted form editing under guided correction.\n");
             out.push_str(&format!(
-                "    pub fn edit_{}(&mut self, guide: {}) -> Result<(), &'static str> {{\n",
-                guide_snake, crispr.guide
+                "    pub fn edit_{}(&mut self, guide: &str) -> Result<(), &'static str> {{\n",
+                guide_snake
             ));
             out.push_str(&format!("        // target: {}\n", crispr.target));
             out.push_str(&format!("        // replace: {}\n", crispr.replace));
