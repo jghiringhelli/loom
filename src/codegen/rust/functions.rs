@@ -271,7 +271,7 @@ impl RustEmitter {
     }
 
     pub(super) fn fn_param_names(&self, fd: &FnDef) -> Vec<String> {
-        collect_body_param_names(fd, fd.type_sig.params.len())
+        collect_body_param_names(fd, &fd.type_sig.params)
     }
 
     /// Emit the three derived artifacts for a `usecase:` block:
@@ -592,7 +592,7 @@ impl RustEmitter {
                 .params
                 .iter()
                 .enumerate()
-                .zip(collect_body_param_names(fd, fd.type_sig.params.len()))
+                .zip(collect_body_param_names(fd, &fd.type_sig.params))
                 .map(|((_, ty), name)| format!("{}: {}", name, self.emit_type_expr(ty))),
         );
 
@@ -756,14 +756,167 @@ fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
 
 /// Identifiers that look like free variables but are actually language keywords
 /// or built-in macros and must not be used as parameter names.
-const PARAM_NAME_BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
+const PARAM_NAME_BUILTINS: &[&str] = &[
+    "todo",
+    "panic",
+    "unreachable",
+    "unimplemented",
+    "result",
+];
 
-/// Collect free variable names from a function body in first-appearance order.
+/// What a contract/body usage implies about the type of a free identifier.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum UseKind {
+    /// `x.len()`, `x.all(..)`, `x[i]`, `for _ in x` — x is a collection.
+    List,
+    /// `x.field` — x is a user-defined record.
+    Record,
+    /// `x > 0` / `x + 1.0` — x is numeric.
+    Numeric,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SlotKind {
+    List,
+    Record,
+    Numeric,
+    Other,
+}
+
+fn slot_kind(ty: &TypeExpr) -> SlotKind {
+    match ty {
+        TypeExpr::Generic(n, _) if matches!(n.as_str(), "List" | "Vec" | "Set") => SlotKind::List,
+        TypeExpr::Tensor { .. } => SlotKind::List,
+        TypeExpr::Base(n) => match n.as_str() {
+            "Int" | "Float" | "Nat" | "Int64" | "Float64" | "UInt" | "Usize" => SlotKind::Numeric,
+            "String" | "Bool" | "Unit" | "Str" => SlotKind::Other,
+            _ => SlotKind::Record,
+        },
+        _ => SlotKind::Other,
+    }
+}
+
+fn kind_fits(use_kind: UseKind, slot: SlotKind) -> bool {
+    matches!(
+        (use_kind, slot),
+        (UseKind::List, SlotKind::List)
+            | (UseKind::Record, SlotKind::Record)
+            | (UseKind::Numeric, SlotKind::Numeric)
+    )
+}
+
+const LIST_METHODS: &[&str] = &[
+    "len", "all", "any", "iter", "map", "filter", "is_empty", "contains", "push", "first", "last",
+    "sum", "fold", "count", "get", "sort", "reverse", "join", "min", "max",
+];
+
+fn child_exprs(e: &Expr) -> Vec<&Expr> {
+    match e {
+        Expr::Let { value, body, .. } => {
+            let mut v = vec![value.as_ref()];
+            if let Some(b) = body {
+                v.push(b.as_ref());
+            }
+            v
+        }
+        Expr::Match { subject, arms, .. } => {
+            let mut v = vec![subject.as_ref()];
+            for a in arms {
+                if let Some(g) = &a.guard {
+                    v.push(g);
+                }
+                v.push(&a.body);
+            }
+            v
+        }
+        Expr::Call { func, args, .. } => {
+            let mut v = vec![func.as_ref()];
+            v.extend(args.iter());
+            v
+        }
+        Expr::Pipe { left, right, .. } | Expr::BinOp { left, right, .. } => {
+            vec![left.as_ref(), right.as_ref()]
+        }
+        Expr::FieldAccess { object, .. } => vec![object.as_ref()],
+        Expr::As(i, _) | Expr::Try(i, _) => vec![i.as_ref()],
+        Expr::Lambda { body, .. } => vec![body.as_ref()],
+        Expr::ForIn { iter, body, .. } => vec![iter.as_ref(), body.as_ref()],
+        Expr::Tuple(es, _) => es.iter().collect(),
+        Expr::Index(a, b, _) => vec![a.as_ref(), b.as_ref()],
+        Expr::Record { fields, .. } => fields.iter().map(|(_, v)| v).collect(),
+        Expr::Ident(_) | Expr::Literal(_) | Expr::InlineRust(_) => vec![],
+    }
+}
+
+fn is_numeric_lit(e: &Expr) -> bool {
+    matches!(
+        e,
+        Expr::Literal(Literal::Int(_)) | Expr::Literal(Literal::Float(_))
+    )
+}
+
+fn add_hint(hints: &mut std::collections::HashMap<String, Vec<UseKind>>, name: &str, k: UseKind) {
+    let v = hints.entry(name.to_string()).or_default();
+    if !v.contains(&k) {
+        v.push(k);
+    }
+}
+
+/// Record what the usage of each free identifier implies about its type.
+fn collect_use_hints(e: &Expr, hints: &mut std::collections::HashMap<String, Vec<UseKind>>) {
+    match e {
+        Expr::Call { func, .. } => {
+            if let Expr::FieldAccess { object, field, .. } = func.as_ref() {
+                if let Expr::Ident(n) = object.as_ref() {
+                    if LIST_METHODS.contains(&field.as_str()) {
+                        add_hint(hints, n, UseKind::List);
+                    }
+                }
+            }
+        }
+        Expr::FieldAccess { object, field, .. } => {
+            if let Expr::Ident(n) = object.as_ref() {
+                if !LIST_METHODS.contains(&field.as_str()) {
+                    add_hint(hints, n, UseKind::Record);
+                }
+            }
+        }
+        Expr::Index(a, _, _) => {
+            if let Expr::Ident(n) = a.as_ref() {
+                add_hint(hints, n, UseKind::List);
+            }
+        }
+        Expr::ForIn { iter, .. } => {
+            if let Expr::Ident(n) = iter.as_ref() {
+                add_hint(hints, n, UseKind::List);
+            }
+        }
+        Expr::BinOp { left, right, .. } => {
+            if let (Expr::Ident(n), true) = (left.as_ref(), is_numeric_lit(right)) {
+                add_hint(hints, n, UseKind::Numeric);
+            }
+            if let (Expr::Ident(n), true) = (right.as_ref(), is_numeric_lit(left)) {
+                add_hint(hints, n, UseKind::Numeric);
+            }
+        }
+        _ => {}
+    }
+    for c in child_exprs(e) {
+        collect_use_hints(c, hints);
+    }
+}
+
+/// Collect free variable names from a function body in first-appearance order,
+/// then bind each to the parameter slot its usage is compatible with.
 ///
-/// Returns at most `max_params` names; falls back to `arg{i}` for any slot
-/// that couldn't be filled from the body.
-fn collect_body_param_names(fd: &FnDef, max_params: usize) -> Vec<String> {
-    use std::collections::HashSet;
+/// Loom signatures carry only types, not parameter names, so names are
+/// recovered from the body/contracts. A name used as `x.len()` can only be a
+/// collection parameter, `x.field` a record, `x > 0` a number; each is bound
+/// to the first unclaimed slot of a compatible type. Names with no usable hint
+/// take the first unclaimed slot. Slots left over become `arg{i}`.
+fn collect_body_param_names(fd: &FnDef, param_types: &[TypeExpr]) -> Vec<String> {
+    use std::collections::{HashMap, HashSet};
+    let max_params = param_types.len();
 
     let mut let_bound: HashSet<String> = HashSet::new();
     for expr in &fd.body {
@@ -780,20 +933,44 @@ fn collect_body_param_names(fd: &FnDef, max_params: usize) -> Vec<String> {
         .chain(fd.ensures.iter().map(|c| &c.expr))
         .collect();
 
+    let mut hints: HashMap<String, Vec<UseKind>> = HashMap::new();
+    for expr in &all_exprs {
+        collect_use_hints(expr, &mut hints);
+    }
+
     for expr in all_exprs {
         scan_free_idents(expr, &let_bound, &mut seen, &mut ordered);
-        if ordered.len() >= max_params {
-            break;
+    }
+
+    let slots: Vec<SlotKind> = param_types.iter().map(slot_kind).collect();
+    let mut assigned: Vec<Option<String>> = vec![None; max_params];
+    let mut leftovers: Vec<String> = Vec::new();
+
+    // Pass 1: names whose usage pins a type go to the first compatible free slot.
+    for name in &ordered {
+        match hints.get(name) {
+            Some(ks) if !ks.is_empty() => {
+                let slot = (0..max_params)
+                    .find(|&i| assigned[i].is_none() && ks.iter().all(|k| kind_fits(*k, slots[i])));
+                match slot {
+                    Some(i) => assigned[i] = Some(name.clone()),
+                    None => leftovers.push(name.clone()),
+                }
+            }
+            _ => leftovers.push(name.clone()),
+        }
+    }
+    // Pass 2: unhinted names fill remaining slots in order of appearance.
+    for name in leftovers {
+        if let Some(i) = (0..max_params).find(|&i| assigned[i].is_none()) {
+            assigned[i] = Some(name);
         }
     }
 
-    (0..max_params)
-        .map(|i| {
-            ordered
-                .get(i)
-                .cloned()
-                .unwrap_or_else(|| format!("arg{}", i))
-        })
+    assigned
+        .into_iter()
+        .enumerate()
+        .map(|(i, n)| n.unwrap_or_else(|| format!("arg{}", i)))
         .collect()
 }
 
