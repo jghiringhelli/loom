@@ -218,9 +218,11 @@ impl RustEmitter {
             body.push_str(&self.emit_interface_trait(iface));
         }
 
+        let mut seen_lifecycle_states: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for lc in &module.lifecycle_defs {
             body.push('\n');
-            body.push_str(&emit_lifecycle_def(lc));
+            body.push_str(&emit_lifecycle_def(lc, &mut seen_lifecycle_states));
         }
 
         for temporal in &module.temporal_defs {
@@ -1168,7 +1170,10 @@ pub(super) fn pascal_case(s: &str) -> String {
 /// - Zero-sized state marker structs
 /// - A `TypeNameState` enum for runtime state tracking
 /// - `impl TypeNameState` with `transition()` that enforces checkpoint guards
-fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
+fn emit_lifecycle_def(
+    lc: &LifecycleDef,
+    seen_states: &mut std::collections::HashSet<String>,
+) -> String {
     let name = &lc.type_name;
     let mut src = format!("// LOOM[lifecycle:{}]: gated state machine\n", name);
     for cp in &lc.checkpoints {
@@ -1179,8 +1184,11 @@ fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
     }
 
     // Zero-sized state marker structs (phantom-type pattern)
+    // (a state shared by several lifecycles is declared once per module)
     for state in &lc.states {
-        src.push_str(&format!("pub struct {};\n", state));
+        if seen_states.insert(state.clone()) {
+            src.push_str(&format!("pub struct {};\n", state));
+        }
     }
 
     if lc.states.is_empty() {

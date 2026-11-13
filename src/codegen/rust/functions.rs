@@ -612,6 +612,29 @@ impl RustEmitter {
 
         let mut body_lines: Vec<String> = Vec::new();
 
+        // `inline { .. }` bodies address parameters positionally as `arg0`, `arg1`, ...;
+        // alias those to the recovered parameter names.
+        let inline_text: String = fd
+            .body
+            .iter()
+            .filter_map(|e| match e {
+                Expr::InlineRust(c) => Some(c.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !inline_text.is_empty() {
+            for (i, name) in collect_body_param_names(fd, &fd.type_sig.params)
+                .iter()
+                .enumerate()
+            {
+                let alias = format!("arg{}", i);
+                if *name != alias && contains_word(&inline_text, &alias) {
+                    body_lines.push(format!("    let {} = {}.clone();", alias, name));
+                }
+            }
+        }
+
         // V7: emit audit trail before each contract assertion.
         for contract in &fd.requires {
             let raw = self.emit_expr(&contract.expr);
@@ -638,8 +661,11 @@ impl RustEmitter {
         // Only use the _loom_result binding pattern when at least one ensure
         // condition actually references "result" — otherwise it's a type-name
         // expression that can't be bound as a value.
-        let last_is_stub =
-            body_count > 0 && is_type_name_stub(&self.emit_expr(&fd.body[body_count - 1]));
+        // A `todo!()` body is likewise a stub: its value has no type to assert on.
+        let last_is_stub = body_count > 0 && {
+            let t = self.emit_expr(&fd.body[body_count - 1]);
+            is_type_name_stub(&t) || t.trim() == "todo!()"
+        };
         let needs_result_binding = has_ensures
             && !last_is_stub
             && fd
@@ -652,7 +678,12 @@ impl RustEmitter {
             }
             let last = &fd.body[body_count - 1];
             if needs_result_binding {
-                body_lines.push(format!("    let _loom_result = {};", self.emit_expr(last)));
+                let mut last_text = self.emit_expr(last);
+                if matches!(last, Expr::InlineRust(_)) {
+                    // An inline block may be several statements; bind it as one block expression.
+                    last_text = format!("{{\n{}\n    }}", last_text);
+                }
+                body_lines.push(format!("    let _loom_result = {};", last_text));
             }
             for contract in &fd.ensures {
                 let raw = self.emit_expr(&contract.expr);
@@ -707,6 +738,9 @@ impl RustEmitter {
                             "    todo\x21(\"stub body — implement return value of type {}\")",
                             text
                         ));
+                    } else if ret == "String" && matches!(expr, Expr::Literal(Literal::Str(_))) {
+                        // A string literal is `&str`; the declared return type is owned.
+                        body_lines.push(format!("    {}.to_string()", text));
                     } else {
                         body_lines.push(format!("    {}", text));
                     }
@@ -771,8 +805,10 @@ enum UseKind {
     List,
     /// `x.field` — x is a user-defined record.
     Record,
-    /// `x > 0` / `x + 1.0` — x is numeric.
-    Numeric,
+    /// `x > 0` — x is an integer.
+    Int,
+    /// `x > 0.0` — x is a float.
+    Float,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -780,7 +816,8 @@ enum SlotKind {
     List,
     Text,
     Record,
-    Numeric,
+    Int,
+    Float,
     Other,
 }
 
@@ -789,26 +826,31 @@ fn slot_kind(ty: &TypeExpr) -> SlotKind {
         TypeExpr::Generic(n, _) if matches!(n.as_str(), "List" | "Vec" | "Set") => SlotKind::List,
         TypeExpr::Tensor { .. } => SlotKind::List,
         TypeExpr::Base(n) => match n.as_str() {
-            "Int" | "Float" | "Nat" | "Int64" | "Float64" | "UInt" | "Usize" => SlotKind::Numeric,
+            "Int" | "Nat" | "Int64" | "UInt" | "Usize" => SlotKind::Int,
+            "Float" | "Float64" => SlotKind::Float,
             "String" | "Str" => SlotKind::Text,
             "Bool" | "Unit" => SlotKind::Other,
             _ => SlotKind::Record,
         },
-        TypeExpr::Generic(n, _) if matches!(n.as_str(), "Int" | "Float" | "Nat") => {
-            SlotKind::Numeric
-        }
+        // Unit-annotated primitives: `Float<kg>`, `Int<meters>`
+        TypeExpr::Generic(n, _) if matches!(n.as_str(), "Int" | "Nat") => SlotKind::Int,
+        TypeExpr::Generic(n, _) if n == "Float" => SlotKind::Float,
         _ => SlotKind::Other,
     }
 }
 
-fn kind_fits(use_kind: UseKind, slot: SlotKind) -> bool {
+fn kind_fits(use_kind: UseKind, slot: SlotKind, loose: bool) -> bool {
     matches!(
         (use_kind, slot),
         (UseKind::List, SlotKind::List)
             | (UseKind::List, SlotKind::Text)
             | (UseKind::Record, SlotKind::Record)
-            | (UseKind::Numeric, SlotKind::Numeric)
-    )
+            | (UseKind::Int, SlotKind::Int)
+            | (UseKind::Float, SlotKind::Float)
+    ) || (loose
+        && matches!(use_kind, UseKind::Int | UseKind::Float)
+        // a named type may be an alias of a numeric type
+        && matches!(slot, SlotKind::Int | SlotKind::Float | SlotKind::Record))
 }
 
 const LIST_METHODS: &[&str] = &[
@@ -854,11 +896,37 @@ fn child_exprs(e: &Expr) -> Vec<&Expr> {
     }
 }
 
-fn is_numeric_lit(e: &Expr) -> bool {
-    matches!(
-        e,
-        Expr::Literal(Literal::Int(_)) | Expr::Literal(Literal::Float(_))
-    )
+/// Identifiers that are operands of a pure `+ - * /` tree rooted at `e`.
+fn arith_idents<'a>(e: &'a Expr, out: &mut Vec<&'a str>) {
+    match e {
+        Expr::Ident(n) => out.push(n),
+        Expr::BinOp {
+            op: BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul | BinOpKind::Div,
+            left,
+            right,
+            ..
+        } => {
+            arith_idents(left, out);
+            arith_idents(right, out);
+        }
+        _ => {}
+    }
+}
+
+/// `Some(Int)` for integer literals, `Some(Float)` for float literals; arithmetic on
+/// literals (`-1.0` parses as `0 - 1.0`) is a float as soon as one side is.
+fn numeric_lit_kind(e: &Expr) -> Option<UseKind> {
+    match e {
+        Expr::Literal(Literal::Int(_)) => Some(UseKind::Int),
+        Expr::Literal(Literal::Float(_)) => Some(UseKind::Float),
+        Expr::BinOp { left, right, .. } => {
+            match (numeric_lit_kind(left)?, numeric_lit_kind(right)?) {
+                (UseKind::Int, UseKind::Int) => Some(UseKind::Int),
+                _ => Some(UseKind::Float),
+            }
+        }
+        _ => None,
+    }
 }
 
 fn add_hint(hints: &mut std::collections::HashMap<String, Vec<UseKind>>, name: &str, k: UseKind) {
@@ -898,11 +966,16 @@ fn collect_use_hints(e: &Expr, hints: &mut std::collections::HashMap<String, Vec
             }
         }
         Expr::BinOp { left, right, .. } => {
-            if let (Expr::Ident(n), true) = (left.as_ref(), is_numeric_lit(right)) {
-                add_hint(hints, n, UseKind::Numeric);
+            // `x > 0`, and `a + b + c = 1.0` (every operand of the sum is numeric).
+            if let Some(k) = numeric_lit_kind(right) {
+                let mut ids = Vec::new();
+                arith_idents(left, &mut ids);
+                ids.iter().for_each(|n| add_hint(hints, n, k));
             }
-            if let (Expr::Ident(n), true) = (right.as_ref(), is_numeric_lit(left)) {
-                add_hint(hints, n, UseKind::Numeric);
+            if let Some(k) = numeric_lit_kind(left) {
+                let mut ids = Vec::new();
+                arith_idents(right, &mut ids);
+                ids.iter().for_each(|n| add_hint(hints, n, k));
             }
         }
         _ => {}
@@ -956,8 +1029,12 @@ fn collect_body_param_names(fd: &FnDef, param_types: &[TypeExpr]) -> Vec<String>
     for name in &ordered {
         match hints.get(name) {
             Some(ks) if !ks.is_empty() => {
-                let slot = (0..max_params)
-                    .find(|&i| assigned[i].is_none() && ks.iter().all(|k| kind_fits(*k, slots[i])));
+                let find = |loose: bool| {
+                    (0..max_params).find(|&i| {
+                        assigned[i].is_none() && ks.iter().all(|k| kind_fits(*k, slots[i], loose))
+                    })
+                };
+                let slot = find(false).or_else(|| find(true));
                 match slot {
                     Some(i) => assigned[i] = Some(name.clone()),
                     None => leftovers.push(name.clone()),
@@ -1105,4 +1182,14 @@ fn scan_free_idents(
                 .for_each(|(_, v)| scan_free_idents(v, let_bound, seen, ordered));
         }
     }
+}
+
+/// True when `word` occurs in `text` as a whole identifier.
+fn contains_word(text: &str, word: &str) -> bool {
+    text.match_indices(word).any(|(i, _)| {
+        let before = text[..i].chars().next_back();
+        let after = text[i + word.len()..].chars().next();
+        let is_id = |c: char| c.is_alphanumeric() || c == '_';
+        !before.map_or(false, is_id) && !after.map_or(false, is_id)
+    })
 }

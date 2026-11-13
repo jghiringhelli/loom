@@ -1,42 +1,42 @@
 corpus/collections_demo.loom	OK	
-corpus/di_demo.loom	RUSTC_FAIL	error[E0425]: cannot find type `DbConn` in this scope
+corpus/di_demo.loom	OK	
 corpus/inline_demo.loom	OK	
-corpus/invellum.loom	RUSTC_FAIL	error[E0428]: the name `Active` is defined multiple times
+corpus/invellum.loom	OK	
 corpus/pricing_engine.loom	RUSTC_FAIL	error[E0308]: mismatched types
 corpus/project/math.loom	OK	
 corpus/project/stats.loom	OK	
-corpus/user_service.loom	RUSTC_FAIL	error[E0425]: cannot find value `valid_email` in this scope
+corpus/user_service.loom	OK	
 corpus/wasm_demo.loom	OK	
 examples/01-hello-contracts.loom	OK	
 examples/02-payment-api.loom	OK	
 examples/03-typestate-lifecycle.loom	OK	
 examples/04-finance-gbm.loom	OK	
-examples/05-autonomous-agent.loom	RUSTC_FAIL	error[E0425]: cannot find value `min_energy_f64` in this scope
-examples/cross/autopoietic_evolve.loom	RUSTC_FAIL	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
-examples/cross/crispr_telomere.loom	RUSTC_FAIL	error[E0425]: cannot find type `repair_council_guide` in this scope
-examples/cross/epigenetic_learn.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/cross/escalation_ladder.loom	RUSTC_FAIL	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
-examples/cross/morphogen_quorum.loom	RUSTC_FAIL	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
-examples/ladder.loom	RUSTC_FAIL	error[E0425]: cannot find type `GPState` in this scope
-examples/tier1/dsatur_graph_coloring.loom	RUSTC_FAIL	error: expected expression, found `let` statement
-examples/tier1/ffd_bin_packer.loom	RUSTC_FAIL	error[E0599]: no method named `all` found for struct `Vec<Item>` in the current scope
-examples/tier1/greedy_job_scheduler.loom	RUSTC_FAIL	error[E0599]: no method named `all` found for struct `Vec<Job>` in the current scope
+examples/05-autonomous-agent.loom	OK	
+examples/cross/autopoietic_evolve.loom	OK	
+examples/cross/crispr_telomere.loom	OK	
+examples/cross/epigenetic_learn.loom	OK	
+examples/cross/escalation_ladder.loom	OK	
+examples/cross/morphogen_quorum.loom	OK	
+examples/ladder.loom	OK	
+examples/tier1/dsatur_graph_coloring.loom	OK	
+examples/tier1/ffd_bin_packer.loom	OK	
+examples/tier1/greedy_job_scheduler.loom	OK	
 examples/tier2/knapsack_ga.loom	OK	
-examples/tier2/knapsack_genetic.loom	RUSTC_FAIL	error[E0369]: binary operation `>` cannot be applied to type `Solution`
-examples/tier2/tsp_simulated_annealing.loom	RUSTC_FAIL	error[E0369]: binary operation `>=` cannot be applied to type `Tour`
+examples/tier2/knapsack_genetic.loom	OK	
+examples/tier2/tsp_simulated_annealing.loom	OK	
 examples/tier2/vrp_particle_swarm.loom	OK	
 examples/tier2/vrp_pso.loom	OK	
-examples/tier3/hyper_heuristic_scheduler.loom	RUSTC_FAIL	error[E0369]: binary operation `>` cannot be applied to type `HeuristicWeights`
-examples/tier4/bayesian_optimizer.loom	RUSTC_FAIL	error: unknown start of token: \u{2192}
-examples/tier4/neural_combinatorial.loom	RUSTC_FAIL	error: expected expression, found `let` statement
-examples/tier5/adaptive_jit.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/adaptive_self_assembly.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/aegis_delta_neutral.loom	RUSTC_FAIL	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
-examples/tier5/amr_coevolution.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/apex_colony.loom	RUSTC_FAIL	error: expected one of `...`, `..=`, `..`, `:`, or `|`, found `)`
-examples/tier5/climate_intervention.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/flash_crash.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/fusion_plasma.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/ics_zero_day.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/protein_drug_resistance.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
-examples/tier5/quantum_error_mitigation.loom	RUSTC_FAIL	error[E0592]: duplicate definitions with name `evolve_derivative_free`
+examples/tier3/hyper_heuristic_scheduler.loom	OK	
+examples/tier4/bayesian_optimizer.loom	OK	
+examples/tier4/neural_combinatorial.loom	RUSTC_FAIL	error[E0433]: cannot find module or crate `rand` in this scope
+examples/tier5/adaptive_jit.loom	OK	
+examples/tier5/adaptive_self_assembly.loom	OK	
+examples/tier5/aegis_delta_neutral.loom	OK	
+examples/tier5/amr_coevolution.loom	OK	
+examples/tier5/apex_colony.loom	OK	
+examples/tier5/climate_intervention.loom	OK	
+examples/tier5/flash_crash.loom	OK	
+examples/tier5/fusion_plasma.loom	OK	
+examples/tier5/ics_zero_day.loom	OK	
+examples/tier5/protein_drug_resistance.loom	OK	
+examples/tier5/quantum_error_mitigation.loom	OK	
