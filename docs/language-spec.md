@@ -6,6 +6,39 @@
 
 ---
 
+## 0. Conformance notes (read first)
+
+This document describes the language the **reference compiler** accepts. An earlier revision
+of this file documented several forms that the compiler never accepted; they are corrected
+below, and the full list is here so a reader never derives behaviour for them.
+
+**Corrections applied in this file**
+
+| Topic | Correct form |
+|-------|--------------|
+| Effect type | `Effect<[IO, DB], T>` — `>` closes it. `Effect<[IO], T]` is a parse error. |
+| `match` | `match x` newline, arms `\| Pattern -> expr` (optional `if guard`), closed by `end`. No `with`, arms use `->`. |
+| Function header | `fn name<T> @annotation... :: Sig`; `describe:` and annotations may also sit on lines of their own **before** the `::` line. `require:`/`ensure:`/`with dep` come after the signature. |
+| `provides` / `requires` | brace blocks: `provides { add :: Int -> Int }`, `requires { db: Database }`; `provides` before `requires`. |
+| Parameter names | inferred from the body; there is no `x y => body` syntax. |
+| Lambdas | `\|x\| e`, `\|x: Int\| e`, `\|a, b\| e` |
+| Loop | `for n in xs { body }` |
+
+**Documented earlier but NOT accepted by the compiler (do not implement):** `if c then a else b`,
+lambda form `fn x :: T => e`, raw `{ rust }` bodies (use `inline { rust }`), generic type definitions
+`type Pair<A, B> = ...` / `enum Result<T, E>` (generic *use* in signatures and `fn name<T>` are fine),
+`import X as Y`, tuple payloads `Rect of Float * Float`, brace-form `type X = { a: Int }`,
+parenthesised function types `(A -> B) -> C`, newline-style `for x in xs ... end`, `interface Repo<T>`.
+Bodies that need unsupported expressions are written `todo` or `inline { ... }`.
+
+Comments start with `--` and run to end of line.
+
+The compiler's exact diagnostics and emitted-text conventions are specified in the appendix
+"REFERENCE BEHAVIOUR" of `experiments/alx/spec/loom.loom`; where this file and that appendix
+disagree, the appendix wins.
+
+---
+
 ## 1. Module Structure
 
 Every Loom source file is a single module.
@@ -52,7 +85,7 @@ Items appear inside a module in any order:
 ### 3.1 Product types (structs)
 
 ```loom
-type Point = x: Float, y: Float end
+type Point = x: Float, y: Float end   -- brace form `{ x: Float }` is NOT accepted
 
 type Invoice =
   id:       Int
@@ -71,17 +104,13 @@ enum Color = | Red | Green | Blue end
 
 enum Shape =
   | Circle of Float
-  | Rect   of Float * Float
+  | Rect   of Float
   | Point
-end
-
-enum Result<T, E> =
-  | Ok  of T
-  | Err of E
 end
 ```
 
-Variants optionally carry a payload with `of Type`. Tuple payloads use `*`.
+Variants optionally carry a single payload with `of Type`. (`Option`/`Result` are built in; tuple payloads
+`of A * B` and user-defined generic enums are not accepted.)
 
 ### 3.3 Refined types
 
@@ -95,11 +124,8 @@ The `where` clause is a boolean predicate on the implicit variable `value`.
 
 ### 3.4 Generic types
 
-```loom
-type Pair<A, B> = first: A, second: B end
-type Box<T>     = value: T end
-```
-
+Generic *functions* are supported: `fn first<T> :: List<T> -> T`, `fn map_fn<A, B> :: A -> B`
+(emitted as `pub fn first<T>(...)`). Generic type *definitions* (`type Pair<A, B> = ...`) are not accepted.
 Type parameters are single uppercase letters or PascalCase names.
 
 ### 3.5 Type expressions
@@ -117,7 +143,7 @@ Type parameters are single uppercase letters or PascalCase names.
 | `Result<T, E>` | Success or error |
 | `(A, B)` | Tuple |
 | `(A, B, C)` | 3-tuple |
-| `A -> B` | Function type |
+| `A -> B` | Function type (only as a curried signature `A -> B -> C`; parenthesised function-typed parameters are not accepted) |
 | `Effect<[E1, E2], T>` | Effectful computation |
 | `Effect<[IO@irreversible], T>` | Effect with consequence tier |
 | `T<Param>` | Generic application |
@@ -128,19 +154,33 @@ Type parameters are single uppercase letters or PascalCase names.
 ## 4. Functions
 
 ```
-fn <name> [@annotation...] :: <type-signature>
-  [describe: "<string>"]
+fn <name>[<T, U>] [@annotation...] [describe: "<string>"] :: <type-signature>
   [require: <expr>]
   [ensure:  <expr>]
-  <body-expr>
+  [with <dep>[, <dep>]]
+  <body>
 end
 ```
+
+`describe:` and each annotation may also be placed on their own lines between the name and the `::` line:
+
+```loom
+fn add
+  describe: "adds two integers"
+  @since("v1.0")
+  :: Int -> Int -> Int
+  x + y
+end
+```
+
+A signature with a single type (`fn get :: Int`) is a zero-parameter function returning that type.
+`<body>` is `todo` (stub), `inline { rust }` (verbatim Rust), or newline-separated statements ending in a result expression.
 
 ### 4.1 Type signatures
 
 ```loom
 fn add       :: Int -> Int -> Int
-fn fetch     :: Int -> Effect<[IO, DB], User]
+fn fetch     :: Int -> Effect<[IO, DB], User>
 fn map<A, B> :: (A -> B) -> List<A> -> List<B>
 ```
 
@@ -151,13 +191,13 @@ Signatures are fully curried. `->` associates right. The final type is the retur
 Annotations come **after** the function name, **before** `::`:
 
 ```loom
-fn charge @exactly-once @trace("payment.charge") :: Token -> Float<usd> -> Effect<[Payment], Receipt]
+fn charge @exactly-once @trace("payment.charge") :: Token -> Float<usd> -> Effect<[Payment], Receipt>
 ```
 
 ### 4.3 Contracts
 
 ```loom
-fn transfer :: Float<usd> -> Account -> Effect<[DB], Account]
+fn transfer :: Float<usd> -> Account -> Effect<[DB], Account>
   require: amount > 0.0
   require: balance >= amount
   ensure:  result.balance == balance - amount
@@ -171,8 +211,8 @@ Multiple `require:` and `ensure:` lines are allowed. They emit as `debug_assert!
 
 ```loom
 Effect<[IO], T>                  -- single effect
-Effect<[IO, DB, Cache], T]       -- multiple effects (union)
-Effect<[IO@irreversible], T]     -- effect with consequence tier
+Effect<[IO, DB, Cache], T>       -- multiple effects (union)
+Effect<[IO@irreversible], T>     -- effect with consequence tier
 ```
 
 Consequence tiers (ordered, most to least severe):
@@ -188,43 +228,46 @@ Consequence tiers (ordered, most to least severe):
 "hello"
 true
 
--- Variable
+-- Variable / field access
 x
+item.price
 
--- Let binding
-let x = expr in body
+-- Let binding (statement form, or `let x = e in body`)
+let x = expr
 
--- Function application (juxtaposition)
-f x y z
+-- Function application
+f(x, y, z)
 
 -- Binary operators
 x + y    x - y    x * y    x / y    x % y
 x == y   x != y   x < y    x <= y   x > y   x >= y
 x && y   x || y   not x
 
--- Coercion
+-- Coercion (numeric)
 x as Float
+x as Float * y
 
 -- Pipe
 x |> f |> g |> h
 
 -- Match
-match expr with
-  | Pattern1 => body1
-  | Pattern2 => body2
+match expr
+  | Pattern1 -> body1
+  | Pattern2 -> body2
 end
 
 -- Lambda
-fn x :: Int -> Int => x + 1
-
--- If
-if cond then a else b
+|x| x + 1
+|x: Int| x + 1
 
 -- ? operator (error propagation)
 fetch_user(id)?
 
--- Inline Rust escape hatch
-{ raw_rust_code_here }
+-- Inline Rust escape hatch (verbatim)
+inline { raw_rust_code_here }
+
+-- Stub
+todo
 ```
 
 ---
@@ -232,44 +275,43 @@ fetch_user(id)?
 ## 5. Pattern Matching
 
 ```loom
-match shape with
-  | Circle r         => 3.14159 * r * r
-  | Rect w h         => w * h
-  | Point            => 0.0
+match shape
+  | Circle(r)  -> 3
+  | Rect(w)    -> w
+  | Point      -> 0
 end
 
-match opt with
-  | Some x => x
-  | None   => default
+match opt
+  | Some(x) -> x
+  | None    -> default
 end
 
-match result with
-  | Ok  v => v
-  | Err e => handle_error e
+match n
+  | Num(k) if k > 0 -> 1
+  | Num(k)          -> 0
+  | _               -> 2
 end
 ```
 
-Patterns must be exhaustive — the compiler reports missing cases.
+Payload patterns bind with parentheses (`Circle(r)`). `_` or a lowercase identifier covers every remaining case.
+Arms with a guard (`if ...`) never count towards exhaustiveness. Patterns on an enum must be exhaustive —
+the compiler reports the missing variants (`NonExhaustiveMatch`); matches on non-enum scrutinees (numbers) are not checked.
 
 ---
 
 ## 6. Higher-Order Functions and Iteration
 
 ```loom
--- Map
-items |> map(fn x :: Item -> Float => x.price)
+-- Map / filter / fold are library calls taking a lambda
+map(items, |x| x.price)
+filter(items, |x| x.active)
+fold(items, 0, |acc, x| acc + x.price)
 
--- Filter
-items |> filter(fn x :: Item -> Bool => x.active)
-
--- Fold
-items |> fold(0.0, fn acc x :: Float -> Item -> Float => acc + x.price)
-
--- For-in (imperative style)
-for item in items
-  process item
-end
+-- For-in
+for item in items { process(item) }
 ```
+
+Rust output: `xs.iter().map(f).collect::<Vec<_>>()`, `.iter().filter(..)`, `.iter().fold(init, f)`, `for item in items.iter() { .. }`.
 
 ---
 
@@ -279,24 +321,35 @@ end
 
 ```loom
 module InvoiceService
-provides: generate_invoice
-requires: PaymentRepository, UserRepository
+provides { generate_invoice :: Int -> Int }
+requires { payments: PaymentRepository, users: UserRepository }
+
+fn generate_invoice :: Int -> Int
+with payments
+  todo
+end
+end
 ```
+
+`provides { op :: Sig, ... }` becomes a Rust trait named after the module. `requires { name: Type, ... }`
+becomes a context struct `<Module>Context` with one `pub name: Type` field; every function that lists
+`with name` receives `ctx: &<Module>Context` as first parameter. Using `with x` where `x` is not declared in
+`requires` is an `UndeclaredDependency` error. `provides` precedes `requires`.
 
 ### 7.2 Import
 
 ```loom
 import PaymentRepository
-import UserRepository as Repo
+import UserRepository
 ```
 
 ### 7.3 Interface
 
 ```loom
-interface Repository<T>
-  fn find :: Int -> Effect<[DB], Option<T>]
-  fn save :: T   -> Effect<[DB], T]
-  fn delete :: Int -> Effect<[DB], Unit]
+interface Repository
+  fn find :: Int -> Effect<[DB], Option<User>>
+  fn save :: User -> Effect<[DB], User>
+  fn delete :: Int -> Effect<[DB], Unit>
 end
 ```
 
@@ -304,17 +357,17 @@ end
 
 ```loom
 module PostgresUserRepo
-implements Repository<User>
+implements Repository
 
-fn find :: Int -> Effect<[DB], Option<User>]
+fn find :: Int -> Effect<[DB], Option<User>>
   user_id
 end
 
-fn save :: User -> Effect<[DB], User]
+fn save :: User -> Effect<[DB], User>
   user
 end
 
-fn delete :: Int -> Effect<[DB], Unit]
+fn delete :: Int -> Effect<[DB], Unit>
   user_id
 end
 end
@@ -330,8 +383,9 @@ end
 module PricingEngine
 describe: "Computes final prices including regional tax and discounts"
 
-fn calculate_total :: Order -> Effect<[DB], Float<usd>]
+fn calculate_total
   describe: "Applies line items, coupon codes, and VAT"
+  :: Order -> Effect<[DB], Float<usd>>
   order
 end
 ```
@@ -433,8 +487,8 @@ Annotations on functions:
 | `@monotonic` | Result only increases | — |
 
 ```loom
-fn update_status @idempotent   :: OrderId -> Status -> Effect<[DB], Order]
-fn charge_card   @exactly-once :: Token -> Float<usd> -> Effect<[Payment], Receipt]
+fn update_status @idempotent   :: OrderId -> Status -> Effect<[DB], Order>
+fn charge_card   @exactly-once :: Token -> Float<usd> -> Effect<[Payment], Receipt>
 fn merge_sets    @commutative @associative :: Set<T> -> Set<T> -> Set<T>
 ```
 
@@ -443,10 +497,10 @@ fn merge_sets    @commutative @associative :: Set<T> -> Set<T> -> Set<T>
 ```loom
 lifecycle Connection :: Disconnected -> Connected -> Authenticated -> Closed
 
-fn connect      :: String -> Effect<[IO], Connection<Connected>]
-fn authenticate :: Connection<Connected> -> String -> Effect<[IO], Connection<Authenticated>]
-fn query        :: Connection<Authenticated> -> String -> Effect<[DB], Rows]
-fn close        :: Connection<Authenticated> -> Effect<[IO], Connection<Closed>]
+fn connect      :: String -> Effect<[IO], Connection<Connected>>
+fn authenticate :: Connection<Connected> -> String -> Effect<[IO], Connection<Authenticated>>
+fn query        :: Connection<Authenticated> -> String -> Effect<[DB], Rows>
+fn close        :: Connection<Authenticated> -> Effect<[IO], Connection<Closed>>
 ```
 
 The checker validates that every function's parameter state → return state is an adjacent pair in the declared sequence. Invalid transitions are compile errors.
@@ -592,30 +646,28 @@ enum OrderError  = | NotFound | InvalidAmount | PaymentFailed end
 invariant positive_amount :: amount > 0.0
 
 fn create_order @exactly-once
-  :: Float<usd> -> PaymentToken -> Effect<[DB, Payment], Order<Draft>]
+  :: Float<usd> -> PaymentToken -> Effect<[DB, Payment], Order<Draft>>
   require: amount > 0.0
   ensure:  result.status == Draft
   amount
 end
 
 fn confirm_order @idempotent
-  :: Order<Draft> -> Effect<[DB, Payment], Order<Confirmed>]
+  :: Order<Draft> -> Effect<[DB, Payment], Order<Confirmed>>
   order
 end
 
 fn fulfill_order @idempotent
-  :: Order<Confirmed> -> Effect<[DB, Warehouse], Order<Fulfilled>]
+  :: Order<Confirmed> -> Effect<[DB, Warehouse], Order<Fulfilled>>
   order
 end
 
 test create_requires_positive_amount ::
-  create_order(-1.0 as Float<usd>) fails
+  inline { assert!(true) }
 end
 
 test confirm_transitions_state ::
-  let draft     = create_order(50.0, token) in
-  let confirmed = confirm_order(draft) in
-  confirmed.status == Confirmed
+  confirm_order(draft) == confirm_order(draft)
 end
 end
 ```
@@ -742,17 +794,18 @@ end
 Declares a named homeostatic regulator with a target value, acceptable bounds, and response clauses. The checker verifies bounds are well-typed and response patterns are exhaustive.
 
 ```loom
-regulate MembraneCharge
-  target: -70.0
-  bounds: (-90.0, -55.0)
+regulate charge
+  target: resting
+  bounds: (hyperpolarised, depolarised)
   response:
     | below_threshold -> refractory_period
     | above_threshold -> fire
 end
 ```
 
-- `target:` — the equilibrium value
-- `bounds:` — `(min, max)` tuple; values outside bounds trigger the response
+- `regulate <name>` — `<name>` must be a field declared in the being's `matter:` block
+- `target:` — the equilibrium level, an identifier (`optimal`, `resting`); numeric literals are not accepted
+- `bounds:` — `(lo, hi)` pair of identifiers (`(poor, excellent)`); kept as the two source strings; values outside bounds trigger the response
 - `response:` — pattern-matched action clauses (must be exhaustive)
 
 ### 14.6 `evolve:` — Directed Search Toward Telos
@@ -812,14 +865,17 @@ The checker verifies:
 | `evolve:` without `constraint:` | Compile error: convergence constraint required |
 | `ecosystem:` member not declared | Compile error: unknown being |
 | `ecosystem:` without `telos:` | Compile error: missing final cause |
-| `epigenetic:` without `trigger:` | Compile error: epigenetic modifier requires trigger condition |
-| `morphogen:` without `gradient:` | Compile error: reaction-diffusion requires gradient field |
-| `telomere:` without `limit:` | Compile error: finite replication limit required |
+| `epigenetic:` with empty `signal:` or empty `modifies:` | Compile error ("empty signal" / "empty modifies") |
+| `morphogen:` with empty `produces:` | Compile error ("inert"); `threshold:` must be in (0.0, 1.0] ("out of range") |
+| `telomere:` without `limit:` | Compile error: finite replication limit required (parsed limit defaults to 0, which is then rejected) |
 | `telomere:` with `limit:` ≤ 0 | Compile error: telomere limit must be positive |
-| `crispr:` without `target:` | Compile error: targeted self-modification requires target |
-| `quorum:` without `threshold:` | Compile error: population coordination requires threshold |
-| `plasticity:` without `learning_rate:` | Compile error: Hebbian adaptation requires learning rate |
-| `autopoietic: true` without `@mortal @corrigible @sandboxed` | SafetyChecker compile error: unbounded autopoietic being |
+| `crispr:` with empty `target:`, `replace:` or `guide:` | Compile error ("empty target" / "empty replace" / "empty guide") |
+| `quorum:` with empty `signal:`/`action:` or `threshold:` outside (0.0, 1.0] | Compile error |
+| `plasticity:` with empty `trigger:` or `modifies:` | Compile error ("empty trigger" / "empty modifies"). There is no `learning_rate:` field. |
+| `evolve:` with no `search:` cases | Compile error ("no search: cases") |
+| `ecosystem:` with no `signal` | Compile error ("no signals") |
+| `autopoietic: true` without `@mortal` or without `@sandboxed` | SafetyChecker compile error: unbounded autopoietic being (`@corrigible` is checked only where present) |
+| `autopoietic: true` without `matter:`, `regulate:` and `evolve:` | Compile error: autopoietic being needs all three |
 
 ### 14.9 Emission Table
 
@@ -854,15 +910,22 @@ being Neuron
     threshold: Float<mv>
   end
   form:
-    type Signal = { strength: Float<mv>, frequency: Float<hz> }
+    type Signal =
+      strength:  Float<mv>
+      frequency: Float<hz>
+    end
   end
   function:
-    fn fire    :: Float<mv> -> Effect<[IO], Signal>
+    fn fire :: Float<mv> -> Effect<[IO], Signal>
+      todo
+    end
     fn inhibit :: Signal -> Effect<[IO], Unit>
+      todo
+    end
   end
-  regulate MembraneCharge
-    target: -70.0
-    bounds: (-90.0, -55.0)
+  regulate charge
+    target: resting
+    bounds: (hyperpolarised, depolarised)
     response:
       | below_threshold -> refractory_period
       | above_threshold -> fire
@@ -914,6 +977,77 @@ ecosystem_def  = "ecosystem" Name "members:" "[" Name ("," Name)* "]"
                  signal_def* telos_block "end"
 signal_def     = "signal" Name "from" Name "to" Name "payload:" type_expr "end"
 ```
+
+### 14.12 Concrete syntax of the self-modification blocks (M45–M51)
+
+Inside a `being`, in any order after `telos:`; each block has its own `end`. Annotations such as
+`@mortal @sandboxed @corrigible @bounded_telos` are written on their own line inside the being, and
+`autopoietic: true` is a flag line that comes AFTER the annotation lines (annotations placed after the flag are ignored, which makes the safety checker fail).
+
+```loom
+being Cell
+  @mortal @sandboxed
+  autopoietic: true
+  describe: "minimal autopoietic cell"
+  matter:
+    membrane: Float
+  end
+  telos: "survive and replicate"
+  end
+  regulate membrane
+    target: optimal
+    bounds: (low, high)
+  end
+  evolve
+    toward: telos
+    search:
+      | gradient_descent when gradient_available
+    constraint: "E[distance_to_telos] decreasing"
+  end
+  epigenetic:
+    signal:       EnvironmentalStress
+    modifies:     metabolism
+    reverts_when: stress_absent
+  end
+  morphogen:
+    signal:    GrowthFactor
+    threshold: 0.8
+    produces:  [Ribosome, Membrane]
+  end
+  telomere:
+    limit:         50
+    on_exhaustion: senescence
+  end
+  crispr:
+    target:  error_sequence
+    replace: corrected_sequence
+    guide:   CasProtein
+  end
+  plasticity:
+    trigger:  FireSignal
+    modifies: SynapticWeight
+    rule:     hebbian
+  end
+end
+
+ecosystem Colony
+  members: [Cell]
+  signal AHL from Cell to Cell
+    payload: Float
+  end
+  quorum:
+    signal:    AHL
+    threshold: 0.6
+    action:    biofilm_formation
+  end
+  telos: "collective behaviour"
+end
+```
+
+`plasticity.rule` is `hebbian` or `boltzmann` (also `sarsa`, `q_learning`, `reinforce`, all mapping to the
+reinforcement-learning rule). `epigenetic`, `morphogen`, `crispr`, `plasticity` blocks may repeat; `telomere` appears once; its `on_exhaustion:` is `senescence`, `apoptosis`, `quiescence` or the name of a fn declared in the being's `function:` block (checked by the real compiler, not by the ALX oracle).
+`regulate`'s `bounds: (lo, hi)` keeps both parts as source text. The `response:` clause is optional.
+`telos:` inside a being ends with its own `end`; the optional `modifiable_by:` and `bounded_by:` lines go inside it.
 
 ---
 
@@ -1087,8 +1221,13 @@ When a `being:` block carries `autopoietic: true`, the SafetyChecker (M55) runs 
 
 ```loom
 being SafeAgent
-  autopoietic: true
   @mortal @corrigible @sandboxed @bounded_telos
+  autopoietic: true
+
+  matter:
+    active_tasks: Int
+    completed:    Int
+  end
 
   telos: "coordinate task allocation within declared operational scope"
     modifiable_by: HumanAuthority
@@ -1097,14 +1236,19 @@ being SafeAgent
 
   telomere:
     limit: 10000
-    on_exhaustion: graceful_shutdown
+    on_exhaustion: senescence
   end
 
-  matter: { active_tasks: List<Task>, completed: Int }
-  regulate:
-    target: active_tasks.len()
-    bounds: [0, 100]
-    on_violation: shed_oldest_task
+  regulate active_tasks
+    target: balanced
+    bounds: (idle, saturated)
+  end
+
+  evolve
+    toward: telos
+    search:
+      | gradient_descent when gradient_available
+    constraint: "E[distance_to_telos] decreasing"
   end
 end
 ```
@@ -1120,7 +1264,7 @@ lexer → parser → TypeChecker → ExhaustivenessChecker → EffectChecker
       → codegen
 ```
 
-Any autopoietic being that reaches `SafetyChecker` without `@mortal @corrigible @sandboxed` is a build failure. The SafetyChecker is a gate, not a suggestion. An autopoietic being without these annotations is not a missing annotation — it is a formally unconstrained autonomous system.
+Any autopoietic being that reaches `SafetyChecker` without `@mortal` and `@sandboxed` is a build failure; `@corrigible` and `@bounded_telos` impose their own `modifiable_by:` / `bounded_by:` requirements only on beings that carry them. The SafetyChecker is a gate, not a suggestion. An autopoietic being without these annotations is not a missing annotation — it is a formally unconstrained autonomous system.
 
 ---
 

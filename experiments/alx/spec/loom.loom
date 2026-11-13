@@ -12,6 +12,16 @@
 --   4. Codegen emitter interfaces
 --   5. The compiler entry points
 --
+-- AUTHORITY AND CONFLICT RESOLUTION (read first)
+--   This file and docs/language-spec.md are the only inputs a blind reader gets.
+--   * docs/language-spec.md describes concrete SYNTAX and examples. Section 0 of
+--     that file lists which documented forms the reference compiler accepts.
+--   * This file defines the AST, the pipeline, the public API and — in the
+--     "REFERENCE BEHAVIOUR" appendix at the end — every diagnostic and every
+--     emitted-text convention the conformance suite checks.
+--   * If the two files disagree, THIS file wins. Known disagreements and their
+--     resolution are listed in appendix section R0.
+--
 -- Derivability obligation: every architectural decision here must be
 -- expressed with enough precision that a stateless reader can derive
 -- correct output without external human context.
@@ -78,15 +88,32 @@ end
 -- TypeExpr is the right-hand side of a type annotation.
 -- Base("Int") | Generic("List", [Base("T")]) | Effect([effects], ret) | ...
 -- TypeVar is only produced by the HM inference engine, never by the parser.
+--
+-- EXACT Rust shape (tests build and compare these values; do not deviate):
+--   pub enum TypeExpr {
+--     Base(String),                         // Int, Float, String, Bool, Unit, user names, unit labels (usd)
+--     Generic(String, Vec<TypeExpr>),       // List<T>, Map<K,V>, Float<usd>, Connection<Connected>
+--     Effect(Vec<String>, Box<TypeExpr>),   // Effect<[IO, DB], T>; tiers are kept apart (see FnDef.effect_tiers)
+--     Option(Box<TypeExpr>),
+--     Result(Box<TypeExpr>, Box<TypeExpr>),
+--     Tuple(Vec<TypeExpr>),
+--     TypeVar(u32),
+--     Fn(Box<TypeExpr>, Box<TypeExpr>),
+--   }                                       // derives Debug, Clone, PartialEq
+-- Float<usd> is Generic("Float", [Base("usd")]); Int<meters> likewise with "Int".
+-- A bare `Option<T>` / `Result<T,E>` written in source is Generic("Option",[T]) /
+-- Generic("Result",[T,E]); the Option/Result variants exist for programmatic use.
+-- Effect<[IO@irreversible], T> yields Effect(["IO"], T) and effect_tiers ["irreversible"].
 
 enum TypeExpr =
-  | Base    of String
-  | Generic of String
-  | Effect  of String
-  | Option  of String
-  | Result  of String
-  | Tuple   of String
-  | TypeVar of Int
+  | Base    of String           -- Base(String)
+  | Generic of String           -- Generic(String, Vec<TypeExpr>)   (name, type arguments)
+  | Effect  of String           -- Effect(Vec<String>, Box<TypeExpr>)  (effect names, result type)
+  | Option  of TypeExpr         -- Option(Box<TypeExpr>)
+  | Result  of TypeExpr         -- Result(Box<TypeExpr>, Box<TypeExpr>)  (ok, err)
+  | Tuple   of TypeExpr         -- Tuple(Vec<TypeExpr>)
+  | TypeVar of Int              -- TypeVar(u32)
+  | Fn      of TypeExpr         -- Fn(Box<TypeExpr>, Box<TypeExpr>)  (param, return)
 end
 
 -- ── AST: Field definition ─────────────────────────────────────────────────────
@@ -104,6 +131,11 @@ end
 -- ── AST: Annotations ─────────────────────────────────────────────────────────
 
 -- G6: Annotation has no span field; field is called key (not name).
+-- Rust: pub struct Annotation { pub key: String, pub value: String } derives Debug, Clone, PartialEq.
+-- `@since("v1.0")` -> key "since", value "v1.0" (single string argument is unquoted);
+-- `@pii` -> key "pii", value "". Hyphenated names (`never-log`, `exactly-once`) are one key.
+-- Every other AST struct below derives Debug and Clone. SearchStrategy and PlasticityRule also
+-- derive PartialEq. Span is `error::Span` re-exported as `ast::Span`.
 type Annotation =
   key:   String   -- the annotation name without @ prefix (e.g. "mortal", "sandboxed")
   value: String   -- optional value; empty string if annotation has no value
@@ -112,9 +144,10 @@ end
 -- ── AST: Core definitions ─────────────────────────────────────────────────────
 
 type TypeDef =
-  name:   String
-  fields: List<FieldDef>
-  span:   Span
+  name:        String
+  type_params: List<String>   -- generic parameters; usually empty
+  fields:      List<FieldDef>
+  span:        Span
 end
 
 type EnumVariant =
@@ -124,9 +157,10 @@ type EnumVariant =
 end
 
 type EnumDef =
-  name:     String
-  variants: List<EnumVariant>
-  span:     Span
+  name:        String
+  type_params: List<String>
+  variants:    List<EnumVariant>
+  span:        Span
 end
 
 type RefinedType =
@@ -161,8 +195,10 @@ type FnDef =
   effect_tiers: List<String>
   requires:     List<Contract>
   ensures:      List<Contract>
-  with_deps:    List<String>
-  body:         List<String>
+  with_deps:    List<String>   -- names after `with` (dependency injection)
+  body:         List<String>   -- source text, one entry per logical line (see R3)
+  inline_body:  Option<String> -- Some(text) when the body is `inline { ... }`
+  param_names:  List<String>   -- see G10; empty when no names could be inferred
   span:         Span
 end
 
@@ -213,7 +249,7 @@ end
 type RegulateBlock =
   variable: String
   target:   String
-  bounds:   Option<String>
+  bounds:   Option<(String, String)>   -- (lo, hi) kept as source text: bounds: (min_v, max_v)
   response: List<String>
   span:     Span
 end
@@ -265,7 +301,7 @@ end
 -- Finite replication limit. on_exhaustion must name a valid fn in function:.
 -- @mortal annotation requires this block to be present.
 type TelomereBlock =
-  limit:         Int
+  limit:         Int            -- Rust i64
   on_exhaustion: String
   span:          Span
 end
@@ -345,20 +381,25 @@ end
 
 -- ── AST: Interface / provides / requires ─────────────────────────────────────
 
+-- InterfaceDef.methods are full FnDef values (name + type_sig); a method is written as a
+-- signature only: `fn greet :: String -> String` (no body, no `end`).
 type InterfaceDef =
-  name:    String
-  methods: List<String>
-  span:    Span
+  name:        String
+  type_params: List<String>
+  methods:     List<FnDef>
+  span:        Span
 end
 
+-- `provides { add :: Int -> Int -> Int, multiply :: Int -> Int -> Int }`
 type Provides =
-  interfaces: List<String>
-  span:       Span
+  ops:  List<(String, FnTypeSignature)>
+  span: Span
 end
 
+-- `requires { db: Database, cache: Cache }`
 type Requires =
-  dependencies: List<String>
-  span:         Span
+  deps: List<(String, TypeExpr)>
+  span: Span
 end
 
 type Invariant =
@@ -411,7 +452,7 @@ end
 -- a Vec<(Token, Span)>. Keywords take precedence over Ident if they appear
 -- first in the logos enum. Whitespace and comments are skipped (not emitted).
 
-fn lex :: String -> Effect<[IO], Result<List<Token>, List<LoomError>>]
+fn lex :: String -> Effect<[IO], Result<List<Token>, List<LoomError>>>
   describe: "Tokenise Loom source into (Token, Span) pairs"
   require:  source.len() > 0
   ensure:   result.is_ok() implies result.unwrap().iter().all(|t| t.span.start < t.span.end)
@@ -433,7 +474,7 @@ end
 -- Annotations accumulate in `pending_annotations` at `@` tokens and are
 -- merged into the next FnDef.
 
-fn parse :: List<Token> -> Effect<[IO], Result<Module, LoomError>]
+fn parse :: List<Token> -> Effect<[IO], Result<Module, LoomError>>
   describe: "Parse token stream into AST Module"
   require:  tokens.len() > 0
   ensure:   result.is_ok() implies result.unwrap().name.len() > 0
@@ -443,73 +484,77 @@ end
 -- ── Pipeline: Checkers ────────────────────────────────────────────────────────
 
 -- All checkers have the same signature: Module -> Result<(), Vec<LoomError>>.
--- They run in order. Any checker returning Err short-circuits the pipeline.
+-- They run in order. Any checker returning Err short-circuits the pipeline: the Vec returned
+-- contains ALL errors of that first failing stage, and no later stage runs.
 -- All checkers are stateless and composable.
+-- Order is exactly: inference, types, exhaustiveness, effects, algebraic, units, typestate,
+-- privacy, infoflow, teleos, safety, then the two module-level checks "implements conformance"
+-- and "dependency injection" (see R4). Per-checker behaviour is specified in appendix R4/R5.
 
 -- 1. Hindley-Milner type inference: unification with type variables.
 --    Resolves TypeVar(n) nodes; validates body expression types match signatures.
-fn check_inference :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_inference :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "HM unification — infer and unify all type variables"
   module
 end
 
 -- 2. Symbol resolution and interface conformance.
-fn check_types :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_types :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Resolve all symbols; verify interface implementations"
   module
 end
 
 -- 3. Pattern match exhaustiveness.
-fn check_exhaustiveness :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_exhaustiveness :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "All match arms must be exhaustive over the matched type"
   module
 end
 
 -- 4. Effect tracking: every effectful call must be in an Effect context.
 --    Effects propagate transitively through the call chain.
-fn check_effects :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_effects :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Verify all effects declared; consequence tiers respected"
   module
 end
 
 -- 5. Algebraic properties (M21): @idempotent and @exactly-once are mutually
 --    exclusive. @commutative on non-binary functions is an error.
-fn check_algebraic :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_algebraic :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Validate @idempotent/@exactly-once/@commutative constraints"
   module
 end
 
 -- 6. Units of measure (M19): Float<usd> + Float<eur> is a type error.
 --    Float<usd> * Float<rate> = Float<usd>. Dimensional analysis at compile time.
-fn check_units :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_units :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Arithmetic unit consistency — prevent Mars Orbiter class failures"
   module
 end
 
 -- 7. Typestate protocols (M22): lifecycle transitions must be respected.
 --    A function taking Payment<Pending> cannot receive Payment<Completed>.
-fn check_typestate :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_typestate :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Lifecycle state transitions are valid and complete"
   module
 end
 
 -- 8. Privacy labels (M20): @pci fields must be @encrypt-at-rest and @never-log.
 --    @hipaa and @pci together require additional protection rules.
-fn check_privacy :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_privacy :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "PCI/HIPAA co-occurrence rules; @never-log and @encrypt-at-rest enforced"
   module
 end
 
 -- 9. Information flow (M23): flow secret :: Password means Password cannot
 --    appear in a @public output without an explicit declassification.
-fn check_infoflow :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_infoflow :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Secret data cannot flow to public outputs without declassification"
   module
 end
 
 -- 10. Teleological checker (M41–M43): every being: must have a telos:.
 --     regulate: blocks must have bounds:. evolve: blocks must assert convergence.
-fn check_teleos :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_teleos :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Every being must have a telos — the missing final cause is a type error"
   require:  every being in module.being_defs has being.telos.is_some()
   module
@@ -521,7 +566,7 @@ end
 -- They iterate module items and being_defs/ecosystem_defs to produce output.
 -- Emission rules for each target are specified below.
 
-fn emit_rust :: Module -> Effect<[Pure], String]
+fn emit_rust :: Module -> Effect<[Pure], String>
   describe: "Emit Rust source — primary compilation target"
   ensure:   result.contains("pub") implies result.contains("struct") or result.contains("fn") or result.contains("enum")
   -- BeingDef → pub struct (matter fields) + impl block:
@@ -537,7 +582,7 @@ fn emit_rust :: Module -> Effect<[Pure], String]
   module
 end
 
-fn emit_typescript :: Module -> Effect<[Pure], String]
+fn emit_typescript :: Module -> Effect<[Pure], String>
   describe: "Emit TypeScript — interface types + Zod schemas"
   -- TypeDef → export interface + Zod schema
   -- EnumDef → export enum
@@ -547,22 +592,22 @@ fn emit_typescript :: Module -> Effect<[Pure], String]
   module
 end
 
-fn emit_openapi :: Module -> Effect<[Pure], String]
-  describe: "Emit OpenAPI 3.0 YAML — spec from interface/fn definitions"
-  -- interface methods → paths; TypeDef → components/schemas
-  -- @exactly-once → POST promoted to PUT
-  -- @idempotent → x-idempotent: true extension
+fn emit_openapi :: Module -> Effect<[Pure], String>
+  describe: "Emit OpenAPI 3.0.3 document (serialised as JSON text) from fn definitions"
+  -- fn → paths; TypeDef/EnumDef → components/schemas. See R6.3 for the exact text layout.
+  -- @idempotent → x-idempotent: true extension AND POST is promoted to PUT
+  -- @exactly-once → x-exactly-once: true extension
   -- BeingDef → x-beings extension with all biological metadata
   -- EcosystemDef → x-ecosystems extension
   module
 end
 
-fn emit_json_schema :: Module -> Effect<[Pure], String]
-  describe: "Emit JSON Schema — TypeDef and EnumDef to $schema draft-07"
+fn emit_json_schema :: Module -> Effect<[Pure], String>
+  describe: "Emit JSON Schema draft 2020-12 — TypeDef, EnumDef, RefinedType under $defs (R6.4)"
   module
 end
 
-fn emit_wasm :: Module -> Effect<[Pure], String]
+fn emit_wasm :: Module -> Effect<[Pure], String>
   describe: "Emit WebAssembly text format (WAT) — pure fn → wasm func"
   -- Only pure functions (no effects) are emitted to WASM
   -- Effect-bearing functions return wasm_unsupported error
@@ -575,9 +620,10 @@ end
 -- regulate: → homeostasis check in step()
 -- evolve: → directed search in step()
 -- telomere: → replication limit enforced in step()
-fn emit_simulation :: Module -> Effect<[Pure], String]
+fn emit_simulation :: Module -> Effect<[Pure], String>
   describe: "Emit Mesa ABM Python simulation from autopoietic beings"
-  -- Only beings with autopoietic: true are emitted as full agents
+  -- EVERY being becomes an Agent class (autopoietic or not); autopoietic ones additionally get
+  -- regulate/evolve/telomere handling in step(). (Older text said "only autopoietic": wrong.)
   -- ecosystem: members → Model.schedule.add(AgentClass(...))
   module
 end
@@ -586,18 +632,19 @@ end
 -- beings with plasticity: blocks → <cell> elements
 -- regulate: → <biophysicalProperties> with bounds
 -- morphogen: → <morphology> with <segment>
--- plasticity rules → <synapse rule="Hebbian"/>
+-- plasticity rules → <synapse .../> with a LOWERCASE rule attribute: rule="hebbian" / rule="boltzmann"
 -- ecosystem: → <network> with <population> and <projection> per signal
-fn emit_neuroml :: Module -> Effect<[Pure], String]
+fn emit_neuroml :: Module -> Effect<[Pure], String>
   describe: "Emit NeuroML 2 XML for neural beings with plasticity blocks"
-  ensure:   result.starts_with("<neuroml")
+  ensure:   result.contains("<?xml") and result.contains("<neuroml")   -- XML prolog comes first
   module
 end
 
 -- ── Pipeline: Safety checker (M55) ───────────────────────────────────────────
 
 -- The SafetyChecker runs after TeleosChecker (Stage 9e).
--- It enforces mandatory safety annotations on autopoietic beings.
+-- It enforces mandatory safety annotations on autopoietic beings. @corrigible is NOT required on
+-- every autopoietic being (docs/language-spec.md saying otherwise is wrong); it is only checked when present.
 -- These are COMPILE ERRORS, not warnings. The Three Laws as a type system.
 
 -- Rules:
@@ -613,7 +660,7 @@ end
 --    "@bounded_telos: telos description contains open-ended utility term"
 -- 6. @bounded_telos without telos.bounded_by field → error
 --    "@bounded_telos requires telos.bounded_by: field"
-fn check_safety :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>]
+fn check_safety :: Module -> Effect<[Pure], Result<Unit, List<LoomError>>>
   describe: "Safety annotations enforced on autopoietic beings — Asimov 1942 as a type system"
   require:  all autopoietic beings carry @mortal and @sandboxed
   ensure:   no autopoietic being compiles without mortality + corrigibility + sandboxing
@@ -626,41 +673,41 @@ end
 -- lex → parse → check_inference → check_types → check_exhaustiveness →
 -- check_effects → check_algebraic → check_units → check_typestate →
 -- check_privacy → check_infoflow → check_teleos → check_safety → emit_rust
-fn compile :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full compilation pipeline — source to Rust"
   require:  source.len() > 0
   ensure:   result.is_ok() implies result.unwrap().contains("pub")
   source
 end
 
-fn compile_typescript :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_typescript :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to TypeScript"
   source
 end
 
-fn compile_openapi :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_openapi :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to OpenAPI 3.0 YAML"
   source
 end
 
-fn compile_json_schema :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_json_schema :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to JSON Schema draft-07"
   source
 end
 
-fn compile_wasm :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_wasm :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to WebAssembly text format"
   source
 end
 
-fn compile_simulation :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_simulation :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to Mesa ABM Python simulation"
   source
 end
 
-fn compile_neuroml :: String -> Effect<[IO], Result<String, List<LoomError>>]
+fn compile_neuroml :: String -> Effect<[IO], Result<String, List<LoomError>>>
   describe: "Full pipeline — source to NeuroML 2 XML"
-  ensure:   result.is_ok() implies result.unwrap().starts_with("<neuroml")
+  ensure:   result.is_ok() implies result.unwrap().contains("<neuroml")
   source
 end
 
@@ -697,6 +744,9 @@ end
 --   codegen/simulation.rs:  pub struct SimulationEmitter;  same pattern
 --   codegen/neuroml.rs:     pub struct NeuroMLEmitter;
 --                           impl NeuroMLEmitter { pub fn emit(m: &Module) -> String }  (static, no self)
+-- Every codegen submodule is pub, so tests also write `loom::codegen::rust::RustEmitter`,
+-- `loom::codegen::openapi::OpenApiEmitter`, `loom::codegen::typescript::TypeScriptEmitter`,
+-- `loom::codegen::schema::JsonSchemaEmitter` and call `loom::codegen::wasm::emit_wasm`.
 -- codegen/mod.rs re-exports:
 --   pub use rust::RustEmitter
 --   pub use typescript::TypeScriptEmitter
@@ -720,7 +770,7 @@ end
 --
 -- G7: project module (project.rs):
 --   pub struct ProjectManifest { pub name: String, pub modules: Vec<String>, pub output: String }
---   impl ProjectManifest { pub fn from_str(s: &str) -> Result<Self, String> }
+--   impl ProjectManifest { pub fn from_str(s: &str) -> Result<Self, String> }   -- TOML subset, see R7.2
 --   pub fn build_project(files: &[&str], out_dir: &str) -> Result<(), Vec<LoomError>>
 --
 -- G8: LoomError is an ENUM (not a struct) with specific variants:
@@ -731,7 +781,12 @@ end
 --   NonExhaustiveMatch { missing: Vec<String>, span: Span }  -- missing is Vec not String
 --   UndeclaredDependency { name: String, span: Span }
 --   WasmUnsupported { feature: String, span: Span }
+--   EffectError { msg: String, span: Span }        -- raised by the effects checker
+--   InfoFlowError { msg: String, span: Span }      -- raised by the information-flow checker
 --   General { message: String, span: Span }  -- fallback for LoomError::new()
+--   Also required: LoomError::kind(&self) -> &str (variant name; "LoomError" for General) and
+--   LoomError::span(&self) -> Span. Full contract in appendix R2. Span is in BOTH `error::Span`
+--   and `ast::Span` (re-export) and has Span::new, Span::merge, Span::synthetic.
 --
 -- G9 (additional): Parser::new takes &[Token] not Vec<Token>:
 --   pub fn new(tokens: &[Token]) -> Self  -- tests call Parser::new(&tokens)
@@ -765,31 +820,26 @@ end
 --   Failure to stop at `let` causes the entire function body to be consumed
 --   as the predicate expression.
 --
--- ── G10: Parameter name desugaring ───────────────────────────────────────────
+-- ── G10: Parameter names ───────────────────────────────────────────────────────
 --
--- Loom functions can name their parameters explicitly via `x y => body` syntax.
--- The FnDef AST node carries:
---   param_names: Vec<String>   -- extracted parameter names; empty if not provided
---
--- Parser rules (parser/mod.rs, parse_fn_def):
---   1. After parsing the type signature, attempt to detect `ident+ =>` lookahead.
---      If exactly N identifiers (matching param count) are followed by `=>`,
---      consume them as param names (the explicit FatArrow desugaring path).
---   2. If no `=>` found, infer param names by scanning require:/ensure: and body
---      text with extract_simple_idents(). This function:
---      a. Skips `let X = RHS` LHS names (only scans RHS).
---      b. Excludes language keywords, PascalCase names, and function-call names.
---      c. Returns identifiers in first-appearance order.
---   3. If inference finds >= N names, use the first N as param_names.
---
--- Codegen use (codegen/rust.rs, emit_fn_def_di):
---   For each param at index i: if f.param_names.get(i) is Some(name), use that;
---   otherwise fall back to `arg{i}`. This gives `fn add(x: i64, y: i64)` instead
---   of `fn add(arg0: i64, arg1: i64)` for `fn add :: Int -> Int -> Int / x y => x+y`.
+-- There is NO `x y => body` syntax in the language (the earlier text describing it was wrong;
+-- `=>` appears only inside match arms as the internal rewrite of `->`, see R3).
+-- FnDef.param_names: Vec<String> is INFERRED from require:/ensure:/body text:
+--   a. skip the name on the left of `let X = RHS` (only scan RHS), `let` itself, language keywords,
+--      PascalCase words, call targets (word immediately followed by `(`), `result`, string literals;
+--   b. unique identifiers in first-appearance order;
+--   c. if at least N names (N = number of signature params) are found, param_names = first N;
+--      otherwise param_names = [] and every parameter is called arg0, arg1, ... in emitted code.
+-- Examples:  fn add :: Int -> Int -> Int / a + b  -> (a: i64, b: i64).
+--            fn double :: Int -> Int / let result = n + n / result -> (n: i64).
+--            fn greet :: String -> String / inline { format!("hello, {}!", arg0) } -> (arg0: String).
+-- Codegen (Rust): parameter i is `param_names[i]` when present, else `arg{i}`. WASM names parameters
+-- positionally ($p0, $p1) regardless (R6.5).
 --
 -- ── G11: CLI error propagation ────────────────────────────────────────────────
 --
 -- The CLI (main.rs) and project builder (project.rs) must propagate errors:
+--   0. See appendix R7.1 for the full CLI contract (output file written by default, --check-only).
 --   1. `loom compile <file>`: if compilation fails, print the filename in the
 --      error message (format: `error: <file>: <error_message>`) and exit nonzero.
 --   2. `build_project(files, out_dir)`: returns Err(Vec<LoomError>) if any source
@@ -806,6 +856,8 @@ end
 -- name in emitted Rust, or the code will fail to compile (E0425: cannot find value).
 -- Example: `match c { Red => 1, Green => 2 }` must emit `match c { Color::Red => 1, Color::Green => 2 }`
 --
+-- Either qualification (`Color::Red =>`) or a glob `use self::Color::*;` plus bare arms is accepted by the
+-- suite, because it only matches the substrings `Red =>` / `Circle(r) =>`; the emitted Rust must still compile.
 -- Codegen approach (emit_fn_def_di in codegen/rust.rs):
 --   Build a param_type_map: param_name → type_name from the function's param_names
 --   and type_sig.params. For each match expression in the body, find the match subject,
@@ -821,6 +873,504 @@ end
 -- When `true`, emit `fn name(...)` instead of `pub fn name(...)`.
 -- The `implements` path in emit_rust passes `in_trait_impl=true` for all fns.
 --
+-- ══════════════════════════════════════════════════════════════════════════════
+-- REFERENCE BEHAVIOUR (normative appendix, added after ALX-R scored 0.375)
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Everything below is observable behaviour of the reference compiler that the conformance
+-- suite checks. "contains X" means the output must contain X as a substring; layout, whitespace
+-- and extra content around it are free unless stated. Names such as <snake(X)> are defined in R6.0.
+--
+-- ── R0. Contradictions between the two spec files, and the resolution ─────────────────────────
+--  1. Effect type closer. Older examples wrote `Effect<[IO], T]`. The ONLY valid form is
+--     `Effect<[IO, DB], T>` (square brackets around the effect list, `>` closes). `]` as closer
+--     is a parse error. Tier suffix: `Effect<[IO@irreversible, DB@reversible], T>`.
+--  2. Match syntax. Valid:           match <subject>
+--                                     | Pattern -> expr
+--                                     | Pattern if guard -> expr
+--                                     | _ -> expr
+--                                   end
+--     There is NO `with` after the subject and arms use `->`, not `=>`. Payload patterns are
+--     written with parentheses: `Circle(r)`, `Num(n) if n > 0`. (`match x with | A => ..` is a
+--     parse error.) Bare lowercase identifier arms bind the value (`| other -> 0`).
+--  3. Function header. `describe:` and annotations come BEFORE `::`, each on its own line or
+--     inline:  fn add @idempotent :: Int -> Int       or
+--               fn add
+--                 describe: "adds two integers"
+--                 @since("v1.0")
+--                 :: Int -> Int -> Int
+--                 x + y
+--               end
+--     Contracts (`require:`, `ensure:`) and `with <dep>` come AFTER the signature, before the body.
+--     A `describe:` placed after `::` is NOT recognised.
+--  4. provides / requires are brace blocks, `provides` first, then `requires`:
+--         provides { add :: Int -> Int -> Int, multiply :: Int -> Int -> Int }
+--         requires { db: Database, cache: Cache }
+--     (`provides: a, b` / `requires: A, B` colon-lists are a parse error.)
+--  5. Parameter names. There is no `x y => body` syntax. Names are INFERRED from the body (G10).
+--  6. OpenAPI and JSON Schema are emitted as JSON text (even though the CLI file extension is
+--     `.openapi.yaml`). OpenAPI version string is "3.0.3"; JSON Schema dialect is
+--     "https://json-schema.org/draft/2020-12/schema" (NOT draft-07).
+--  7. NeuroML output begins with an XML prolog `<?xml version="1.0" encoding="UTF-8"?>`; the root
+--     element `<neuroml ...>` follows. `starts_with("<neuroml")` is wrong; `contains("<neuroml")` holds.
+--     Synapse rule attribute is lowercase: rule="hebbian" | rule="boltzmann".
+--  8. Simulation emits an Agent class for EVERY being (not only autopoietic ones).
+--  9. Safety: autopoietic beings require @mortal and @sandboxed only (R4.11). @corrigible is
+--     required nowhere by itself.
+-- 10. Plasticity has no `learning_rate` field; "plasticity without learning_rate" is NOT an error.
+--     Epigenetic uses `signal:` (not `trigger:`); morphogen uses `signal:` (not `gradient:`).
+-- 11. InterfaceDef.methods, Provides, Requires, RegulateBlock.bounds and TypeExpr have the
+--     structured shapes shown in the type definitions above, not Strings.
+-- 12. Unimplemented forms in docs/language-spec.md (see its Section 0): `if/then/else`, lambdas
+--     written `fn x :: T => e`, raw `{ code }` bodies, generic `type Pair<A,B> = ...` and
+--     `enum R<T,E>` definitions, `import X as Y`, `Rect of Float * Float` tuple payloads,
+--     brace-form `type X = { a: Int }`, parenthesised function types `(A -> B) -> C`,
+--     `for x in xs <newline> ... end`, interface generics `interface Repo<T>`, bracketed `lifecycle`
+--     arrows other than `A -> B -> C`. A reader must not derive behaviour for them.
+--
+-- ── R1. Crate layout and dependencies ─────────────────────────────────────────────────────────
+--  Cargo package `loom` (lib name `loom`, bin name `loom`), edition 2021, dependencies:
+--    logos 0.15 (optional to use), thiserror 2, serde 1 (derive), serde_json 1, tower-lsp 0.20,
+--    tokio 1 (features ["full"]).  dev-dependency: pretty_assertions 1.
+--  The LSP test uses `tower_lsp::lsp_types` and `#[tokio::test]`, so tower-lsp and tokio MUST be
+--  declared (a build without them fails to compile the lsp test target).
+--  Source layout: src/{lib,main,ast,error,lsp,project}.rs, src/lexer/mod.rs, src/parser/mod.rs,
+--  src/checker/{mod,inference,types,exhaustiveness,effects,algebraic,units,typestate,privacy,
+--  infoflow,teleos,safety}.rs, src/codegen/{mod,rust,typescript,openapi,json_schema,wasm,
+--  simulation,neuroml}.rs. All modules `pub`.
+--  Fixtures: the oracle runs tests from the crate root and reads corpus/*.loom
+--  (pricing_engine, user_service, wasm_demo, di_demo, inline_demo, collections_demo) and
+--  loom.toml (+ corpus/project/*.loom). They are provided by the oracle; they use only syntax
+--  from this spec.
+--
+-- ── R2. Public error and span types (exact) ───────────────────────────────────────────────────
+--    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+--    pub struct Span { pub start: usize, pub end: usize }
+--    impl Span { pub fn new(start, end) -> Span; pub fn merge(self, o: Span) -> Span /*min start,max end*/;
+--                pub fn synthetic() -> Span /*0..0, for programmatically built AST*/ }
+--    #[derive(Debug, Clone, thiserror::Error)] pub enum LoomError {
+--      LexError{msg,span}, ParseError{msg,span}, TypeError{msg,span}, UnificationError{msg,span},
+--      NonExhaustiveMatch{missing: Vec<String>, span}, UndeclaredDependency{name,span},
+--      WasmUnsupported{feature,span}, EffectError{msg,span}, InfoFlowError{msg,span},
+--      General{message,span} }                   // msg/message/name/feature are Strings
+--    Constructors: LoomError::new(message, span) -> General; ::at(message,start,end); ::zero(message)
+--    (span 0..0); ::effect(msg,span); ::type_err(msg,span); ::unification(msg,span);
+--    ::infoflow(msg,span).
+--    Methods: kind(&self) -> &str returning the variant name ("LexError","ParseError","TypeError",
+--    "UnificationError","NonExhaustiveMatch","UndeclaredDependency","WasmUnsupported",
+--    "EffectError","InfoFlowError") and "LoomError" for General; span(&self) -> Span.
+--    Display ( `{e}` / to_string() ) MUST contain the message text verbatim (tests do
+--    `format!("{e}").contains("...")`); recommended: "<kind words>: <msg> at <span:?>".
+--    Debug formatting also contains the message (tests use format!("{:?}", e).contains(..)).
+--    Which stage raises which variant: lexer -> LexError; parser -> ParseError; inference ->
+--    UnificationError (type mismatch) ; types/units -> TypeError; exhaustiveness ->
+--    NonExhaustiveMatch; effects -> EffectError; infoflow -> InfoFlowError; DI -> UndeclaredDependency;
+--    WASM -> WasmUnsupported; everything else (algebraic, typestate, privacy, teleos, safety,
+--    implements) -> General via LoomError::new.
+--
+-- ── R3. Concrete syntax and AST construction conventions ──────────────────────────────────────
+--  Comments: `--` to end of line. Strings: double quoted. Whitespace/newlines separate tokens.
+--  Module:  module Name  then optional header lines in this order: `describe: "..."`, annotations
+--    (`@since("v1")`, `@decision("..")`, ...), `spec Name` (informational, stored in Module.spec),
+--    `import Name`*, `provides {..}`, `requires {..}`, `implements Iface`, `flow` lines,
+--    `lifecycle` lines, then items, invariants, tests, beings, ecosystems in any order, then `end`.
+--    Annotations that appear before the first definition belong to the module; annotations
+--    directly before a `fn`/`being` belong to it.  `module M end` is a valid empty module.
+--    One-line modules are valid: `module M type User = id: Int email: String @pii end end`.
+--  Items:
+--    type Point = x: Float, y: Float end        fields separated by commas OR newlines OR spaces
+--    type Item = quantity: Int, price: Float<usd> end
+--    type User = ... field annotations follow the field type: `email: String @pii @gdpr`
+--    enum Color = | Red | Green | Blue end      enum Shape = | Circle of Float | Point end
+--    type Email = String where valid_email end  refined type; `end` optional when the predicate
+--         is a single expression on the same/next line: `type Score = Int where score_valid`
+--         (stored as Item::RefinedType{name, base_type, predicate})
+--    fn name<T, U> @ann(...) :: A -> B -> C    zero-parameter functions: `fn get :: Int`
+--         (a signature with a single type means return type only, params empty)
+--    interface Name  fn m :: Sig  fn m2 :: Sig  end          (signatures only, no bodies)
+--    implements Name                                         (module header; may repeat)
+--    invariant name :: <boolean expression>                  (one line, no `end`)
+--    test name :: <expr>   |   test name :: inline { rust code }   |   test name :: for_all(|x: Int| expr)
+--    lifecycle Connection :: Disconnected -> Connected -> Authenticated -> Closed
+--    flow secret :: Password, Token          (label then comma separated type names; three
+--         labels used: secret, tainted, public)
+--  Function body (after optional `require:` / `ensure:` lines and optional `with dep`):
+--    * `todo` -> a stub; `inline { rust text }` -> verbatim Rust (nested braces allowed, may span lines);
+--    * otherwise newline-separated statements; `let x = e` or `let x = e in body`; last line is the
+--      result expression. Operators: + - * / % == != < <= > >= && || not, `x as Float`, pipe `a |> f |> g`,
+--      calls `f(a, b)`, field access `item.price`, `?` suffix, parentheses, lambdas `|x| e`,
+--      `|x: Int| e`, `|a, b| e`, `for n in xs { body }`, `match` (R0.2). Collection helpers
+--      `map(xs, f)`, `filter(xs, f)`, `fold(xs, init, f)`.
+--    * `require:` / `ensure:` take one expression to end of line; the collector stops at a line that
+--      starts with `let`, `match`, `for`, `with`, `require`, `ensure`, or `end`. `result` in an ensure
+--      refers to the return value.
+--    * Nested functions inside `module ... end` may be indented arbitrarily; indentation is not significant.
+--  AST body storage (`FnDef.body: Vec<String>`): one string per logical statement line, in source
+--    order, whitespace-trimmed. A `match` block is stored as ONE string
+--    `match <subject> { <arm>, <arm>, ... }` where each arm is `<pattern> => <expr>` or
+--    `<pattern> if <guard> => <expr>` (the source `->` is rewritten to `=>`, a trailing
+--    `Variant(binding)` pattern is kept verbatim). A `let` line is stored as `let x = e`.
+--    `require:`/`ensure:` go to FnDef.requires/ensures as Contract{expr, span} (expr text without the
+--    keyword). `with a, b` -> FnDef.with_deps. Effect tiers written as `IO@irreversible` fill
+--    FnDef.effect_tiers with the tier words in order (["irreversible"]); the effect list itself is in
+--    the TypeExpr::Effect.
+--  G10 parameter names (FnDef.param_names): infer from the body text: scan the `require`/`ensure`
+--    expressions and body lines, skipping the left-hand name of `let x = ...`, language keywords,
+--    PascalCase words, call targets (word followed by `(`), `result`, string literals; keep first-
+--    appearance order, unique. If at least N (= number of signature params) names are found take
+--    the first N; otherwise leave param_names EMPTY and emit `arg0, arg1, ...`.
+--    Example: `fn add :: Int -> Int -> Int  a + b` -> params a, b.  `fn double :: Int -> Int` with body
+--    `let result = n + n; result` -> param n.   `inline { ... arg0 ... }` bodies are never scanned.
+--  Beings (all sub-blocks optional except telos; order free):
+--    being Name
+--      describe: "text"
+--      @mortal @sandboxed @corrigible @bounded_telos   (annotation lines; they must come BEFORE the autopoietic flag)
+--      autopoietic: true
+--      matter:  field: Type ... end
+--      form:    type ... enum ... end
+--      function: fn name :: Sig <body> end ... end   (full fn definitions with own bodies; extra closing end)
+--      telos: "description"  [fitness: fn(...) -> T]  [modifiable_by: X] [bounded_by: Y]  end
+--         -- inside a being, `telos: "text"` followed by `end` closes the telos block; telos with no
+--         -- sub-fields may also be written `telos: "text"` then `end` on its own line.
+--      regulate variable
+--        target: expr
+--        bounds: (lo, hi)        (lo, hi are expression text, kept as two Strings)
+--        response: | pattern -> action ...        (optional)
+--      end
+--      evolve
+--        toward: telos
+--        search:
+--          | gradient_descent when cond
+--          | stochastic_gradient when cond | simulated_annealing when cond
+--          | derivative_free when cond | mcmc when cond
+--        constraint: "E[distance_to_telos] decreasing"
+--      end
+--      epigenetic:  signal: Name  modifies: path  [reverts_when: cond]  end
+--      morphogen:   signal: Name  threshold: 0.8  produces: [A, B]  end
+--      telomere:    limit: 50  on_exhaustion: fn_name  end
+--      crispr:      target: x  replace: y  guide: CasProtein  end
+--      plasticity:  trigger: FireSignal  modifies: SynapticWeight  rule: hebbian | boltzmann | (sarsa|q_learning|reinforce -> ReinforcementLearning)  end
+--    end
+--    ecosystem Name
+--      describe: "text"
+--      members: [A, B]
+--      signal Name from A to B  payload: Type  end     (repeatable)
+--      quorum: signal: S  threshold: 0.6  action: fn_name  end   (repeatable, stored as Vec)
+--      telos: "text"
+--    end
+--    `matter:`'s fields, `epigenetic`..`plasticity` may repeat (stored as Vec) except `telomere` (one).
+--    A `being` is closed by one `end`; each sub-block with its own header is closed by its own `end`.
+--    The `telos:` of an ecosystem is a plain string (EcosystemDef.telos: Option<String>).
+--    Unknown identifiers at module level are a ParseError; `module X` without closing `end` is a ParseError.
+--    (`this is not valid loom source !!!`, `module Bad\nfn broken :: this is bad\nend` -> ParseError.)
+--
+-- ── R4. Checker behaviour (what is an error, which variant, which message words) ──────────────
+--  Each message below is a REQUIRED substring (the message may have more text). Checkers are
+--  heuristic over the textual body; conservative rule: when unsure, accept.
+--  R4.1 inference  -> UnificationError, see R5.
+--  R4.2 types (TypeChecker::new().check) -> TypeError/General:
+--       * `implements X` where interface X is declared in the module and a method of X has no fn of that
+--         name in the module -> error whose Debug/Display contains the missing method name ("greet").
+--       * unknown lowercase bare type names in fn signatures are errors; generic type parameters
+--         declared on the fn (`fn first<T>`) are in scope. Builtin type names: Int Float String Bool Unit
+--         List Map Set Option Result Effect Tuple and any unit label used as Float<label>. Capitalised
+--         undeclared names are ACCEPTED (examples use undeclared types like Database, User).
+--  R4.3 exhaustiveness -> NonExhaustiveMatch{missing sorted alphabetically}: for each `match` whose
+--       arm patterns name variants of a declared enum (or Option: Some/None, Result: Ok/Err): missing
+--       = variants not covered by guard-free arms; a guard-free `_` or lowercase identifier arm covers
+--       everything; arms with guards never count; matches over non-enum scrutinees (integer literal
+--       patterns) are not checked. One error per offending match; Display contains "non-exhaustive".
+--  R4.4 effects (EffectChecker::new().check) -> EffectError:
+--       callee set = fns of the module called as `name(` in the body (or inline body). If the caller is
+--       pure (return type not Effect) and any callee is effectful (directly or transitively) -> error
+--       containing "pure". If the caller declares effect set D and a callee uses effect e not in D ->
+--       error naming e (superset OK; same effects OK). Tiers: a caller whose tier is `reversible`
+--       calling a callee with tier `irreversible` -> error containing "irreversible"/"tier"; equal
+--       tiers are fine. A fn annotated `@pure` that calls any effectful fn -> error containing "pure".
+--  R4.5 algebraic -> General, messages contain:
+--       @idempotent+@exactly-once: "idempotent and exactly-once are contradictory";
+--       @exactly-once+@at-most-once: "conflicting multiplicity annotations";
+--       @exactly-once on a fn whose return type is not Effect: "exactly-once requires an effectful function";
+--       @commutative with fewer than 2 params: "commutative requires at least 2 parameters".
+--       @idempotent/@associative/@monotonic/@at-most-once alone are always valid.
+--  R4.6 units (UnitsChecker::new().check) -> TypeError: in one fn, if the parameters carry at least two
+--       DIFFERENT unit labels (Float<usd>, Float<eur>) and the body contains ` + ` or ` - `, report one
+--       TypeError mentioning the units. `*` and `/` never error. Same-unit and unitless arithmetic OK;
+--       `let` aliases do not change the result.
+--  R4.7 typestate (TypestateChecker::new().check) -> General containing "invalid lifecycle transition":
+--       for a fn with a param `T<S1>` and return `T<S2>` where T has a lifecycle declaration, S1->S2 must be
+--       ADJACENT states in the declared sequence (skipping or going backwards or staying put is an error).
+--       A "state" is a Generic argument that is a Base name starting with an uppercase letter.
+--  R4.8 privacy (PrivacyChecker::new().check) -> General: @pci field needs @encrypt-at-rest (message
+--       contains "encrypt-at-rest") and @never-log (contains "never-log"); @hipaa needs @encrypt-at-rest.
+--       Applies to TypeDef fields and being matter fields.
+--  R4.9 infoflow (InfoFlowChecker::new().check) -> InfoFlowError, Display contains "information flow
+--       violation": using the flow labels, a fn (not named with declassify/sanitize/hash/anonymize) with a
+--       `secret`-typed param whose return type has no label or label `public` -> error; a fn with a
+--       `tainted`-typed param whose name contains find/query/save/insert/update/delete/execute/fetch -> error whose
+--       text also contains "tainted". secret->secret is fine. No flow labels -> always Ok.
+--  R4.10 teleos = `check_teleos(&Module) -> Result<(),Vec<LoomError>>` (General errors). Required message
+--       substrings:
+--       * being without telos: "missing telos"
+--       * regulate without bounds (bounds == None): "missing bounds"
+--       * evolve with zero search cases: "no search: cases"; constraint not containing "decreasing",
+--         "non-increasing" or "converg": message contains "convergence"; both a gradient-based case
+--         (gradient_descent|stochastic_gradient) and a derivative_free case present where some case has an
+--         empty `when`: "mutually exclusive"
+--       * epigenetic: "empty signal", "empty modifies"; morphogen: no produces -> "inert"; threshold
+--         outside (0.0, 1.0] -> "out of range"; crispr: "empty target", "empty replace", "empty guide";
+--         plasticity: "empty trigger", "empty modifies"; telomere limit <= 0: "positive"
+--       * autopoietic being must have regulate, evolve and matter blocks (messages mention the block)
+--       * regulate variable must name a field of the being's matter block; telomere on_exhaustion is senescence |
+--         apoptosis | quiescence | a fn of the being's function block (the production compiler enforces both; the ALX
+--         oracle does not exercise them, and accepting them is harmless)
+--       * regulate `target:` and `bounds: (lo, hi)` are identifiers / level names, never numeric literals
+--       * ecosystem: telos None -> "missing telos"; zero signals -> "no signals"; signal from/to not in
+--         members -> message contains the unknown name; quorum: "empty signal", "empty action", threshold
+--         outside (0.0,1.0] -> "out of range".
+--       Well-formed blocks produce no error.
+--  R4.11 safety = `SafetyChecker::check(&Module) -> Vec<LoomError>` (associated fn, no instance), messages
+--       exactly as listed in the Safety section above (substrings "missing @mortal", "missing @sandboxed",
+--       "@mortal requires telomere", "modifiable_by", "bounded_by", "maximize"/"unlimited" for the open-
+--       ended-term rule). The terms `maximize`, `unlimited`, `any`, `all` are matched on word boundaries,
+--       case-insensitively, in the telos description.
+--  R4.12 implements/DI (module-level, run last): UndeclaredDependency{name} for each `with dep` whose dep
+--       is not a key of `requires {..}` (or there is no requires at all). Display contains the name.
+--
+-- ── R5. Type inference (the HM-style pass) ────────────────────────────────────────────────────
+--  Algorithm (sufficient for the suite; a fuller HM implementation must agree on these verdicts):
+--    1. Types are TypeExpr; fresh variables are TypeVar(n). unify(a,b) returns a substitution or an error;
+--       Base names must be equal; Generic needs same name and arity then unifies arguments pairwise; TypeVar
+--       binds (with occurs check); Effect(_, r) unifies as its result type r.
+--    2. For every fn, bind each parameter (inferred param_names, G10) to its signature type and walk the
+--       LAST body line to infer a type: integer literal -> Int; float literal -> Float; true/false -> Bool;
+--       string literal -> String; `a <op> b` with op in + - * / -> operands must unify (a Bool operand with
+--       a numeric one, e.g. `n + true`, is a mismatch) and result is the operand type (default Int);
+--       comparison (< <= > >= == !=) -> Bool; `e as T` -> T (decided by the cast target, never by `e`);
+--       anything involving a call, field access, `match`, `|>`, `?`, a lambda, an unbound name or an
+--       unknown param -> unknown (fresh variable: NO error).
+--    3. Unify the body type with the declared return type (Effect<_,R> counts as R; Float<unit> is
+--       compatible with Int/Float literals). A mismatch yields UnificationError whose message contains
+--       "does not match" (e.g. "body expression type Int does not match declared return type Bool").
+--    Verdicts: `fn bad :: Int -> Bool  n + 1` -> error; `n + true` for Int return -> error; `42` for Bool
+--    return -> error; `n > 0` -> Bool OK; `n * factorial(n)` -> OK (call = unknown); `x as Float * y` for
+--    Float return -> OK; let-chains `let r = n + n; r` -> OK; `todo`/`inline` bodies -> not inferred.
+--    Signature-level: type variables in a signature are checked for cycles only.
+--
+-- ── R6. Emitted-text conventions ──────────────────────────────────────────────────────────────
+--  R6.0 Naming helpers. snake(X): lower-case, inserting `_` before every upper-case letter except the
+--       first character: PricingEngine -> pricing_engine, EnvironmentalStress -> environmental_stress,
+--       AHL -> a_h_l, CasProtein -> cas_protein, Usd stays Usd for type names. camel(X): first letter upper
+--       case kept, e.g. applyEpigenetic + EnvironmentalStress. kebab(X): snake with `-`: MathLib -> math-lib.
+--       Unit label struct name = label with first letter upper-cased (usd -> Usd, eur -> Eur).
+--  R6.1 Rust (RustEmitter::new().emit(&Module) -> String; compile() = checks + emit):
+--    Prologue/shape: output is `pub mod <snake(ModuleName)> {` ... `}` with `use super::*;` first inside.
+--    Module `describe:` -> `/// <text>` lines BEFORE `pub mod`; module annotations `@since("v2.0")` ->
+--    `/// @since: v2.0` (same for @decision, @author ...); fn describe -> `/// <text>` before the fn, then
+--    its annotation lines `/// @key: value` in source order; `@deprecated("why")` additionally emits
+--    `#[deprecated(note = "why")]`. No describe/annotations -> no `///` anywhere.
+--    Imports: each `import MathLib` -> `use super::math_lib::*;` (exactly one `use super::` line when
+--    there are no imports). `Map` in any signature/field -> `use std::collections::HashMap;`; `Set` ->
+--    `use std::collections::HashSet;`; neither used -> neither word appears in the output.
+--    Types: Int->i64, Float->f64, Bool->bool, String->String, Unit->(), List<T>->Vec<T>, Map<K,V>->
+--    HashMap<K, V>, Set<T>->HashSet<T>, Option<T>->Option<T>, Result<T,E>->Result<T, E>, tuples ->(A, B).
+--    `type P = x: Float, y: Float end` -> `pub struct P {` with `pub x: f64,` lines (derive Debug, Clone,
+--    PartialEq). enum -> `pub enum Shape {` with `Circle(f64),` / `Triangle,` variant lines.
+--    Refined type `type Score = Int where score_valid` -> `pub struct Score(i64);` plus
+--    `impl TryFrom<i64> for Score` whose try_from body contains `debug_assert!(<predicate text>, "...")` with
+--    the predicate written immediately after the opening parenthesis (`debug_assert!(score_valid, ...)`), then
+--    `Ok(Score(value))`; `type Email = String where ...` -> `pub struct Email(String)` and `impl TryFrom<String> for Email`.
+--    Generics: `fn identity<T> :: T -> T` -> `pub fn identity<T>(`; `fn map_fn<A, B>` -> `pub fn map_fn<A, B>(`;
+--    non-generic fns have no `<` on their `pub fn` line. List<T> -> Vec<T>, Map<K, V> -> HashMap<K, V>.
+--    Functions: `pub fn name(param: type, ...) -> ret {`; param names per G10 (arg0.. fallback); the
+--    return type of an Effect<..,T> fn is `Result<T, Box<dyn std::error::Error>>`; zero-parameter fns have
+--    `()`. `todo` bodies emit `todo!()` (never a bare `todo`). `inline { X }` emits X verbatim as the
+--    body (no todo!(), no extra wrapping; surrounding spaces ok). Contract-only functions end in todo!().
+--    Contracts: each `require: e` -> `debug_assert!((e), "precondition violated: (e)");` before the body
+--    (so `debug_assert!(` and the raw predicate text, e.g. `divisor > 0`, appear); each `ensure: e` ->
+--    `debug_assert!((e'), "ensure: (e')");` after the body, where `result` is bound to the computed
+--    return value (`_loom_result`) and the text `ensure:` appears in the message. No `// postcondition` comments.
+--    Statements: `let base = 100` -> `let base = 100;`; final expression last without `;`; comparison
+--    `lo < hi` -> `(lo < hi)`; `a * b` -> parenthesised binary expressions; `x as Float` -> `(x) as f64`,
+--    `x as Int` -> `(x) as i64`, `x as Float * y` -> `((x as f64) * y)` shape (contains `as f64` and `*`);
+--    `42 |> double |> add_ten` -> introduces `_pipe` bindings, `double(_pipe)`, `add_ten(`; field access
+--    `item.quantity` is kept as is; match -> `match shp { Circle(r) => 1, Triangle => 3, _ => 2 }`
+--    (arm text `Circle(r) =>`, `_ =>`, guard `Num(n) if (n > 0) =>` ; variants may be bare because the
+--    module emits `use self::<Enum>::*;` or qualified `Enum::Variant` — both pass); lambdas |x: Int| e ->
+--    `|x: i64| e`, `|x| e` -> `|x| e`, `|a, b| a` kept; `map(xs, f)` -> `xs.iter().map(f).collect::<Vec<_>>()`;
+--    `filter(xs, f)` -> `xs.iter().filter(f).collect::<Vec<_>>()`; `fold(xs, 0, f)` -> `xs.iter().fold(0, f)`;
+--    `for n in xs { n }` -> `for n in xs.iter() { n }`; integer literals inside inline are untouched.
+--    Inside `impl Trait for Struct` blocks functions are emitted WITHOUT `pub` (E0449).
+--    Effect tiers: for each tier a doc comment `// effect-tier: IO -> irreversible` (`DB -> reversible`).
+--    Algebraic annotations in doc comments: `@idempotent — safe to retry`, `@commutative — argument order does not matter`.
+--    Units: for every unit label used in Float<label> anywhere emit once
+--       `pub struct Usd(pub f64);` (derive Debug, Clone, Copy, PartialEq, PartialOrd) and impls
+--       `impl std::ops::Add for Usd`, Sub, `impl std::ops::Mul<f64> for Usd`; Float<usd> in a signature or
+--       struct field is written `Usd` (`pub amount: Usd`, parameter `x: Usd`).
+--    Privacy: a struct field annotated @pii is preceded by a line containing the LITERAL text `#[loom_pii]`
+--       (the ALX oracle checks exactly this substring; the production compiler has since moved to
+--       `#[cfg_attr(loom_runtime, loom_pii)]`, which this frozen oracle does NOT accept). @never-log fields are
+--       preceded by a comment line containing `NEVER LOG`. @pci/@hipaa/@gdpr follow the same pattern
+--       (`#[loom_pci]`, `#[loom_hipaa]`, `#[loom_gdpr]`).
+--    Invariants: `invariant non_negative :: amount >= 0` ->
+--       `#[cfg(debug_assertions)]` then `pub fn _check_invariants() { debug_assert!((amount >= 0), "invariant 'non_negative' violated"); }`.
+--       With no invariants there is no `_check_invariants`.
+--    Test blocks: any `test` -> a `#[cfg(test)] mod tests { use super::*; #[test] fn <name>() { body } }`;
+--       `test t :: inline { assert_eq!(add(1, 2), 3) }` puts the inline text in the body verbatim;
+--       `test p :: for_all(|x: Int| e)` expands to a loop over an `_edge_cases` array containing `i64::MAX`
+--       with an `assert!`. No tests -> no `#[cfg(test)]`.
+--    Interface: `interface Greeter fn greet :: String -> String end` -> `pub trait Greeter {` with
+--       `fn greet(` method signatures. `implements Greeter` -> `impl Greeter for <ModName>Impl {` (struct
+--       `<ModName>Impl`, e.g. MImpl) containing the matching fns without `pub`.
+--    Provides: `provides { add :: ... }` -> `pub trait <ModName> {` with `fn add(` per op (e.g. `pub trait Calculator`).
+--    Requires/DI: `requires { db: Database }` -> `pub struct <ModName>Context {` with `pub db: Database,`
+--       (also matches `db: DbConn`); a fn with `with db` gets a first parameter `ctx: &<ModName>Context`;
+--       fns without `with` get none; modules without requires emit no word `Context`.
+--    Lifecycle: `// Lifecycle states for Connection` comment, then `pub struct Disconnected;` (one unit struct
+--       per state, typestate args erased elsewhere).
+--    Beings (all being output sits inside the module): `pub struct Organism {` (matter fields as pub fields,
+--       `pub fn new()`), an `impl Organism` block with `pub fn fitness(&self) -> f64`; each regulate ->
+--       `pub fn regulate_<snake(variable)>(...)` containing the bounds check; evolve -> for every search
+--       case `evolve_<strategy>` (e.g. `evolve_gradient_descent`) plus `pub fn evolve_step(&mut self)` that
+--       dispatches `self.evolve_<first strategy>()`, and the constraint string appears verbatim in a comment;
+--       epigenetic -> `pub fn apply_epigenetic_<snake(signal)>(&mut self, signal_strength: f64)`;
+--       morphogen -> `pub fn differentiate_<snake(signal)>(&mut self, signal_level: f64)`; telomere ->
+--       field `telomere_count: u64` and `pub fn replicate(&mut self) -> Result<..>` whose failure text
+--       contains "telomere exhausted" (limit constant = limit); crispr -> `pub fn edit_<snake(guide)>(&mut self)`
+--       with a comment containing "CRISPR"; plasticity -> `pub fn update_<snake(modifies)>(&mut self)` with a
+--       comment containing the rule name (`Hebbian`, `Boltzmann`); autopoietic -> `pub fn is_autopoietic(&self)
+--       -> bool` and `verify_closure` in a second impl block, and mentions of matter/regulate/evolve.
+--    Ecosystem: `pub mod <snake(EcoName)> {` (e.g. forest_ecosystem) holding `pub struct <Signal>` per signal
+--       (NutrientFlow), `pub fn coordinate(...)`, and for each quorum `pub fn check_quorum_<snake(signal)>(...)`
+--       with a comment citing "Bassler".
+--  R6.2 TypeScript (TypeScriptEmitter::new().emit): module -> `export namespace <ModName> {` ... `}` with a
+--    leading JSDoc `/** ... */` containing the module describe. Int/Float->number, Bool->boolean,
+--    String->string, List<T>->T[]. type -> `export interface Point {` + `  x: number;` lines. enum without
+--    payloads -> `export type Color = "Red" | "Green" | "Blue";`; with payloads -> tagged union members
+--    `{ tag: "Circle"; value: number }`, payload-less `{ tag: "Rect" }`. fn -> `export function add(x: number,
+--    y: number): number {` + `return ...;`; Effect fns -> `async function fetch(...): Promise<string>`
+--    (still prefixed `export `). `require: c` -> `if (!(c)) throw new Error("precondition violated: ...");`;
+--    `ensure: c` -> result captured in `_loomResult` then `if (!(c')) throw new Error(...)`. Annotations ->
+--    JSDoc `@deprecated ...`, `@idempotent — safe to retry`. `import MathLib` -> `import * as MathLib from
+--    "./math-lib";`. `map(xs, |x: Int| x * 2)` -> `xs.map((x: number) => x * 2)` (contains `.map(`).
+--    interface -> `export interface Greeter {` with `greet(...)` signatures; implements ->
+--    `export class MImpl implements Greeter {`. Units -> branded `type Usd = number & { readonly _unit: "Usd" };`.
+--    Flow labels -> `type Password = string & { readonly _sensitivity: "secret" };`. @pii field -> JSDoc `@pii`.
+--    Lifecycle -> `type ConnectionState = "Disconnected" | "Connected" | ...;` and
+--    `export interface Connection<State extends ConnectionState> { ... }`.
+--    Beings -> `export class Organism {` with JSDoc `@telos <description>`, a `fitness(): number` method,
+--    `applyEpigenetic<Signal>(signalStrength: number)`, `differentiate<Signal>(signalLevel: number)`,
+--    `telomereLimit` (readonly, = limit) + `replicate()`, `evolve<Strategy>()` per search case
+--    (evolveGradientDescent) and an evolve loop that contains `while (distance`. Ecosystem -> `export namespace
+--    <EcoName> {` (e.g. ForestEcosystem) with signal types.
+--  R6.3 OpenAPI (OpenApiEmitter::new().emit) — JSON text, hand-assembled (not via a serializer round-trip):
+--    top level keys in order `"openapi": "3.0.3"`, `"info": { "title": "<ModName>", "description": "<module
+--    describe>", "version": "1.0.0" }`, `"paths"`, `"components": { "schemas": {...} }`, then extension keys.
+--    Pretty layout uses `"key": value` (space after colon) for structural keys; embedded schema fragments
+--    are compact (`{"type":"integer"}`), which is what tests match: `"type":"integer"`, `"type":"string"`,
+--    `"type":"number"`.  Mapping Int->{"type":"integer"} Float->number String->string Bool->boolean.
+--    Each fn is one path (the `@path("/x")` value if given, else any resource-style path such as `/<fn name>`
+--    or the pluralised resource; only @path values are tested) with ONE operation whose method is:
+--    `@method("GET")` value lowercased if present; else by fn-name prefix per docs/language-spec.md section 11
+--    (create/add/register/insert/save/post -> post; update/set/put/replace/upsert -> put; patch/modify/change ->
+--    patch; delete/remove/destroy/drop -> delete; get/fetch/find/load/read/show/list/all/search/query -> get);
+--    otherwise `"get"` when the fn has no parameters and `"post"` when it has some. `@idempotent` turns a post
+--    into `"put"` (and then the text `"post"` must not appear anywhere in the document). `@exactly-once` does
+--    NOT change the verb. Operation keys:
+--    `"operationId": "<fn name>"`, `"summary"` (fn describe or name), `"tags": ["<ModName>"]`; POST/PUT
+--    with parameters carry `"requestBody"` with `"application/json"` content and an object schema whose
+--    properties are the params; `"responses"` includes `"200"` (or "201" for post) with a JSON content schema for
+--    the return type, and `"500"`. Effect returns add `"x-loom-async": true`. Algebraic: `"x-idempotent": true`,
+--    `"x-exactly-once": true`, `"x-at-most-once": true` plus `"x-retry-policy": "never"` (also added for @exactly-once), `"x-commutative": true`,
+--    `"x-associative": true`. `components.schemas` holds every TypeDef/EnumDef/RefinedType by name
+--    (same shape as JSON Schema defs). Extension keys at the end of the document: `"x-data-protection":
+--    {"pii-fields": ["User.email"], "hipaa-fields": [...], "pci-fields": [...]}` when any field has @pii/@gdpr/@hipaa/@pci
+--    (names are `Type.field`), `"x-security-labels"` listing label -> type names when flow labels exist,
+--    `"x-lifecycle"` with `"Connection"`, `"states"` and `"transitions"` when lifecycles exist, `"x-telos"` /
+--    `"x-ecosystems"` / `"x-beings"` for biological constructs (a being's telos text under `x-telos`).
+--  R6.4 JSON Schema (JsonSchemaEmitter::new().emit): JSON text with `"$schema":
+--    "https://json-schema.org/draft/2020-12/schema"`, `"$id": "<ModName>"` (exactly `"$id": "Pricing"` with a
+--    space after the colon), optional `"description"` (module describe), `"$defs"` containing:
+--    TypeDef -> {"type":"object","properties":{"x": {"type":"number"}, ...},"required":[...all fields...]} (compact
+--    `"type":"object"`); Int->{"type":"integer"} (+ optional "format":"int64"), Float->{"type":"number"},
+--    String->{"type":"string"}, Bool->{"type":"boolean"}; List<T> -> {"type":"array","items":...}; Option<T> ->
+--    {"oneOf":[T,{"type":"null"}]}; Map<K,V> -> {"type":"object","additionalProperties":V}; user type ->
+--    {"$ref":"#/$defs/Name"} (compact, exactly `"$ref":"#/$defs/Point"`); Float<usd> -> {"type":"number",
+--    "x-unit":"usd"}; annotated fields add `"x-pii": true` (space after colon), `"x-pci": true`, `"x-hipaa": true`,
+--    `"x-never-log": true` inside the property schema. EnumDef all payload-less -> {"oneOf":[{"const":"Red"},...]};
+--    with payloads -> oneOf of {"type":"object","properties":{"tag":{"const":"Circle"},"value":<schema>},
+--    "required":["tag","value"]} (payload-less members are {"const":"Square"} or a tag-only object).
+--    RefinedType -> {"allOf":[<base schema>],"description":"<Name>: <predicate>"} (contains "allOf" and the type name).
+--  R6.5 WASM (compile_wasm / emit_wasm(&Module) -> Result<String, Vec<LoomError>>): output starts with
+--    `(module` and ends with `)\n`. Per fn: `(func $name (export "name") (param $p0 i64) ... (result i64)`
+--    (Int->i64, Bool->i32, Float->f64; params are named $p0,$p1.. positionally and body identifiers that
+--    are inferred param names compile to `local.get $pN`). Each `let x = e` declares `(local $x i64)` and
+--    emits `local.set $x`; reads emit `local.get $x`. Int ops: i64.add i64.sub i64.mul i64.div_s; comparisons
+--    i64.gt_s i64.lt_s i64.ge_s i64.le_s i64.eq i64.ne; integer literal -> `i64.const N`; true/false ->
+--    `i32.const 1/0`. Unsupported constructs make `compile_wasm` return Err with WasmUnsupported errors:
+--    effectful fn -> feature text contains "effectful"; any refined type -> feature contains the type name
+--    ("Email"); any `match` or enum use in a body -> some WasmUnsupported. Unsupported expression shapes
+--    inside a supported fn become `unreachable`.
+--  R6.6 Simulation (SimulationEmitter::new().emit): Python text starting with `from mesa import Agent, Model`
+--    (substring `from mesa import Agent` required) and `from mesa.time import RandomActivation`.
+--    Every being -> `class Neuron(Agent):` with `def __init__(self, unique_id, model)`, `def step(self):`
+--    (substring `def step(self)`), `def _compute_fitness(self):`, and a comment/docstring containing the telos
+--    text verbatim; regulate/evolve/telomere handling appear in step(). Every ecosystem -> `class Brain(Model):`
+--    with `self.schedule = RandomActivation(self)`, member agents added to the schedule and its own `def step(self):`
+--    (so a module with one being and one ecosystem has >= 2 occurrences of `def step(self)`).
+--  R6.7 NeuroML (NeuroMLEmitter::emit(&Module) -> String, static fn; also NeuroMLEmitter via compile_neuroml):
+--    `<?xml version="1.0" encoding="UTF-8"?>` then `<neuroml xmlns="http://www.neuroml.org/schema/neuroml2" id="<ModName>">`
+--    ... `</neuroml>`. A being with >= 1 plasticity block -> `<cell id="Neuron">` (beings without plasticity emit no
+--    `<cell`). Each plasticity -> `<synapse trigger="FireSignal" modifies="SynapticWeight" rule="hebbian"/>`.
+--    regulate -> `<biophysicalProperties>` containing `<regulate variable="voltage" min="min_v" max="max_v"/>` (attributes
+--    verbatim from the (lo,hi) text). morphogen -> `<morphology>` with `<segment .../>` and `threshold="0.8"`.
+--    ecosystem -> `<network id="Brain">` with one `<population id="Neuron_population" component="Neuron"/>` per
+--    member and one `<projection id="Spike" presynapticPopulation="Neuron_population" postsynapticPopulation="..."/>`
+--    per signal.
+--
+-- ── R7. Tooling surface ───────────────────────────────────────────────────────────────────────
+--  R7.1 CLI (`loom` binary, clap-free hand parsing is fine)
+--    loom compile <file.loom> [--target T] [--output|-o PATH] [--check-only]
+--      T in: rust (default) typescript wasm openapi json-schema simulation neuroml.
+--      Default output path = input path with extension replaced by .rs / .ts / .wat / .openapi.yaml /
+--      .schema.json / .py / .nml.xml. Behaviour: read file, run the pipeline for the target; on success WRITE the
+--      output file (stdout gets one line `compiled `<input>` -> `<output>``, containing the word "compiled");
+--      with --check-only run all checks, write NOTHING, print a line containing "ok" (e.g. `ok — no errors`) to
+--      stdout and exit 0. Unreadable file: exit 1 and stderr `error: ...`. Compile failure: exit 1, stderr lines
+--      `error: <file>: <message>` (the file name appears) one per LoomError.
+--    loom build <manifest.toml>: parse manifest (R7.2), resolve `modules` relative to the manifest's directory,
+--      call build_project(files, out_dir) with out_dir = manifest_dir/<output>, print `build ok` on success; on
+--      failure exit 1 with `error:` on stderr (a missing manifest file is a failure too).
+--  R7.2 Project manifest (TOML subset). Example:
+--        [project]
+--        name = "my-app"
+--        version = "0.1.0"
+--        modules = ["src/a.loom", "src/b.loom"]
+--        output = "out/"
+--    ProjectManifest::from_str(&str) -> Result<ProjectManifest, String>: only the [project] table is read; keys
+--    name (required: missing -> Err), modules (array of strings, may be empty `[]`), output (default "out/");
+--    unknown keys, other tables, blank lines and `#` comments are ignored; string values are double quoted.
+--    build_project(files: &[&str], out_dir: &str) -> Result<(), Vec<LoomError>>: creates out_dir, compiles each file
+--    with compile(), writes `<out_dir>/<file stem>.rs` for each and `<out_dir>/lib.rs` containing one `pub mod <stem>;`
+--    line per file; any read/compile failure -> Err (no silent skipping).
+--  R7.3 LSP module (`loom::lsp`, depends on tower-lsp 0.20):
+--    pub fn byte_offset_to_position_raw(src: &str, offset: usize) -> (u32, u32)  // (line, character), 0-based,
+--        character = bytes since the last '\n'; offset beyond the end is clamped to src.len().
+--        ("module M\nend", 9) -> (1, 0);  ("hello", 100) -> (0, 5).
+--    pub fn loom_error_to_diagnostic(error: &LoomError, src: &str) -> tower_lsp::lsp_types::Diagnostic
+--        range = positions of error.span().start/end; severity Some(DiagnosticSeverity::ERROR); source
+--        Some("loom"); message = error.to_string() (must contain the original message).
+--    pub struct LoomLspServer { client: tower_lsp::Client }
+--        impl LoomLspServer { pub fn new(client: Client) -> Self }  implementing tower_lsp::LanguageServer with
+--        initialize (default InitializeResult), initialized, shutdown. Construction through
+--        `LspService::build(|client| LoomLspServer::new(client)).finish()` must not panic.
+--  R7.4 Library entry points (lib.rs): compile, compile_typescript, compile_openapi, compile_json_schema,
+--    compile_wasm, compile_simulation, compile_neuroml: all `fn(&str) -> Result<String, Vec<LoomError>>`; they lex,
+--    parse, run ALL checkers (R4) and then emit. Parse errors are returned as vec![ParseError]. compile() of an
+--    empty module `module M end` succeeds.
+--    lexer::Lexer::tokenize(&str) -> Result<Vec<Token>, Vec<LoomError>> (unknown character -> LexError "unexpected
+--    character"); parser::Parser::new(&[Token]) then .parse_module() -> Result<Module, LoomError>.
+--    Remember `Parser::new` takes a slice. Token layout is free as long as these two compose.
+
 -- ── ALX Self-Applicability Invariant ─────────────────────────────────────────
 -- The ALX experiment (Adversarial Loom eXperiment) measures S_realized:
 -- S_realized = (tests passing from blind derivation) / (total tests)
