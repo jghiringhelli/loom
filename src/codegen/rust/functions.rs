@@ -271,7 +271,7 @@ impl RustEmitter {
     }
 
     pub(super) fn fn_param_names(&self, fd: &FnDef) -> Vec<String> {
-        collect_body_param_names(fd, fd.type_sig.params.len())
+        collect_body_param_names(fd, &fd.type_sig.params)
     }
 
     /// Emit the three derived artifacts for a `usecase:` block:
@@ -592,7 +592,7 @@ impl RustEmitter {
                 .params
                 .iter()
                 .enumerate()
-                .zip(collect_body_param_names(fd, fd.type_sig.params.len()))
+                .zip(collect_body_param_names(fd, &fd.type_sig.params))
                 .map(|((_, ty), name)| format!("{}: {}", name, self.emit_type_expr(ty))),
         );
 
@@ -611,6 +611,29 @@ impl RustEmitter {
         };
 
         let mut body_lines: Vec<String> = Vec::new();
+
+        // `inline { .. }` bodies address parameters positionally as `arg0`, `arg1`, ...;
+        // alias those to the recovered parameter names.
+        let inline_text: String = fd
+            .body
+            .iter()
+            .filter_map(|e| match e {
+                Expr::InlineRust(c) => Some(c.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !inline_text.is_empty() {
+            for (i, name) in collect_body_param_names(fd, &fd.type_sig.params)
+                .iter()
+                .enumerate()
+            {
+                let alias = format!("arg{}", i);
+                if *name != alias && contains_word(&inline_text, &alias) {
+                    body_lines.push(format!("    let {} = {}.clone();", alias, name));
+                }
+            }
+        }
 
         // V7: emit audit trail before each contract assertion.
         for contract in &fd.requires {
@@ -638,8 +661,11 @@ impl RustEmitter {
         // Only use the _loom_result binding pattern when at least one ensure
         // condition actually references "result" — otherwise it's a type-name
         // expression that can't be bound as a value.
-        let last_is_stub =
-            body_count > 0 && is_type_name_stub(&self.emit_expr(&fd.body[body_count - 1]));
+        // A `todo!()` body is likewise a stub: its value has no type to assert on.
+        let last_is_stub = body_count > 0 && {
+            let t = self.emit_expr(&fd.body[body_count - 1]);
+            is_type_name_stub(&t) || t.trim() == "todo!()"
+        };
         let needs_result_binding = has_ensures
             && !last_is_stub
             && fd
@@ -652,7 +678,12 @@ impl RustEmitter {
             }
             let last = &fd.body[body_count - 1];
             if needs_result_binding {
-                body_lines.push(format!("    let _loom_result = {};", self.emit_expr(last)));
+                let mut last_text = self.emit_expr(last);
+                if matches!(last, Expr::InlineRust(_)) {
+                    // An inline block may be several statements; bind it as one block expression.
+                    last_text = format!("{{\n{}\n    }}", last_text);
+                }
+                body_lines.push(format!("    let _loom_result = {};", last_text));
             }
             for contract in &fd.ensures {
                 let raw = self.emit_expr(&contract.expr);
@@ -707,6 +738,9 @@ impl RustEmitter {
                             "    todo\x21(\"stub body — implement return value of type {}\")",
                             text
                         ));
+                    } else if ret == "String" && matches!(expr, Expr::Literal(Literal::Str(_))) {
+                        // A string literal is `&str`; the declared return type is owned.
+                        body_lines.push(format!("    {}.to_string()", text));
                     } else {
                         body_lines.push(format!("    {}", text));
                     }
@@ -756,14 +790,212 @@ fn algebraic_annotation_desc(key: &str) -> Option<&'static str> {
 
 /// Identifiers that look like free variables but are actually language keywords
 /// or built-in macros and must not be used as parameter names.
-const PARAM_NAME_BUILTINS: &[&str] = &["todo", "panic", "unreachable", "unimplemented"];
+const PARAM_NAME_BUILTINS: &[&str] = &[
+    "todo",
+    "panic",
+    "unreachable",
+    "unimplemented",
+    "result",
+];
 
-/// Collect free variable names from a function body in first-appearance order.
+/// What a contract/body usage implies about the type of a free identifier.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum UseKind {
+    /// `x.len()`, `x.all(..)`, `x[i]`, `for _ in x` — x is a collection.
+    List,
+    /// `x.field` — x is a user-defined record.
+    Record,
+    /// `x > 0` — x is an integer.
+    Int,
+    /// `x > 0.0` — x is a float.
+    Float,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SlotKind {
+    List,
+    Text,
+    Record,
+    Int,
+    Float,
+    Other,
+}
+
+fn slot_kind(ty: &TypeExpr) -> SlotKind {
+    match ty {
+        TypeExpr::Generic(n, _) if matches!(n.as_str(), "List" | "Vec" | "Set") => SlotKind::List,
+        TypeExpr::Tensor { .. } => SlotKind::List,
+        TypeExpr::Base(n) => match n.as_str() {
+            "Int" | "Nat" | "Int64" | "UInt" | "Usize" => SlotKind::Int,
+            "Float" | "Float64" => SlotKind::Float,
+            "String" | "Str" => SlotKind::Text,
+            "Bool" | "Unit" => SlotKind::Other,
+            _ => SlotKind::Record,
+        },
+        // Unit-annotated primitives: `Float<kg>`, `Int<meters>`
+        TypeExpr::Generic(n, _) if matches!(n.as_str(), "Int" | "Nat") => SlotKind::Int,
+        TypeExpr::Generic(n, _) if n == "Float" => SlotKind::Float,
+        _ => SlotKind::Other,
+    }
+}
+
+fn kind_fits(use_kind: UseKind, slot: SlotKind, loose: bool) -> bool {
+    matches!(
+        (use_kind, slot),
+        (UseKind::List, SlotKind::List)
+            | (UseKind::List, SlotKind::Text)
+            | (UseKind::Record, SlotKind::Record)
+            | (UseKind::Int, SlotKind::Int)
+            | (UseKind::Float, SlotKind::Float)
+    ) || (loose
+        && matches!(use_kind, UseKind::Int | UseKind::Float)
+        // a named type may be an alias of a numeric type
+        && matches!(slot, SlotKind::Int | SlotKind::Float | SlotKind::Record))
+}
+
+const LIST_METHODS: &[&str] = &[
+    "len", "all", "any", "iter", "map", "filter", "is_empty", "contains", "push", "first", "last",
+    "sum", "fold", "count", "get", "sort", "reverse", "join", "min", "max",
+];
+
+fn child_exprs(e: &Expr) -> Vec<&Expr> {
+    match e {
+        Expr::Let { value, body, .. } => {
+            let mut v = vec![value.as_ref()];
+            if let Some(b) = body {
+                v.push(b.as_ref());
+            }
+            v
+        }
+        Expr::Match { subject, arms, .. } => {
+            let mut v = vec![subject.as_ref()];
+            for a in arms {
+                if let Some(g) = &a.guard {
+                    v.push(g);
+                }
+                v.push(&a.body);
+            }
+            v
+        }
+        Expr::Call { func, args, .. } => {
+            let mut v = vec![func.as_ref()];
+            v.extend(args.iter());
+            v
+        }
+        Expr::Pipe { left, right, .. } | Expr::BinOp { left, right, .. } => {
+            vec![left.as_ref(), right.as_ref()]
+        }
+        Expr::FieldAccess { object, .. } => vec![object.as_ref()],
+        Expr::As(i, _) | Expr::Try(i, _) => vec![i.as_ref()],
+        Expr::Lambda { body, .. } => vec![body.as_ref()],
+        Expr::ForIn { iter, body, .. } => vec![iter.as_ref(), body.as_ref()],
+        Expr::Tuple(es, _) => es.iter().collect(),
+        Expr::Index(a, b, _) => vec![a.as_ref(), b.as_ref()],
+        Expr::Record { fields, .. } => fields.iter().map(|(_, v)| v).collect(),
+        Expr::Ident(_) | Expr::Literal(_) | Expr::InlineRust(_) => vec![],
+    }
+}
+
+/// Identifiers that are operands of a pure `+ - * /` tree rooted at `e`.
+fn arith_idents<'a>(e: &'a Expr, out: &mut Vec<&'a str>) {
+    match e {
+        Expr::Ident(n) => out.push(n),
+        Expr::BinOp {
+            op: BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul | BinOpKind::Div,
+            left,
+            right,
+            ..
+        } => {
+            arith_idents(left, out);
+            arith_idents(right, out);
+        }
+        _ => {}
+    }
+}
+
+/// `Some(Int)` for integer literals, `Some(Float)` for float literals; arithmetic on
+/// literals (`-1.0` parses as `0 - 1.0`) is a float as soon as one side is.
+fn numeric_lit_kind(e: &Expr) -> Option<UseKind> {
+    match e {
+        Expr::Literal(Literal::Int(_)) => Some(UseKind::Int),
+        Expr::Literal(Literal::Float(_)) => Some(UseKind::Float),
+        Expr::BinOp { left, right, .. } => {
+            match (numeric_lit_kind(left)?, numeric_lit_kind(right)?) {
+                (UseKind::Int, UseKind::Int) => Some(UseKind::Int),
+                _ => Some(UseKind::Float),
+            }
+        }
+        _ => None,
+    }
+}
+
+fn add_hint(hints: &mut std::collections::HashMap<String, Vec<UseKind>>, name: &str, k: UseKind) {
+    let v = hints.entry(name.to_string()).or_default();
+    if !v.contains(&k) {
+        v.push(k);
+    }
+}
+
+/// Record what the usage of each free identifier implies about its type.
+fn collect_use_hints(e: &Expr, hints: &mut std::collections::HashMap<String, Vec<UseKind>>) {
+    match e {
+        Expr::Call { func, .. } => {
+            if let Expr::FieldAccess { object, field, .. } = func.as_ref() {
+                if let Expr::Ident(n) = object.as_ref() {
+                    if LIST_METHODS.contains(&field.as_str()) {
+                        add_hint(hints, n, UseKind::List);
+                    }
+                }
+            }
+        }
+        Expr::FieldAccess { object, field, .. } => {
+            if let Expr::Ident(n) = object.as_ref() {
+                if !LIST_METHODS.contains(&field.as_str()) {
+                    add_hint(hints, n, UseKind::Record);
+                }
+            }
+        }
+        Expr::Index(a, _, _) => {
+            if let Expr::Ident(n) = a.as_ref() {
+                add_hint(hints, n, UseKind::List);
+            }
+        }
+        Expr::ForIn { iter, .. } => {
+            if let Expr::Ident(n) = iter.as_ref() {
+                add_hint(hints, n, UseKind::List);
+            }
+        }
+        Expr::BinOp { left, right, .. } => {
+            // `x > 0`, and `a + b + c = 1.0` (every operand of the sum is numeric).
+            if let Some(k) = numeric_lit_kind(right) {
+                let mut ids = Vec::new();
+                arith_idents(left, &mut ids);
+                ids.iter().for_each(|n| add_hint(hints, n, k));
+            }
+            if let Some(k) = numeric_lit_kind(left) {
+                let mut ids = Vec::new();
+                arith_idents(right, &mut ids);
+                ids.iter().for_each(|n| add_hint(hints, n, k));
+            }
+        }
+        _ => {}
+    }
+    for c in child_exprs(e) {
+        collect_use_hints(c, hints);
+    }
+}
+
+/// Collect free variable names from a function body in first-appearance order,
+/// then bind each to the parameter slot its usage is compatible with.
 ///
-/// Returns at most `max_params` names; falls back to `arg{i}` for any slot
-/// that couldn't be filled from the body.
-fn collect_body_param_names(fd: &FnDef, max_params: usize) -> Vec<String> {
-    use std::collections::HashSet;
+/// Loom signatures carry only types, not parameter names, so names are
+/// recovered from the body/contracts. A name used as `x.len()` can only be a
+/// collection parameter, `x.field` a record, `x > 0` a number; each is bound
+/// to the first unclaimed slot of a compatible type. Names with no usable hint
+/// take the first unclaimed slot. Slots left over become `arg{i}`.
+fn collect_body_param_names(fd: &FnDef, param_types: &[TypeExpr]) -> Vec<String> {
+    use std::collections::{HashMap, HashSet};
+    let max_params = param_types.len();
 
     let mut let_bound: HashSet<String> = HashSet::new();
     for expr in &fd.body {
@@ -780,20 +1012,48 @@ fn collect_body_param_names(fd: &FnDef, max_params: usize) -> Vec<String> {
         .chain(fd.ensures.iter().map(|c| &c.expr))
         .collect();
 
+    let mut hints: HashMap<String, Vec<UseKind>> = HashMap::new();
+    for expr in &all_exprs {
+        collect_use_hints(expr, &mut hints);
+    }
+
     for expr in all_exprs {
         scan_free_idents(expr, &let_bound, &mut seen, &mut ordered);
-        if ordered.len() >= max_params {
-            break;
+    }
+
+    let slots: Vec<SlotKind> = param_types.iter().map(slot_kind).collect();
+    let mut assigned: Vec<Option<String>> = vec![None; max_params];
+    let mut leftovers: Vec<String> = Vec::new();
+
+    // Pass 1: names whose usage pins a type go to the first compatible free slot.
+    for name in &ordered {
+        match hints.get(name) {
+            Some(ks) if !ks.is_empty() => {
+                let find = |loose: bool| {
+                    (0..max_params).find(|&i| {
+                        assigned[i].is_none() && ks.iter().all(|k| kind_fits(*k, slots[i], loose))
+                    })
+                };
+                let slot = find(false).or_else(|| find(true));
+                match slot {
+                    Some(i) => assigned[i] = Some(name.clone()),
+                    None => leftovers.push(name.clone()),
+                }
+            }
+            _ => leftovers.push(name.clone()),
+        }
+    }
+    // Pass 2: unhinted names fill remaining slots in order of appearance.
+    for name in leftovers {
+        if let Some(i) = (0..max_params).find(|&i| assigned[i].is_none()) {
+            assigned[i] = Some(name);
         }
     }
 
-    (0..max_params)
-        .map(|i| {
-            ordered
-                .get(i)
-                .cloned()
-                .unwrap_or_else(|| format!("arg{}", i))
-        })
+    assigned
+        .into_iter()
+        .enumerate()
+        .map(|(i, n)| n.unwrap_or_else(|| format!("arg{}", i)))
         .collect()
 }
 
@@ -922,4 +1182,14 @@ fn scan_free_idents(
                 .for_each(|(_, v)| scan_free_idents(v, let_bound, seen, ordered));
         }
     }
+}
+
+/// True when `word` occurs in `text` as a whole identifier.
+fn contains_word(text: &str, word: &str) -> bool {
+    text.match_indices(word).any(|(i, _)| {
+        let before = text[..i].chars().next_back();
+        let after = text[i + word.len()..].chars().next();
+        let is_id = |c: char| c.is_alphanumeric() || c == '_';
+        !before.map_or(false, is_id) && !after.map_or(false, is_id)
+    })
 }

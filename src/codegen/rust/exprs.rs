@@ -173,6 +173,24 @@ impl RustEmitter {
                         _ => {}
                     }
                 }
+                // Method-call forms on collections: Loom's `xs.len()` is an Int (i64);
+                // `xs.all(p)` / `xs.any(p)` are iterator predicates in Rust.
+                if let Expr::FieldAccess { object, field, .. } = func.as_ref() {
+                    match (field.as_str(), args.len()) {
+                        ("len", 0) => {
+                            return format!("({}.len() as i64)", self.emit_expr(object));
+                        }
+                        ("all", 1) | ("any", 1) => {
+                            return format!(
+                                "{}.iter().cloned().{}({})",
+                                self.emit_expr(object),
+                                field,
+                                self.emit_expr(&args[0])
+                            );
+                        }
+                        _ => {}
+                    }
+                }
                 let f = self.emit_expr(func);
                 let as_str: Vec<String> = args.iter().map(|a| self.emit_expr(a)).collect();
                 format!("{}({})", f, as_str.join(", "))
@@ -182,6 +200,10 @@ impl RustEmitter {
                 let l = self.emit_expr(left);
                 let r = self.emit_expr(right);
                 format!("{{ let _pipe = {}; {}(_pipe) }}", l, r)
+            }
+            // `xs.length` is Loom's spelling of a String/collection length (an Int).
+            Expr::FieldAccess { object, field, .. } if field == "length" => {
+                format!("({}.len() as i64)", self.emit_expr(object))
             }
             Expr::FieldAccess { object, field, .. } => {
                 format!("{}.{}", self.emit_expr(object), field)
@@ -203,14 +225,22 @@ impl RustEmitter {
                     BinOpKind::And => "&&",
                     BinOpKind::Or => "||",
                 };
+                // `0 - 1.0` (how a negative float literal is parsed): an integer literal
+                // next to a float literal is itself a float in Rust.
+                let widen = |this: &Self, e: &Expr, other: &Expr| match (e, other) {
+                    (Expr::Literal(Literal::Int(n)), Expr::Literal(Literal::Float(_))) => {
+                        format!("{}.0", n)
+                    }
+                    _ => this.emit_expr(e),
+                };
                 format!(
                     "({} {} {})",
-                    self.emit_expr(left),
+                    widen(self, left, right),
                     op_str,
-                    self.emit_expr(right)
+                    widen(self, right, left)
                 )
             }
-            Expr::InlineRust(code) => code.clone(),
+            Expr::InlineRust(code) => loom_comments_to_rust(code),
             Expr::As(inner, ty) => {
                 format!("({} as {})", self.emit_expr(inner), self.emit_type_expr(ty))
             }
@@ -307,4 +337,40 @@ impl RustEmitter {
             Pattern::Literal(lit) => self.emit_literal(lit),
         }
     }
+}
+
+/// Inline blocks are Rust, but authors sometimes write Loom `-- comment` trailers in them.
+/// Rewrite a `--` that starts a comment (whitespace-delimited, outside string literals) to `//`.
+fn loom_comments_to_rust(code: &str) -> String {
+    code.split('\n')
+        .map(|line| {
+            let b: Vec<char> = line.chars().collect();
+            let mut in_str = false;
+            let mut i = 0;
+            while i < b.len() {
+                let c = b[i];
+                if in_str {
+                    if c == '\\' {
+                        i += 1;
+                    } else if c == '"' {
+                        in_str = false;
+                    }
+                } else if c == '"' {
+                    in_str = true;
+                } else if c == '-'
+                    && i + 1 < b.len()
+                    && b[i + 1] == '-'
+                    && (i == 0 || b[i - 1].is_whitespace())
+                    && (i + 2 >= b.len() || b[i + 2].is_whitespace())
+                {
+                    let head: String = b[..i].iter().collect();
+                    let tail: String = b[i + 2..].iter().collect();
+                    return format!("{}//{}", head, tail);
+                }
+                i += 1;
+            }
+            line.to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }

@@ -347,8 +347,14 @@ CONSTANTS\n\
                     "            let current: f64 = {};\n",
                     current_expr
                 ));
-                out.push_str(&format!("            let lower: f64 = {}_f64;\n", low_str));
-                out.push_str(&format!("            let upper: f64 = {}_f64;\n", high_str));
+                out.push_str(&format!(
+                    "            let lower: f64 = {};\n",
+                    bound_expr(low_str, false)
+                ));
+                out.push_str(&format!(
+                    "            let upper: f64 = {};\n",
+                    bound_expr(high_str, true)
+                ));
                 out.push_str("            let gap = if current < lower {\n");
                 out.push_str("                (lower - current) / (lower.abs().max(1.0))\n");
                 out.push_str("            } else if current > upper {\n");
@@ -432,8 +438,25 @@ CONSTANTS\n\
             div_thresh = div_thresh,
         ));
 
+        let mut used_regulate_names: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for reg in &being.regulate_blocks {
-            let var_snake = to_snake_case(&reg.variable);
+            // Trigger/action form: `variable` holds the raw trigger tokens, which are
+            // not an identifier — name the method after its action instead.
+            let (display_var, mut var_snake) = match (&reg.trigger, &reg.action) {
+                (Some(_), Some(act)) if reg.target.is_empty() && reg.bounds.is_none() => {
+                    (format!("trigger -> {}", act), to_snake_case(act))
+                }
+                _ => (reg.variable.clone(), to_snake_case(&reg.variable)),
+            };
+            {
+                let base = var_snake.clone();
+                let mut n = 2;
+                while !used_regulate_names.insert(var_snake.clone()) {
+                    var_snake = format!("{}_{}", base, n);
+                    n += 1;
+                }
+            }
             let (low, high) = reg
                 .bounds
                 .as_ref()
@@ -441,7 +464,7 @@ CONSTANTS\n\
                 .unwrap_or(("?", "?"));
             out.push_str(&format!(
                 "\n    /// Homeostatic regulation: {} → target {} within [{}, {}]\n",
-                reg.variable, reg.target, low, high
+                display_var, reg.target, low, high
             ));
             // Emit signature: takes `current: f64` and returns `f64` when bounds are declared,
             // so callers can pass the live metric value and receive a corrective signal.
@@ -483,8 +506,16 @@ CONSTANTS\n\
             if let Some((low, high)) = &reg.bounds {
                 out.push_str("        // Homeostatic regulation: return corrective signal toward [lower, upper].\n");
                 out.push_str("        // Positive return = push up, negative = push down, 0 = within bounds.\n");
-                out.push_str(&format!("        let lower: f64 = {}_f64;\n", low));
-                out.push_str(&format!("        let upper: f64 = {}_f64;\n", high));
+                // A bound that is not a numeric literal is a symbolic name with no
+                // definition in the program: treat that side as unbounded.
+                out.push_str(&format!(
+                    "        let lower: f64 = {};\n",
+                    bound_expr(low, false)
+                ));
+                out.push_str(&format!(
+                    "        let upper: f64 = {};\n",
+                    bound_expr(high, true)
+                ));
                 out.push_str("        if current < lower { lower - current }\n");
                 out.push_str("        else if current > upper { current - upper }\n");
                 out.push_str("        else { 0.0 }\n");
@@ -493,9 +524,16 @@ CONSTANTS\n\
                 out.push_str(
                     "        // No bounds declared: unbounded regulation, steady-state assumed.\n",
                 );
-                out.push_str("        0.0_f64\n");
+                out.push_str("        // (signature returns unit when no bounds are declared)\n");
             }
             out.push_str("    }\n");
+        }
+
+        if being.evolve_block.is_none() {
+            // Ecosystem coordination calls `evolve_step()` on every member; a being with
+            // no `evolve:` block takes a no-op step that reports its current fitness.
+            out.push_str("\n    /// No `evolve:` block declared — a step leaves the being unchanged.\n");
+            out.push_str("    pub fn evolve_step(&mut self) -> f64 {\n        self.fitness()\n    }\n");
         }
 
         if let Some(evolve) = &being.evolve_block {
@@ -601,8 +639,25 @@ CONSTANTS\n\
             ));
         }
 
+        let mut used_epigenetic_names: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for epi in &being.epigenetic_blocks {
-            let signal_snake = to_snake_case(&epi.signal);
+            let mut signal_snake = to_snake_case(&epi.signal);
+            if !used_epigenetic_names.insert(signal_snake.clone()) {
+                // Several blocks on one signal modulate different fields: disambiguate by field.
+                let field: String = epi
+                    .modifies
+                    .chars()
+                    .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                    .collect();
+                signal_snake = format!("{}_{}", signal_snake, to_snake_case(&field));
+                let mut n = 2;
+                let base = signal_snake.clone();
+                while !used_epigenetic_names.insert(signal_snake.clone()) {
+                    signal_snake = format!("{}_{}", base, n);
+                    n += 1;
+                }
+            }
             let reverts_str = epi.reverts_when.as_deref().unwrap_or("never");
             out.push_str(&format!(
                 "\n    /// Epigenetic modulation: {} → modifies {}\n    /// Waddington landscape: behavioral change without structural change.\n    /// Reverts when: {}\n",
@@ -673,8 +728,8 @@ CONSTANTS\n\
             ));
             out.push_str("    /// Doudna/Charpentier (2012): targeted form editing under guided correction.\n");
             out.push_str(&format!(
-                "    pub fn edit_{}(&mut self, guide: {}) -> Result<(), &'static str> {{\n",
-                guide_snake, crispr.guide
+                "    pub fn edit_{}(&mut self, guide: &str) -> Result<(), &'static str> {{\n",
+                guide_snake
             ));
             out.push_str(&format!("        // target: {}\n", crispr.target));
             out.push_str(&format!("        // replace: {}\n", crispr.replace));
@@ -997,5 +1052,18 @@ fn strategy_rust_step_comment(strategy: &SearchStrategy) -> &'static str {
         SearchStrategy::ParticleSwarm => {
             "particle swarm step: update velocity with cognitive + social components"
         }
+    }
+}
+
+/// Rust expression for a regulate bound. Numeric literals become `N_f64`; a symbolic name
+/// (no definition exists in the program) leaves that side unbounded.
+fn bound_expr(bound: &str, is_upper: bool) -> String {
+    let b = bound.trim();
+    if b.parse::<f64>().is_ok() {
+        format!("{}_f64", b)
+    } else if is_upper {
+        format!("f64::INFINITY /* symbolic bound `{}` is undefined */", b)
+    } else {
+        format!("f64::NEG_INFINITY /* symbolic bound `{}` is undefined */", b)
     }
 }

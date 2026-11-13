@@ -164,6 +164,7 @@ impl RustEmitter {
             }
         }
 
+        out.push_str(&undeclared_type_stubs(module, &body));
         out.push_str(&body);
 
         if !module.test_defs.is_empty() {
@@ -217,9 +218,11 @@ impl RustEmitter {
             body.push_str(&self.emit_interface_trait(iface));
         }
 
+        let mut seen_lifecycle_states: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for lc in &module.lifecycle_defs {
             body.push('\n');
-            body.push_str(&emit_lifecycle_def(lc));
+            body.push_str(&emit_lifecycle_def(lc, &mut seen_lifecycle_states));
         }
 
         for temporal in &module.temporal_defs {
@@ -1167,7 +1170,10 @@ pub(super) fn pascal_case(s: &str) -> String {
 /// - Zero-sized state marker structs
 /// - A `TypeNameState` enum for runtime state tracking
 /// - `impl TypeNameState` with `transition()` that enforces checkpoint guards
-fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
+fn emit_lifecycle_def(
+    lc: &LifecycleDef,
+    seen_states: &mut std::collections::HashSet<String>,
+) -> String {
     let name = &lc.type_name;
     let mut src = format!("// LOOM[lifecycle:{}]: gated state machine\n", name);
     for cp in &lc.checkpoints {
@@ -1178,8 +1184,11 @@ fn emit_lifecycle_def(lc: &LifecycleDef) -> String {
     }
 
     // Zero-sized state marker structs (phantom-type pattern)
+    // (a state shared by several lifecycles is declared once per module)
     for state in &lc.states {
-        src.push_str(&format!("pub struct {};\n", state));
+        if seen_states.insert(state.clone()) {
+            src.push_str(&format!("pub struct {};\n", state));
+        }
     }
 
     if lc.states.is_empty() {
@@ -1438,4 +1447,92 @@ mod tests {
         let out = RustEmitter::new().emit(&module);
         assert!(out.contains("debug_assert!"));
     }
+}
+
+// ── Opaque stubs for undeclared types ────────────────────────────────────────
+
+fn collect_base_type_names(ty: &TypeExpr, out: &mut std::collections::BTreeSet<String>) {
+    match ty {
+        TypeExpr::Base(n) => {
+            out.insert(n.clone());
+        }
+        TypeExpr::Generic(_, ps) | TypeExpr::Tuple(ps) => {
+            ps.iter().for_each(|p| collect_base_type_names(p, out))
+        }
+        TypeExpr::Effect(_, i) | TypeExpr::Option(i) => collect_base_type_names(i, out),
+        TypeExpr::Result(a, b) => {
+            collect_base_type_names(a, out);
+            collect_base_type_names(b, out);
+        }
+        _ => {}
+    }
+}
+
+/// True when `src` contains a `struct|enum|type|trait|union NAME` declaration.
+fn declares_type(src: &str, name: &str) -> bool {
+    ["struct", "enum", "type", "trait", "union"].iter().any(|kw| {
+        let pat = format!("{} {}", kw, name);
+        src.match_indices(&pat).any(|(i, _)| {
+            let before_ok =
+                i == 0 || !src[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_');
+            let after_ok =
+                !src[i + pat.len()..].starts_with(|c: char| c.is_alphanumeric() || c == '_');
+            before_ok && after_ok
+        })
+    })
+}
+
+/// Type names referenced by signatures / fields / DI requirements that the module never declares.
+/// They are emitted as opaque unit-struct stubs so the output is self-contained.
+fn undeclared_type_stubs(module: &Module, body: &str) -> String {
+    // Cross-module imports may legitimately supply types we cannot see.
+    if !module.imports.is_empty() {
+        return String::new();
+    }
+    let mut names = std::collections::BTreeSet::new();
+    for item in &module.items {
+        match item {
+            Item::Fn(fd) => {
+                fd.type_sig
+                    .params
+                    .iter()
+                    .for_each(|p| collect_base_type_names(p, &mut names));
+                collect_base_type_names(&fd.type_sig.return_type, &mut names);
+            }
+            Item::Type(td) => td
+                .fields
+                .iter()
+                .for_each(|f| collect_base_type_names(&f.ty, &mut names)),
+            Item::TypeAlias(_, ty, _) => collect_base_type_names(ty, &mut names),
+            _ => {}
+        }
+    }
+    for b in &module.being_defs {
+        if let Some(m) = &b.matter {
+            m.fields
+                .iter()
+                .for_each(|f| collect_base_type_names(&f.ty, &mut names));
+        }
+    }
+    if let Some(r) = &module.requires {
+        r.deps
+            .iter()
+            .for_each(|(_, ty)| collect_base_type_names(ty, &mut names));
+    }
+    const BUILTIN: &[&str] = &[
+        "Int", "Float", "String", "Str", "Bool", "Unit", "Self", "Vec", "HashMap", "HashSet",
+        "Option", "Result", "Box",
+    ];
+    let mut out = String::new();
+    for n in names {
+        let valid_ident = n.chars().next().map_or(false, |c| c.is_uppercase())
+            && n.chars().all(|c| c.is_alphanumeric() || c == '_');
+        if !valid_ident || BUILTIN.contains(&n.as_str()) || declares_type(body, &n) {
+            continue;
+        }
+        out.push_str(&format!(
+            "    // LOOM: type `{n}` is referenced but not declared in this module — opaque stub\n    #[derive(Debug, Clone, PartialEq, Default)]\n    pub struct {n};\n\n"
+        ));
+    }
+    out
 }

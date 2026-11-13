@@ -73,21 +73,36 @@ impl RustEmitter {
     pub(super) fn emit_refined_type(&self, rt: &RefinedType) -> String {
         let base = self.emit_type_expr(&rt.base_type);
         let pred = self.emit_predicate(&rt.predicate);
+        // `type Email = String where valid_email`: a bare name is a predicate that is
+        // referenced but never defined in the program, so it cannot be evaluated. Bind it
+        // locally (accepting every value) so the guard still compiles.
+        let pred_binding = match &rt.predicate {
+            Expr::Ident(n) if n != "self" && n != "value" => format!(
+                "        let {n}: bool = true; // named predicate `{n}` is not defined in the program; not checked\n"
+            ),
+            _ => String::new(),
+        };
         let mut out = format!(
             "#[derive(Debug, Clone, PartialEq)]\n\
              pub struct {name}({base});\n\n\
              impl TryFrom<{base}> for {name} {{\n\
              \x20\x20\x20\x20type Error = String;\n\
              \x20\x20\x20\x20fn try_from(value: {base}) -> Result<Self, Self::Error> {{\n\
+             {pred_binding}\
              \x20\x20\x20\x20\x20\x20\x20\x20if !({pred}) {{\n\
              \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20return Err(format!(\"refined type invariant violated for {name}: {{:?}}\", value));\n\
              \x20\x20\x20\x20\x20\x20\x20\x20}}\n\
              \x20\x20\x20\x20\x20\x20\x20\x20Ok({name}(value))\n\
              \x20\x20\x20\x20}}\n\
+             }}\n\n\
+             impl std::ops::Deref for {name} {{\n\
+             \x20\x20\x20\x20type Target = {base};\n\
+             \x20\x20\x20\x20fn deref(&self) -> &{base} {{ &self.0 }}\n\
              }}\n",
             name = rt.name,
             base = base,
             pred = pred,
+            pred_binding = pred_binding,
         );
         if let Some(ov) = &rt.on_violation {
             out.push_str(&format!("// on_violation: {}\n", ov));
