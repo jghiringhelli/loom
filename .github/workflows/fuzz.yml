@@ -1,0 +1,30 @@
+name: fuzz
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [lex, parse, compile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-fuzz --locked
+      - name: Seed corpus
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          find corpus examples -name '*.loom' -exec cp {} fuzz/corpus/${{ matrix.target }}/ \;
+      - name: Fuzz 60s
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=60 -timeout=1 -rss_limit_mb=2048
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts
