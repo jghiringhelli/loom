@@ -336,3 +336,354 @@ fn loom_type_to_smt_sort(ty: &TypeExpr) -> &'static str {
         _ => "Int",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+    use crate::parser::Parser;
+    use std::collections::BTreeSet;
+
+    fn sp() -> Span {
+        Span::new(0, 0)
+    }
+    fn id(n: &str) -> Expr {
+        Expr::Ident(n.to_string())
+    }
+    fn int(n: i64) -> Expr {
+        Expr::Literal(Literal::Int(n))
+    }
+    fn bin(op: BinOpKind, l: Expr, r: Expr) -> Expr {
+        Expr::BinOp {
+            op,
+            left: Box::new(l),
+            right: Box::new(r),
+            span: sp(),
+        }
+    }
+    fn contract(e: Expr) -> Contract {
+        Contract {
+            expr: e,
+            span: sp(),
+        }
+    }
+    fn idents(e: &Expr) -> Vec<String> {
+        let mut s = BTreeSet::new();
+        SmtBridgeChecker::collect_idents_expr(e, &mut s);
+        s.into_iter().collect()
+    }
+    /// Parse a function with the given signature, then replace its contracts.
+    fn fn_with(sig: &str, requires: Vec<Expr>, ensures: Vec<Expr>) -> FnDef {
+        let src = format!("module T\n  fn f :: {sig}\n  end\nend");
+        let tokens = Lexer::tokenize(&src).unwrap();
+        let module = Parser::new(&tokens).parse_module().unwrap();
+        let mut f = module
+            .items
+            .into_iter()
+            .find_map(|i| if let Item::Fn(f) = i { Some(f) } else { None })
+            .expect("fn");
+        f.requires = requires.into_iter().map(contract).collect();
+        f.ensures = ensures.into_iter().map(contract).collect();
+        f
+    }
+
+    // ── check / check_fn ──────────────────────────────────────────────────────
+
+    #[test]
+    fn check_fn_none_without_contracts() {
+        let f = fn_with("Int -> Int", vec![], vec![]);
+        assert!(SmtBridgeChecker::check_fn(&f).is_none());
+    }
+
+    #[test]
+    fn check_fn_some_with_only_requires() {
+        let f = fn_with(
+            "Int -> Int",
+            vec![bin(BinOpKind::Gt, id("x"), int(0))],
+            vec![],
+        );
+        let v = SmtBridgeChecker::check_fn(&f).expect("requires-only must verify");
+        assert_eq!(v.function, "f");
+        assert_eq!(v.precondition, "(> x 0)");
+        assert_eq!(v.postcondition, "(and )");
+    }
+
+    #[test]
+    fn check_fn_some_with_only_ensures() {
+        let f = fn_with(
+            "Int -> Int",
+            vec![],
+            vec![bin(BinOpKind::Ge, id("result"), int(0))],
+        );
+        let v = SmtBridgeChecker::check_fn(&f).expect("ensures-only must verify");
+        assert_eq!(v.precondition, "(and )");
+        assert_eq!(v.postcondition, "(>= result 0)");
+    }
+
+    #[test]
+    fn check_skips_non_fn_items_and_contractless_fns() {
+        let with = fn_with("Int -> Int", vec![id("p")], vec![]);
+        let without = fn_with("Int -> Int", vec![], vec![]);
+        let out = SmtBridgeChecker::check(&[Item::Fn(without), Item::Fn(with)]);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].precondition, "p");
+    }
+
+    // ── collect_declarations / collect_idents_expr ────────────────────────────
+
+    #[test]
+    fn declarations_map_param_types_to_sorts_by_sorted_ident_index() {
+        let f = fn_with(
+            "Bool -> Float -> Int",
+            vec![bin(BinOpKind::And, id("p"), id("q"))],
+            vec![bin(BinOpKind::Gt, id("r"), int(0))],
+        );
+        assert_eq!(
+            SmtBridgeChecker::collect_declarations(&f),
+            "(declare-const p Bool)\n(declare-const q Real)\n(declare-const r Int)"
+        );
+    }
+
+    #[test]
+    fn declarations_default_to_int_beyond_params_and_empty_when_no_idents() {
+        let f = fn_with(
+            "Bool -> Int",
+            vec![bin(BinOpKind::Gt, id("a"), id("b"))],
+            vec![id("c")],
+        );
+        assert_eq!(
+            SmtBridgeChecker::collect_declarations(&f),
+            "(declare-const a Bool)\n(declare-const b Int)\n(declare-const c Int)"
+        );
+        let g = fn_with("Int -> Int", vec![int(1)], vec![]);
+        assert_eq!(SmtBridgeChecker::collect_declarations(&g), "");
+    }
+
+    #[test]
+    fn idents_exclude_true_false_but_keep_others() {
+        assert_eq!(idents(&id("x")), vec!["x"]);
+        assert!(idents(&id("true")).is_empty());
+        assert!(idents(&id("false")).is_empty());
+        let e = bin(
+            BinOpKind::And,
+            bin(BinOpKind::And, id("true"), id("false")),
+            id("flag"),
+        );
+        assert_eq!(idents(&e), vec!["flag"]);
+    }
+
+    #[test]
+    fn idents_traverse_binop_both_sides() {
+        assert_eq!(
+            idents(&bin(BinOpKind::Add, id("a"), id("b"))),
+            vec!["a", "b"]
+        );
+    }
+
+    #[test]
+    fn idents_traverse_call_func_and_args() {
+        let e = Expr::Call {
+            func: Box::new(id("f")),
+            args: vec![id("a"), id("b")],
+            span: sp(),
+        };
+        assert_eq!(idents(&e), vec!["a", "b", "f"]);
+    }
+
+    #[test]
+    fn idents_traverse_pipe_both_sides() {
+        let e = Expr::Pipe {
+            left: Box::new(id("l")),
+            right: Box::new(id("r")),
+            span: sp(),
+        };
+        assert_eq!(idents(&e), vec!["l", "r"]);
+    }
+
+    #[test]
+    fn idents_traverse_field_access_as_and_let() {
+        let fa = Expr::FieldAccess {
+            object: Box::new(id("obj")),
+            field: "fld".into(),
+            span: sp(),
+        };
+        assert_eq!(idents(&fa), vec!["obj"]);
+        let as_e = Expr::As(Box::new(id("inner")), TypeExpr::Base("Int".into()));
+        assert_eq!(idents(&as_e), vec!["inner"]);
+        let let_e = Expr::Let {
+            name: "n".into(),
+            value: Box::new(id("val")),
+            body: None,
+            span: sp(),
+        };
+        assert_eq!(idents(&let_e), vec!["val"]);
+    }
+
+    // ── translate_contracts / translate_expr_node ─────────────────────────────
+
+    #[test]
+    fn translate_contracts_single_is_bare_multiple_is_and() {
+        let one = [contract(bin(BinOpKind::Gt, id("x"), int(0)))];
+        assert_eq!(SmtBridgeChecker::translate_contracts(&one), "(> x 0)");
+        let two = [
+            contract(bin(BinOpKind::Gt, id("x"), int(0))),
+            contract(bin(BinOpKind::Lt, id("x"), int(9))),
+        ];
+        assert_eq!(
+            SmtBridgeChecker::translate_contracts(&two),
+            "(and (> x 0) (< x 9))"
+        );
+    }
+
+    #[test]
+    fn translate_node_every_binop() {
+        use BinOpKind::*;
+        let cases = [
+            (Add, "+"),
+            (Sub, "-"),
+            (Mul, "*"),
+            (Div, "/"),
+            (Eq, "="),
+            (Ne, "distinct"),
+            (Lt, "<"),
+            (Le, "<="),
+            (Gt, ">"),
+            (Ge, ">="),
+            (And, "and"),
+            (Or, "or"),
+        ];
+        for (op, s) in cases {
+            assert_eq!(
+                SmtBridgeChecker::translate_expr_node(&bin(op, id("a"), id("b"))),
+                format!("({s} a b)")
+            );
+        }
+    }
+
+    #[test]
+    fn translate_node_atoms_and_fallback() {
+        let t = SmtBridgeChecker::translate_expr_node;
+        assert_eq!(t(&id("abc")), "abc");
+        assert_eq!(t(&int(42)), "42");
+        assert_eq!(t(&int(-7)), "-7");
+        assert_eq!(t(&Expr::Literal(Literal::Float(2.5))), "2.5");
+        assert_eq!(t(&Expr::Literal(Literal::Bool(true))), "true");
+        assert_eq!(t(&Expr::Literal(Literal::Bool(false))), "false");
+        assert_eq!(t(&Expr::Literal(Literal::Str("s".into()))), "true");
+        let nested = bin(BinOpKind::Add, bin(BinOpKind::Mul, id("a"), int(2)), int(1));
+        assert_eq!(t(&nested), "(+ (* a 2) 1)");
+    }
+
+    // ── translate_expr (string) ───────────────────────────────────────────────
+
+    #[test]
+    fn translate_expr_string_operators() {
+        let t = SmtBridgeChecker::translate_expr;
+        assert_eq!(t("x >= 1"), "(>= x 1)");
+        assert_eq!(t("x <= 1"), "(<= x 1)");
+        assert_eq!(t("x != 1"), "(distinct x 1)");
+        assert_eq!(t("x == 1"), "(= x 1)");
+        assert_eq!(t("x > 1"), "(> x 1)");
+        assert_eq!(t("x < 1"), "(< x 1)");
+        assert_eq!(t("x + 1"), "(+ x 1)");
+        assert_eq!(t("x - 1"), "(- x 1)");
+        assert_eq!(t("x * 1"), "(* x 1)");
+        assert_eq!(t("x / 1"), "(/ x 1)");
+        assert_eq!(t("x"), "x");
+        assert_eq!(t("  x  "), "x");
+        assert_eq!(t("not x > 1"), "(not (> x 1))");
+    }
+
+    #[test]
+    fn translate_expr_leading_operator_is_not_split_at_position_zero() {
+        assert_eq!(SmtBridgeChecker::translate_expr("-5"), "-5");
+        assert_eq!(SmtBridgeChecker::translate_expr(">= 5"), "(= > 5)");
+        assert_eq!(SmtBridgeChecker::split_binary("-5"), None);
+        assert_eq!(
+            SmtBridgeChecker::split_binary(">= 5"),
+            Some((">", "=", " 5"))
+        );
+        assert_eq!(
+            SmtBridgeChecker::split_binary("a >= 5"),
+            Some(("a ", ">=", " 5"))
+        );
+        assert_eq!(
+            SmtBridgeChecker::split_binary("abc >= 5"),
+            Some(("abc ", ">=", " 5"))
+        );
+        assert_eq!(
+            SmtBridgeChecker::split_binary("a - 5"),
+            Some(("a ", "-", " 5"))
+        );
+    }
+
+    // ── detect_contradiction / bounds ─────────────────────────────────────────
+
+    #[test]
+    fn detect_contradiction_cases() {
+        let d = SmtBridgeChecker::detect_contradiction;
+        assert!(d("(> x 10)", "(< x 5)"));
+        assert!(d("(> x 5)", "(< x 5)"));
+        assert!(!d("(> x 1)", "(< x 10)"));
+        assert!(!d("(> x 5)", "(> x 3)"));
+        assert!(!d("x", "(< x 5)"));
+        // A `(< ...)` precondition is not a gt-bound, even though it ends with ')'.
+        assert!(!d("(< x 5)", "(< y 3)"));
+    }
+
+    #[test]
+    fn bound_extractors() {
+        assert_eq!(SmtBridgeChecker::extract_gt_bound("(> x 5)"), Some(5));
+        assert_eq!(SmtBridgeChecker::extract_gt_bound(" (> x -3) "), Some(-3));
+        assert_eq!(SmtBridgeChecker::extract_gt_bound("(< x 5)"), None);
+        assert_eq!(SmtBridgeChecker::extract_gt_bound("(> x 5 6"), None);
+        assert_eq!(SmtBridgeChecker::extract_gt_bound("(> x y)"), None);
+        assert_eq!(SmtBridgeChecker::extract_lt_bound("(< x 7)"), Some(7));
+        assert_eq!(SmtBridgeChecker::extract_lt_bound("(< x 7 8"), None);
+        assert_eq!(SmtBridgeChecker::extract_lt_bound("(> x 7)"), None);
+        assert_eq!(SmtBridgeChecker::extract_lt_bound("(< x a b)"), None);
+    }
+
+    // ── loom_type_to_smt_sort ─────────────────────────────────────────────────
+
+    #[test]
+    fn sort_mapping() {
+        let b = |n: &str| TypeExpr::Base(n.to_string());
+        assert_eq!(loom_type_to_smt_sort(&b("Bool")), "Bool");
+        assert_eq!(loom_type_to_smt_sort(&b("Float")), "Real");
+        assert_eq!(loom_type_to_smt_sort(&b("Prob")), "Real");
+        assert_eq!(loom_type_to_smt_sort(&b("Probability")), "Real");
+        assert_eq!(loom_type_to_smt_sort(&b("Int")), "Int");
+        assert_eq!(loom_type_to_smt_sort(&b("Nat")), "Int");
+        assert_eq!(loom_type_to_smt_sort(&TypeExpr::Dynamic), "Int");
+        assert_eq!(
+            loom_type_to_smt_sort(&TypeExpr::Option(Box::new(b("Bool")))),
+            "Int"
+        );
+    }
+
+    // ── discharge_smt (needs a real z3 binary to be non-trivial) ──────────────
+
+    #[cfg(feature = "smt")]
+    fn z3_available() -> bool {
+        std::process::Command::new("z3")
+            .arg("--version")
+            .output()
+            .is_ok()
+    }
+
+    #[cfg(feature = "smt")]
+    #[test]
+    fn discharge_proves_valid_triple_and_reports_unknown_for_invalid() {
+        let decl = "(declare-const x Int)";
+        let proved = SmtBridgeChecker::discharge_smt(decl, "(> x 0)", "(>= x 0)");
+        let invalid = SmtBridgeChecker::discharge_smt(decl, "(> x 0)", "(> x 5)");
+        if z3_available() {
+            assert_eq!(proved, SmtStatus::Proved);
+            assert_eq!(invalid, SmtStatus::Unknown);
+        } else {
+            assert_eq!(proved, SmtStatus::Skipped);
+            assert_eq!(invalid, SmtStatus::Skipped);
+        }
+    }
+}
