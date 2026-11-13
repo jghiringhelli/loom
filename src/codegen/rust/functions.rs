@@ -778,6 +778,7 @@ enum UseKind {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SlotKind {
     List,
+    Text,
     Record,
     Numeric,
     Other,
@@ -789,9 +790,13 @@ fn slot_kind(ty: &TypeExpr) -> SlotKind {
         TypeExpr::Tensor { .. } => SlotKind::List,
         TypeExpr::Base(n) => match n.as_str() {
             "Int" | "Float" | "Nat" | "Int64" | "Float64" | "UInt" | "Usize" => SlotKind::Numeric,
-            "String" | "Bool" | "Unit" | "Str" => SlotKind::Other,
+            "String" | "Str" => SlotKind::Text,
+            "Bool" | "Unit" => SlotKind::Other,
             _ => SlotKind::Record,
         },
+        TypeExpr::Generic(n, _) if matches!(n.as_str(), "Int" | "Float" | "Nat") => {
+            SlotKind::Numeric
+        }
         _ => SlotKind::Other,
     }
 }
@@ -800,6 +805,7 @@ fn kind_fits(use_kind: UseKind, slot: SlotKind) -> bool {
     matches!(
         (use_kind, slot),
         (UseKind::List, SlotKind::List)
+            | (UseKind::List, SlotKind::Text)
             | (UseKind::Record, SlotKind::Record)
             | (UseKind::Numeric, SlotKind::Numeric)
     )

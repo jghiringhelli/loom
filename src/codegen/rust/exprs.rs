@@ -173,6 +173,24 @@ impl RustEmitter {
                         _ => {}
                     }
                 }
+                // Method-call forms on collections: Loom's `xs.len()` is an Int (i64);
+                // `xs.all(p)` / `xs.any(p)` are iterator predicates in Rust.
+                if let Expr::FieldAccess { object, field, .. } = func.as_ref() {
+                    match (field.as_str(), args.len()) {
+                        ("len", 0) => {
+                            return format!("({}.len() as i64)", self.emit_expr(object));
+                        }
+                        ("all", 1) | ("any", 1) => {
+                            return format!(
+                                "{}.iter().{}({})",
+                                self.emit_expr(object),
+                                field,
+                                self.emit_expr(&args[0])
+                            );
+                        }
+                        _ => {}
+                    }
+                }
                 let f = self.emit_expr(func);
                 let as_str: Vec<String> = args.iter().map(|a| self.emit_expr(a)).collect();
                 format!("{}({})", f, as_str.join(", "))

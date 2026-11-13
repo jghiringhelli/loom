@@ -432,8 +432,25 @@ CONSTANTS\n\
             div_thresh = div_thresh,
         ));
 
+        let mut used_regulate_names: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for reg in &being.regulate_blocks {
-            let var_snake = to_snake_case(&reg.variable);
+            // Trigger/action form: `variable` holds the raw trigger tokens, which are
+            // not an identifier — name the method after its action instead.
+            let (display_var, mut var_snake) = match (&reg.trigger, &reg.action) {
+                (Some(_), Some(act)) if reg.target.is_empty() && reg.bounds.is_none() => {
+                    (format!("trigger -> {}", act), to_snake_case(act))
+                }
+                _ => (reg.variable.clone(), to_snake_case(&reg.variable)),
+            };
+            {
+                let base = var_snake.clone();
+                let mut n = 2;
+                while !used_regulate_names.insert(var_snake.clone()) {
+                    var_snake = format!("{}_{}", base, n);
+                    n += 1;
+                }
+            }
             let (low, high) = reg
                 .bounds
                 .as_ref()
@@ -441,7 +458,7 @@ CONSTANTS\n\
                 .unwrap_or(("?", "?"));
             out.push_str(&format!(
                 "\n    /// Homeostatic regulation: {} → target {} within [{}, {}]\n",
-                reg.variable, reg.target, low, high
+                display_var, reg.target, low, high
             ));
             // Emit signature: takes `current: f64` and returns `f64` when bounds are declared,
             // so callers can pass the live metric value and receive a corrective signal.
