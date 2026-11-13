@@ -691,7 +691,31 @@ fn capture_inline_block(lex: &mut logos::Lexer<Token>) -> Option<String> {
 /// ```
 pub struct Lexer;
 
+/// Longest run of identifier/number characters accepted as one token.
+pub const MAX_TOKEN_RUN: usize = 4096;
+
 impl Lexer {
+    /// Returns a lex error if `src` contains an identifier/number run longer than
+    /// [`MAX_TOKEN_RUN`] bytes.
+    fn check_token_run_limit(src: &str) -> Option<LoomError> {
+        let mut run = 0usize;
+        for (i, b) in src.bytes().enumerate() {
+            if b.is_ascii_alphanumeric() || b == b'_' || b == b'\'' || b == b'.' {
+                run += 1;
+                if run > MAX_TOKEN_RUN {
+                    let start = i + 1 - run;
+                    return Some(LoomError::lex(
+                        format!("token longer than {MAX_TOKEN_RUN} characters"),
+                        Span::new(start, i + 1),
+                    ));
+                }
+            } else {
+                run = 0;
+            }
+        }
+        None
+    }
+
     /// Tokenize `src` into a sequence of `(token, span)` pairs.
     ///
     /// Returns `Ok(tokens)` when there are no lex errors, or `Err(errors)` if
@@ -700,6 +724,14 @@ impl Lexer {
     /// complete diagnostic list.
     pub fn tokenize(src: &str) -> Result<Vec<(Token, Span)>, Vec<LoomError>> {
         use logos::Logos as _;
+
+        // Hostile-input guard: the generated logos state machine consumes stack
+        // proportional to the length of a single identifier/number token when built
+        // without optimisation (a 190k-digit literal overflows an 8 MiB stack in debug
+        // builds).  No legitimate token comes close to this limit.
+        if let Some(err) = Self::check_token_run_limit(src) {
+            return Err(vec![err]);
+        }
 
         let mut tokens: Vec<(Token, Span)> = Vec::new();
         let mut errors: Vec<LoomError> = Vec::new();

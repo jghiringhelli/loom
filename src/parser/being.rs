@@ -1161,11 +1161,18 @@ impl<'src> crate::parser::Parser<'src> {
                 self.expect(Token::Colon)?;
                 self.expect(Token::LBracket)?;
                 loop {
-                    if self.at(&Token::RBracket) {
+                    // Stop at `]` or end of input (an unterminated list must
+                    // not spin forever; `expect(RBracket)` below reports it).
+                    if self.at(&Token::RBracket) || self.peek().is_none() {
                         break;
                     }
                     if let Ok((val, _)) = self.expect_ident() {
                         produces.push(val);
+                    } else {
+                        // No progress possible on a non-identifier: skip it.
+                        if !self.at(&Token::Comma) {
+                            self.advance();
+                        }
                     }
                     if self.at(&Token::Comma) {
                         self.advance();
