@@ -252,4 +252,215 @@ mod tests {
         let checker = RefinementChecker::new();
         assert!(checker.check(&module).is_ok());
     }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    fn sp() -> Span {
+        Span::new(0, 0)
+    }
+    fn id(n: &str) -> Expr {
+        Expr::Ident(n.to_string())
+    }
+    fn int(n: i64) -> Expr {
+        Expr::Literal(Literal::Int(n))
+    }
+    fn bin(op: BinOpKind, l: Expr, r: Expr) -> Expr {
+        Expr::BinOp {
+            op,
+            left: Box::new(l),
+            right: Box::new(r),
+            span: sp(),
+        }
+    }
+    fn call(f: Expr, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            func: Box::new(f),
+            args,
+            span: sp(),
+        }
+    }
+    fn errs_of(src: &str) -> Vec<String> {
+        match RefinementChecker::new().check(&parse_module(src)) {
+            Ok(()) => vec![],
+            Err(v) => v.iter().map(|e| e.to_string()).collect(),
+        }
+    }
+
+    // ── check / check_refined_type / check_predicate_well_formed ──────────────
+
+    #[test]
+    fn call_in_predicate_is_rejected_with_message() {
+        let errs = errs_of("module T\ntype Bad = Int where foo(self)\nend");
+        assert_eq!(errs.len(), 1, "{errs:?}");
+        assert!(
+            errs[0].contains("function call `foo` not allowed in refinement predicate"),
+            "{errs:?}"
+        );
+    }
+
+    #[test]
+    fn call_nested_in_compound_predicate_is_rejected() {
+        let errs = errs_of("module T\ntype Bad = Int where self > 0 and foo(self)\nend");
+        assert_eq!(errs.len(), 1, "{errs:?}");
+        assert!(errs[0].contains("`foo`"), "{errs:?}");
+    }
+
+    #[test]
+    fn errors_accumulate_across_refined_types() {
+        let errs = errs_of(
+            "module T\ntype A = Int where f(self)\ntype B = Int where g(self)\ntype C = Int where self > 0\nend",
+        );
+        assert_eq!(errs.len(), 2, "{errs:?}");
+        assert!(errs[0].contains("`f`") && errs[1].contains("`g`"), "{errs:?}");
+    }
+
+    // ── check_predicate_ops ───────────────────────────────────────────────────
+
+    #[test]
+    fn predicate_ops_messages() {
+        assert_eq!(check_predicate_ops(&id("x")), None);
+        assert_eq!(check_predicate_ops(&int(1)), None);
+        assert_eq!(
+            check_predicate_ops(&bin(BinOpKind::Gt, id("self"), int(0))),
+            None
+        );
+        assert_eq!(
+            check_predicate_ops(&call(id("foo"), vec![])),
+            Some("function call `foo` not allowed in refinement predicate (must be pure)".into())
+        );
+        let complex = call(
+            Expr::FieldAccess {
+                object: Box::new(id("a")),
+                field: "b".into(),
+                span: sp(),
+            },
+            vec![],
+        );
+        assert_eq!(
+            check_predicate_ops(&complex),
+            Some("complex call expression not allowed in refinement predicate".into())
+        );
+        let lambda = Expr::Tuple(vec![], sp());
+        assert_eq!(
+            check_predicate_ops(&lambda),
+            Some("unsupported expression in refinement predicate".into())
+        );
+        // call on the right-hand side of a binop is found too
+        let right = bin(BinOpKind::And, bin(BinOpKind::Gt, id("self"), int(0)), call(id("g"), vec![]));
+        assert!(check_predicate_ops(&right).unwrap().contains("`g`"));
+    }
+
+    // ── check_base_type / collect_known_types ─────────────────────────────────
+
+    #[test]
+    fn unknown_base_type_is_error() {
+        let errs = errs_of("module T\ntype X = Mystery where self > 0\nend");
+        assert_eq!(errs.len(), 1, "{errs:?}");
+        assert!(
+            errs[0].contains("refined type base `Mystery` is not a known type"),
+            "{errs:?}"
+        );
+    }
+
+    #[test]
+    fn primitive_bases_are_known() {
+        for p in ["Int", "Float", "String", "Bool"] {
+            let errs = errs_of(&format!("module T\ntype X = {p} where self > 0\nend"));
+            assert!(errs.is_empty(), "{p}: {errs:?}");
+        }
+    }
+
+    #[test]
+    fn refined_type_can_be_base_of_another() {
+        let errs = errs_of("module T\ntype A = Int where self > 0\ntype B = A where self < 9\nend");
+        assert!(errs.is_empty(), "{errs:?}");
+        // order does not matter
+        let errs = errs_of("module T\ntype B = A where self < 9\ntype A = Int where self > 0\nend");
+        assert!(errs.is_empty(), "{errs:?}");
+    }
+
+    #[test]
+    fn known_types_collects_type_enum_and_refined_only() {
+        let mut m = parse_module("module T\ntype R = Int where self > 0\nend");
+        m.items.push(Item::Type(TypeDef {
+            name: "Rec".into(),
+            fields: vec![],
+            span: sp(),
+        }));
+        m.items.push(Item::Enum(EnumDef {
+            name: "Color".into(),
+            variants: vec![],
+            span: sp(),
+        }));
+        let known = collect_known_types(&m);
+        let mut names: Vec<_> = known.into_iter().collect();
+        names.sort();
+        assert_eq!(names, vec!["Color", "R", "Rec"]);
+    }
+
+    #[test]
+    fn record_and_enum_names_are_valid_bases() {
+        let mut m = parse_module("module T\ntype X = Rec where self > 0\ntype Y = Color where self > 0\nend");
+        assert_eq!(
+            RefinementChecker::new().check(&m).unwrap_err().len(),
+            2,
+            "undefined bases must error"
+        );
+        m.items.push(Item::Type(TypeDef {
+            name: "Rec".into(),
+            fields: vec![],
+            span: sp(),
+        }));
+        assert_eq!(RefinementChecker::new().check(&m).unwrap_err().len(), 1);
+        m.items.push(Item::Enum(EnumDef {
+            name: "Color".into(),
+            variants: vec![],
+            span: sp(),
+        }));
+        assert!(RefinementChecker::new().check(&m).is_ok());
+    }
+
+    // ── check_predicate_satisfiable (smt feature) ─────────────────────────────
+
+    #[cfg(feature = "smt")]
+    #[test]
+    fn false_predicate_is_unsatisfiable_error() {
+        let errs = errs_of("module T\ntype Never = Int where false\nend");
+        assert_eq!(errs.len(), 1, "{errs:?}");
+        assert!(
+            errs[0].contains("refined type `Never`: predicate is `false` — no value can satisfy it"),
+            "{errs:?}"
+        );
+    }
+
+    #[cfg(feature = "smt")]
+    #[test]
+    fn true_predicate_is_only_a_warning() {
+        assert!(errs_of("module T\ntype Any = Int where true\nend").is_empty());
+    }
+
+    // ── expr_contains_self ────────────────────────────────────────────────────
+
+    #[test]
+    fn contains_self_cases() {
+        assert!(expr_contains_self(&id("self")));
+        assert!(!expr_contains_self(&id("other")));
+        assert!(!expr_contains_self(&int(1)));
+        // BinOp: left only, right only, neither
+        assert!(expr_contains_self(&bin(BinOpKind::Gt, id("self"), int(0))));
+        assert!(expr_contains_self(&bin(BinOpKind::Gt, int(0), id("self"))));
+        assert!(!expr_contains_self(&bin(BinOpKind::Gt, id("a"), id("b"))));
+        // Call: in func only, in args only, neither
+        assert!(expr_contains_self(&call(id("self"), vec![id("a")])));
+        assert!(expr_contains_self(&call(id("f"), vec![id("a"), id("self")])));
+        assert!(!expr_contains_self(&call(id("f"), vec![id("a")])));
+        // FieldAccess
+        let fa = |o: &str| Expr::FieldAccess {
+            object: Box::new(id(o)),
+            field: "len".into(),
+            span: sp(),
+        };
+        assert!(expr_contains_self(&fa("self")));
+        assert!(!expr_contains_self(&fa("x")));
+    }
 }
