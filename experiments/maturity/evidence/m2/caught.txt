@@ -1,0 +1,48 @@
+src/checker/property_checker.rs:28:9: replace PropertyChecker::check -> Vec<LoomError> with vec![]
+src/checker/property_checker.rs:39:9: replace PropertyChecker::check_property with ()
+src/checker/property_checker.rs:39:23: replace == with != in PropertyChecker::check_property
+src/checker/refinement.rs:107:53: replace && with || in RefinementChecker::check_base_type
+src/checker/refinement.rs:107:16: delete ! in RefinementChecker::check_base_type
+src/checker/refinement.rs:188:5: replace check_predicate_ops -> Option<String> with Some(String::new())
+src/checker/refinement.rs:188:5: replace check_predicate_ops -> Option<String> with Some("xyzzy".into())
+src/checker/refinement.rs:189:9: delete match arm Expr::Ident(_) | Expr::Literal(_) in check_predicate_ops
+src/checker/refinement.rs:190:9: delete match arm Expr::BinOp{op, left, right, ..} in check_predicate_ops
+src/checker/smt_bridge.rs:26:9: replace SmtBridgeChecker::check -> Vec<SmtVerification> with vec![]
+src/checker/smt_bridge.rs:39:9: replace SmtBridgeChecker::check_fn -> Option<SmtVerification> with None
+src/checker/smt_bridge.rs:127:24: replace == with != in SmtBridgeChecker::translate_contracts
+src/checker/smt_bridge.rs:173:9: replace SmtBridgeChecker::translate_expr -> String with String::new()
+src/checker/smt_bridge.rs:173:9: replace SmtBridgeChecker::translate_expr -> String with "xyzzy".into()
+src/checker/smt_bridge.rs:206:9: replace SmtBridgeChecker::detect_contradiction -> bool with true
+src/checker/smt_bridge.rs:206:9: replace SmtBridgeChecker::detect_contradiction -> bool with false
+src/checker/smt_bridge.rs:210:27: replace >= with < in SmtBridgeChecker::detect_contradiction
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with None
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("", "", ""))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("", "", "xyzzy"))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("", "xyzzy", ""))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("", "xyzzy", "xyzzy"))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("xyzzy", "", ""))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("xyzzy", "", "xyzzy"))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("xyzzy", "xyzzy", ""))
+src/checker/smt_bridge.rs:279:9: replace SmtBridgeChecker::split_binary -> Option<(&str, &str, &str)> with Some(("xyzzy", "xyzzy", "xyzzy"))
+src/checker/smt_bridge.rs:283:24: replace > with == in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:283:24: replace > with < in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:284:62: replace + with - in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:284:62: replace + with * in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:291:24: replace > with == in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:291:24: replace > with < in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:292:62: replace + with - in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:292:62: replace + with * in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:301:9: replace SmtBridgeChecker::extract_gt_bound -> Option<i64> with None
+src/checker/smt_bridge.rs:301:9: replace SmtBridgeChecker::extract_gt_bound -> Option<i64> with Some(0)
+src/checker/smt_bridge.rs:301:9: replace SmtBridgeChecker::extract_gt_bound -> Option<i64> with Some(1)
+src/checker/smt_bridge.rs:301:9: replace SmtBridgeChecker::extract_gt_bound -> Option<i64> with Some(-1)
+src/checker/smt_bridge.rs:303:39: replace - with + in SmtBridgeChecker::extract_gt_bound
+src/checker/smt_bridge.rs:303:39: replace - with / in SmtBridgeChecker::extract_gt_bound
+src/checker/smt_bridge.rs:305:28: replace == with != in SmtBridgeChecker::extract_gt_bound
+src/checker/smt_bridge.rs:314:9: replace SmtBridgeChecker::extract_lt_bound -> Option<i64> with None
+src/checker/smt_bridge.rs:314:9: replace SmtBridgeChecker::extract_lt_bound -> Option<i64> with Some(0)
+src/checker/smt_bridge.rs:314:9: replace SmtBridgeChecker::extract_lt_bound -> Option<i64> with Some(-1)
+src/checker/smt_bridge.rs:315:33: replace && with || in SmtBridgeChecker::extract_lt_bound
+src/checker/smt_bridge.rs:316:39: replace - with + in SmtBridgeChecker::extract_lt_bound
+src/checker/smt_bridge.rs:316:39: replace - with / in SmtBridgeChecker::extract_lt_bound
+src/checker/smt_bridge.rs:318:28: replace == with != in SmtBridgeChecker::extract_lt_bound

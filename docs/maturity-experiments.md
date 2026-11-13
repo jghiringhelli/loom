@@ -15,7 +15,7 @@ a fresh developer machine may not. Record `rustc --version` and the commit SHA i
 |---|---|---|---|---|
 | M0 | Does `main` build and test clean? | **PASS** (2026-11-12, Windows) — Linux CI re-verifying | `cargo test --no-fail-fast` 0 failures | 1975 passed / 0 failed / 17 ignored, 169 suites (`experiments/maturity/evidence/summary.md`). Previous "green" CI was masked by `\| tee` without pipefail and ran only ~480 tests |
 | M1 | Does emitted Rust compile? | **FAIL** (2026-11-12) | 100% of `corpus/` + `examples/` emit Rust that passes `rustc --edition 2021` | 12/42 (29%). Clusters: 10× duplicate `evolve_derivative_free`, 5× malformed pattern emission, 3× undefined types, 3× `>` on structs, 2× `.all()` on Vec, 2× stray `let`, 1× `→` leaked into output (`evidence/m1-*.tsv`) |
-| M2 | Do tests catch bugs? | Partial (`mutants.out` was local) | Mutation score ≥ 80% on `checker/` | cargo-mutants, 2026 local runs (archived) |
+| M2 | Do tests catch bugs? | **FAIL** (2026-11-13, CI) | Mutation score ≥ 80% on `checker/` | 48 caught / 72 missed of 120 viable (40%) on `smt_bridge.rs` (44 missed), `refinement.rs` (27), `property_checker.rs` (1). Only 3 of the 11 checker files were mutated. Lists in `experiments/maturity/evidence/m2/`. The earlier CI gate parsed console text and was meaningless; fixed in `0a49955` |
 | M3 | Does the parser survive hostile input? | To run | 1M fuzz execs on lexer+parser, 0 panics | — |
 | M4 | Are checkers sound on negative cases? | To run | Every checker has ≥ 5 *must-fail* programs that fail with the expected error | — |
 | LX-1 | Semantic density vs TS/Rust | Done | ≥ 2× tokens/property | `experiments/lx/LX-1-semantic-density` (2.66× avg) |

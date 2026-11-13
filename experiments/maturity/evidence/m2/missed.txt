@@ -1,0 +1,72 @@
+src/checker/property_checker.rs:47:12: delete ! in PropertyChecker::check_property
+src/checker/refinement.rs:29:9: replace RefinementChecker::check -> Result<(), Vec<LoomError>> with Ok(())
+src/checker/refinement.rs:52:9: replace RefinementChecker::check_refined_type with ()
+src/checker/refinement.rs:71:9: replace RefinementChecker::check_predicate_satisfiable with ()
+src/checker/refinement.rs:73:13: delete match arm Expr::Literal(crate::ast::Literal::Bool(false)) in RefinementChecker::check_predicate_satisfiable
+src/checker/refinement.rs:82:13: delete match arm Expr::Literal(crate::ast::Literal::Bool(true)) in RefinementChecker::check_predicate_satisfiable
+src/checker/refinement.rs:105:9: replace RefinementChecker::check_base_type with ()
+src/checker/refinement.rs:107:56: delete ! in RefinementChecker::check_base_type
+src/checker/refinement.rs:140:9: replace RefinementChecker::check_predicate_well_formed with ()
+src/checker/refinement.rs:151:5: replace collect_known_types -> HashSet<String> with HashSet::new()
+src/checker/refinement.rs:151:5: replace collect_known_types -> HashSet<String> with HashSet::from_iter([String::new()])
+src/checker/refinement.rs:151:5: replace collect_known_types -> HashSet<String> with HashSet::from_iter(["xyzzy".into()])
+src/checker/refinement.rs:154:13: delete match arm Item::Type(td) in collect_known_types
+src/checker/refinement.rs:157:13: delete match arm Item::Enum(ed) in collect_known_types
+src/checker/refinement.rs:160:13: delete match arm Item::RefinedType(rt) in collect_known_types
+src/checker/refinement.rs:163:13: delete match arm Item::Fn(_) in collect_known_types
+src/checker/refinement.rs:172:5: replace expr_contains_self -> bool with true
+src/checker/refinement.rs:172:5: replace expr_contains_self -> bool with false
+src/checker/refinement.rs:173:9: delete match arm Expr::Ident(name) in expr_contains_self
+src/checker/refinement.rs:174:9: delete match arm Expr::BinOp{left, right, ..} in expr_contains_self
+src/checker/refinement.rs:175:9: delete match arm Expr::Literal(_) in expr_contains_self
+src/checker/refinement.rs:176:9: delete match arm Expr::Call{func, args, ..} in expr_contains_self
+src/checker/refinement.rs:179:9: delete match arm Expr::FieldAccess{object, ..} in expr_contains_self
+src/checker/refinement.rs:173:35: replace == with != in expr_contains_self
+src/checker/refinement.rs:174:69: replace || with && in expr_contains_self
+src/checker/refinement.rs:177:38: replace || with && in expr_contains_self
+src/checker/refinement.rs:188:5: replace check_predicate_ops -> Option<String> with None
+src/checker/refinement.rs:206:9: delete match arm Expr::Call{func, ..} in check_predicate_ops
+src/checker/smt_bridge.rs:39:39: replace && with || in SmtBridgeChecker::check_fn
+src/checker/smt_bridge.rs:71:9: replace SmtBridgeChecker::collect_declarations -> String with String::new()
+src/checker/smt_bridge.rs:71:9: replace SmtBridgeChecker::collect_declarations -> String with "xyzzy".into()
+src/checker/smt_bridge.rs:97:9: replace SmtBridgeChecker::collect_idents_expr with ()
+src/checker/smt_bridge.rs:101:13: delete match arm Expr::BinOp{left, right, ..} in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:105:13: delete match arm Expr::Call{func, args, ..} in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:111:13: delete match arm Expr::Pipe{left, right, ..} in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:115:13: delete match arm Expr::FieldAccess{object, ..} in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:116:13: delete match arm Expr::As(inner, _) in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:117:13: delete match arm Expr::Let{value, ..} in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:98:34: replace match guard name != "true" && name != "false" with true in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:98:34: replace match guard name != "true" && name != "false" with false in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:98:49: replace && with || in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:98:39: replace != with == in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:98:57: replace != with == in SmtBridgeChecker::collect_idents_expr
+src/checker/smt_bridge.rs:123:9: replace SmtBridgeChecker::translate_contracts -> String with String::new()
+src/checker/smt_bridge.rs:123:9: replace SmtBridgeChecker::translate_contracts -> String with "xyzzy".into()
+src/checker/smt_bridge.rs:139:9: replace SmtBridgeChecker::translate_expr_node -> String with String::new()
+src/checker/smt_bridge.rs:139:9: replace SmtBridgeChecker::translate_expr_node -> String with "xyzzy".into()
+src/checker/smt_bridge.rs:140:13: delete match arm Expr::BinOp{op, left, right, ..} in SmtBridgeChecker::translate_expr_node
+src/checker/smt_bridge.rs:161:13: delete match arm Expr::Ident(name) in SmtBridgeChecker::translate_expr_node
+src/checker/smt_bridge.rs:162:13: delete match arm Expr::Literal(Literal::Int(n)) in SmtBridgeChecker::translate_expr_node
+src/checker/smt_bridge.rs:163:13: delete match arm Expr::Literal(Literal::Float(f)) in SmtBridgeChecker::translate_expr_node
+src/checker/smt_bridge.rs:164:13: delete match arm Expr::Literal(Literal::Bool(b)) in SmtBridgeChecker::translate_expr_node
+src/checker/smt_bridge.rs:183:17: delete match arm ">=" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:184:17: delete match arm "<=" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:185:17: delete match arm "!=" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:186:17: delete match arm "==" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:187:17: delete match arm ">" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:188:17: delete match arm "<" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:189:17: delete match arm "+" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:190:17: delete match arm "-" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:191:17: delete match arm "*" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:192:17: delete match arm "/" in SmtBridgeChecker::translate_expr
+src/checker/smt_bridge.rs:252:34: replace == with != in SmtBridgeChecker::discharge_smt
+src/checker/smt_bridge.rs:283:24: replace > with >= in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:291:24: replace > with >= in SmtBridgeChecker::split_binary
+src/checker/smt_bridge.rs:302:33: replace && with || in SmtBridgeChecker::extract_gt_bound
+src/checker/smt_bridge.rs:314:9: replace SmtBridgeChecker::extract_lt_bound -> Option<i64> with Some(1)
+src/checker/smt_bridge.rs:330:5: replace loom_type_to_smt_sort -> &'static str with ""
+src/checker/smt_bridge.rs:330:5: replace loom_type_to_smt_sort -> &'static str with "xyzzy"
+src/checker/smt_bridge.rs:331:9: delete match arm TypeExpr::Base(name) in loom_type_to_smt_sort
+src/checker/smt_bridge.rs:332:13: delete match arm "Bool" in loom_type_to_smt_sort
+src/checker/smt_bridge.rs:333:13: delete match arm "Float" | "Prob" | "Probability" in loom_type_to_smt_sort

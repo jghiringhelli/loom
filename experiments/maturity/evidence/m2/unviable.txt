@@ -1,0 +1,4 @@
+src/checker/property_checker.rs:28:9: replace PropertyChecker::check -> Vec<LoomError> with vec![Default::default()]
+src/checker/smt_bridge.rs:26:9: replace SmtBridgeChecker::check -> Vec<SmtVerification> with vec![Default::default()]
+src/checker/smt_bridge.rs:39:9: replace SmtBridgeChecker::check_fn -> Option<SmtVerification> with Some(Default::default())
+src/checker/smt_bridge.rs:229:9: replace SmtBridgeChecker::discharge_smt -> SmtStatus with Default::default()
