@@ -4184,7 +4184,6 @@ fn pos_smt_bridge_consistent_contracts_not_flagged() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "soundness gap: ConservationChecker accepts @conserved(Mass) on a signature with no mass-typed value (hint 'g' substring-matches 'String')"]
 fn gap_conservation_mass_matches_string_by_substring() {
     assert_rejected(
         chk!(ConservationChecker::new()),
@@ -4198,7 +4197,6 @@ fn gap_conservation_mass_matches_string_by_substring() {
 }
 
 #[test]
-#[ignore = "soundness gap: ConservationChecker accepts a conserved Energy quantity that is dropped on return when the return type is the generic hint 'Float'"]
 fn gap_conservation_energy_laundered_through_float() {
     assert_rejected(
         chk!(ConservationChecker::new()),
@@ -4212,7 +4210,6 @@ fn gap_conservation_energy_laundered_through_float() {
 }
 
 #[test]
-#[ignore = "soundness gap: contradictory require/ensure (x > 5 vs x < 3) is accepted by loom::compile; SmtBridgeChecker::detect_contradiction exists but is never called and the Z3 path never yields Counterexample"]
 fn gap_compile_accepts_contradictory_contract() {
     let src = "module T\n fn f :: Int -> Int\n require: x > 5\n ensure: x < 3\n end\nend";
     assert!(
@@ -4222,7 +4219,6 @@ fn gap_compile_accepts_contradictory_contract() {
 }
 
 #[test]
-#[ignore = "soundness gap: source `guarantees: @exactly-once @at-most-once` is accepted; parser stores guarantee tokens as Debug strings so MessagingChecker's label match never fires on parsed source"]
 fn gap_messaging_exactly_once_and_at_most_once_from_source() {
     assert_rejected(
         chk!(MessagingChecker::new()),
@@ -4236,7 +4232,6 @@ fn gap_messaging_exactly_once_and_at_most_once_from_source() {
 }
 
 #[test]
-#[ignore = "soundness gap: source `guarantees: @exactly-once @at-least-once` is accepted (same root cause as the at-most-once gap)"]
 fn gap_messaging_exactly_once_and_at_least_once_from_source() {
     assert_rejected(
         chk!(MessagingChecker::new()),
@@ -4250,7 +4245,6 @@ fn gap_messaging_exactly_once_and_at_least_once_from_source() {
 }
 
 #[test]
-#[ignore = "soundness gap: source stream pattern with `guarantees: @exactly-once` is accepted (same root cause)"]
 fn gap_messaging_stream_exactly_once_from_source() {
     assert_rejected(
         chk!(MessagingChecker::new()),

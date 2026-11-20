@@ -1038,6 +1038,7 @@ impl<'src> Parser<'src> {
                 self.advance();
                 self.expect(Token::Colon)?;
                 // Collect guarantee tokens until next known field keyword
+                let mut cur = String::new();
                 while !self.at(&Token::End) && self.peek().is_some() {
                     let at_field = matches!(self.tokens.get(self.pos),
                         Some((Token::Ident(n), _)) if matches!(n.as_str(), "pattern" | "timeout" | "schema" | "ordering"))
@@ -1049,12 +1050,23 @@ impl<'src> Parser<'src> {
                         break;
                     }
                     if let Some((tok, _)) = self.tokens.get(self.pos) {
-                        let s = format!("{:?}", tok);
-                        if !s.is_empty() {
-                            guarantees.push(s);
+                        // Build real guarantee names (`@exactly-once` -> "exactly-once")
+                        // rather than Debug strings of individual tokens.
+                        match tok {
+                            Token::At => {
+                                if !cur.is_empty() {
+                                    guarantees.push(std::mem::take(&mut cur));
+                                }
+                            }
+                            Token::Minus => cur.push('-'),
+                            Token::Ident(id) => cur.push_str(id),
+                            other => cur.push_str(&format!("{:?}", other).to_lowercase()),
                         }
                         self.pos += 1;
                     }
+                }
+                if !cur.is_empty() {
+                    guarantees.push(cur);
                 }
             } else if matches!(self.tokens.get(self.pos), Some((Token::Ident(n), _)) if n == "timeout")
                 || matches!(self.tokens.get(self.pos), Some((Token::TimeoutKw, _)))
