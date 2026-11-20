@@ -53,12 +53,120 @@ impl SmtBridgeChecker {
         #[cfg(not(feature = "smt"))]
         let status = SmtStatus::Skipped;
 
+        // Pure-Rust structural check: clear contradictions between simple
+        // comparisons of the same variable make the contract unsatisfiable.
+        let status = match Self::find_contract_contradiction(fn_def) {
+            Some(msg) => SmtStatus::Counterexample(msg),
+            None => status,
+        };
+
         Some(SmtVerification {
             function: fn_def.name.clone(),
             precondition,
             postcondition,
             status,
         })
+    }
+
+    /// Flatten `a && b` into conjuncts.
+    fn conjuncts<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
+        match e {
+            Expr::BinOp {
+                op: BinOpKind::And,
+                left,
+                right,
+                ..
+            } => {
+                Self::conjuncts(left, out);
+                Self::conjuncts(right, out);
+            }
+            other => out.push(other),
+        }
+    }
+
+    /// Extract `(var, op, bound)` from `var <op> number` or `number <op> var`.
+    fn simple_bound(e: &Expr) -> Option<(String, BinOpKind, f64)> {
+        let Expr::BinOp {
+            op, left, right, ..
+        } = e
+        else {
+            return None;
+        };
+        let num = |x: &Expr| match x {
+            Expr::Literal(Literal::Int(i)) => Some(*i as f64),
+            Expr::Literal(Literal::Float(f)) if f.is_finite() => Some(*f),
+            _ => None,
+        };
+        match (&**left, &**right) {
+            (Expr::Ident(v), r) => num(r).map(|n| (v.clone(), op.clone(), n)),
+            (l, Expr::Ident(v)) => {
+                let flipped = match op {
+                    BinOpKind::Lt => BinOpKind::Gt,
+                    BinOpKind::Le => BinOpKind::Ge,
+                    BinOpKind::Gt => BinOpKind::Lt,
+                    BinOpKind::Ge => BinOpKind::Le,
+                    BinOpKind::Eq => BinOpKind::Eq,
+                    _ => return None,
+                };
+                num(l).map(|n| (v.clone(), flipped, n))
+            }
+            _ => None,
+        }
+    }
+
+    /// Detect a clear contradiction: the conjunction of all simple comparisons
+    /// (`x > 5`, `x <= 3`, `x == 2`, ...) of one variable across `require:` and
+    /// `ensure:` is unsatisfiable over the reals. Anything non-trivial is ignored
+    /// (no false positives); `result` is skipped as it names the return value.
+    fn find_contract_contradiction(fn_def: &FnDef) -> Option<String> {
+        use std::collections::HashMap;
+        // var -> (lower, lower_strict, upper, upper_strict)
+        let mut ranges: HashMap<String, (f64, bool, f64, bool)> = HashMap::new();
+        let mut exprs = Vec::new();
+        for c in fn_def.requires.iter().chain(fn_def.ensures.iter()) {
+            Self::conjuncts(&c.expr, &mut exprs);
+        }
+        for e in exprs {
+            let Some((v, op, n)) = Self::simple_bound(e) else {
+                continue;
+            };
+            if v == "result" {
+                continue;
+            }
+            let r = ranges
+                .entry(v.clone())
+                .or_insert((f64::NEG_INFINITY, false, f64::INFINITY, false));
+            let lower = |r: &mut (f64, bool, f64, bool), n: f64, strict: bool| {
+                if n > r.0 || (n == r.0 && strict) {
+                    r.0 = n;
+                    r.1 = strict;
+                }
+            };
+            let upper = |r: &mut (f64, bool, f64, bool), n: f64, strict: bool| {
+                if n < r.2 || (n == r.2 && strict) {
+                    r.2 = n;
+                    r.3 = strict;
+                }
+            };
+            match op {
+                BinOpKind::Gt => lower(r, n, true),
+                BinOpKind::Ge => lower(r, n, false),
+                BinOpKind::Lt => upper(r, n, true),
+                BinOpKind::Le => upper(r, n, false),
+                BinOpKind::Eq => {
+                    lower(r, n, false);
+                    upper(r, n, false);
+                }
+                _ => {}
+            }
+            let (lo, lo_s, hi, hi_s) = *r;
+            if lo > hi || (lo == hi && (lo_s || hi_s)) {
+                return Some(format!(
+                    "contract constraints on '{v}' are unsatisfiable (lower bound {lo}, upper bound {hi})"
+                ));
+            }
+        }
+        None
     }
 
     /// Collect SMT-LIB2 `declare-const` lines for all identifiers in contracts.

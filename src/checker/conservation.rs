@@ -8,10 +8,10 @@ use crate::error::LoomError;
 
 /// Conservation quantity name mapping — used for name-based type matching.
 const CONSERVATION_HINTS: &[(&str, &[&str])] = &[
-    ("Mass", &["Float", "mass", "Mass", "kg", "g", "mol"]),
-    ("Charge", &["Charge", "charge", "Float", "coulomb", "C"]),
-    ("Energy", &["Energy", "energy", "Float", "joule", "J", "eV"]),
-    ("Momentum", &["Momentum", "momentum", "Float", "kg_m_s"]),
+    ("Mass", &["mass", "Mass", "kg", "g", "mol"]),
+    ("Charge", &["Charge", "charge", "coulomb", "C"]),
+    ("Energy", &["Energy", "energy", "joule", "J", "eV"]),
+    ("Momentum", &["Momentum", "momentum", "kg_m_s"]),
     (
         "Value",
         &["Float", "usd", "eur", "gbp", "Value", "Price", "Amount"],
@@ -123,15 +123,23 @@ fn get_hints(quantity: &str) -> &'static [&'static str] {
     &[]
 }
 
+/// Whether a type name denotes the quantity. Short unit hints ("g", "J", "C", "kg")
+/// must match the whole name so "String" does not match "g".
+fn name_matches(name: &str, hints: &[&str]) -> bool {
+    hints.iter().any(|h| {
+        if h.len() <= 3 {
+            name == *h
+        } else {
+            name.contains(h) || h.contains(name)
+        }
+    })
+}
+
 fn type_matches_any(ty: &TypeExpr, hints: &[&str]) -> bool {
     match ty {
-        TypeExpr::Base(name) => hints
-            .iter()
-            .any(|h| name.contains(h) || h.contains(name.as_str())),
+        TypeExpr::Base(name) => name_matches(name, hints),
         TypeExpr::Generic(name, params) => {
-            hints
-                .iter()
-                .any(|h| name.contains(h) || h.contains(name.as_str()))
+            name_matches(name, hints)
                 || params.iter().any(|p| type_matches_any(p, hints))
         }
         TypeExpr::Effect(_, inner) => type_matches_any(inner, hints),

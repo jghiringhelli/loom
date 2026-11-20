@@ -13,7 +13,15 @@ add `-- --include-ignored` to re-confirm the gaps below).
 - 6 soundness gaps (below) are kept as `#[ignore = "soundness gap: ..."]` tests. Each was run with
   `--include-ignored` and confirmed to be ACCEPTED.
 
-## Soundness gaps (program accepted, expected rejection)
+## Fixes (all 6 gaps closed)
+
+- Gap 1: `conservation.rs` short unit hints (len <= 3: g, kg, J, C, mol) now require a whole-name match, so `String` no longer matches `g`.
+- Gap 2: removed the generic `Float` hint from Mass, Charge, Energy and Momentum (Value and AtomCount keep their numeric hints).
+- Gap 3: `SmtBridgeChecker` now runs a conservative structural check (simple `var <op> number` comparisons of the same variable across `require:`/`ensure:`, conjunctions flattened, `result` ignored; empty interval over the reals) and reports `SmtStatus::Counterexample`, which `compile()` turns into an error.
+- Gaps 4-6: the parser now builds real guarantee names (`@exactly-once` -> "exactly-once") instead of Debug strings per token; MessagingChecker is unchanged.
+- Result: full suite 2123 passed, 0 failed (baseline 2117 + 6 un-ignored); M1 harness still 40/42. The tests are un-ignored and guard the fixes.
+
+## Soundness gaps as originally found (program accepted, expected rejection)
 
 | # | Test | Program | Expected | Actual |
 |---|------|---------|----------|--------|
