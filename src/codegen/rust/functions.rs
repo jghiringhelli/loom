@@ -717,7 +717,13 @@ impl RustEmitter {
                 }
             }
             if needs_result_binding {
-                body_lines.push("    _loom_result".to_string());
+                // Ensures speak about the inner value (`result.len()`), so the bound
+                // value is the payload; an effectful fn returns it inside `Ok`.
+                if is_effectful {
+                    body_lines.push("    Ok(_loom_result)".to_string());
+                } else {
+                    body_lines.push("    _loom_result".to_string());
+                }
             } else {
                 let last_text = self.emit_expr(last);
                 if is_type_name_stub(&last_text) {

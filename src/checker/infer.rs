@@ -273,11 +273,24 @@ impl InferenceEngine {
             })
             .collect();
 
+        // Names of user-declared record / sum types (not refined types).
+        let composite_types: std::collections::HashSet<String> = module
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Type(td) => Some(td.name.clone()),
+                Item::Enum(ed) => Some(ed.name.clone()),
+                _ => None,
+            })
+            .collect();
+
         let mut errors: Vec<LoomError> = Vec::new();
 
         for item in &module.items {
             if let Item::Fn(fd) = item {
-                if let Err(mut errs) = self.check_fn(fd, &fn_registry, &refined_base_map) {
+                if let Err(mut errs) =
+                    self.check_fn(fd, &fn_registry, &refined_base_map, &composite_types)
+                {
                     errors.append(&mut errs);
                 }
             }
@@ -297,6 +310,7 @@ impl InferenceEngine {
         fd: &FnDef,
         fn_registry: &HashMap<String, FnTypeSignature>,
         refined_base_map: &HashMap<String, TypeExpr>,
+        composite_types: &std::collections::HashSet<String>,
     ) -> Result<(), Vec<LoomError>> {
         // Skip functions with Effect<…> return types — the EffectChecker
         // handles those separately.
@@ -362,6 +376,30 @@ impl InferenceEngine {
                 if is_inferrable_primitive(declared) {
                     if let Err(e) = unify(&inferred, declared, &mut subst, fd.span.clone()) {
                         errors.push(e);
+                    }
+                } else if let TypeExpr::Base(dname) = declared {
+                    // A function declared to return a user record/enum type whose
+                    // body evaluates to a primitive scalar can never be well-typed.
+                    // (Only the unambiguous primitive-vs-composite case is rejected;
+                    // full record inference stays out of scope.)
+                    let inferred = subst.apply(&inferred);
+                    // A bare capitalised identifier as the body is the stub idiom (e.g. `MarketSignal`),
+                    // not a value; positional param binding would mistype it, so skip it.
+                    let is_stub_body = matches!(
+                        fd.body.last(),
+                        Some(Expr::Ident(n)) if n.chars().next().is_some_and(|c| c.is_uppercase())
+                    );
+                    if !is_stub_body
+                        && composite_types.contains(dname)
+                        && is_inferrable_primitive(&inferred)
+                    {
+                        errors.push(LoomError::UnificationError {
+                            msg: format!(
+                                "function `{}` is declared to return `{}` but its body has type `{:?}`",
+                                fd.name, dname, inferred
+                            ),
+                            span: fd.span.clone(),
+                        });
                     }
                 }
             }

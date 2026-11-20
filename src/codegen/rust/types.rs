@@ -77,6 +77,10 @@ impl RustEmitter {
         // referenced but never defined in the program, so it cannot be evaluated. Bind it
         // locally (accepting every value) so the guard still compiles.
         let pred_binding = match &rt.predicate {
+            // Well-known named predicate with a real, cheap implementation.
+            Expr::Ident(n) if n == "valid_email" && base == "String" => format!(
+                "        let {n}: bool = {{ let mut p = value.splitn(2, '@'); matches!((p.next(), p.next()), (Some(l), Some(d)) if !l.is_empty() && d.contains('.') && !d.starts_with('.') && !d.ends_with('.')) }};\n"
+            ),
             Expr::Ident(n) if n != "self" && n != "value" => format!(
                 "        let {n}: bool = true; // named predicate `{n}` is not defined in the program; not checked\n"
             ),

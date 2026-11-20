@@ -2,7 +2,7 @@ corpus/collections_demo.loom	OK
 corpus/di_demo.loom	OK	
 corpus/inline_demo.loom	OK	
 corpus/invellum.loom	OK	
-corpus/pricing_engine.loom	RUSTC_FAIL	error[E0308]: mismatched types
+corpus/pricing_engine.loom	OK	
 corpus/project/math.loom	OK	
 corpus/project/stats.loom	OK	
 corpus/user_service.loom	OK	
@@ -28,7 +28,7 @@ examples/tier2/vrp_particle_swarm.loom	OK
 examples/tier2/vrp_pso.loom	OK	
 examples/tier3/hyper_heuristic_scheduler.loom	OK	
 examples/tier4/bayesian_optimizer.loom	OK	
-examples/tier4/neural_combinatorial.loom	RUSTC_FAIL	error[E0433]: cannot find module or crate `rand` in this scope
+examples/tier4/neural_combinatorial.loom	OK	
 examples/tier5/adaptive_jit.loom	OK	
 examples/tier5/adaptive_self_assembly.loom	OK	
 examples/tier5/aegis_delta_neutral.loom	OK	
