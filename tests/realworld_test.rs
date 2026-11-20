@@ -231,7 +231,7 @@ end
 fn refined_type_emits_newtype_and_try_from() {
     let src = r#"
 module Validated
-type Score = Int where score_valid
+type Score = Int where self > 0
 end
 "#;
     let out = compile_ok(src);
@@ -246,8 +246,25 @@ end
         out
     );
     assert!(
-        out.contains("if !(score_valid)") || out.contains("if !score_valid"),
-        "expected predicate validation check:\n{}",
+        out.contains("if !((value > 0))"),
+        "expected a real predicate check on the value (`self` -> `value`):\n{}",
+        out
+    );
+}
+
+// A bare predicate name that the program never defines cannot be evaluated; the
+// emitter must bind it locally (so rustc accepts the output) and say it is unchecked.
+#[test]
+fn refined_type_undefined_named_predicate_is_marked_unchecked() {
+    let src = r#"
+module Validated
+type Score = Int where score_valid
+end
+"#;
+    let out = compile_ok(src);
+    assert!(
+        out.contains("let score_valid: bool = true;") && out.contains("not checked"),
+        "expected explicit unchecked binding:\n{}",
         out
     );
 }

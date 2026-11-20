@@ -201,3 +201,46 @@ end
         loom::parse(src).err()
     );
 }
+
+// ── Scalar body vs. record return type (M1 pricing_engine regression) ────────
+
+#[test]
+fn scalar_body_for_record_return_type_is_rejected() {
+    let src = r#"
+module Bad
+type Pair =
+  a: Float,
+  b: Float
+end
+
+fn make :: Float -> Pair
+  let t = 1.5
+  t
+end
+
+end
+"#;
+    assert!(
+        has_unification_error(src),
+        "returning a Float where a record is declared must be a UnificationError"
+    );
+}
+
+#[test]
+fn record_literal_body_for_record_return_type_is_accepted() {
+    let src = r#"
+module Good
+type Pair =
+  a: Float,
+  b: Float
+end
+
+fn make :: Float -> Pair
+  let t = 1.5
+  Pair { a: t, b: t }
+end
+
+end
+"#;
+    assert!(type_errors(src).is_empty(), "{:?}", type_errors(src));
+}
