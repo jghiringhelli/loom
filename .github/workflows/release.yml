@@ -1,0 +1,51 @@
+name: Release binaries
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  target: x86_64-unknown-linux-gnu }
+          - { os: macos-latest,   target: aarch64-apple-darwin }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} --bin loom
+      - name: Smoke test
+        shell: bash
+        run: |
+          BIN=target/${{ matrix.target }}/release/loom
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          "$BIN" compile examples/01-hello-contracts.loom > /dev/null
+      - name: Package
+        shell: bash
+        run: |
+          mkdir dist
+          BIN=target/${{ matrix.target }}/release/loom
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          cp "$BIN" LICENSE README.md dist/
+          tar -czf loom-${{ matrix.target }}.tar.gz -C dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loom-${{ matrix.target }}
+          path: loom-${{ matrix.target }}.tar.gz
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: loom-${{ matrix.target }}.tar.gz

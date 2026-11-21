@@ -1,10 +1,14 @@
 # loom
 
-**loom** is an AI-native declaration language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema from a single source file — and runs an autonomous BIOISO colony that continuously optimizes ten real-world NP-hard domains using a three-tier AI synthesis stack.
+> **Status: research compiler.** Loom is pre-1.0 and has no users outside its author. Claims below are scoped to
+> the evidence in [`docs/maturity-experiments.md`](docs/maturity-experiments.md); read [`ROADMAP.md`](ROADMAP.md)
+> for what is and is not promised.
 
-It is designed around one constraint: every architectural decision, behavioral contract, and data-sensitivity obligation must be expressible in a form that a stateless reader — an AI assistant with no persistent memory — can derive correct output from alone. This is the [Generative Specification](docs/publish/white-paper.md) principle.
+**loom** is an AI-native declaration language that compiles to Rust, TypeScript, WebAssembly (limited), OpenAPI 3.0 and JSON Schema from a single source file. Its distinguishing idea is **declared, statically checked safety and governance properties** (contracts, effect tiers, privacy labels, information flow, typestate, and `@mortal`/`@corrigible`/`@sandboxed` annotations on self-modifying "beings"), aimed at systems whose code is patched by AI agents. An experimental runtime (BIOISO) explores letting such beings adapt under those constraints.
 
-**339 lib tests · 5 emission targets · 10 BIOISO domains · T1/T2/T3 synthesis tiers · TLA+ formal verification · all examples rustc-verified**
+It follows the [Generative Specification](docs/publish/white-paper.md) principle: intent, contracts and data-sensitivity obligations live in a form a stateless reader (an AI assistant with no memory) can work from.
+
+**What is measured today** (2026-11, see the experiment board): 2100+ tests pass with no failures; emitted Rust compiles (`rustc`) for all 42 corpus/example programs (compiles, not behaviourally verified); every checker has must-fail programs (339); the lexer/parser survived 1M seeded hostile inputs; checker mutation score is 90% on the three files measured. **Not shown:** that an AI can re-derive the compiler independently (0.987 after the spec was repaired against the test oracle, so spec-vs-oracle completeness, not independent derivability), BIOISO as a general optimiser, or production readiness. Prior art is mature for most individual ideas; see [`docs/landscape-2026-11.md`](docs/landscape-2026-11.md).
 
 ---
 
