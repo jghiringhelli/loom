@@ -32,7 +32,7 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 - [x] Re-baseline test counts: 1975 passing / 17 ignored across 169 suites (2026-11-12). CI previously hid failures (`| tee` without pipefail) and counted ~480; fixed.
 - [x] **Emitted Rust compiles for every corpus/example program** (M1: 42/42, 2026-11-21). Caveat: compiles only; undefined predicates are emitted as "not checked" and undeclared types as empty stubs.
 - [x] Linux CI green with the hardened workflow (run on `afe3aeb`, 2026-11-21).
-- [ ] Ship prebuilt binaries (Linux, macOS, Windows): `.github/workflows/release.yml` is written and untested; run it via `workflow_dispatch`, then tag. Tag `v0.2.0` predates the fixes above and should be superseded by a new tag.
+- [ ] Ship prebuilt binaries (Linux, macOS, Windows): `.github/workflows/release.yml` builds and smoke-tests all three targets (manual run 2026-11-21, no release published); publishing needs a new tag. Tag `v0.2.0` predates the fixes above and should be superseded by a new tag.
 - [ ] `README` quick start verified on a clean machine (Windows included) in ≤ 5 minutes.
 - [ ] Triage and label GitHub issues (`good first issue`, `research`, `ALX gap`).
 - [x] `SECURITY.md` published (2026-11-21); confirm `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` are current.
