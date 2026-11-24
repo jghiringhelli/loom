@@ -13,7 +13,7 @@
 | Emission targets: Rust, TypeScript, WASM, OpenAPI 3.0, JSON Schema | Working (WASM limited) | `tests/`, `corpus/` |
 | Biological layer (`being:`, `telos:`, `regulate:`, `evolve:`, SafetyChecker) | Implemented | `tests/`, `experiments/` |
 | BIOISO runtime (colony, T1–T5 ladders, meiosis) | Experimental | `experiments/bbob`, `experiments/aegis` |
-| Self-applicability (ALX) | **Not shown as claimed.** Guided derivation reached 1.000 with manual patches; a blind re-derivation scored 0.375 before the spec was repaired, then **0.987 in 3/3 runs** (Sonnet, Opus, Fable) after. The repair read the test oracle, so this is spec-vs-oracle completeness, not independent derivability | `experiments/alx/evidence/alx-r` |
+| Self-applicability (ALX) | **Not shown as claimed.** Guided derivation reached 1.000 with manual patches; a blind re-derivation scored 0.375 before the spec was repaired, then 0.987 ×3 after a repair that read the test oracle (spec-vs-oracle completeness), and **0.31–0.61 with a clean-room spec** (independent derivability: not demonstrated) | `experiments/alx/evidence/alx-r` |
 | Stateless derivability (LX-4) | **Not yet run** | `experiments/lx/LX-4-*` |
 | Users / ecosystem | None outside the author | — |
 
@@ -43,7 +43,7 @@ Opening the repository is not the same as claiming maturity. The plan is to open
 Each claim has a pass/fail gate in [`docs/maturity-experiments.md`](docs/maturity-experiments.md).
 A claim that fails its gate is rewritten, not defended.
 
-- [x] **ALX-R**: 0.375 to 0.987 in 3 of 3 runs after spec repair (gate 0.90). Open: a clean re-run with a spec written without access to the test suite. Do not publish "AI-derivable" until that passes.
+- [x] **ALX-R**: 0.375 to 0.987 in 3 of 3 runs after spec repair (gate 0.90). Clean-room spec measured 0.31–0.61 (2026-11-24); main gap is the unspecified public API surface. Do not publish "AI-derivable" until a clean-room run passes 0.90.
 - [ ] **LX-4**: run the five stateless-derivability trials in fresh sessions and record results.
 - [ ] **BBOB**: extend from 4 to the full 24-function suite; report where T5 does *not* help (sphere, Rastrigin already show no gain).
 - [x] **Compiler maturity (partial)**: M3 stress harness 1M inputs clean (cargo-fuzz not yet run on Linux); M2 mutation 90% on 3 of 11 checker files; M4 six soundness gaps found and fixed. Open: mutation on the other 8 checkers, a differential check of emitted Rust behaviour.
