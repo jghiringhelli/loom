@@ -794,4 +794,415 @@ mod tests {
             assert_eq!(invalid, SmtStatus::Skipped);
         }
     }
+
+    // ── structural contradiction detector ─────────────────────────────────────
+
+    fn flt(f: f64) -> Expr {
+        Expr::Literal(Literal::Float(f))
+    }
+    fn contra(f: &FnDef) -> Option<String> {
+        SmtBridgeChecker::find_contract_contradiction(f)
+    }
+    fn contra_of(reqs: Vec<Expr>, ens: Vec<Expr>) -> Option<String> {
+        contra(&fn_with("Int -> Int", reqs, ens))
+    }
+    const OPS: [BinOpKind; 5] = [
+        BinOpKind::Gt,
+        BinOpKind::Ge,
+        BinOpKind::Lt,
+        BinOpKind::Le,
+        BinOpKind::Eq,
+    ];
+    fn holds(op: &BinOpKind, n: i64, x: f64) -> bool {
+        let n = n as f64;
+        match op {
+            BinOpKind::Gt => x > n,
+            BinOpKind::Ge => x >= n,
+            BinOpKind::Lt => x < n,
+            BinOpKind::Le => x <= n,
+            BinOpKind::Eq => x == n,
+            _ => unreachable!(),
+        }
+    }
+    /// Independent oracle: is any x on a half-integer grid a solution?
+    fn satisfiable(cs: &[(BinOpKind, i64)]) -> bool {
+        (0..=20).any(|k| {
+            let x = k as f64 * 0.5;
+            cs.iter().all(|(op, n)| holds(op, *n, x))
+        })
+    }
+    fn all_constraints() -> Vec<(BinOpKind, i64)> {
+        let mut all = Vec::new();
+        for op in OPS.iter() {
+            for n in [4i64, 5, 6] {
+                all.push((op.clone(), n));
+            }
+        }
+        all
+    }
+
+    #[test]
+    fn contradiction_exhaustive_pairs_match_oracle_in_every_placement() {
+        let all = all_constraints();
+        for a in &all {
+            for b in &all {
+                let want = !satisfiable(&[a.clone(), b.clone()]);
+                let ea = bin(a.0.clone(), id("x"), int(a.1));
+                let eb = bin(b.0.clone(), id("x"), int(b.1));
+                let placements = [
+                    (vec![ea.clone(), eb.clone()], vec![]),
+                    (vec![], vec![ea.clone(), eb.clone()]),
+                    (vec![ea.clone()], vec![eb.clone()]),
+                    (vec![eb.clone()], vec![ea.clone()]),
+                ];
+                for (r, e) in placements {
+                    assert_eq!(contra_of(r, e).is_some(), want, "{a:?} with {b:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn contradiction_exhaustive_triples_match_oracle() {
+        let all = all_constraints();
+        let mut f = fn_with("Int -> Int", vec![], vec![]);
+        for a in &all {
+            for b in &all {
+                for c in &all {
+                    let want = !satisfiable(&[a.clone(), b.clone(), c.clone()]);
+                    f.requires = [a, b, c]
+                        .iter()
+                        .map(|(op, n)| contract(bin(op.clone(), id("x"), int(*n))))
+                        .collect();
+                    assert_eq!(contra(&f).is_some(), want, "{a:?} {b:?} {c:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn contradiction_number_on_left_is_flipped_correctly() {
+        let all = all_constraints();
+        let flip = |op: &BinOpKind| match op {
+            BinOpKind::Gt => BinOpKind::Lt,
+            BinOpKind::Ge => BinOpKind::Le,
+            BinOpKind::Lt => BinOpKind::Gt,
+            BinOpKind::Le => BinOpKind::Ge,
+            o => o.clone(),
+        };
+        for a in &all {
+            for b in &all {
+                let want = !satisfiable(&[a.clone(), b.clone()]);
+                // `n op x` means `x (flip op) n`
+                let ea = bin(flip(&a.0), int(a.1), id("x"));
+                let eb = bin(b.0.clone(), id("x"), int(b.1));
+                assert_eq!(
+                    contra_of(vec![ea.clone(), eb.clone()], vec![]).is_some(),
+                    want,
+                    "left-literal {a:?} with {b:?}"
+                );
+                assert_eq!(
+                    contra_of(vec![eb], vec![ea]).is_some(),
+                    want,
+                    "left-literal ensure {a:?} with {b:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn contradiction_spec_examples() {
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Lt, id("x"), int(3))]
+        )
+        .is_some());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Le, id("x"), int(5))]
+        )
+        .is_some());
+        // over the reals 5 < x < 6 is satisfiable
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Lt, id("x"), int(6))]
+        )
+        .is_none());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Ge, id("x"), int(5))],
+            vec![bin(BinOpKind::Le, id("x"), int(5))]
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn contradiction_message_reports_variable_and_bounds() {
+        let m = contra_of(
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Lt, id("x"), int(3))],
+        )
+        .unwrap();
+        assert_eq!(
+            m,
+            "contract constraints on 'x' are unsatisfiable (lower bound 5, upper bound 3)"
+        );
+    }
+
+    #[test]
+    fn contradiction_tighter_bound_kept_regardless_of_order() {
+        let m = contra_of(
+            vec![
+                bin(BinOpKind::Lt, id("x"), int(3)),
+                bin(BinOpKind::Lt, id("x"), int(10)),
+                bin(BinOpKind::Gt, id("x"), int(4)),
+            ],
+            vec![],
+        );
+        assert!(m.unwrap().contains("lower bound 4, upper bound 3"));
+        let m = contra_of(
+            vec![
+                bin(BinOpKind::Gt, id("x"), int(7)),
+                bin(BinOpKind::Gt, id("x"), int(1)),
+                bin(BinOpKind::Lt, id("x"), int(6)),
+            ],
+            vec![],
+        );
+        assert!(m.unwrap().contains("lower bound 7, upper bound 6"));
+    }
+
+    #[test]
+    fn contradiction_conjunctions_are_flattened() {
+        let conj = bin(
+            BinOpKind::And,
+            bin(BinOpKind::Gt, id("x"), int(5)),
+            bin(BinOpKind::Lt, id("x"), int(3)),
+        );
+        assert!(contra_of(vec![conj], vec![]).is_some());
+        let nested = bin(
+            BinOpKind::And,
+            bin(
+                BinOpKind::And,
+                bin(BinOpKind::Ge, id("y"), int(0)),
+                bin(BinOpKind::Le, id("y"), int(10)),
+            ),
+            bin(
+                BinOpKind::And,
+                bin(BinOpKind::Lt, id("x"), int(2)),
+                bin(BinOpKind::Gt, id("x"), int(2)),
+            ),
+        );
+        let m = contra_of(vec![nested], vec![]).unwrap();
+        assert!(m.contains("'x'"), "{m}");
+        let ok = bin(
+            BinOpKind::And,
+            bin(BinOpKind::Ge, id("x"), int(2)),
+            bin(BinOpKind::Le, id("x"), int(2)),
+        );
+        assert!(contra_of(vec![ok], vec![]).is_none());
+        let right = bin(
+            BinOpKind::And,
+            bin(BinOpKind::Ge, id("z"), int(0)),
+            bin(
+                BinOpKind::And,
+                bin(BinOpKind::Gt, id("x"), int(9)),
+                bin(BinOpKind::Lt, id("x"), int(9)),
+            ),
+        );
+        assert!(contra_of(vec![right], vec![]).is_some());
+    }
+
+    #[test]
+    fn contradiction_result_variable_is_skipped() {
+        assert!(contra_of(
+            vec![],
+            vec![
+                bin(BinOpKind::Gt, id("result"), int(5)),
+                bin(BinOpKind::Lt, id("result"), int(3)),
+            ]
+        )
+        .is_none());
+        let m = contra_of(
+            vec![
+                bin(BinOpKind::Gt, id("result"), int(5)),
+                bin(BinOpKind::Gt, id("x"), int(5)),
+            ],
+            vec![
+                bin(BinOpKind::Lt, id("result"), int(3)),
+                bin(BinOpKind::Lt, id("x"), int(3)),
+            ],
+        )
+        .unwrap();
+        assert!(m.contains("'x'"), "{m}");
+    }
+
+    #[test]
+    fn contradiction_variables_are_independent() {
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Lt, id("y"), int(3))]
+        )
+        .is_none());
+        let m = contra_of(
+            vec![
+                bin(BinOpKind::Gt, id("x"), int(1)),
+                bin(BinOpKind::Gt, id("y"), int(5)),
+            ],
+            vec![bin(BinOpKind::Lt, id("y"), int(3))],
+        )
+        .unwrap();
+        assert!(m.contains("'y'"), "{m}");
+    }
+
+    #[test]
+    fn contradiction_ignores_non_simple_constraints() {
+        let ignored = vec![
+            bin(BinOpKind::Gt, id("x"), id("y")),
+            bin(BinOpKind::Gt, bin(BinOpKind::Add, id("x"), int(1)), int(5)),
+            bin(BinOpKind::Ne, id("x"), int(5)),
+            bin(BinOpKind::Ne, int(5), id("x")),
+            bin(BinOpKind::Gt, int(5), int(3)),
+            bin(BinOpKind::Add, int(5), id("x")),
+            bin(BinOpKind::Sub, int(5), id("x")),
+            bin(BinOpKind::Gt, id("x"), Expr::Literal(Literal::Bool(true))),
+            id("x"),
+        ];
+        for e in ignored {
+            let r = contra_of(
+                vec![e.clone(), bin(BinOpKind::Gt, id("x"), int(100))],
+                vec![bin(BinOpKind::Lt, id("x"), int(200))],
+            );
+            assert!(r.is_none(), "{e:?} must be ignored");
+        }
+        assert!(contra_of(
+            vec![
+                bin(BinOpKind::Ne, id("x"), int(5)),
+                bin(BinOpKind::Eq, id("x"), int(5))
+            ],
+            vec![]
+        )
+        .is_none());
+        let or = bin(
+            BinOpKind::Or,
+            bin(BinOpKind::Gt, id("x"), int(5)),
+            bin(BinOpKind::Lt, id("x"), int(3)),
+        );
+        assert!(contra_of(vec![or], vec![]).is_none());
+    }
+
+    #[test]
+    fn contradiction_float_literals() {
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("p"), flt(0.5))],
+            vec![bin(BinOpKind::Lt, id("p"), flt(0.25))]
+        )
+        .is_some());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("p"), flt(0.25))],
+            vec![bin(BinOpKind::Lt, id("p"), flt(0.5))]
+        )
+        .is_none());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Ge, id("p"), flt(2.0))],
+            vec![bin(BinOpKind::Le, id("p"), int(2))]
+        )
+        .is_none());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("p"), flt(2.0))],
+            vec![bin(BinOpKind::Le, id("p"), int(2))]
+        )
+        .is_some());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("p"), flt(f64::NAN))],
+            vec![bin(BinOpKind::Lt, id("p"), flt(f64::INFINITY))]
+        )
+        .is_none());
+        assert!(contra_of(
+            vec![bin(BinOpKind::Gt, id("p"), flt(f64::INFINITY))],
+            vec![bin(BinOpKind::Lt, id("p"), int(0))]
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn simple_bound_extraction() {
+        let sb = SmtBridgeChecker::simple_bound;
+        let x = "x".to_string();
+        assert_eq!(
+            sb(&bin(BinOpKind::Ge, id("x"), int(3))),
+            Some((x.clone(), BinOpKind::Ge, 3.0))
+        );
+        assert_eq!(
+            sb(&bin(BinOpKind::Lt, int(3), id("x"))),
+            Some((x.clone(), BinOpKind::Gt, 3.0))
+        );
+        assert_eq!(
+            sb(&bin(BinOpKind::Le, int(3), id("x"))),
+            Some((x.clone(), BinOpKind::Ge, 3.0))
+        );
+        assert_eq!(
+            sb(&bin(BinOpKind::Gt, int(3), id("x"))),
+            Some((x.clone(), BinOpKind::Lt, 3.0))
+        );
+        assert_eq!(
+            sb(&bin(BinOpKind::Ge, int(3), id("x"))),
+            Some((x.clone(), BinOpKind::Le, 3.0))
+        );
+        assert_eq!(
+            sb(&bin(BinOpKind::Eq, int(3), id("x"))),
+            Some((x.clone(), BinOpKind::Eq, 3.0))
+        );
+        assert_eq!(sb(&bin(BinOpKind::Ne, int(3), id("x"))), None);
+        assert_eq!(sb(&int(3)), None);
+        assert_eq!(
+            sb(&bin(BinOpKind::Gt, id("x"), flt(1.5))),
+            Some((x, BinOpKind::Gt, 1.5))
+        );
+    }
+
+    #[test]
+    fn conjuncts_flattens_only_and() {
+        let e = bin(
+            BinOpKind::And,
+            bin(BinOpKind::And, id("a"), id("b")),
+            bin(BinOpKind::Or, id("c"), id("d")),
+        );
+        let mut out = Vec::new();
+        SmtBridgeChecker::conjuncts(&e, &mut out);
+        assert_eq!(out.len(), 3);
+        assert!(matches!(out[0], Expr::Ident(n) if n == "a"));
+        assert!(matches!(out[1], Expr::Ident(n) if n == "b"));
+        assert!(matches!(
+            out[2],
+            Expr::BinOp {
+                op: BinOpKind::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn check_fn_reports_counterexample_only_for_contradictions() {
+        let bad = fn_with(
+            "Int -> Int",
+            vec![bin(BinOpKind::Gt, id("x"), int(5))],
+            vec![bin(BinOpKind::Lt, id("x"), int(3))],
+        );
+        let v = SmtBridgeChecker::check_fn(&bad).unwrap();
+        assert!(
+            matches!(v.status, SmtStatus::Counterexample(_)),
+            "{:?}",
+            v.status
+        );
+        let ok = fn_with(
+            "Int -> Int",
+            vec![bin(BinOpKind::Gt, id("x"), int(3))],
+            vec![bin(BinOpKind::Gt, id("x"), int(2))],
+        );
+        let v = SmtBridgeChecker::check_fn(&ok).unwrap();
+        assert!(
+            !matches!(v.status, SmtStatus::Counterexample(_)),
+            "{:?}",
+            v.status
+        );
+    }
 }
