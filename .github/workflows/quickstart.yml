@@ -46,5 +46,6 @@ jobs:
           set -euo pipefail
           BIN=target/release/loom
           [ -f "$BIN.exe" ] && BIN="$BIN.exe"
-          "$BIN" compile examples/01-hello-contracts.loom > hello.rs
-          rustc --edition 2021 --crate-type lib --crate-name hello hello.rs -o hello.rlib
+          "$BIN" compile examples/01-hello-contracts.loom > /dev/null
+          # compile writes the .rs next to the source file
+          rustc --edition 2021 --crate-type lib --crate-name hello examples/01-hello-contracts.rs -o hello.rlib
