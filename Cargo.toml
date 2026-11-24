@@ -1,6 +1,6 @@
 [package]
 name = "loom-lang"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Loom — an AI-native functional language that compiles to Rust, TypeScript, WebAssembly, OpenAPI 3.0, and JSON Schema with built-in correctness guarantees"
 license = "MIT"
