@@ -1,0 +1,50 @@
+name: Quick start (clean machine)
+
+# Verifies the README quick start on fresh runners with nothing pre-installed
+# except what the README tells a new user to install (a stable Rust toolchain).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+  pull_request:
+    paths:
+      - README.md
+      - docs/getting-started.md
+      - examples/**
+      - .github/workflows/quickstart.yml
+
+jobs:
+  quickstart:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build (README "Install")
+        run: cargo build --release
+      - name: README commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=target/release/loom
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          start=$(date +%s)
+          "$BIN" compile examples/01-hello-contracts.loom > /dev/null
+          "$BIN" compile examples/01-hello-contracts.loom --target ts > /dev/null
+          "$BIN" compile examples/02-payment-api.loom --target openapi > /dev/null
+          "$BIN" compile examples/02-payment-api.loom --target schema > /dev/null
+          "$BIN" verify examples/tier5/fusion_plasma.loom --tla > /dev/null
+          echo "commands ran in $(( $(date +%s) - start ))s"
+      - name: Emitted Rust for the hello example compiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN=target/release/loom
+          [ -f "$BIN.exe" ] && BIN="$BIN.exe"
+          "$BIN" compile examples/01-hello-contracts.loom > hello.rs
+          rustc --edition 2021 --crate-type lib --crate-name hello hello.rs -o hello.rlib
