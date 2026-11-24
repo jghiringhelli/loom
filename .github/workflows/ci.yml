@@ -238,7 +238,8 @@ jobs:
       - name: Run mutation tests on checker core
         run: |
           # cargo-mutants exits non-zero when mutants survive; the score gate below decides.
-          cargo mutants --timeout 120             --file src/checker/smt_bridge.rs             --file src/checker/property_checker.rs             --file src/checker/refinement.rs             -- -- --test-threads=1 2>&1 | tee mutants-output.txt || true
+          # --cargo-arg=--lib: test only the lib per mutant; otherwise each mutant rebuilds ~170 integration test binaries.
+          cargo mutants --timeout 120 --cargo-arg=--lib             --file src/checker/smt_bridge.rs             --file src/checker/property_checker.rs             --file src/checker/refinement.rs             -- -- --test-threads=1 2>&1 | tee mutants-output.txt || true
           # Score from the structured report, not from grepping console text.
           OUT=mutants.out/outcomes.json
           test -f "$OUT" || { echo "no outcomes.json: mutation run failed"; exit 1; }
