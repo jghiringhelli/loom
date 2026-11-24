@@ -1,0 +1,1479 @@
+-- Loom compiler: clean public-API and AST specification (ALX-R clean-room edition)
+-- =================================================================================
+-- Companion of language-spec.md. This file states, in Loom syntax, the public API
+-- surface (src/lib.rs), the token set, the error type and the complete AST of the
+-- reference compiler. Behaviour (diagnostic wording, checker order, emitted text,
+-- CLI, manifest) is specified in language-spec.md, whose appendices are verbatim
+-- binary output. Where this file and language-spec.md differ in detail about
+-- behaviour, the appendices of language-spec.md win; for data shapes, this file wins.
+--
+-- Rust mapping used throughout: `type` = `pub struct` with `pub` fields of the same
+-- names; `enum` = `pub enum`; `List<T>` = `Vec<T>`; `Option<T>` = `Option<T>`;
+-- `Box<T>` fields are written `Box<T>`; `Int`/`UInt` sizes are given in comments.
+-- Unless noted every struct/enum derives `Debug, Clone, PartialEq`.
+--
+-- FIELD-NAME CONVENTION: the Loom parser only accepts a small set of keywords as field names
+-- (language-spec.md section 3.8), so this file is itself valid Loom only because every field whose
+-- Rust name is a Loom keyword is written with a trailing underscore. THE RUST FIELD NAME HAS NO
+-- UNDERSCORE: `requires_` here is the Rust field `requires`, `signal_` is `signal`, `trigger_` is
+-- `trigger`, `end` (Span) is written `stop`, etc. Affected names: acceptance after around autopoietic
+-- before blame boundary bounded_by compensate convergence disjoint distribution divergence duality
+-- frame gradual guarantees guide guides implements interface invariant journal limit manifest
+-- measured_by modifiable_by nodes offset owns pointcut proof propagation property provides reflects
+-- replace requires resonance rule samples separation shrink signal signal_attention spec states
+-- telos_contribution termination then thresholds timing_safety transitions trigger umwelt within.
+
+module LoomCompilerSpec
+describe: "Public API and AST of the Loom compiler"
+
+-- ── Positions ─────────────────────────────────────────────────────────────────
+-- Span: byte offsets (usize). Derives Debug, Clone, PartialEq, Eq, Hash.
+--   Span::new(start, end); Span::synthetic() == Span{0,0}; Span::merge(a, b) == (min start, max end)
+--   Display == "{start}..{end}".
+
+-- NOTE: the Rust field is spelled `end`; here it is written `stop` only because a field literally named
+-- `end` cannot be written in a Loom `type` block (it terminates the block).
+type Span =
+  start: Int
+  stop: Int
+end
+
+-- ── Errors (src/error.rs) ─────────────────────────────────────────────────────
+-- LoomError derives Debug, Error (thiserror), Clone, PartialEq.
+-- Display strings: see language-spec.md section 5.1.
+--   kind() -> "LexError" | "ParseError" | "TypeError" | "EffectError" | "CodegenError"
+--             | "NonExhaustiveMatch" | "WasmUnsupported" | "UnificationError" | "UndeclaredDependency"
+--   span() -> &Span
+--   constructors: LoomError::lex(msg, span), ::parse, ::type_err, ::effect
+
+enum LoomError =
+  | LexError of (String, Span)                    -- fields {msg, span}
+  | ParseError of (String, Span)                  -- fields {msg, span}
+  | TypeError of (String, Span)                   -- fields {msg, span}
+  | EffectError of (String, Span)                 -- fields {msg, span}
+  | CodegenError of (String, Span)                -- fields {msg, span}
+  | NonExhaustiveMatch of (List<String>, Span)    -- fields {missing, span}
+  | WasmUnsupported of (String, Span)             -- fields {feature, span}
+  | UnificationError of (String, Span)            -- fields {msg, span}
+  | UndeclaredDependency of (String, Span)        -- fields {name, span}
+end
+
+-- ── Tokens (src/lexer) ────────────────────────────────────────────────────────
+-- lexer::Token derives Debug, Clone, PartialEq. Parse-error text embeds the Rust `{:?}` of tokens,
+-- so VARIANT NAMES MATTER: `Ident("x")`, `StrLit("s")`, `IntLit(3)`, `FloatLit(1.5)`, `BoolLit(true)`,
+-- `InlineBlock("code")`, `End`, `ColonColon`, ...
+-- Keyword -> variant: the keyword with its first letter upper-cased and snake_case turned CamelCase,
+-- EXCEPT these (the variant is spelled differently): `node`->GraphNode, `usecase`->UseCase,
+-- `mapreduce`->MapReduce, `chain`->ChainKw, `dag`->DagKw, `pipeline`->PipelineKw, `saga`->SagaKw,
+-- `event`->EventKw, `command`->CommandKw, `query`->QueryKw, `circuit_breaker`->CircuitBreakerKw,
+-- `retry`->RetryKw, `rate_limiter`->RateLimiterKw, `cache`->CacheKw, `bulkhead`->BulkheadKw,
+-- `timeout`->TimeoutKw, `observer`->ObserverKw, `pool`->PoolKw, `scheduler`->SchedulerKw, `queue`->QueueKw,
+-- `lock`->LockKw, `channel`->ChannelKw, `semaphore`->SemaphoreKw, `barrier`->BarrierKw,
+-- `event_bus`->EventBusKw, `state_machine`->StateMachineKw, `workflow`->WorkflowKw,
+-- `projection`->ProjectionKw, `resource`->ResourceKw, `lease`->LeaseKw, `classifier`->ClassifierKw.
+-- (`actor` is plain `Actor`, `fallback` is plain `Fallback`, `const` is `Const`, `timing_safety` TimingSafety,
+--  `reverts_when` RevertsWhen, `on_exhaustion` OnExhaustion, `modifiable_by` ModifiableBy, `bounded_by` BoundedBy,
+--  `measured_by` MeasuredBy, `telos_function` TelosFunction, `intent_coordinator` IntentCoordinator,
+--  `messaging_primitive` MessagingPrimitive, `signal_attention` SignalAttention,
+--  `telos_contribution` TelosContribution.)
+-- `and`/`&&` -> And; `or`/`||` -> Or; `not`/`!` -> Not.
+-- Symbols: `::` ColonColon, `->` Arrow, `|>` Pipe, `!=` Ne, `>=` Ge, `<=` Le, `|` Bar, `=` Eq, `==` EqEq,
+-- `+` Plus, `-` Minus, `*` Star, `/` Slash, `:` Colon, `,` Comma, `.` Dot, `[` LBracket, `]` RBracket,
+-- `(` LParen, `)` RParen, `{` LBrace, `}` RBrace, `<` Lt, `>` Gt, `~` Tilde, `?` Question, `@` At.
+-- Complete keyword list: language-spec.md section 2.
+
+enum Token =
+  | Keyword                      -- one unit variant per keyword, named as described above
+  | BoolLit of Bool
+  | FloatLit of Float            -- f64
+  | IntLit of Int                -- i64
+  | StrLit of String
+  | InlineBlock of String
+  | Ident of String
+  | Symbol                       -- one unit variant per symbol, named as described above
+end
+
+-- Lexer::tokenize(src: &str) -> Result<Vec<(Token, Span)>, Vec<LoomError>>
+fn tokenize :: String -> Result<List<(Token, Span)>, List<LoomError>>
+  todo
+end
+
+-- ── Annotations, types ────────────────────────────────────────────────────────
+
+type Annotation =
+  key: String                    -- without '@'; may contain hyphens
+  value: String                  -- "" when no argument
+end
+
+enum ConsequenceTier =
+  | Pure
+  | Reversible
+  | Irreversible
+end
+
+enum TypeExpr =
+  | Base of String
+  | Generic of (String, List<TypeExpr>)
+  | Effect of (List<String>, Box<TypeExpr>)
+  | Option of Box<TypeExpr>
+  | Result of (Box<TypeExpr>, Box<TypeExpr>)
+  | Tuple of List<TypeExpr>
+  | Dynamic                      -- `?`
+  | TypeVar of Int               -- u32, inference only
+  | Tensor of (Int, List<String>, Box<TypeExpr>, Span)    -- struct-like variant {rank: usize, shape, unit, span}
+end
+
+type FnTypeSignature =
+  params: List<TypeExpr>
+  return_type: Box<TypeExpr>
+end
+
+type FieldDef =
+  name: String
+  ty: TypeExpr
+  annotations: List<Annotation>
+  span: Span
+end
+
+type TypeDef =
+  name: String
+  fields: List<FieldDef>
+  span: Span
+end
+
+type EnumVariant =
+  name: String
+  payload: Option<TypeExpr>
+  span: Span
+end
+
+type EnumDef =
+  name: String
+  variants: List<EnumVariant>
+  span: Span
+end
+
+type RefinedType =
+  name: String
+  base_type: TypeExpr
+  predicate: Expr
+  on_violation: Option<String>
+  repair_fn: Option<String>
+  span: Span
+end
+
+-- ── Expressions ───────────────────────────────────────────────────────────────
+
+enum Literal =
+  | Int of Int                   -- i64
+  | Float of Float               -- f64
+  | Str of String
+  | Bool of Bool
+  | Unit
+end
+
+enum BinOpKind =
+  | Add
+  | Sub
+  | Mul
+  | Div
+  | Eq
+  | Ne
+  | Lt
+  | Le
+  | Gt
+  | Ge
+  | And
+  | Or
+end
+
+enum Pattern =
+  | Variant of (String, List<Pattern>)
+  | Ident of String
+  | Wildcard
+  | Literal of Literal
+end
+
+type MatchArm =
+  pattern: Pattern
+  guard: Option<Expr>
+  body: Expr
+  span: Span
+end
+
+-- Expr: 16 variants. Struct-like variants are written with their field lists in comments.
+enum Expr =
+  | Let of Expr                  -- {name: String, value: Box<Expr>, body: Option<Box<Expr>>, span}
+  | Match of Expr                -- {subject: Box<Expr>, arms: Vec<MatchArm>, span}
+  | Call of Expr                 -- {func: Box<Expr>, args: Vec<Expr>, span}
+  | Pipe of Expr                 -- {left: Box<Expr>, right: Box<Expr>, span}
+  | Literal of Literal           -- tuple variant
+  | Ident of String              -- tuple variant
+  | FieldAccess of Expr          -- {object: Box<Expr>, field: String, span}
+  | BinOp of Expr                -- {op: BinOpKind, left: Box<Expr>, right: Box<Expr>, span}
+  | InlineRust of String         -- tuple variant: raw text between the braces
+  | As of (Box<Expr>, TypeExpr)  -- tuple variant
+  | Lambda of Expr               -- {params: Vec<(String, Option<TypeExpr>)>, body: Box<Expr>, span}
+  | ForIn of Expr                -- {var: String, iter: Box<Expr>, body: Box<Expr>, span}
+  | Tuple of (List<Expr>, Span)  -- tuple variant; also the desugaring of list literals
+  | Try of (Box<Expr>, Span)     -- tuple variant
+  | Index of (Box<Expr>, Box<Expr>, Span)   -- tuple variant (collection, index)
+  | Record of Expr               -- {name: String, fields: Vec<(String, Expr)>, span}
+end
+
+type Contract =
+  expr: Expr
+  span: Span
+end
+
+-- ── Function definitions ──────────────────────────────────────────────────────
+
+type FnDef =
+  name: String
+  describe: Option<String>
+  annotations: List<Annotation>
+  type_params: List<String>
+  type_sig: FnTypeSignature
+  effect_tiers: List<(String, ConsequenceTier)>   -- only effects written with @tier
+  requires_: List<Contract>
+  ensures: List<Contract>
+  with_deps: List<String>
+  separation_: Option<SeparationBlock>
+  gradual_: Option<GradualBlock>
+  distribution_: Option<DistributionBlock>
+  timing_safety_: Option<TimingSafetyBlock>
+  termination_: Option<String>
+  proofs: List<ProofAnnotation>
+  degenerate: Option<DegenerateBlock>
+  stochastic_process: Option<StochasticProcessBlock>
+  handle_block: Option<HandleBlock>
+  body: List<Expr>
+  span: Span
+end
+
+type SeparationBlock =
+  owns_: List<String>
+  disjoint_: List<(String, String)>
+  frame_: List<String>
+  proof_: Option<String>
+  span: Span
+end
+
+type GradualBlock =
+  input_type: Option<String>
+  boundary_: Option<String>
+  output_type: Option<String>
+  on_cast_failure: Option<String>
+  blame_: Option<String>
+  span: Span
+end
+
+enum DistributionFamily =
+  | Gaussian of (String, String)               -- {mean, std_dev}
+  | Poisson of String                          -- {lambda}
+  | Beta of (String, String)                   -- {alpha, beta}
+  | Dirichlet of List<String>                  -- {alpha}
+  | Gamma of (String, String)                  -- {shape, scale}
+  | Exponential of String                      -- {lambda}
+  | Binomial of (String, String)               -- {n, p}
+  | Pareto of (String, String)                 -- {alpha, x_min}
+  | Cauchy of (String, String)                 -- {location, scale}
+  | Levy of (String, String)                   -- {location, scale}
+  | LogNormal of (String, String)              -- {mean, std_dev}
+  | Uniform of (String, String)                -- {low, high}
+  | GeometricBrownian of (String, String)      -- {drift, volatility}
+  | Unknown of String
+end
+
+type DistributionBlock =
+  family: DistributionFamily
+  model: String
+  mean: Option<String>
+  variance: Option<String>
+  bounds: Option<String>
+  convergence_: Option<String>
+  stability: Option<String>
+  span: Span
+end
+
+type TimingSafetyBlock =
+  constant_time: Bool
+  leaks_bits: Option<String>
+  method: Option<String>
+  span: Span
+end
+
+type ProofAnnotation =
+  strategy: String
+  span: Span
+end
+
+type DegenerateBlock =
+  primary: String
+  fallback: String
+  equivalence_proof: Option<String>
+  span: Span
+end
+
+enum StochasticKind =
+  | Wiener
+  | GeometricBrownian
+  | OrnsteinUhlenbeck
+  | PoissonProcess
+  | MarkovChain
+  | Unknown of String
+end
+
+type StochasticProcessBlock =
+  kind: StochasticKind
+  always_positive: Option<Bool>
+  martingale: Option<Bool>
+  mean_reverting: Option<Bool>
+  long_run_mean: Option<String>
+  rate: Option<String>
+  integer_valued: Option<Bool>
+  states_: List<String>
+  span: Span
+end
+
+type HandleBlock =
+  computation: String
+  handlers: List<EffectHandler>
+  span: Span
+end
+
+type EffectHandler =
+  effect_op: String                -- "Log.emit" or "emit"
+  params: List<String>
+  continuation: String             -- defaults to "k"
+  span: Span
+end
+
+-- ── Module ────────────────────────────────────────────────────────────────────
+
+type Provides =
+  ops: List<(String, FnTypeSignature)>
+end
+
+type Requires =
+  deps: List<(String, TypeExpr)>
+end
+
+type InterfaceDef =
+  name: String
+  methods: List<(String, FnTypeSignature)>
+  span: Span
+end
+
+type Invariant =
+  name: String
+  condition: Expr
+  span: Span
+end
+
+type TestDef =
+  name: String
+  body: Expr
+  span: Span
+end
+
+type LifecycleDef =
+  type_name: String
+  states_: List<String>
+  checkpoints: List<CheckpointDef>
+  span: Span
+end
+
+type CheckpointDef =
+  name: String
+  requires_: String
+  on_fail: String
+  span: Span
+end
+
+type FlowLabel =
+  label: String
+  types: List<String>
+  span: Span
+end
+
+type TemporalDef =
+  name: String
+  properties: List<TemporalProperty>
+  span: Span
+end
+
+enum TemporalProperty =
+  | Always of Expr                 -- {predicate: Expr, span}
+  | Eventually of String           -- {type_name, target_state, span}
+  | Never of String                -- {from_state, to_state, span}
+  | Precedes of String             -- {first, second, span}
+end
+
+type Module =
+  name: String
+  describe: Option<String>
+  domains: List<String>
+  annotations: List<Annotation>
+  imports: List<String>
+  spec_: Option<String>
+  interface_defs: List<InterfaceDef>
+  implements_: List<String>
+  provides_: Option<Provides>
+  requires_: Option<Requires>
+  invariants: List<Invariant>
+  test_defs: List<TestDef>
+  lifecycle_defs: List<LifecycleDef>
+  temporal_defs: List<TemporalDef>
+  being_defs: List<BeingDef>
+  ecosystem_defs: List<EcosystemDef>
+  flow_labels: List<FlowLabel>
+  aspect_defs: List<AspectDef>
+  items: List<Item>
+  span: Span
+end
+
+-- Item: 58 variants, all tuple variants holding the named payload (struct-like where noted).
+enum Item =
+  | Fn of FnDef
+  | Type of TypeDef
+  | Enum of EnumDef
+  | RefinedType of RefinedType
+  | Proposition of PropositionDef
+  | Functor of FunctorDef
+  | Monad of MonadDef
+  | Certificate of CertificateDef
+  | AnnotationDecl of AnnotationDecl
+  | CorrectnessReport of CorrectnessReport
+  | Pathway of PathwayDef
+  | SymbioticImport of String      -- struct-like {module: String, kind: String, span: Span}
+  | Adopt of AdoptDecl
+  | NicheConstruction of NicheConstructionDef
+  | Sense of SenseDef
+  | Store of StoreDef
+  | TypeAlias of (String, TypeExpr, Span)
+  | Session of SessionDef
+  | Effect of EffectDef
+  | UseCase of UseCaseBlock
+  | Property of PropertyBlock
+  | BoundaryBlock of BoundaryBlock
+  | MessagingPrimitive of MessagingPrimitiveDef
+  | TelosFunction of TelosFunctionDef
+  | Entity of EntityDef
+  | IntentCoordinator of IntentCoordinatorDef
+  | Discipline of DisciplineDecl
+  | Chain of ChainDef
+  | Dag of DagDef
+  | Const of ConstDef
+  | Pipeline of PipelineDef
+  | Saga of SagaDef
+  | Event of EventDef
+  | Command of CommandDef
+  | Query of QueryDef
+  | CircuitBreaker of CircuitBreakerDef
+  | Retry of RetryDef
+  | RateLimiter of RateLimiterDef
+  | Cache of CacheDef
+  | Bulkhead of BulkheadDef
+  | Timeout of TimeoutDef
+  | FallbackItem of FallbackItemDef
+  | Observer of ObserverDef
+  | Pool of PoolDef
+  | Scheduler of SchedulerDef
+  | Queue of QueueDef
+  | Lock of LockDef
+  | Channel of ChannelDef
+  | Semaphore of SemaphoreDef
+  | Actor of ActorDef
+  | Barrier of BarrierDef
+  | EventBus of EventBusDef
+  | StateMachine of StateMachineDef
+  | Workflow of WorkflowDef
+  | Projection of ProjectionDef
+  | Resource of ResourceDef
+  | Lease of LeaseDef
+  | Classifier of ClassifierDef
+end
+
+-- ── Small items ───────────────────────────────────────────────────────────────
+
+type PropositionDef =
+  name: String
+  base_type: TypeExpr
+  predicate: Option<Expr>
+  span: Span
+end
+
+type LawDecl =
+  name: String
+  span: Span
+end
+
+type FunctorDef =
+  name: String
+  type_params: List<String>
+  laws: List<LawDecl>
+  span: Span
+end
+
+type MonadDef =
+  name: String
+  type_params: List<String>
+  laws: List<LawDecl>
+  span: Span
+end
+
+type CertificateField =
+  name: String
+  value: String
+  span: Span
+end
+
+type CertificateDef =
+  fields: List<CertificateField>
+  span: Span
+end
+
+type AnnotationDecl =
+  name: String
+  params: List<(String, String)>
+  meta_annotations: List<Annotation>
+  span: Span
+end
+
+type ProvedClaim =
+  property_: String
+  checker: String
+  span: Span
+end
+
+type CorrectnessReport =
+  proved: List<ProvedClaim>
+  unverified: List<(String, String)>
+  span: Span
+end
+
+type PathwayStep =
+  from: String
+  via: String
+  to: String
+  span: Span
+end
+
+type PathwayDef =
+  name: String
+  steps: List<PathwayStep>
+  compensate_: Option<String>
+  span: Span
+end
+
+type AdoptDecl =
+  interface_: String
+  from_module: String
+  span: Span
+end
+
+type NicheConstructionDef =
+  modifies: String
+  affects: List<String>
+  probe_fn: Option<String>
+  span: Span
+end
+
+type SenseDef =
+  name: String
+  channels: List<String>
+  range: Option<String>
+  unit: Option<String>
+  dimension: Option<String>
+  derived: Option<String>
+  span: Span
+end
+
+type SessionDef =
+  name: String
+  roles: List<SessionRole>
+  duality_: Option<(String, String)>
+  span: Span
+end
+
+type SessionRole =
+  name: String
+  steps: List<SessionStep>
+  span: Span
+end
+
+enum SessionStep =
+  | Send of TypeExpr
+  | Recv of TypeExpr
+end
+
+type EffectDef =
+  name: String
+  type_params: List<String>
+  operations: List<EffectOperation>
+  span: Span
+end
+
+type EffectOperation =
+  name: String
+  input: TypeExpr                  -- Unit when the signature has no params
+  output: TypeExpr
+  span: Span
+end
+
+type AcceptanceCriterion =
+  name: String
+  description: String
+end
+
+type UseCaseBlock =
+  name: String
+  actor: String
+  precondition: String
+  trigger_: String
+  postcondition: String
+  acceptance_: List<AcceptanceCriterion>
+  span: Span
+end
+
+type PropertyBlock =
+  name: String
+  var_name: String
+  var_type: String
+  invariant_: String
+  shrink_: Bool                     -- default true
+  samples_: Int                     -- u64, default 100
+  span: Span
+end
+
+type BoundaryBlock =
+  exports: List<String>
+  private: List<String>
+  sealed: List<String>
+  span: Span
+end
+
+enum MessagingPattern =
+  | RequestResponse
+  | PublishSubscribe
+  | PointToPoint
+  | ProducerConsumer
+  | Bidirectional
+  | Stream
+end
+
+type MessagingPrimitiveDef =
+  name: String
+  pattern: Option<MessagingPattern>
+  guarantees_: List<String>
+  timeout_mandatory: Bool
+  span: Span
+end
+
+type TelosThresholds =
+  convergence_: Float
+  warning: Option<Float>
+  divergence_: Float
+  propagation_: Option<Float>
+end
+
+type TelosFunctionDef =
+  name: String
+  statement: Option<String>
+  bounded_by_: Option<String>
+  measured_by_: Option<String>
+  thresholds_: Option<TelosThresholds>   -- parser defaults: convergence 0.8, divergence 0.2
+  guides_: List<String>
+  span: Span
+end
+
+type EntityDef =
+  name: String
+  node_type: Option<String>
+  edge_type: Option<String>
+  annotations: List<String>        -- annotation KEYS only
+  describe: Option<String>
+  alias_of: Option<String>
+  span: Span
+end
+
+enum GovernanceClass =
+  | Automatic
+  | AiProposes                     -- default
+  | HumanOnly
+  | Blocked
+end
+
+type IntentSignalSource =
+  name: String
+  trust_level: Option<String>
+end
+
+type IntentCoordinatorDef =
+  name: String
+  telomere_days: Option<Int>       -- u64
+  governance_class: GovernanceClass
+  signals: List<IntentSignalSource>
+  rollback_on: Option<String>
+  min_confidence: Option<Float>
+  audit_path: Option<String>
+  span: Span
+end
+
+enum DisciplineKind =
+  | Cqrs
+  | EventSourcing
+  | DependencyInjection
+  | CircuitBreaker
+  | Saga
+  | UnitOfWork
+end
+
+enum DisciplineParam =
+  | Scalar of String
+  | List of List<String>
+  | Number of Int                  -- i64
+end
+
+type DisciplineDecl =
+  kind: DisciplineKind
+  target: String
+  params: List<(String, DisciplineParam)>
+  span: Span
+end
+
+type ChainDef =
+  name: String
+  states_: List<String>
+  transitions_: List<(String, String, Float)>
+  span: Span
+end
+
+type DagDef =
+  name: String
+  nodes_: List<String>
+  edges: List<(String, String)>
+  span: Span
+end
+
+type ConstDef =
+  name: String
+  ty: String
+  value: String                    -- raw literal text, strings keep their quotes
+  span: Span
+end
+
+type PipelineStep =
+  name: String
+  input_ty: String
+  output_ty: String
+  span: Span
+end
+
+type PipelineDef =
+  name: String
+  steps: List<PipelineStep>
+  span: Span
+end
+
+type SagaCompensate =
+  step_name: String
+  input_ty: String
+  output_ty: String
+  span: Span
+end
+
+type SagaStep =
+  name: String
+  input_ty: String
+  output_ty: String
+  compensate_: Option<SagaCompensate>
+  span: Span
+end
+
+type SagaDef =
+  name: String
+  steps: List<SagaStep>
+  span: Span
+end
+
+type EventDef =
+  name: String
+  fields: List<(String, String)>
+  span: Span
+end
+
+type CommandDef =
+  name: String
+  fields: List<(String, String)>
+  span: Span
+end
+
+type QueryDef =
+  name: String
+  fields: List<(String, String)>
+  span: Span
+end
+
+type CircuitBreakerDef =
+  name: String
+  threshold: Int                   -- u32, default 5
+  timeout: Int                     -- u64, default 30
+  fallback: String                 -- default ""
+  span: Span
+end
+
+type RetryDef =
+  name: String
+  max_attempts: Int                -- u32, default 3
+  base_delay: Int                  -- u64, default 100
+  multiplier: Int                  -- u32, default 2
+  on_error: String                 -- default ""
+  span: Span
+end
+
+type RateLimiterDef =
+  name: String
+  requests: Int                    -- u64, default 100
+  per: Int                         -- u64, default 60
+  burst: Int                       -- u64, default 0
+  span: Span
+end
+
+type CacheDef =
+  name: String
+  key_type: String                 -- default "String"
+  value_type: String               -- default "String"
+  ttl: Int                         -- u64, default 300
+  span: Span
+end
+
+type BulkheadDef =
+  name: String
+  max_concurrent: Int              -- u64, default 10
+  queue_size: Int                  -- u64, default 0
+  span: Span
+end
+
+type TimeoutDef =
+  name: String
+  duration: Int                    -- u64, default 30
+  unit: String                     -- "ms" | "s" | "min", default "s"
+  span: Span
+end
+
+type FallbackItemDef =
+  name: String
+  value: String                    -- default ""
+  span: Span
+end
+
+type ObserverDef =
+  name: String
+  observed_type: String            -- default "String"
+  span: Span
+end
+
+type PoolDef =
+  name: String
+  size: Int                        -- u64, default 10
+  span: Span
+end
+
+type SchedulerDef =
+  name: String
+  interval: Int                    -- u64, default 1
+  unit: String                     -- default "s"
+  span: Span
+end
+
+type QueueDef =
+  name: String
+  capacity: Int                    -- u64, default 0
+  kind: String                     -- "fifo" | "lifo", default "fifo"
+  span: Span
+end
+
+type LockDef =
+  name: String
+  span: Span
+end
+
+type ChannelDef =
+  name: String
+  element_type: String             -- default "String"
+  capacity: Int                    -- u64, default 0
+  span: Span
+end
+
+type SemaphoreDef =
+  name: String
+  permits: Int                     -- u64, default 1
+  span: Span
+end
+
+type ActorDef =
+  name: String
+  message_type: String             -- default "String"
+  span: Span
+end
+
+type BarrierDef =
+  name: String
+  count: Int                       -- u64, default 2
+  span: Span
+end
+
+type EventBusDef =
+  name: String
+  element_type: String             -- default "String"
+  span: Span
+end
+
+type StateMachineDef =
+  name: String
+  initial_state: String            -- default "Initial"
+  span: Span
+end
+
+type WorkflowDef =
+  name: String
+  span: Span
+end
+
+type ProjectionDef =
+  name: String
+  element_type: String             -- default "String"
+  span: Span
+end
+
+type ResourceDef =
+  name: String
+  span: Span
+end
+
+type LeaseDef =
+  name: String
+  ttl: Int                         -- u64, default 60
+  span: Span
+end
+
+type ClassifierDef =
+  name: String
+  model: String                    -- default "regex"
+  retrain_trigger: Option<String>
+  span: Span
+end
+
+-- ── Aspects ───────────────────────────────────────────────────────────────────
+
+enum PointcutExpr =
+  | HasAnnotation of String        -- `fn where @name`
+  | EffectIncludes of String       -- `fn where effect includes Name`
+  | And of (Box<PointcutExpr>, Box<PointcutExpr>)
+  | Or of (Box<PointcutExpr>, Box<PointcutExpr>)
+end
+
+type AspectDef =
+  name: String
+  pointcut_: Option<PointcutExpr>
+  before_: List<String>
+  after_: List<String>
+  after_throwing: List<String>
+  around_: List<String>
+  on_failure: Option<String>
+  max_attempts: Option<Int>        -- u32
+  order: Option<Int>               -- u32
+  span: Span
+end
+
+-- ── Stores ────────────────────────────────────────────────────────────────────
+
+enum StoreKind =
+  | Relational
+  | KeyValue
+  | Graph
+  | Document
+  | Columnar
+  | Snowflake
+  | Hypercube
+  | TimeSeries
+  | Vector
+  | InMemory of Box<StoreKind>     -- `InMemory` alone means InMemory(Relational)
+  | FlatFile
+  | Distributed
+  | DistributedLog
+end                                 -- an unknown kind name parses as Document
+
+type MapReduceDef =
+  name: String
+  map_sig: String
+  reduce_sig: String
+  combine_sig: Option<String>
+  span: Span
+end
+
+type LogConsumerDef =
+  name: String
+  offset_: String
+  span: Span
+end
+
+enum StoreSchemaEntry =
+  | Table of String                -- {name, fields: Vec<FieldDef>, span}
+  | Node of String                 -- {name, fields, span}
+  | Edge of String                 -- {name, source: String, target: String, fields, span}
+  | KeyType of TypeExpr            -- {ty, span}
+  | ValueType of TypeExpr          -- {ty, span}
+  | Event of String                -- {name, fields, span}
+  | EmbeddingEntry of String       -- {fields, span}
+  | Fact of String                 -- {name, fields, span}
+  | DimensionEntry of String       -- {name, fields, span}
+  | Collection of String           -- {name, fields, span}   (`schema N :: { }`)
+  | MapReduceJob of MapReduceDef
+  | LogConsumer of LogConsumerDef
+end
+
+type StoreConfigEntry =
+  key: String
+  value: String
+  span: Span
+end
+
+type StoreDef =
+  name: String
+  kind: StoreKind
+  schema: List<StoreSchemaEntry>
+  config: List<StoreConfigEntry>
+  span: Span
+end
+
+-- ── SMT bridge (public checker API) ───────────────────────────────────────────
+
+enum SmtStatus =
+  | Proved
+  | Counterexample of String
+  | Unknown
+  | Skipped
+end
+
+type SmtVerification =
+  function: String
+  precondition: String
+  postcondition: String
+  status: SmtStatus
+end
+
+-- ── Beings and ecosystems ─────────────────────────────────────────────────────
+
+type MatterBlock =
+  fields: List<FieldDef>
+  span: Span
+end
+
+type FormBlock =
+  types: List<TypeDef>
+  enums: List<EnumDef>
+  span: Span
+end
+
+type FunctionBlock =
+  fns: List<FnDef>
+  span: Span
+end
+
+enum SearchStrategy =               -- derives also Copy-less PartialEq
+  | GradientDescent
+  | StochasticGradient
+  | SimulatedAnnealing
+  | DerivativeFree
+  | Mcmc
+  | Genetic
+  | ParticleSwarm
+end
+
+type SearchCase =
+  strategy: SearchStrategy
+  when: String
+end
+
+type EvolveBlock =
+  search_cases: List<SearchCase>
+  constraint: String
+  span: Span
+end
+
+enum LearnStrategy =
+  | GaussianProcess
+  | AttentionModel
+  | NeuralNetwork
+end
+
+type LearnBlock =
+  strategy: LearnStrategy
+  acquisition: Option<String>
+  n_initial_points: Option<Int>    -- u32
+  xi: Option<Float>
+  kernel: Option<String>
+  noise_model: Option<String>
+  encoder: Option<String>
+  decoder: Option<String>
+  training: Option<String>
+  instance_size: Option<Int>       -- u32
+  batch_size: Option<Int>          -- u32
+  learning_rate: Option<Float>
+  baseline_decay: Option<Float>
+  constraint: Option<String>
+  span: Span
+end
+
+type RegulateBlock =
+  variable: String
+  target: String
+  bounds: Option<(String, String)>
+  response: List<(String, String)>
+  telos_contribution_: Option<Float>
+  trigger_: Option<String>
+  action: Option<String>
+  span: Span
+end
+
+type TelosDef =
+  description: String
+  fitness_fn: Option<String>
+  modifiable_by_: Option<String>
+  bounded_by_: Option<String>
+  sign: Option<String>
+  metric: Option<String>
+  thresholds_: Option<TelosThresholds>
+  guides_: List<String>
+  span: Span
+end
+
+type SignalAttentionBlock =
+  prioritize_above: Option<Float>
+  attenuate_below: Option<Float>
+  prioritize_named: List<String>
+  attenuate_named: List<String>
+  telos_relevance: Option<String>
+  span: Span
+end
+
+type EpigeneticBlock =
+  signal_: String
+  modifies: String
+  reverts_when: Option<String>
+  duration: Option<String>
+  span: Span
+end
+
+type MorphogenBlock =
+  signal_: String
+  threshold: String
+  produces: List<String>
+  span: Span
+end
+
+type TelomereBlock =
+  limit_: Int                       -- u64
+  on_exhaustion: String
+  span: Span
+end
+
+type MigrationBlock =
+  name: String
+  from_field: String
+  to_field: String
+  adapter: Option<String>
+  breaking: Bool
+  span: Span
+end
+
+type PropagateBlock =
+  condition: String
+  inherits: List<String>
+  mutates: List<(String, String)>
+  offspring_type: Option<String>
+  span: Span
+end
+
+type RelatesTo =
+  target: String
+  kind: String
+  span: Span
+end
+
+type CrisprBlock =
+  target: String
+  replace_: String
+  guide_: String
+  span: Span
+end
+
+enum PlasticityRule =
+  | Hebbian
+  | Boltzmann
+  | ReinforcementLearning
+end
+
+type PlasticityBlock =
+  trigger_: String
+  modifies: String
+  rule_: PlasticityRule
+  observe: List<String>
+  adjust_on: List<String>
+  inhibit_between: List<String>
+  span: Span
+end
+
+type RewireBlock =
+  trigger_threshold: Float
+  candidates: List<String>
+  selection: String
+  cooldown: Int                    -- u64
+  span: Span
+end
+
+type CanalizationBlock =
+  toward: String
+  despite: List<String>
+  convergence_proof: Option<String>
+  span: Span
+end
+
+type SenescenceBlock =
+  onset: String
+  degradation: String
+  sasp: Option<String>
+  span: Span
+end
+
+type CriticalityBlock =
+  lower: Float
+  upper: Float
+  probe_fn: Option<String>
+  span: Span
+end
+
+type UmweltBlock =
+  detects: List<String>
+  blind_to: List<String>
+  span: Span
+end
+
+type CorrelationPair =
+  signal_a: String
+  signal_b: String
+  via: Option<String>
+  span: Span
+end
+
+type ResonanceBlock =
+  correlations: List<CorrelationPair>
+  span: Span
+end
+
+type ManifestArtifact =
+  path: String
+  reflects_: List<String>
+  freshness: Option<String>
+  required_when: Option<String>
+end
+
+type ManifestBlock =
+  artifacts: List<ManifestArtifact>
+  span: Span
+end
+
+enum JournalRecord =
+  | EvolveStep
+  | TelosProgress
+  | StateTransition
+  | RegulationTrigger
+  | Custom of String
+end
+
+type JournalBlock =
+  records: List<JournalRecord>
+  keep_last: Option<Int>           -- u64
+  emit_path: Option<String>
+  span: Span
+end
+
+type ScenarioBlock =
+  name: String
+  given: String
+  when: String
+  then_: String
+  within_: Option<(Int, String)>    -- (u64, unit)
+  span: Span
+end
+
+enum CognitiveMemoryType =
+  | Episodic
+  | Semantic
+  | Procedural
+  | Architectural
+  | Insight
+end
+
+enum MemoryTier =
+  | Buffer
+  | Working
+  | Core
+end
+
+type CognitiveMemoryBlock =
+  memory_types: List<CognitiveMemoryType>
+  decay_rate: Option<Float>
+  tier: Option<MemoryTier>
+  span: Span
+end
+
+type BeingDef =
+  name: String
+  describe: Option<String>
+  annotations: List<Annotation>
+  matter: Option<MatterBlock>
+  form: Option<FormBlock>
+  function: Option<FunctionBlock>
+  telos: Option<TelosDef>
+  regulate_blocks: List<RegulateBlock>
+  evolve_block: Option<EvolveBlock>
+  learn_block: Option<LearnBlock>
+  epigenetic_blocks: List<EpigeneticBlock>
+  morphogen_blocks: List<MorphogenBlock>
+  telomere: Option<TelomereBlock>
+  autopoietic_: Bool
+  crispr_blocks: List<CrisprBlock>
+  plasticity_blocks: List<PlasticityBlock>
+  rewire_block: Option<RewireBlock>
+  canalization: Option<CanalizationBlock>
+  senescence: Option<SenescenceBlock>
+  criticality: Option<CriticalityBlock>
+  umwelt_: Option<UmweltBlock>
+  resonance_: Option<ResonanceBlock>
+  manifest_: Option<ManifestBlock>
+  migrations: List<MigrationBlock>
+  journal_: Option<JournalBlock>
+  scenarios: List<ScenarioBlock>
+  boundary_: Option<BoundaryBlock>
+  cognitive_memory: Option<CognitiveMemoryBlock>
+  signal_attention_: Option<SignalAttentionBlock>
+  role: Option<String>
+  relates_to: List<RelatesTo>
+  propagate_block: Option<PropagateBlock>
+  span: Span
+end
+
+type SignalDef =
+  name: String
+  from: String
+  to: String
+  payload: String
+  span: Span
+end
+
+type QuorumBlock =
+  signal_: String
+  threshold: String
+  action: String
+  span: Span
+end
+
+type TippingPoint =
+  name: String
+  condition: String
+  on_crossing: String
+  span: Span
+end
+
+type EcosystemDef =
+  name: String
+  describe: Option<String>
+  members: List<String>
+  signals: List<SignalDef>
+  telos: Option<String>
+  quorum_blocks: List<QuorumBlock>
+  collective_telos_metric: Option<String>
+  tipping_points: List<TippingPoint>
+  coevolution: Bool
+  coupling: Option<String>
+  span: Span
+end
+
+-- ── Project manifest (src/project.rs) ─────────────────────────────────────────
+
+type ProjectManifest =                -- derives Debug, Clone
+  name: String
+  modules: List<String>
+  output: String                     -- default "out/"
+end
+
+-- ProjectManifest::from_str(toml: &str) -> Result<ProjectManifest, String>
+-- build_project(module_paths: &[&str], output_dir: &str) -> Result<(), Vec<LoomError>>
+
+-- ── Public entry points (src/lib.rs) ──────────────────────────────────────────
+-- Stage lists and error behaviour: language-spec.md section 1.
+
+fn parse :: String -> Result<Module, List<LoomError>>
+  todo
+end
+
+fn compile :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_runtime :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_typescript :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_openapi :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_json_schema :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_wasm :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_simulation :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+fn compile_neuroml :: String -> Result<String, List<LoomError>>
+  todo
+end
+
+-- The four mermaid entry points return Result<String, String> (error = joined Display text).
+fn compile_mermaid_c4 :: String -> Result<String, String>
+  todo
+end
+
+fn compile_mermaid_sequence :: String -> Result<String, String>
+  todo
+end
+
+fn compile_mermaid_state :: String -> Result<String, String>
+  todo
+end
+
+fn compile_mermaid_flow :: String -> Result<String, String>
+  todo
+end
+
+-- Emitters (structs with no state): RustEmitter{release_contracts: bool} (new(), with_release_contracts(bool),
+-- emit(&Module) -> String), TypeScriptEmitter, JsonSchemaEmitter, OpenApiEmitter, WasmEmitter (emit -> Result<String, Vec<LoomError>>),
+-- MermaidEmitter (emit_c4/emit_sequence/emit_state/emit_flow), SimulationEmitter, NeuroMLEmitter::emit(&Module).
+-- Checkers (each: `new()` and `check(&Module) -> Result<(), Vec<LoomError>>` unless it returns Vec<LoomError>):
+-- see language-spec.md section 6.1 for the pipeline order.
+
+end
